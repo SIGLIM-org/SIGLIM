@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.2 · 31 de octubre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 2.3 · 2 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -20,6 +20,7 @@ Versión 2.2 · 31 de octubre de 2026 · Alineado con el [ERS Rev. 0.4.1](../req
 | 2.0 | 20 de octubre de 2026 | Alcance de la Rev. 0.4.1: 14 módulos, permisos `modulo.recurso:ACCION` con ámbito, códigos HTTP por tipo de regla, traducción de errores de PostgreSQL, catálogo de recursos por módulo, documentos en AWS S3, pago simulado, notificaciones y portal sobre las vistas `v_publica_*`. |
 | 2.1 | 30 de octubre de 2026 | H-07.1: §6.6 con el detalle de una cancha, el permiso de consulta de la disponibilidad, la ocupación por rango y el `409` aceptable `RF-030`; §3.1 con las extensiones del problema. |
 | 2.2 | 31 de octubre de 2026 | H-21.1: §6.1 con el detalle de la consulta de auditoría y `GET /auditoria/opciones-filtro`. |
+| 2.3 | 2 de noviembre de 2026 | H-04.1: §6.2 con el contrato de temporadas, la lista de verificación de activación y los errores de activación y cierre. |
 
 ## Índice
 
@@ -331,14 +332,45 @@ implementa hasta que su historia entre a un Sprint (AGENTS.md §3). Los permisos
 
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
-| `GET /temporadas` · `POST /temporadas` · `PATCH /temporadas/{id}` | Temporadas | `temporadas.temporada:*` | RF-001 | N |
-| `POST /temporadas/{id}/activacion` · `/cierre` | Activar y cerrar | `temporadas.temporada:EDITAR` | RF-001, RF-003 | N |
+| `GET /temporadas` · `POST /temporadas` · `PATCH /temporadas/{id}` | Temporadas | `temporadas.temporada:CONSULTAR` en los `GET`; `temporadas.temporada:EDITAR` en `POST` y `PATCH` | RF-001, RF-003 | N |
+| `POST /temporadas/{id}/activacion` · `/cierre` | Activar y cerrar | `temporadas.temporada:EDITAR` | RF-001, RF-003, RF-100, RN-058 | N |
 | `GET /categorias` · `POST` · `PATCH /categorias/{id}` | Catálogo con orden y categoría superior | `temporadas.temporada:EDITAR` | RF-099 | N |
 | `GET /temporadas/{id}/categorias` · `POST` | Categorías que participan en la temporada | `temporadas.temporada:EDITAR` | RF-004 | N |
 | `GET /grupos?categoriaTemporadaId=` · `POST /grupos` · `PATCH` | Grupos | `temporadas.temporada:EDITAR` | RF-005 | N |
 | `GET /temporadas/{id}/parametros` · `POST /temporadas/{id}/parametros` | Versiones de parámetros; `POST` crea una versión nueva, nunca edita la vigente | `temporadas.parametros:EDITAR` | RF-006, RF-100 | N |
 | `PUT /temporadas/{id}/convocatoria` | Referencia de la convocatoria | `temporadas.convocatoria:EDITAR` | RF-002 | B |
 | `GET /interpretaciones-regla` · `POST` · `POST …/{id}/resolucion` | Reglas interpretadas | `temporadas.interpretacion:*` | RF-007 | B |
+
+**Temporada.** `GET /temporadas?pagina=&tamano=` responde la envoltura de paginación (§4) con
+`contenido` ordenado por `fechaInicio` descendente. Cada fila trae `id`, `nombre`, `fechaInicio`,
+`fechaFin`, `estado`, `creadoEn`, `categoriasAsignadas`, `gruposCreados`, `versionParametros` y,
+solo cuando el estado es `CONFIGURACION`, `activacion`:
+
+```json
+{
+  "puedeActivarse": false,
+  "requisitos": [
+    { "codigo": "RN-058", "descripcion": "No hay otra temporada activa.", "cumple": true },
+    { "codigo": "RF-100", "descripcion": "Faltan los parámetros deportivos de la temporada.", "cumple": false },
+    { "codigo": "RF-004", "descripcion": "Falta asignar al menos una categoría a la temporada.", "cumple": false },
+    { "codigo": "RF-005", "descripcion": "Falta crear al menos un grupo en una categoría.", "cumple": false }
+  ]
+}
+```
+
+La lista es la que usa F-10 para deshabilitar el botón y explicar qué falta. `POST /temporadas` lleva
+`{ "nombre", "fechaInicio", "fechaFin"? }` y responde `201` con `Location`; `PATCH /temporadas/{id}`
+cambia solo los campos presentes. Una temporada `CERRADA` es de solo lectura: cualquier `PATCH`
+responde `409 RF-003` y sus datos se conservan (RF-003, RN-005). No existe `DELETE`.
+
+**Activación y cierre.** `POST /temporadas/{id}/activacion` no lleva cuerpo y pasa
+`CONFIGURACION → ACTIVA` si la lista de verificación está completa. Errores: `409 RN-058` si otra
+temporada está activa (el mensaje la nombra), `409 RF-100`, `409 RF-004` o `409 RF-005` con la
+extensión `requisitos` para los que falten, y `409 RF-001` si la temporada no está en configuración.
+`POST /temporadas/{id}/cierre` lleva `{ "motivo" }` (mínimo 10 caracteres), pasa
+`ACTIVA → CERRADA`, fija el motivo para el historial y la auditoría (RN-021, RF-093); sin motivo
+responde `400 RN-021` y si no está activa, `409 RF-001`. Ambas acciones se auditan como
+`ACTIVAR_TEMPORADA` y `CERRAR_TEMPORADA`.
 
 Las respuestas de parámetros incluyen `"esDemo": true` en cada valor **[DEMO]** para que la
 interfaz los rotule «no oficial».
