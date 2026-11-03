@@ -18,14 +18,27 @@ describe('subsecciones', () => {
   it('H-21.2: Administración ofrece Auditoría con su permiso y la ruta queda en la sección', () => {
     const administracion = seccionesApp.find(({ nombre }) => nombre === 'Administración')
 
-    expect(administracion?.subsecciones).toEqual([
+    expect(administracion?.subsecciones).toContainEqual(
       expect.objectContaining({
         nombre: 'Auditoría',
         ruta: '/app/administracion/auditoria',
         permiso: 'auditoria.registro:CONSULTAR',
       }),
-    ])
+    )
     expect(seccionDeRuta('/app/administracion/auditoria')?.nombre).toBe('Administración')
+  })
+
+  it('H-04.2: Administración ofrece Temporadas con su permiso y la ruta queda en la sección', () => {
+    const administracion = seccionesApp.find(({ nombre }) => nombre === 'Administración')
+
+    expect(administracion?.subsecciones).toContainEqual(
+      expect.objectContaining({
+        nombre: 'Temporadas',
+        ruta: '/app/administracion/temporadas',
+        permiso: 'temporadas.temporada:CONSULTAR',
+      }),
+    )
+    expect(seccionDeRuta('/app/administracion/temporadas')?.nombre).toBe('Administración')
   })
 })
 
