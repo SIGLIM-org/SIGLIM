@@ -108,6 +108,17 @@ export const rutas: RouteObject[] = [
                 HydrateFallback: CargandoPagina,
               },
               {
+                path: '/app/administracion/temporadas',
+                lazy: async () => {
+                  const { PantallaTemporadas } = await import(
+                    '@/features/temporadas/PantallaTemporadas'
+                  )
+
+                  return { Component: PantallaTemporadas }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
                 path: '/app/administracion/auditoria',
                 lazy: async () => {
                   const { PantallaAuditoria } = await import(

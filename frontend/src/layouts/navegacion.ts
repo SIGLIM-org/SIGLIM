@@ -77,6 +77,12 @@ export const seccionesApp: SeccionApp[] = [
     modulos: ['M-01', 'M-02', 'M-11', 'M-12', 'M-13'],
     subsecciones: [
       {
+        nombre: 'Temporadas',
+        ruta: '/app/administracion/temporadas',
+        permiso: 'temporadas.temporada:CONSULTAR',
+        descripcion: 'Ciclos deportivos, activación y cierre.',
+      },
+      {
         nombre: 'Auditoría',
         ruta: '/app/administracion/auditoria',
         permiso: 'auditoria.registro:CONSULTAR',
