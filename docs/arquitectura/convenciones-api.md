@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.3 · 2 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 2.4 · 3 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -21,6 +21,7 @@ Versión 2.3 · 2 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 2.1 | 30 de octubre de 2026 | H-07.1: §6.6 con el detalle de una cancha, el permiso de consulta de la disponibilidad, la ocupación por rango y el `409` aceptable `RF-030`; §3.1 con las extensiones del problema. |
 | 2.2 | 31 de octubre de 2026 | H-21.1: §6.1 con el detalle de la consulta de auditoría y `GET /auditoria/opciones-filtro`. |
 | 2.3 | 2 de noviembre de 2026 | H-04.1: §6.2 con el contrato de temporadas, la lista de verificación de activación y los errores de activación y cierre. |
+| 2.4 | 3 de noviembre de 2026 | H-06.1: §6.3 con el contrato de clubes y equipos (sin `PATCH /clubes/{id}`), sus errores y acciones de auditoría; §2.1 con la baja de un equipo. |
 
 ## Índice
 
@@ -81,6 +82,7 @@ Versión 2.3 · 2 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | --- | --- | --- | --- | --- | --- | --- |
 | Temporada | Activar | `POST /temporadas/{id}/activacion` | `{}` | `CONFIGURACION → ACTIVA` | `temporadas.temporada:EDITAR` | RF-001 |
 | Temporada | Cerrar | `POST /temporadas/{id}/cierre` | `{ "motivo" }` | `ACTIVA → CERRADA` | `temporadas.temporada:EDITAR` | RF-003 |
+| Equipo | Baja | `POST /equipos/{id}/baja` | `{ "motivo" }` | `ACTIVO → BAJA` | `organizacion.equipo:EDITAR` | RF-009, RN-005 |
 | Afiliación | Aprobar / rechazar | `POST /afiliaciones/{id}/resolucion` | `{ "decision": "APROBADA"\|"RECHAZADA", "observaciones" }` | `SOLICITADA → …` | `organizacion.afiliacion:APROBAR` | RF-101 |
 | Registro de jugador | Validar / rechazar | `POST /registros-jugador/{id}/validacion` | `{ "decision": "ACTIVO"\|"RECHAZADO", "observaciones" }` | `PENDIENTE_VALIDACION → …` | `registros.registro:VALIDAR` | RF-109 |
 | Registro de jugador | Baja | `POST /registros-jugador/{id}/baja` | `{ "motivo" }` | `ACTIVO → BAJA` | `registros.registro:EDITAR` | RF-014 |
@@ -379,16 +381,69 @@ interfaz los rotule «no oficial».
 
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
-| `GET /clubes` · `POST /clubes` · `PATCH /clubes/{id}` | Clubes | `organizacion.club:*` | RF-008 | N |
+| `GET /clubes` · `GET /clubes/{id}` · `POST /clubes` | Clubes. Sin `PATCH`: el nombre solo cambia con la acción de B-04 | `organizacion.club:CONSULTAR` en los `GET`; `organizacion.club:EDITAR` en `POST` | RF-008 | N |
 | `POST /clubes/{id}/cambio-nombre` | Cierra el club y crea uno nuevo | `organizacion.club:EDITAR` | RF-105 | B |
 | `GET /afiliaciones?temporadaId=&estado=` · `POST /afiliaciones` · `PATCH /afiliaciones/{id}` | Tarjetón por temporada (folio lo asigna el sistema) | `organizacion.afiliacion:CAPTURAR` | RF-101 | N |
 | `POST /afiliaciones/{id}/resolucion` | Aprobar o rechazar | `organizacion.afiliacion:APROBAR` | RF-101 | N |
 | `GET /clubes/{id}/directiva` · `POST /clubes/{id}/directiva` · `POST /cargos-directiva/{id}/autorizacion` | Cargos con vigencia | `organizacion.directiva:*` | RF-102 | N |
-| `GET /equipos?temporadaId=&grupoId=&clubId=` · `POST` · `PATCH` · `POST /equipos/{id}/baja` | Equipos | `organizacion.equipo:*` | RF-009 | N |
+| `GET /equipos?temporadaId=&grupoId=&clubId=&estado=` · `GET /equipos/{id}` · `POST` · `PATCH /equipos/{id}` · `POST /equipos/{id}/baja` | Equipos | `organizacion.equipo:CONSULTAR` en los `GET`; `organizacion.equipo:EDITAR` en `POST`, `PATCH` y la baja | RF-009 | N |
 | `POST /operaciones-equipo` · `POST …/{id}/resolucion` | Venta y conservación de plaza | `organizacion.venta:*` | RF-103, RF-104 | B |
 | `GET /personas?curp=` · `POST /personas` · `PATCH /personas/{id}` | Identidad única por CURP; `POST` con una CURP existente responde `409` con el `id` para reutilizarla | `organizacion.persona:*` | RF-010, RF-011 | N |
 | `GET /personas/{id}/historial` | Clubes y equipos por temporada | `organizacion.persona:CONSULTAR` | RF-012 | N |
 | `POST /personas/{id}/tutelas` | Vincular menor y tutor | `organizacion.persona:EDITAR` | RF-106 | N |
+
+**Ámbito.** Clubes y equipos se autorizan con el ámbito del club: la directiva de un club solo ve y
+opera el suyo, y un club o equipo ajeno responde `404` igual que uno inexistente (VAL-024). Los
+listados filtran por ámbito en el `WHERE` y en el `COUNT`; un `clubId` ajeno en el filtro de
+`GET /equipos` da una página vacía. El alta de un club es de toda la liga.
+
+**Club.** `GET /clubes?q=&estado=&pagina=&tamano=` responde la envoltura de paginación (§4) ordenada
+por nombre; `q` busca dentro del nombre y `estado` es `ACTIVO` o `CERRADO`. Cada club trae `id`,
+`nombre`, `estado`, `creadoEn` y, solo si está cerrado, `cerradoEn` y `motivoCierre`.
+`GET /clubes/{id}` responde ese detalle. `POST /clubes` lleva `{ "nombre" }` y responde `201` con
+`Location`; el club nace `ACTIVO` y la liga sale de la configuración del backend, no del cuerpo.
+Errores: sin nombre, `400 VALIDACION`; nombre ya usado en la liga, `409 DUPLICADO` con un mensaje que
+nombra el club. **No existe `PATCH /clubes/{id}`:** el único dato editable es el nombre y su cambio
+crea un club nuevo y cierra el anterior con `POST /clubes/{id}/cambio-nombre` (B-04, RN-041,
+DEC-49). Tampoco hay `DELETE`. Se audita como `REGISTRAR_CLUB`.
+
+**Equipo.** `GET /equipos?temporadaId=&grupoId=&clubId=&estado=&pagina=&tamano=` responde la envoltura
+de paginación ordenada por el orden de la categoría, el nombre del grupo y el nombre del equipo.
+Cada equipo trae referencias anidadas (§9.1):
+
+```json
+{
+  "id": "…",
+  "nombre": "Halcones",
+  "estado": "ACTIVO",
+  "club": { "id": "…", "nombre": "Club Halcones" },
+  "grupo": { "id": "…", "nombre": "A" },
+  "categoria": { "id": "…", "nombre": "Libre" },
+  "temporada": { "id": "…", "nombre": "Temporada 2026", "estado": "ACTIVA" },
+  "creadoEn": "2026-11-03T10:00:00-06:00"
+}
+```
+
+`bajaEn` y `motivoBaja` solo aparecen en un equipo `BAJA`. `GET /equipos/{id}` responde ese detalle.
+
+- `POST /equipos` lleva `{ "clubId", "grupoId", "nombre" }` y responde `201` con `Location`; el equipo
+  nace `ACTIVO`. Se valida en este orden: club inexistente o fuera de ámbito, `404`; club `CERRADO`,
+  `409 RN-041`; grupo inexistente, `422 REFERENCIA_INVALIDA`; temporada del grupo `CERRADA`,
+  `409 RF-003`; nombre repetido en el grupo, `409 DUPLICADO`. Sin nombre: `400 VALIDACION`.
+- `PATCH /equipos/{id}` **[PROPUESTA]** acepta solo `nombre` y `grupoId`; lo ausente conserva su
+  valor. El club no se edita (la venta es B-05) y el estado cambia solo con la baja. Errores, en este
+  orden: equipo `BAJA`, `409 RF-009`; temporada `CERRADA`, `409 RF-003`; cambio de grupo con la
+  temporada `ACTIVA`, `409 RN-007`; grupo inexistente, `422 REFERENCIA_INVALIDA`; grupo de otra
+  temporada, `422 RN-007`; nombre repetido en el grupo, `409 DUPLICADO`. Un `PATCH` sin cambios
+  responde `200` y no se audita.
+- `POST /equipos/{id}/baja` lleva `{ "motivo" }` (mínimo 10 caracteres), pasa `ACTIVO → BAJA` con
+  la fecha del día en la zona de negocio, fija el motivo (RN-021) y responde `200` con el equipo. La
+  fila nunca se borra (RN-005). Errores: ya está de baja, `409 RF-009`; temporada `CERRADA`,
+  `409 RF-003`; sin motivo, `400 RN-021`. Los efectos de la baja sobre los partidos del equipo
+  (RN-056, RF-130, RF-132) son B.
+- Crear, editar y dar de baja solo con la temporada del grupo en `CONFIGURACION` o `ACTIVA`.
+- Se audita en el módulo `M-03` como `REGISTRAR_EQUIPO`, `EDITAR_EQUIPO` (con los `campos`
+  cambiados) y `DAR_BAJA_EQUIPO` (con el motivo); el detalle lleva solo identificadores y estados.
 
 ### 6.4 M-04 Registros y elegibilidad
 
