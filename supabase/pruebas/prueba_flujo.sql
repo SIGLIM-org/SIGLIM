@@ -86,6 +86,14 @@ FROM (VALUES
 SELECT prueba.espera_error($$INSERT INTO siglim.rol_permisos SELECT r.id, p.id FROM siglim.roles r, siglim.permisos p
   WHERE r.codigo = 'ADMINISTRADOR_GENERAL' AND p.codigo = 'tesoreria.cobro:CREAR'$$, 'VAL-022');
 
+-- Apéndice E: el Secretario registra y edita equipos (migración 20261103100000, H-06.1)
+SELECT prueba.verifica(EXISTS (
+  SELECT 1 FROM siglim.rol_permisos rp
+    JOIN siglim.roles r ON r.id = rp.rol_id
+    JOIN siglim.permisos p ON p.id = rp.permiso_id
+   WHERE r.codigo = 'SECRETARIO' AND p.codigo = 'organizacion.equipo:EDITAR'),
+  'RF-009: el SECRETARIO tiene organizacion.equipo:EDITAR');
+
 -- Temporada, categorías con jerarquía, grupos y parámetros
 INSERT INTO siglim.categorias (id, liga_id, nombre, tipo, orden) VALUES
   ('40000000-0000-4000-8000-000000000001', :'liga', 'Primera Fuerza', 'LIBRE', 1);
