@@ -198,6 +198,7 @@ export function GestionTemporadas() {
           <TablaTemporadas
             temporadas={datos.contenido}
             activandoId={activandoId}
+            actualizando={consulta.isFetching}
             onEditar={abrirEdicion}
             onActivar={alActivar}
             onCerrar={abrirCierre}
