@@ -11,7 +11,8 @@ import org.springframework.stereotype.Repository;
 
 /**
  * SQL de {@code convocatorias}: una fila por temporada ({@code UNIQUE (temporada_id)}), así que
- * guardarla es un {@code INSERT ... ON CONFLICT} y no hay historial que conservar.
+ * guardarla es un {@code INSERT ... ON CONFLICT}. La tabla no guarda historial: el servicio lee la
+ * convocatoria anterior para dejarla en la auditoría (RF-093).
  *
  * <p>La liga no está en la tabla: se alcanza por la temporada, y la condición de liga evita leer o
  * escribir la convocatoria de otra liga (ADR-0011).

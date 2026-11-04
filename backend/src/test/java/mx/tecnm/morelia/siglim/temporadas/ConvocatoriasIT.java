@@ -74,6 +74,19 @@ class ConvocatoriasIT extends BaseDatosPrueba {
         assertThat(eventos).extracting(Evento::accion)
                 .containsExactly("ASOCIAR_CONVOCATORIA", "ASOCIAR_CONVOCATORIA");
         assertThat(eventos).allSatisfy(evento -> assertThat(evento.perfilId()).isEqualTo(secretario));
+
+        // El reemplazo sobrescribe la fila: la convocatoria anterior solo queda en la auditoría.
+        String detalle = jdbc.sql("""
+                        SELECT detalle::text
+                          FROM siglim.auditoria
+                         WHERE modulo = 'M-02' AND entidad = 'convocatorias' AND entidad_id = :id
+                         ORDER BY id DESC
+                         LIMIT 1
+                        """)
+                .param("id", primera.id().toString())
+                .query(String.class)
+                .single();
+        assertThat(detalle).contains("Convocatoria 2032", "2026-1", ENLACE);
     }
 
     @Test

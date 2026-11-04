@@ -2,6 +2,7 @@ package mx.tecnm.morelia.siglim.temporadas;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
 import mx.tecnm.morelia.siglim.auditoria.EventoAuditoria;
@@ -11,6 +12,7 @@ import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
+import mx.tecnm.morelia.siglim.temporadas.ConvocatoriaRepository.DatosConvocatoria;
 import mx.tecnm.morelia.siglim.temporadas.TemporadaRepository.DatosTemporada;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,8 +30,10 @@ import org.springframework.transaction.annotation.Transactional;
  *       temporada para no competir con el cierre.</li>
  *   <li><b>Permiso.</b> {@code temporadas.convocatoria:EDITAR} con ámbito de liga (ADR-0007); el
  *       Secretario lo tiene en la matriz inicial del Apéndice E.</li>
- *   <li><b>Auditoría (RF-093).</b> Cada asociación deja un evento con la temporada y la versión,
- *       sin copiar el documento.</li>
+ *   <li><b>Auditoría (RF-093).</b> Cada asociación deja un evento con la temporada, la referencia,
+ *       la versión y el enlace. Como el reemplazo sobrescribe la fila y la tabla no guarda
+ *       historial, cuando había una convocatoria anterior su referencia, versión y enlace también
+ *       quedan en el {@code detalle}. No se copia el documento.</li>
  * </ul>
  *
  * <p>Refs: B-02.1, RF-002, RF-003, RF-093, RN-002, RN-005, CU-001, UI-003, ADR-0007
@@ -83,11 +87,22 @@ public class ConvocatoriaService {
         String version = versionValida(peticion == null ? null : peticion.version());
         String documentoUrl = enlaceValido(peticion == null ? null : peticion.documentoUrl());
 
+        // La tabla no guarda historial y el PUT sobrescribe la fila: la anterior solo sobrevive en
+        // la auditoría, así que se lee antes de guardar (RF-093).
+        Optional<DatosConvocatoria> anterior = convocatorias.buscar(ligaId, temporadaId);
+
         UUID id = convocatorias.guardar(temporadaId, referencia, version, documentoUrl);
 
         Map<String, Object> detalle = new LinkedHashMap<>();
         detalle.put("temporadaId", temporadaId.toString());
+        anterior.ifPresent(previa -> {
+            detalle.put("referenciaAnterior", previa.referencia());
+            detalle.put("versionAnterior", previa.version());
+            detalle.put("documentoUrlAnterior", previa.documentoUrl());
+        });
+        detalle.put("referencia", referencia);
         detalle.put("version", version);
+        detalle.put("documentoUrl", documentoUrl);
         auditoria.registrar(new EventoAuditoria(ligaId, MODULO, "ASOCIAR_CONVOCATORIA", ENTIDAD,
                 id.toString(), null, detalle));
 

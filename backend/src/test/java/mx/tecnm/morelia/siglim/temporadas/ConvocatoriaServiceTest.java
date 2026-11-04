@@ -80,8 +80,8 @@ class ConvocatoriaServiceTest {
         given(temporadas.buscarParaActualizar(LIGA, ID))
                 .willReturn(Optional.of(temporada(EstadoTemporada.CONFIGURACION)));
         given(convocatorias.guardar(ID, "Convocatoria 2030", "2026-1", ENLACE)).willReturn(CONVOCATORIA);
-        given(convocatorias.buscar(LIGA, ID))
-                .willReturn(Optional.of(convocatoria("Convocatoria 2030", "2026-1", ENLACE)));
+        given(convocatorias.buscar(LIGA, ID)).willReturn(Optional.empty(),
+                Optional.of(convocatoria("Convocatoria 2030", "2026-1", ENLACE)));
 
         ConvocatoriaDto resultado = servicio.reemplazar(ID,
                 peticion("  Convocatoria 2030  ", " 2026-1 ", " " + ENLACE + " "));
@@ -97,7 +97,30 @@ class ConvocatoriaServiceTest {
         assertThat(evento.entidad()).isEqualTo("convocatorias");
         assertThat(evento.entidadId()).isEqualTo(CONVOCATORIA.toString());
         assertThat(evento.detalle()).containsEntry("temporadaId", ID.toString());
+        assertThat(evento.detalle()).containsEntry("referencia", "Convocatoria 2030");
         assertThat(evento.detalle()).containsEntry("version", "2026-1");
+        assertThat(evento.detalle()).containsEntry("documentoUrl", ENLACE);
+        assertThat(evento.detalle()).as("no había convocatoria anterior")
+                .doesNotContainKeys("referenciaAnterior", "versionAnterior", "documentoUrlAnterior");
+    }
+
+    @Test
+    @DisplayName("RF-093: al reemplazar, la auditoría conserva la convocatoria anterior")
+    void reemplazoConservaLaAnterior() {
+        given(temporadas.buscarParaActualizar(LIGA, ID))
+                .willReturn(Optional.of(temporada(EstadoTemporada.CONFIGURACION)));
+        given(convocatorias.guardar(ID, "Convocatoria 2031", null, null)).willReturn(CONVOCATORIA);
+        given(convocatorias.buscar(LIGA, ID))
+                .willReturn(Optional.of(convocatoria("Convocatoria 2030", "2026-1", ENLACE)),
+                        Optional.of(convocatoria("Convocatoria 2031", null, null)));
+
+        servicio.reemplazar(ID, peticion("Convocatoria 2031", null, null));
+
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.detalle()).containsEntry("referencia", "Convocatoria 2031");
+        assertThat(evento.detalle()).containsEntry("referenciaAnterior", "Convocatoria 2030");
+        assertThat(evento.detalle()).containsEntry("versionAnterior", "2026-1");
+        assertThat(evento.detalle()).containsEntry("documentoUrlAnterior", ENLACE);
     }
 
     @Test
@@ -106,8 +129,8 @@ class ConvocatoriaServiceTest {
         given(temporadas.buscarParaActualizar(LIGA, ID))
                 .willReturn(Optional.of(temporada(EstadoTemporada.ACTIVA)));
         given(convocatorias.guardar(ID, "Convocatoria 2030", null, null)).willReturn(CONVOCATORIA);
-        given(convocatorias.buscar(LIGA, ID))
-                .willReturn(Optional.of(convocatoria("Convocatoria 2030", null, null)));
+        given(convocatorias.buscar(LIGA, ID)).willReturn(Optional.empty(),
+                Optional.of(convocatoria("Convocatoria 2030", null, null)));
 
         ConvocatoriaDto resultado = servicio.reemplazar(ID, peticion("Convocatoria 2030", "  ", ""));
 

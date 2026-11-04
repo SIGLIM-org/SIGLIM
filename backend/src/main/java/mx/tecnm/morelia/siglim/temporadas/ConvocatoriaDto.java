@@ -15,6 +15,8 @@ import java.util.UUID;
  *
  * @param version      versión de la convocatoria; opcional
  * @param documentoUrl enlace al documento; opcional
+ * @param creadoEn     fecha de la primera asociación: el reemplazo no la actualiza, así que la
+ *                     interfaz la presenta como «Asociada el…»
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ConvocatoriaDto(
