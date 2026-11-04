@@ -1,0 +1,8 @@
+{
+  "detail": "La temporada «Temporada 2026-2027 (aceptación H-04)» está cerrada: sus datos son de solo lectura.",
+  "instance": "/api/v1/temporadas/78b9b73a-3267-4266-bafa-cfb7ba8b5929",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/rf-003",
+  "codigo": "RF-003"
+}

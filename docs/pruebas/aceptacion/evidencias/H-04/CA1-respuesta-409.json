@@ -1,0 +1,15 @@
+{
+  "detail": "La temporada «Temporada 2026-2027 (aceptación H-04)» ya está activa. Ciérrala antes de activar «Temporada 2027-2028 (aceptación H-04)».",
+  "instance": "/api/v1/temporadas/7b7a1b04-5c83-4e9c-b22e-b41b65e25e1a/activacion",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/rn-058",
+  "codigo": "RN-058",
+  "requisitos": [
+    {
+      "codigo": "RN-058",
+      "descripcion": "La temporada «Temporada 2026-2027 (aceptación H-04)» está activa; ciérrala antes de activar esta.",
+      "cumple": false
+    }
+  ]
+}
