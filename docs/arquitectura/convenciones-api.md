@@ -21,6 +21,7 @@ Versión 2.4 · 3 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 2.1 | 30 de octubre de 2026 | H-07.1: §6.6 con el detalle de una cancha, el permiso de consulta de la disponibilidad, la ocupación por rango y el `409` aceptable `RF-030`; §3.1 con las extensiones del problema. |
 | 2.2 | 31 de octubre de 2026 | H-21.1: §6.1 con el detalle de la consulta de auditoría y `GET /auditoria/opciones-filtro`. |
 | 2.3 | 2 de noviembre de 2026 | H-04.1: §6.2 con el contrato de temporadas, la lista de verificación de activación y los errores de activación y cierre. |
+| 2.4 | 3 de noviembre de 2026 | B-27.1: §6.11 con el contrato de comunicados, el dictamen del Presidente y la separación entre redactar y aprobar. |
 | 2.4 | 3 de noviembre de 2026 | H-06.1: §6.3 con el contrato de clubes y equipos (sin `PATCH /clubes/{id}`), sus errores y acciones de auditoría; §2.1 con la baja de un equipo. |
 
 ## Índice
@@ -558,9 +559,36 @@ Las resoluciones son inmutables: no hay `PATCH` ni `PUT` sobre `resoluciones` ni
 
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
-| `GET /comunicados` · `POST` · `PATCH /comunicados/{id}` | Redacción (solo en `BORRADOR`) | `publicacion.comunicado:REDACTAR` | RF-090 | B |
+| `GET /comunicados` · `GET /comunicados/{id}` | Consulta para redactar o dictaminar | `publicacion.comunicado:REDACTAR` o `publicacion.comunicado:APROBAR` | RF-090 | B |
+| `POST /comunicados` · `PATCH /comunicados/{id}` | Redacción (solo en `BORRADOR`) | `publicacion.comunicado:REDACTAR` | RF-090 | B |
 | `POST /comunicados/{id}/envio` · `/resolucion` | Revisión y publicación | `publicacion.comunicado:*` | RF-090 | B |
 | `GET /publicaciones/pendientes` | Jornadas y comunicados en `REVISION` para el Presidente | `programacion.jornada:APROBAR` o `publicacion.comunicado:APROBAR` | RF-090, RF-121 | N |
+
+**Comunicado.** `GET /comunicados?estado=&pagina=&tamano=` responde la envoltura de paginación (§4)
+con `contenido` ordenado por `creadoEn` descendente. Cada fila trae `id`, `titulo`, `cuerpo`,
+`estadoPublicacion`, `redactadoPor`, `aprobadoPor`, `aprobadoEn`, `publicadoEn`, `observaciones`,
+`creadoEn` y `actualizadoEn`; los opcionales vacíos se omiten. La consulta la autoriza
+`publicacion.comunicado:REDACTAR` o `publicacion.comunicado:APROBAR` con ámbito de liga, porque la
+Secretaría redacta y la Presidencia dictamina (el catálogo inicial de M-11 no tiene un permiso de
+consulta aparte).
+
+`POST /comunicados` lleva `{ "titulo", "cuerpo" }` (título de hasta 200 caracteres), crea el
+comunicado en `BORRADOR` con el perfil de la sesión y responde `201` con `Location`.
+`PATCH /comunicados/{id}` cambia solo los campos presentes y únicamente en `BORRADOR`; en otro
+estado responde `409 RF-090`. `POST /comunicados/{id}/envio` no lleva cuerpo y pasa
+`BORRADOR → REVISION`; `POST /comunicados/{id}/resolucion` lleva
+`{ "decision": "PUBLICADO"|"BORRADOR", "observaciones"? }`:
+
+- `PUBLICADO` exige `publicacion.comunicado:APROBAR`, fija `aprobadoPor` y `aprobadoEn`, y el
+  trigger fija `publicadoEn` y registra el paso en `historial_publicacion`. Quien redactó no puede
+  aprobar: responde `403 RF-090` (la restricción `ck_comunicados_dual` es la última garantía).
+- `BORRADOR` devuelve el comunicado a la Secretaría; exige observaciones de al menos 10 caracteres,
+  las guarda y las usa como motivo del historial. Sin ellas responde `400 RF-090`.
+
+En ambos casos, si el comunicado no está en `REVISION` la acción responde `409 RF-090`. Las altas,
+ediciones y transiciones se auditan como `REDACTAR_COMUNICADO`, `EDITAR_COMUNICADO`,
+`ENVIAR_COMUNICADO_A_REVISION`, `APROBAR_COMUNICADO` y `DEVOLVER_COMUNICADO`. La lista combinada de
+`GET /publicaciones/pendientes` se completará cuando exista la consulta de jornadas de M-07.
 
 ### 6.12 M-12 Reportes (B)
 
