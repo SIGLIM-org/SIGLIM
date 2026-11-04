@@ -30,9 +30,9 @@ export type Articulo = {
   sujeto: SujetoSancion
   efecto: EfectoSancion
   aplicacionAutomatica: boolean
-  partidosSuspension?: number
-  puntos?: number
-  montoMulta?: number
+  partidosSuspension: number | null
+  puntos: number | null
+  montoMulta: number | null
   otorgaDefaultRestantes: boolean
   activo: boolean
   esDemo: boolean

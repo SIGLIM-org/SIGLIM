@@ -49,15 +49,15 @@ const formatoMoneda = new Intl.NumberFormat('es-MX', {
 export function valorSancion(articulo: Articulo): string {
   switch (articulo.tipoSancion) {
     case 'SUSPENSION_PARTIDOS':
-      return articulo.partidosSuspension === undefined
+      return articulo.partidosSuspension === null
         ? ''
         : `${articulo.partidosSuspension} ${
             articulo.partidosSuspension === 1 ? 'partido' : 'partidos'
           }`
     case 'MULTA':
-      return articulo.montoMulta === undefined ? '' : formatoMoneda.format(articulo.montoMulta)
+      return articulo.montoMulta === null ? '' : formatoMoneda.format(articulo.montoMulta)
     case 'PERDIDA_PUNTOS':
-      return articulo.puntos === undefined
+      return articulo.puntos === null
         ? ''
         : `${articulo.puntos} ${articulo.puntos === 1 ? 'punto' : 'puntos'}`
     case 'PERDIDA_PARTIDO':

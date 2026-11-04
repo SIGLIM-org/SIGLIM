@@ -55,6 +55,8 @@ const ARTICULOS: Articulo[] = [
     efecto: 'HACIA_ADELANTE',
     aplicacionAutomatica: true,
     partidosSuspension: 1,
+    puntos: null,
+    montoMulta: null,
     otorgaDefaultRestantes: true,
     activo: true,
     esDemo: true,
@@ -67,6 +69,8 @@ const ARTICULOS: Articulo[] = [
     sujeto: 'CLUB',
     efecto: 'HACIA_ADELANTE',
     aplicacionAutomatica: false,
+    partidosSuspension: null,
+    puntos: null,
     montoMulta: 1500,
     otorgaDefaultRestantes: true,
     activo: false,
@@ -345,7 +349,7 @@ describe('PantallaCatalogosDisciplinarios', () => {
       ...ARTICULOS[0],
       tipoSancion: 'MULTA',
       montoMulta: 500.5,
-      partidosSuspension: undefined,
+      partidosSuspension: null,
     })
     montar()
 
