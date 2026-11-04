@@ -52,19 +52,28 @@ class TemporadaControllerTest {
     private static final String CUERPO_CREAR =
             "{\"nombre\":\"Temporada 2030\",\"fechaInicio\":\"2030-08-01\",\"fechaFin\":\"2030-12-15\"}";
     private static final String CUERPO_CIERRE = "{\"motivo\":\"Fin del calendario deportivo\"}";
+    private static final String CUERPO_CONVOCATORIA = "{\"referencia\":\"Convocatoria 2030\","
+            + "\"version\":\"2026-1\",\"documentoUrl\":\"https://liga.mx/convocatoria-2030.pdf\"}";
     private static final TemporadaDto TEMPORADA = new TemporadaDto(ID, "Temporada 2030", INICIO, FIN,
             EstadoTemporada.CONFIGURACION, OffsetDateTime.parse("2030-03-01T06:00:00-06:00"), 1, 1, 1,
             new ActivacionDto(true, List.of(
                     new RequisitoActivacionDto("RN-058", "No hay otra temporada activa.", true),
                     new RequisitoActivacionDto("RF-100", "Parámetros deportivos registrados (versión 1).", true),
                     new RequisitoActivacionDto("RF-004", "Al menos una categoría participa en la temporada.", true),
-                    new RequisitoActivacionDto("RF-005", "Al menos un grupo está creado.", true))));
+                    new RequisitoActivacionDto("RF-005", "Al menos un grupo está creado.", true))),
+            null);
+    private static final ConvocatoriaDto CONVOCATORIA = new ConvocatoriaDto(
+            UUID.fromString("55555555-5555-4555-8555-555555555555"), ID, "Convocatoria 2030", "2026-1",
+            "https://liga.mx/convocatoria-2030.pdf", OffsetDateTime.parse("2030-03-01T06:00:00-06:00"));
 
     @Autowired
     private MockMvcTester mvc;
 
     @MockitoBean
     private TemporadaService servicio;
+
+    @MockitoBean
+    private ConvocatoriaService convocatorias;
 
     private final String autorizacion = "Bearer " + SeguridadPrueba.tokenValido();
 
@@ -141,7 +150,7 @@ class TemporadaControllerTest {
     @DisplayName("RF-001: la activación es un POST sin cuerpo y responde la temporada activa")
     void activar() {
         given(servicio.activar(ID)).willReturn(new TemporadaDto(ID, "Temporada 2030", INICIO, FIN,
-                EstadoTemporada.ACTIVA, TEMPORADA.creadoEn(), 1, 1, 1, null));
+                EstadoTemporada.ACTIVA, TEMPORADA.creadoEn(), 1, 1, 1, null, null));
 
         MvcTestResult resultado = post(BASE + "/" + ID + "/activacion", null);
 
@@ -171,7 +180,8 @@ class TemporadaControllerTest {
     @DisplayName("RF-003: el cierre pasa el motivo al servicio")
     void cerrar() {
         given(servicio.cerrar(eq(ID), any(CerrarTemporadaRequest.class))).willReturn(new TemporadaDto(ID,
-                "Temporada 2030", INICIO, FIN, EstadoTemporada.CERRADA, TEMPORADA.creadoEn(), 1, 1, 1, null));
+                "Temporada 2030", INICIO, FIN, EstadoTemporada.CERRADA, TEMPORADA.creadoEn(), 1, 1, 1, null,
+                null));
 
         MvcTestResult resultado = post(BASE + "/" + ID + "/cierre", CUERPO_CIERRE);
 
@@ -192,6 +202,55 @@ class TemporadaControllerTest {
 
         assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo("RN-021");
+    }
+
+    @Test
+    @DisplayName("RF-002: PUT asocia la convocatoria y responde la referencia guardada")
+    void asociarConvocatoria() {
+        given(convocatorias.reemplazar(eq(ID), any(ReemplazarConvocatoriaRequest.class)))
+                .willReturn(CONVOCATORIA);
+
+        MvcTestResult resultado = mvc.put().uri(BASE + "/" + ID + "/convocatoria")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(CUERPO_CONVOCATORIA).exchange();
+
+        assertThat(resultado).hasStatusOk();
+        assertThat(resultado).bodyJson().extractingPath("$.referencia").isEqualTo("Convocatoria 2030");
+        assertThat(resultado).bodyJson().extractingPath("$.version").isEqualTo("2026-1");
+        assertThat(resultado).bodyJson().extractingPath("$.temporadaId").isEqualTo(ID.toString());
+        ArgumentCaptor<ReemplazarConvocatoriaRequest> peticion =
+                ArgumentCaptor.forClass(ReemplazarConvocatoriaRequest.class);
+        Mockito.verify(convocatorias).reemplazar(eq(ID), peticion.capture());
+        assertThat(peticion.getValue().documentoUrl()).isEqualTo("https://liga.mx/convocatoria-2030.pdf");
+    }
+
+    @Test
+    @DisplayName("RF-002: una referencia vacía responde 400 VALIDACION sin llegar al servicio")
+    void asociarConvocatoriaSinReferencia() {
+        MvcTestResult resultado = mvc.put().uri(BASE + "/" + ID + "/convocatoria")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"referencia\":\"  \"}").exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.VALIDACION);
+        assertThat(resultado).bodyJson().extractingPath("$.errores[0].campo").isEqualTo("referencia");
+        Mockito.verifyNoInteractions(convocatorias);
+    }
+
+    @Test
+    @DisplayName("RF-003: una temporada cerrada conserva el código del conflicto en el PUT")
+    void asociarConvocatoriaCerrada() {
+        given(convocatorias.reemplazar(eq(ID), any(ReemplazarConvocatoriaRequest.class)))
+                .willThrow(ReglaNegocioException.conflicto("RF-003",
+                        "La temporada «Temporada 2030» está cerrada: su convocatoria es de solo lectura."));
+
+        MvcTestResult resultado = mvc.put().uri(BASE + "/" + ID + "/convocatoria")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(CUERPO_CONVOCATORIA).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.CONFLICT)
+                .hasContentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo("RF-003");
     }
 
     // ── 401, 403 y 404 de cada endpoint (convenciones de API §10) ───────────────────────────────
@@ -259,6 +318,18 @@ class TemporadaControllerTest {
                 .dobles(servicio)
                 .simularDenegacion(error -> given(servicio.cerrar(eq(ID),
                         any(CerrarTemporadaRequest.class))).willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de PUT /api/v1/temporadas/{id}/convocatoria")
+    Stream<DynamicTest> seguridadConvocatoria() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.PUT, BASE + "/{id}/convocatoria", ID)
+                .cuerpoJson(CUERPO_CONVOCATORIA)
+                .dobles(servicio, convocatorias)
+                .simularDenegacion(error -> given(convocatorias.reemplazar(eq(ID),
+                        any(ReemplazarConvocatoriaRequest.class))).willThrow(error))
                 .pruebas();
     }
 }

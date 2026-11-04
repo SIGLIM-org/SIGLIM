@@ -303,7 +303,7 @@ public class TemporadaService {
                 : null;
         return new TemporadaDto(datos.id(), datos.nombre(), datos.fechaInicio(), datos.fechaFin(), datos.estado(),
                 datos.creadoEn(), datos.categoriasAsignadas(), datos.gruposCreados(), datos.versionParametros(),
-                activacion);
+                activacion, ConvocatoriaDto.desde(datos.convocatoria()));
     }
 
     private static ActivacionDto evaluarActivacion(DatosTemporada datos, TemporadaActiva activa) {
