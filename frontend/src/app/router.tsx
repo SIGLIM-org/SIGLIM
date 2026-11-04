@@ -119,6 +119,17 @@ export const rutas: RouteObject[] = [
                 HydrateFallback: CargandoPagina,
               },
               {
+                path: '/app/administracion/comunicados',
+                lazy: async () => {
+                  const { PantallaComunicados } = await import(
+                    '@/features/publicacion/PantallaComunicados'
+                  )
+
+                  return { Component: PantallaComunicados }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
                 path: '/app/administracion/auditoria',
                 lazy: async () => {
                   const { PantallaAuditoria } = await import(
