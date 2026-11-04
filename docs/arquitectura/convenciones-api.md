@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.6 · 3 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 2.7 · 4 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -25,6 +25,7 @@ Versión 2.6 · 3 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 2.4 | 3 de noviembre de 2026 | H-06.1: §6.3 con el contrato de clubes y equipos (sin `PATCH /clubes/{id}`), sus errores y acciones de auditoría; §2.1 con la baja de un equipo. |
 | 2.5 | 3 de noviembre de 2026 | H-26.1: §6.9 con las rutas completas de los catálogos disciplinarios, el filtro `activo`, la baja lógica y los valores por tipo de sanción. |
 | 2.6 | 3 de noviembre de 2026 | H-26.1: §6.9 con el rango numérico de `partidosSuspension`, `puntos` y `montoMulta` según sus columnas. |
+| 2.7 | 4 de noviembre de 2026 | B-02.1: §6.2 con el contrato de la convocatoria (`PUT /temporadas/{id}/convocatoria`), su reemplazo completo, sus errores y la auditoría; la temporada incluye `convocatoria` cuando existe. |
 
 ## Índice
 
@@ -348,8 +349,8 @@ implementa hasta que su historia entre a un Sprint (AGENTS.md §3). Los permisos
 
 **Temporada.** `GET /temporadas?pagina=&tamano=` responde la envoltura de paginación (§4) con
 `contenido` ordenado por `fechaInicio` descendente. Cada fila trae `id`, `nombre`, `fechaInicio`,
-`fechaFin`, `estado`, `creadoEn`, `categoriasAsignadas`, `gruposCreados`, `versionParametros` y,
-solo cuando el estado es `CONFIGURACION`, `activacion`:
+`fechaFin`, `estado`, `creadoEn`, `categoriasAsignadas`, `gruposCreados`, `versionParametros`,
+`activacion` solo cuando el estado es `CONFIGURACION`, y `convocatoria` cuando ya está asociada:
 
 ```json
 {
@@ -367,6 +368,22 @@ La lista es la que usa F-10 para deshabilitar el botón y explicar qué falta. `
 `{ "nombre", "fechaInicio", "fechaFin"? }` y responde `201` con `Location`; `PATCH /temporadas/{id}`
 cambia solo los campos presentes. Una temporada `CERRADA` es de solo lectura: cualquier `PATCH`
 responde `409 RF-003` y sus datos se conservan (RF-003, RN-005). No existe `DELETE`.
+
+**Convocatoria (B-02.1, RF-002, RN-002).** `PUT /temporadas/{id}/convocatoria` reemplaza la
+referencia completa de la convocatoria: `{ "referencia", "version"?, "documentoUrl"? }`. Es
+idempotente, porque cada temporada tiene una sola convocatoria (`UNIQUE (temporada_id)`): la crea
+si no existe o reemplaza la anterior, y responde `200` con
+`{ "id", "temporadaId", "referencia", "version"?, "documentoUrl"?, "creadoEn" }`. Lo omitido
+queda vacío; no hay `DELETE` ni `PATCH`. Exige `temporadas.convocatoria:EDITAR` con ámbito de liga.
+Errores: `400 VALIDACION` si la referencia está vacía, la versión pasa de 30 caracteres o el enlace
+no empieza por `http://` o `https://`; `404` igual que una temporada inexistente (VAL-024);
+`409 RF-003` si la temporada está `CERRADA`, porque es de solo lectura. Se audita como
+`ASOCIAR_CONVOCATORIA` sobre `convocatorias`, con la temporada, la versión y el enlace en el
+`detalle`; cuando reemplaza una convocatoria anterior, el detalle conserva también
+`referenciaAnterior`, `versionAnterior` y `documentoUrlAnterior`, porque el `PUT` sobrescribe la
+fila y la tabla no guarda historial. `creadoEn` es la fecha de la primera asociación: el reemplazo
+no la modifica, así que la interfaz la muestra como «Asociada el…». La temporada puede quedar sin
+convocatoria mientras se configura (CU-001).
 
 **Activación y cierre.** `POST /temporadas/{id}/activacion` no lleva cuerpo y pasa
 `CONFIGURACION → ACTIVA` si la lista de verificación está completa. Errores: `409 RN-058` si otra

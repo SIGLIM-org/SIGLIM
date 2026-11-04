@@ -81,7 +81,8 @@ class TemporadaServiceTest {
     // ── Datos de prueba ──────────────────────────────────────────────────────────────────────
 
     private static DatosTemporada temporada(EstadoTemporada estado, Integer version, int categorias, int grupos) {
-        return new DatosTemporada(ID, "Temporada 2030", INICIO, FIN, estado, CREADO_EN, categorias, grupos, version);
+        return new DatosTemporada(ID, "Temporada 2030", INICIO, FIN, estado, CREADO_EN, categorias, grupos, version,
+                null);
     }
 
     private static DatosTemporada configurada() {
@@ -250,7 +251,7 @@ class TemporadaServiceTest {
     void actualizarCampos() {
         DatosTemporada actual = temporada(EstadoTemporada.CONFIGURACION, 1, 1, 1);
         DatosTemporada editada = new DatosTemporada(ID, "Temporada 2031", INICIO.plusDays(1), FIN,
-                EstadoTemporada.CONFIGURACION, CREADO_EN, 1, 1, 1);
+                EstadoTemporada.CONFIGURACION, CREADO_EN, 1, 1, 1, null);
         given(temporadas.buscarParaActualizar(LIGA, ID)).willReturn(Optional.of(actual));
         given(temporadas.existeNombre(LIGA, "Temporada 2031", ID)).willReturn(false);
         given(temporadas.buscar(LIGA, ID)).willReturn(Optional.of(editada));

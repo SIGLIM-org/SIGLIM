@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import mx.tecnm.morelia.siglim.compartido.contexto.UsuarioActual;
+import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.seguridad.AutorizacionRepositorio.AsignacionPermiso;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -66,9 +67,15 @@ class AutorizacionJdbc implements Autorizacion {
      * {@inheritDoc}
      *
      * <p>{@code MANDATORY}: igual que {@link #exigir}, corre dentro de la transacción del servicio.
+     *
+     * <p>{@code noRollbackFor}: la denegación por permiso es una regla de negocio, no un fallo de
+     * la base. Un servicio que prueba varios permisos y captura el 403 (M-11 acepta REDACTAR o
+     * APROBAR para consultar) debe poder seguir y confirmar su transacción; sin esto, Spring marca
+     * la transacción compartida como {@code rollback-only} al atravesar este método.
      */
     @Override
-    @Transactional(readOnly = true, propagation = Propagation.MANDATORY)
+    @Transactional(readOnly = true, propagation = Propagation.MANDATORY,
+            noRollbackFor = ReglaNegocioException.class)
     public AlcanceAutorizacion alcance(String permiso) {
         boolean todaLaLiga = false;
         boolean propio = false;

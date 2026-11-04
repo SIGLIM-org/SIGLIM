@@ -15,7 +15,7 @@ import org.springframework.stereotype.Repository;
  * SQL de {@code temporadas}. La lista de verificación se arma con subconsultas de conteo, para que
  * el listado no haga una petición por fila (convenciones de API §9.1).
  *
- * <p>Refs: H-04.1, RF-001, RF-003, RF-004, RF-005, RF-100, RN-058, ADR-0011
+ * <p>Refs: H-04.1, B-02.1, RF-001, RF-002, RF-003, RF-004, RF-005, RF-100, RN-058, ADR-0011
  */
 @Repository
 class TemporadaRepository {
@@ -30,8 +30,13 @@ class TemporadaRepository {
                       JOIN categorias_temporada ct ON ct.id = g.categoria_temporada_id
                      WHERE ct.temporada_id = t.id) AS grupos_creados,
                    (SELECT max(p.version) FROM parametros_temporada p
-                     WHERE p.temporada_id = t.id) AS version_parametros
+                     WHERE p.temporada_id = t.id) AS version_parametros,
+                   c.id AS convocatoria_id, c.temporada_id AS convocatoria_temporada_id,
+                   c.referencia AS convocatoria_referencia, c.version AS convocatoria_version,
+                   c.documento_url AS convocatoria_documento_url,
+                   c.creado_en AS convocatoria_creado_en
               FROM temporadas t
+              LEFT JOIN convocatorias c ON c.temporada_id = t.id
             """;
 
     private final JdbcClient jdbc;
@@ -151,10 +156,11 @@ class TemporadaRepository {
                 .update();
     }
 
-    /** Fila de {@code temporadas} con los conteos que alimentan la lista de verificación. */
+    /** Fila de {@code temporadas} con los conteos de la lista de verificación y su convocatoria. */
     record DatosTemporada(UUID id, String nombre, LocalDate fechaInicio, LocalDate fechaFin,
                           EstadoTemporada estado, OffsetDateTime creadoEn, int categoriasAsignadas,
-                          int gruposCreados, Integer versionParametros) {
+                          int gruposCreados, Integer versionParametros,
+                          ConvocatoriaRepository.DatosConvocatoria convocatoria) {
     }
 
     /** Temporada activa de la liga, con lo mínimo para nombrarla en el error de RN-058. */
@@ -162,6 +168,16 @@ class TemporadaRepository {
     }
 
     private static DatosTemporada aDatos(ResultSet fila, int numero) throws SQLException {
+        UUID convocatoriaId = fila.getObject("convocatoria_id", UUID.class);
+        ConvocatoriaRepository.DatosConvocatoria convocatoria = convocatoriaId == null ? null
+                : new ConvocatoriaRepository.DatosConvocatoria(
+                        convocatoriaId,
+                        fila.getObject("convocatoria_temporada_id", UUID.class),
+                        fila.getString("convocatoria_referencia"),
+                        fila.getString("convocatoria_version"),
+                        fila.getString("convocatoria_documento_url"),
+                        fila.getObject("convocatoria_creado_en", OffsetDateTime.class)
+                                .atZoneSameInstant(ZONA_DE_NEGOCIO).toOffsetDateTime());
         return new DatosTemporada(
                 fila.getObject("id", UUID.class),
                 fila.getString("nombre"),
@@ -172,6 +188,7 @@ class TemporadaRepository {
                         .atZoneSameInstant(ZONA_DE_NEGOCIO).toOffsetDateTime(),
                 fila.getInt("categorias_asignadas"),
                 fila.getInt("grupos_creados"),
-                fila.getObject("version_parametros", Integer.class));
+                fila.getObject("version_parametros", Integer.class),
+                convocatoria);
     }
 }
