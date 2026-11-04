@@ -1,0 +1,5 @@
+ id |          ocurrido_en          | modulo |      accion      |  entidad   |              entidad_id              |                             motivo                              |    usuario    
+----+-------------------------------+--------+------------------+------------+--------------------------------------+-----------------------------------------------------------------+---------------
+  5 | 2026-11-03 18:41:45.244057-06 | M-02   | CERRAR_TEMPORADA | temporadas | 78b9b73a-3267-4266-bafa-cfb7ba8b5929 | Cierre del ciclo 2026-2027 por término del calendario deportivo | administrador
+(1 fila)
+
