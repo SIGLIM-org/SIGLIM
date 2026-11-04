@@ -17,8 +17,8 @@ export type EnlacePortal = {
 export type SubseccionApp = {
   nombre: string
   ruta: string
-  /** Permiso que hace visible el enlace en la página de la sección. */
-  permiso: string
+  /** Permiso o permisos que hacen visible el enlace; basta con uno. */
+  permiso: string | readonly string[]
   descripcion: string
 }
 
@@ -81,6 +81,15 @@ export const seccionesApp: SeccionApp[] = [
         ruta: '/app/administracion/temporadas',
         permiso: 'temporadas.temporada:CONSULTAR',
         descripcion: 'Ciclos deportivos, activación y cierre.',
+      },
+      {
+        nombre: 'Comunicados',
+        ruta: '/app/administracion/comunicados',
+        permiso: [
+          'publicacion.comunicado:REDACTAR',
+          'publicacion.comunicado:APROBAR',
+        ],
+        descripcion: 'Redacción, aprobación y publicación de comunicados.',
       },
       {
         nombre: 'Auditoría',

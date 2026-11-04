@@ -167,6 +167,36 @@ describe('router', () => {
     expect(screen.queryByRole('link', { name: /Auditoría/ })).not.toBeInTheDocument()
   })
 
+  it('B-27.2: la sección Administración enlaza a Comunicados con permiso de aprobar', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('publicacion.comunicado:APROBAR', 'M-11')],
+    })
+
+    montar('/app/administracion')
+
+    expect(await screen.findByRole('link', { name: /Comunicados/ })).toHaveAttribute(
+      'href',
+      '/app/administracion/comunicados',
+    )
+  })
+
+  it('B-27.2: con otro permiso del módulo no enlaza a Comunicados y su URL responde 403', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('seguridad.rol:CONSULTAR', 'M-01')],
+    })
+
+    montar('/app/administracion/comunicados')
+
+    expect(
+      await screen.findByRole('heading', { name: 'No tienes permiso para esta acción' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Comunicados/ })).not.toBeInTheDocument()
+  })
+
   it('muestra la página 404 en una ruta inexistente', () => {
     montar('/ruta-que-no-existe')
 
