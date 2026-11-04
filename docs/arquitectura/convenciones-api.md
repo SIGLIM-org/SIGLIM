@@ -223,8 +223,8 @@ GET /api/v1/partidos?jornadaId=…&estado=PROGRAMADO&pagina=0&tamano=20&orden=in
   persona); no existe buscador general (RF-089).
 - Los listados **filtran por ámbito en el SQL** con `autorizacion.alcance(permiso)`: una directiva
   de club solo recibe filas de su club y `totalElementos` cuenta solo esas (ADR-0007).
-- Los catálogos pequeños (categorías, tipos de incidencia, tipos de documento, permisos) pueden
-  responder un arreglo sin envoltura de paginación; lo indica el endpoint.
+- Los catálogos pequeños (categorías, tipos de incidencia, artículos, tipos de documento, permisos)
+  pueden responder un arreglo sin envoltura de paginación; lo indica el endpoint.
 
 ## 5. Seguridad, permisos y ámbito
 
