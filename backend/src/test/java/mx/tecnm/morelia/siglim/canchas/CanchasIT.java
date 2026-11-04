@@ -39,6 +39,9 @@ class CanchasIT extends BaseDatosPrueba {
     private CanchaService servicio;
 
     @Autowired
+    private SedeService sedes;
+
+    @Autowired
     private Clock reloj;
 
     private PartidosPrueba partidos() {
@@ -55,7 +58,7 @@ class CanchasIT extends BaseDatosPrueba {
         CanchaDto externa = crearCancha(token + " A", UbicacionCancha.EXTERNA);
         crearCancha(token + " B", UbicacionCancha.UNIDAD_DEPORTIVA);
 
-        var porUbicacion = servicio.listar(new FiltroCanchas(true, UbicacionCancha.EXTERNA, null, token.toLowerCase(),
+        var porUbicacion = servicio.listar(new FiltroCanchas(true, UbicacionCancha.EXTERNA, null, null, token.toLowerCase(),
                 0, 20, "nombre,asc"));
 
         assertThat(porUbicacion.contenido()).containsExactly(externa);
@@ -71,7 +74,7 @@ class CanchasIT extends BaseDatosPrueba {
         crearCancha(token + " B", UbicacionCancha.EXTERNA);
         crearCancha(token + " C", UbicacionCancha.EXTERNA);
 
-        var segunda = servicio.listar(new FiltroCanchas(null, null, null, token, 1, 2, "nombre,desc"));
+        var segunda = servicio.listar(new FiltroCanchas(null, null, null, null, token, 1, 2, "nombre,desc"));
 
         assertThat(segunda.contenido()).extracting(CanchaDto::nombre).containsExactly(token + " A");
         assertThat(segunda.totalElementos()).isEqualTo(3);
@@ -86,13 +89,13 @@ class CanchasIT extends BaseDatosPrueba {
         UUID club = crearClub();
         UUID otroClub = crearClub();
         CanchaDto propia = servicio.crear(new CrearCanchaRequest(token + " propia", UbicacionCancha.EXTERNA, null,
-                PropietarioCancha.CLUB, club, null, null));
+                PropietarioCancha.CLUB, club, null, null, null));
         CanchaDto ajena = servicio.crear(new CrearCanchaRequest(token + " ajena", UbicacionCancha.EXTERNA, null,
-                PropietarioCancha.CLUB, otroClub, null, null));
+                PropietarioCancha.CLUB, otroClub, null, null, null));
         crearCancha(token + " liga", UbicacionCancha.EXTERNA);
 
         iniciarSesion(perfilConRolDeClub(club));
-        var pagina = servicio.listar(new FiltroCanchas(null, null, null, token, 0, 20, "nombre,asc"));
+        var pagina = servicio.listar(new FiltroCanchas(null, null, null, null, token, 0, 20, "nombre,asc"));
 
         assertThat(pagina.contenido()).extracting(CanchaDto::id).containsExactly(propia.id());
         assertThat(pagina.totalElementos()).isEqualTo(1);
@@ -105,11 +108,11 @@ class CanchasIT extends BaseDatosPrueba {
     void editar() {
         iniciarSesionComoAdministrador();
         CanchaDto cancha = servicio.crear(new CrearCanchaRequest("Edición " + UUID.randomUUID(),
-                UbicacionCancha.UNIDAD_DEPORTIVA, "Calle 1", PropietarioCancha.LIGA, null, null, "Pasto"));
+                UbicacionCancha.UNIDAD_DEPORTIVA, "Calle 1", PropietarioCancha.LIGA, null, null, "Pasto", null));
         String nombre = "Editada " + UUID.randomUUID();
 
         CanchaDto editada = servicio.actualizar(cancha.id(), new ActualizarCanchaRequest(nombre, null, null, null, null,
-                null, " ", null, null, null));
+                null, " ", null, null, null, null, null));
 
         assertThat(editada.nombre()).isEqualTo(nombre);
         assertThat(editada.direccion()).isEqualTo("Calle 1");
@@ -132,9 +135,115 @@ class CanchasIT extends BaseDatosPrueba {
         iniciarSesionComoAdministrador();
 
         PSQLException error = errorBd(() -> servicio.crear(new CrearCanchaRequest("Sin club " + UUID.randomUUID(),
-                UbicacionCancha.EXTERNA, null, PropietarioCancha.CLUB, UUID.randomUUID(), null, null)));
+                UbicacionCancha.EXTERNA, null, PropietarioCancha.CLUB, UUID.randomUUID(), null, null, null)));
 
         assertThat(error.getSQLState()).isEqualTo("23503");
+    }
+
+    // ── Sede (B-11.1) ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-028: una cancha con sede asignada al crear o al editar aparece al filtrar por esa sede")
+    void filtrarPorSede() {
+        iniciarSesionComoAdministrador();
+        String token = "Sede" + UUID.randomUUID();
+        SedeDto sede = nuevaSede();
+        SedeDto otra = nuevaSede();
+        CanchaDto alCrear = servicio.crear(new CrearCanchaRequest(token + " A", UbicacionCancha.UNIDAD_DEPORTIVA,
+                null, PropietarioCancha.LIGA, null, null, null, sede.id()));
+        CanchaDto alEditar = crearCancha(token + " B", UbicacionCancha.UNIDAD_DEPORTIVA);
+        servicio.crear(new CrearCanchaRequest(token + " C", UbicacionCancha.UNIDAD_DEPORTIVA, null,
+                PropietarioCancha.LIGA, null, null, null, otra.id()));
+        crearCancha(token + " D", UbicacionCancha.UNIDAD_DEPORTIVA);
+
+        CanchaDto editada = servicio.actualizar(alEditar.id(), cambiarSede(sede.id(), null));
+        var pagina = servicio.listar(new FiltroCanchas(null, null, null, sede.id(), token, 0, 20, "nombre,asc"));
+
+        assertThat(alCrear.sede()).isEqualTo(new CanchaDto.SedeResumenDto(sede.id(), sede.nombre()));
+        assertThat(editada.sede().id()).isEqualTo(sede.id());
+        assertThat(pagina.contenido()).extracting(CanchaDto::id).containsExactly(alCrear.id(), alEditar.id());
+        assertThat(pagina.totalElementos()).as("el total usa el mismo filtro").isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("RF-028: una cancha puede quedar sin sede con quitarSede y sin sedeId conserva la suya")
+    void quitarSede() {
+        iniciarSesionComoAdministrador();
+        SedeDto sede = nuevaSede();
+        CanchaDto cancha = servicio.crear(new CrearCanchaRequest("Con sede " + UUID.randomUUID(),
+                UbicacionCancha.UNIDAD_DEPORTIVA, null, PropietarioCancha.LIGA, null, null, null, sede.id()));
+
+        CanchaDto renombrada = servicio.actualizar(cancha.id(), new ActualizarCanchaRequest(
+                "Renombrada " + UUID.randomUUID(), null, null, null, null, null, null, null, null, null, null, null));
+        CanchaDto sinSede = servicio.actualizar(cancha.id(), cambiarSede(null, true));
+
+        assertThat(renombrada.sede().id()).as("sin sedeId ni quitarSede se conserva").isEqualTo(sede.id());
+        assertThat(sinSede.sede()).isNull();
+        assertThat(servicio.consultar(cancha.id()).sede()).isNull();
+    }
+
+    @Test
+    @DisplayName("RF-028: sedeId y quitarSede juntos responden 400 VALIDACION")
+    void sedeYQuitarSede() {
+        iniciarSesionComoAdministrador();
+        SedeDto sede = nuevaSede();
+        UUID cancha = nuevaCancha();
+
+        assertThatThrownBy(() -> servicio.actualizar(cancha, cambiarSede(sede.id(), true)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "VALIDACION"));
+    }
+
+    @Test
+    @DisplayName("RF-028: una sede inexistente responde 422 REFERENCIA_INVALIDA al crear y al editar (D4)")
+    void sedeInexistente() {
+        iniciarSesionComoAdministrador();
+        UUID cancha = nuevaCancha();
+        UUID inexistente = UUID.randomUUID();
+
+        assertThatThrownBy(() -> servicio.crear(new CrearCanchaRequest("Sin sede " + UUID.randomUUID(),
+                UbicacionCancha.EXTERNA, null, PropietarioCancha.LIGA, null, null, null, inexistente)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.UNPROCESSABLE_CONTENT, "REFERENCIA_INVALIDA"));
+        assertThatThrownBy(() -> servicio.actualizar(cancha, cambiarSede(inexistente, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.UNPROCESSABLE_CONTENT, "REFERENCIA_INVALIDA"));
+        assertThat(servicio.consultar(cancha).sede()).isNull();
+    }
+
+    @Test
+    @DisplayName("RF-028: filtrar por una sede inexistente devuelve una lista vacía, sin error (D4)")
+    void filtroConSedeInexistente() {
+        iniciarSesionComoAdministrador();
+        nuevaCancha();
+
+        var pagina = servicio.listar(new FiltroCanchas(null, null, null, UUID.randomUUID(), null, 0, 20,
+                "nombre,asc"));
+
+        assertThat(pagina.contenido()).isEmpty();
+        assertThat(pagina.totalElementos()).isZero();
+    }
+
+    @Test
+    @DisplayName("RF-093: asignar sede se audita con el campo sede y el alta lleva el sedeId")
+    void auditoriaDeSede() {
+        iniciarSesionComoAdministrador();
+        SedeDto sede = nuevaSede();
+        CanchaDto cancha = servicio.crear(new CrearCanchaRequest("Auditada sede " + UUID.randomUUID(),
+                UbicacionCancha.UNIDAD_DEPORTIVA, null, PropietarioCancha.LIGA, null, null, null, sede.id()));
+        servicio.actualizar(cancha.id(), cambiarSede(null, true));
+
+        List<String> detalles = jdbc.sql("""
+                        SELECT CAST(detalle AS text) FROM siglim.auditoria
+                         WHERE modulo = 'M-06' AND entidad = 'canchas' AND entidad_id = :id
+                         ORDER BY id
+                        """)
+                .param("id", cancha.id().toString())
+                .query(String.class)
+                .list();
+
+        assertThat(detalles).hasSize(2);
+        assertThat(detalles.get(0)).contains(sede.id().toString());
+        assertThat(detalles.get(1)).contains("sede");
     }
 
     // ── Disponibilidad ────────────────────────────────────────────────────────────────────────
@@ -288,12 +397,12 @@ class CanchasIT extends BaseDatosPrueba {
     void auditoria() {
         UUID perfil = iniciarSesionComoAdministrador();
         CanchaDto cancha = servicio.crear(new CrearCanchaRequest("Auditada " + UUID.randomUUID(),
-                UbicacionCancha.EXTERNA, "Calle Secreta 123", PropietarioCancha.EXTERNO, null, "Sr. Dueño", null));
+                UbicacionCancha.EXTERNA, "Calle Secreta 123", PropietarioCancha.EXTERNO, null, "Sr. Dueño", null, null));
         servicio.actualizar(cancha.id(), new ActualizarCanchaRequest(null, null, "Calle Nueva 45", null, null,
-                "Sra. Dueña", null, null, null, null));
+                "Sra. Dueña", null, null, null, null, null, null));
         servicio.actualizar(cancha.id(), desactivar(null));
         servicio.actualizar(cancha.id(), new ActualizarCanchaRequest(null, null, null, null, null, null, null, true,
-                MOTIVO, null));
+                MOTIVO, null, null, null));
 
         record Fila(String accion, UUID perfilId, String motivo, String detalle) {
         }
@@ -356,14 +465,23 @@ class CanchasIT extends BaseDatosPrueba {
 
         assertThatThrownBy(() -> servicio.consultar(cancha))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "VAL-015"));
-        assertThatThrownBy(() -> servicio.listar(new FiltroCanchas(null, null, null, null, 0, 20, "nombre,asc")))
+        assertThatThrownBy(() -> servicio.listar(new FiltroCanchas(null, null, null, null, null, 0, 20, "nombre,asc")))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "VAL-015"));
     }
 
     // ── Apoyo ─────────────────────────────────────────────────────────────────────────────────
 
     private CanchaDto crearCancha(String nombre, UbicacionCancha ubicacion) {
-        return servicio.crear(new CrearCanchaRequest(nombre, ubicacion, null, PropietarioCancha.LIGA, null, null, null));
+        return servicio.crear(new CrearCanchaRequest(nombre, ubicacion, null, PropietarioCancha.LIGA, null, null, null, null));
+    }
+
+    private SedeDto nuevaSede() {
+        return sedes.crear(new CrearSedeRequest("Sede " + UUID.randomUUID(), null));
+    }
+
+    private static ActualizarCanchaRequest cambiarSede(UUID sedeId, Boolean quitarSede) {
+        return new ActualizarCanchaRequest(null, null, null, null, null, null, null, null, null, null, sedeId,
+                quitarSede);
     }
 
     private UUID nuevaCancha() {
@@ -381,7 +499,7 @@ class CanchasIT extends BaseDatosPrueba {
     }
 
     private static ActualizarCanchaRequest desactivar(Boolean confirmar) {
-        return new ActualizarCanchaRequest(null, null, null, null, null, null, null, false, MOTIVO, confirmar);
+        return new ActualizarCanchaRequest(null, null, null, null, null, null, null, false, MOTIVO, confirmar, null, null);
     }
 
     private String estadoDelPartido(UUID partido) {

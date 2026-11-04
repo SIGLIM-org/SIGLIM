@@ -48,7 +48,7 @@ class CanchaControllerTest {
     private static final String DESDE_TEXTO = "2030-03-10T10:00:00-06:00";
     private static final OffsetDateTime DESDE = OffsetDateTime.parse(DESDE_TEXTO);
     private static final Intervalo PERIODO = new Intervalo(DESDE, DESDE.plusHours(2));
-    private static final CanchaDto CANCHA = new CanchaDto(ID, "Cancha 1", UbicacionCancha.UNIDAD_DEPORTIVA, null,
+    private static final CanchaDto CANCHA = new CanchaDto(ID, "Cancha 1", UbicacionCancha.UNIDAD_DEPORTIVA, null, null,
             PropietarioCancha.LIGA, null, null, null, true, DESDE);
     private static final PartidoEnCanchaDto PARTIDO = new PartidoEnCanchaDto(
             UUID.fromString("44444444-4444-4444-8444-444444444444"), "PROGRAMADO", PERIODO,
@@ -112,8 +112,40 @@ class CanchaControllerTest {
         assertThat(resultado).bodyJson().extractingPath("$.totalPaginas").isEqualTo(2);
         ArgumentCaptor<FiltroCanchas> filtro = ArgumentCaptor.forClass(FiltroCanchas.class);
         Mockito.verify(servicio).listar(filtro.capture());
-        assertThat(filtro.getValue()).isEqualTo(new FiltroCanchas(true, UbicacionCancha.EXTERNA, null, "mor", 1, 10,
-                "nombre,asc"));
+        assertThat(filtro.getValue()).isEqualTo(new FiltroCanchas(true, UbicacionCancha.EXTERNA, null, null, "mor", 1,
+                10, "nombre,asc"));
+    }
+
+    @Test
+    @DisplayName("RF-028: GET pasa el filtro sedeId y la cancha incluye su sede")
+    void listarPorSede() {
+        UUID sede = UUID.fromString("55555555-5555-4555-8555-555555555555");
+        CanchaDto conSede = new CanchaDto(ID, "Cancha 1", UbicacionCancha.UNIDAD_DEPORTIVA,
+                new CanchaDto.SedeResumenDto(sede, "Unidad Norte"), null, PropietarioCancha.LIGA, null, null, null,
+                true, DESDE);
+        given(servicio.listar(any(FiltroCanchas.class))).willReturn(Pagina.de(List.of(conSede), 0, 20, 1));
+
+        MvcTestResult resultado = mvc.get().uri(BASE + "?sedeId=" + sede)
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatusOk();
+        assertThat(resultado).bodyJson().extractingPath("$.contenido[0].sede.id").isEqualTo(sede.toString());
+        assertThat(resultado).bodyJson().extractingPath("$.contenido[0].sede.nombre").isEqualTo("Unidad Norte");
+        ArgumentCaptor<FiltroCanchas> filtro = ArgumentCaptor.forClass(FiltroCanchas.class);
+        Mockito.verify(servicio).listar(filtro.capture());
+        assertThat(filtro.getValue().sedeId()).isEqualTo(sede);
+    }
+
+    @Test
+    @DisplayName("RF-028: una cancha sin sede omite el campo sede")
+    void canchaSinSede() {
+        given(servicio.consultar(ID)).willReturn(CANCHA);
+
+        MvcTestResult resultado = mvc.get().uri(BASE + "/" + ID).header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .exchange();
+
+        assertThat(resultado).hasStatusOk();
+        assertThat(resultado).bodyJson().doesNotHavePath("$.sede");
     }
 
     @Test

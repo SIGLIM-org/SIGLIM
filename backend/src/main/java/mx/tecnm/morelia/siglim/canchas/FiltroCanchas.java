@@ -3,6 +3,7 @@ package mx.tecnm.morelia.siglim.canchas;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import mx.tecnm.morelia.siglim.compartido.error.ErroresTecnicos;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 
@@ -12,13 +13,15 @@ import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
  * @param activa      solo activas o inactivas; {@code null} para todas
  * @param ubicacion   ubicación; {@code null} para todas
  * @param propietario propietario; {@code null} para todos
+ * @param sedeId      sede (RF-028); {@code null} para todas. Una sede inexistente o de otra liga no es
+ *                    error: el listado sale vacío (D4)
  * @param q           texto dentro del nombre; {@code null} o en blanco para no filtrar
  * @param pagina      página, desde 0
  * @param tamano      filas por página, de 1 a 100
  * @param orden       {@code campo,asc|desc}, repetible como {@code nombre,asc,creadoEn,desc}
  */
-public record FiltroCanchas(Boolean activa, UbicacionCancha ubicacion, PropietarioCancha propietario, String q,
-                            int pagina, int tamano, String orden) {
+public record FiltroCanchas(Boolean activa, UbicacionCancha ubicacion, PropietarioCancha propietario, UUID sedeId,
+                            String q, int pagina, int tamano, String orden) {
 
     private static final int TAMANO_MAXIMO = 100;
 

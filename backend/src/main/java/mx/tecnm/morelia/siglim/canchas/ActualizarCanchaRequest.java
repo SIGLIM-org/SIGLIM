@@ -11,6 +11,10 @@ import java.util.UUID;
  *       la petición, para poder cambiar de propietario sin arrastrar los datos del anterior.</li>
  *   <li>{@code direccion} y {@code caracteristicas} en blanco se vacían.</li>
  *   <li>{@code motivo} es obligatorio si cambia {@code activa} (RN-021).</li>
+ *   <li><b>Sede (RF-028, D2, [PROPUESTA]).</b> Sin {@code sedeId} ni {@code quitarSede}, la sede se
+ *       conserva; con {@code sedeId}, se asigna esa sede; con {@code "quitarSede": true}, la cancha
+ *       queda sin sede. Los dos juntos responden {@code 400 VALIDACION}. Una sede inexistente o de
+ *       otra liga responde {@code 422 REFERENCIA_INVALIDA} (D4).</li>
  * </ul>
  */
 public record ActualizarCanchaRequest(
@@ -25,5 +29,7 @@ public record ActualizarCanchaRequest(
         String caracteristicas,
         Boolean activa,
         String motivo,
-        Boolean confirmarPartidosAfectados) {
+        Boolean confirmarPartidosAfectados,
+        UUID sedeId,
+        Boolean quitarSede) {
 }

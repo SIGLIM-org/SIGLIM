@@ -42,9 +42,14 @@ import org.springframework.transaction.annotation.Transactional;
  *       calcula «fuera de disponibilidad» (VAL-005).</li>
  *   <li><b>Candado.</b> Toda escritura toma primero el candado de la cancha para que dos bloqueos,
  *       o un bloqueo y una desactivación, no se crucen. La programación (H-12) debe tomar el mismo.</li>
+ *   <li><b>Sede (RF-028, [PROPUESTA]).</b> Una cancha puede quedar sin sede. En el {@code PATCH},
+ *       {@code sedeId} la asigna y {@code quitarSede} la quita; los dos juntos son {@code 400} (D2).
+ *       Una sede inexistente o de otra liga se rechaza antes de escribir con
+ *       {@code 422 REFERENCIA_INVALIDA}; en el filtro del listado no es error y sale vacío (D4).</li>
  * </ul>
  *
- * <p>Refs: H-07.1, RF-027, RF-029, RF-030, RN-014, RN-021, VAL-005, PEN-007, ADR-0007, ADR-0011
+ * <p>Refs: H-07.1, B-11.1, RF-027, RF-028, RF-029, RF-030, RN-014, RN-021, VAL-005, PEN-007, ADR-0007,
+ * ADR-0011
  */
 @Service
 public class CanchaService {
@@ -63,6 +68,7 @@ public class CanchaService {
     private static final Duration RANGO_MAXIMO = Duration.ofDays(31);
 
     private final CanchaRepository canchas;
+    private final SedeRepository sedes;
     private final DisponibilidadCanchaRepository disponibilidades;
     private final ConsultaPartidosEnCancha partidos;
     private final Autorizacion autorizacion;
@@ -71,10 +77,11 @@ public class CanchaService {
     private final Clock reloj;
     private final UUID ligaId;
 
-    CanchaService(CanchaRepository canchas, DisponibilidadCanchaRepository disponibilidades,
+    CanchaService(CanchaRepository canchas, SedeRepository sedes, DisponibilidadCanchaRepository disponibilidades,
             ConsultaPartidosEnCancha partidos, Autorizacion autorizacion, AuditoriaService auditoria,
             MotivoOperacion motivoOperacion, Clock reloj, SiglimPropiedades propiedades) {
         this.canchas = canchas;
+        this.sedes = sedes;
         this.disponibilidades = disponibilidades;
         this.partidos = partidos;
         this.autorizacion = autorizacion;
@@ -101,14 +108,16 @@ public class CanchaService {
         return cancha;
     }
 
-    /** Registra una cancha con su ubicación y propietario (RF-027). */
+    /** Registra una cancha con su ubicación, propietario y, si se indica, su sede (RF-027, RF-028). */
     @Transactional
     public CanchaDto crear(CrearCanchaRequest peticion) {
         autorizacion.exigir(EDITAR, objetivo(peticion.propietario(), peticion.clubId()));
         DatosCancha datos = new DatosCancha(peticion.nombre().strip(), peticion.ubicacion(),
                 textoOpcional(peticion.direccion()), peticion.propietario(), peticion.clubId(),
-                textoOpcional(peticion.propietarioExterno()), textoOpcional(peticion.caracteristicas()));
+                textoOpcional(peticion.propietarioExterno()), textoOpcional(peticion.caracteristicas()),
+                peticion.sedeId());
         validarPropietario(datos);
+        validarSede(datos.sedeId());
         validarNombreLibre(datos.nombre(), null);
 
         UUID id = canchas.insertar(ligaId, datos);
@@ -118,8 +127,9 @@ public class CanchaService {
     }
 
     /**
-     * Edita una cancha, y la activa o desactiva con motivo (RF-027, RN-021). Desactivarla con partidos
-     * en curso o futuros sigue el flujo de dos pasos del bloqueo (D8, [PROPUESTA]).
+     * Edita una cancha, le asigna o quita la sede (RF-028, D2), y la activa o desactiva con motivo
+     * (RF-027, RN-021). Desactivarla con partidos en curso o futuros sigue el flujo de dos pasos del
+     * bloqueo (D8, [PROPUESTA]).
      */
     @Transactional
     public CanchaDto actualizar(UUID id, ActualizarCanchaRequest peticion) {
@@ -131,6 +141,9 @@ public class CanchaService {
             autorizacion.exigir(EDITAR, objetivo(datos.propietario(), datos.clubId()));
         }
         validarPropietario(datos);
+        if (!Objects.equals(datos.sedeId(), sedeId(actual))) {
+            validarSede(datos.sedeId());
+        }
         if (!datos.nombre().equals(actual.nombre())) {
             validarNombreLibre(datos.nombre(), id);
         }
@@ -266,10 +279,24 @@ public class CanchaService {
         return cancha.club() == null ? null : cancha.club().id();
     }
 
+    private static UUID sedeId(CanchaDto cancha) {
+        return cancha.sede() == null ? null : cancha.sede().id();
+    }
+
     /** Estado de la cancha después del {@code PATCH}: lo ausente conserva su valor. */
     private static DatosCancha resultante(CanchaDto actual, ActualizarCanchaRequest peticion) {
         if (peticion.nombre() != null && peticion.nombre().isBlank()) {
             throw invalida("El nombre no puede estar vacío.");
+        }
+        boolean quitarSede = Boolean.TRUE.equals(peticion.quitarSede());
+        if (quitarSede && peticion.sedeId() != null) {
+            throw invalida("Indica una sede o pide quitarla, pero no las dos cosas a la vez.");
+        }
+        UUID sedeId;
+        if (quitarSede) {
+            sedeId = null;
+        } else {
+            sedeId = peticion.sedeId() == null ? sedeId(actual) : peticion.sedeId();
         }
         String nombre = peticion.nombre() == null ? actual.nombre() : peticion.nombre().strip();
         UbicacionCancha ubicacion = peticion.ubicacion() == null ? actual.ubicacion() : peticion.ubicacion();
@@ -289,7 +316,7 @@ public class CanchaService {
             externo = peticion.propietarioExterno() == null
                     ? actual.propietarioExterno() : textoOpcional(peticion.propietarioExterno());
         }
-        return new DatosCancha(nombre, ubicacion, direccion, propietario, clubId, externo, caracteristicas);
+        return new DatosCancha(nombre, ubicacion, direccion, propietario, clubId, externo, caracteristicas, sedeId);
     }
 
     /** {@code CLUB} lleva club, {@code EXTERNO} lleva nombre y {@code LIGA} ninguno (RF-027). */
@@ -310,6 +337,17 @@ public class CanchaService {
                     throw invalida("Una cancha de la liga no lleva club ni propietario externo.");
                 }
             }
+        }
+    }
+
+    /**
+     * La sede indicada existe y es de esta liga; sin sede no hay nada que validar (RF-028). Se valida
+     * antes de escribir para explicar el error en lugar de depender de la llave foránea (D4).
+     */
+    private void validarSede(UUID sedeId) {
+        if (sedeId != null && sedes.buscar(ligaId, sedeId).isEmpty()) {
+            throw ReglaNegocioException.noProcesable(ErroresTecnicos.REFERENCIA_INVALIDA,
+                    "La sede indicada no existe. Actualiza la página y elige otra.");
         }
     }
 
@@ -377,6 +415,9 @@ public class CanchaService {
         if (!Objects.equals(datos.caracteristicas(), actual.caracteristicas())) {
             campos.add("caracteristicas");
         }
+        if (!Objects.equals(datos.sedeId(), sedeId(actual))) {
+            campos.add("sede");
+        }
         return campos;
     }
 
@@ -392,6 +433,9 @@ public class CanchaService {
         detalle.put("propietario", datos.propietario().name());
         if (datos.clubId() != null) {
             detalle.put("clubId", datos.clubId().toString());
+        }
+        if (datos.sedeId() != null) {
+            detalle.put("sedeId", datos.sedeId().toString());
         }
         return detalle;
     }
