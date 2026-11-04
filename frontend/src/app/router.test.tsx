@@ -4,9 +4,10 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { rutas } from '@/app/router'
 
-const { obtenerSesion, obtenerYo } = vi.hoisted(() => ({
+const { obtenerSesion, obtenerYo, obtenerCatalogo } = vi.hoisted(() => ({
   obtenerSesion: vi.fn(),
   obtenerYo: vi.fn(),
+  obtenerCatalogo: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase', () => ({
@@ -18,7 +19,9 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 vi.mock('@/lib/api/cliente', () => ({
-  api: { get: obtenerYo },
+  api: {
+    get: (ruta: string) => (ruta === '/yo' ? obtenerYo() : obtenerCatalogo(ruta)),
+  },
 }))
 
 function montar(ruta: string) {
@@ -60,6 +63,8 @@ describe('router', () => {
   beforeEach(() => {
     obtenerSesion.mockReset()
     obtenerYo.mockReset()
+    obtenerCatalogo.mockReset()
+    obtenerCatalogo.mockResolvedValue([])
     obtenerSesion.mockResolvedValue({ data: { session: null }, error: null })
     obtenerYo.mockResolvedValue({
       perfil: {
@@ -195,6 +200,64 @@ describe('router', () => {
       await screen.findByRole('heading', { name: 'No tienes permiso para esta acción' }),
     ).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Comunicados/ })).not.toBeInTheDocument()
+  })
+
+  it('H-26.2: la sección Disciplina enlaza a Catálogos solo con su permiso', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('disciplina.catalogo:EDITAR', 'M-09')],
+    })
+
+    montar('/app/disciplina')
+
+    expect(await screen.findByRole('link', { name: /Catálogos/ })).toHaveAttribute(
+      'href',
+      '/app/disciplina/catalogos',
+    )
+  })
+
+  it('H-26.2: con otro permiso del módulo no enlaza a Catálogos', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('disciplina.expediente:CONSULTAR', 'M-09')],
+    })
+
+    montar('/app/disciplina')
+
+    expect(
+      await screen.findByRole('heading', { name: 'Disciplina' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Catálogos/ })).not.toBeInTheDocument()
+  })
+
+  it('H-26.2: con permiso, la URL de Catálogos muestra la pantalla', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('disciplina.catalogo:EDITAR', 'M-09')],
+    })
+
+    montar('/app/disciplina/catalogos')
+
+    expect(
+      await screen.findByRole('heading', { name: 'Catálogos disciplinarios' }),
+    ).toBeInTheDocument()
+  })
+
+  it('H-26.2: sin el permiso de catálogos, su URL responde 403', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('disciplina.expediente:CONSULTAR', 'M-09')],
+    })
+
+    montar('/app/disciplina/catalogos')
+
+    expect(
+      await screen.findByRole('heading', { name: 'No tienes permiso para esta acción' }),
+    ).toBeInTheDocument()
   })
 
   it('muestra la página 404 en una ruta inexistente', () => {

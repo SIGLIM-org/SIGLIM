@@ -69,7 +69,20 @@ export const seccionesApp: SeccionApp[] = [
     ],
   },
   { nombre: 'Partidos', ruta: '/app/partidos', icono: Goal, modulos: ['M-08'] },
-  { nombre: 'Disciplina', ruta: '/app/disciplina', icono: Gavel, modulos: ['M-09'] },
+  {
+    nombre: 'Disciplina',
+    ruta: '/app/disciplina',
+    icono: Gavel,
+    modulos: ['M-09'],
+    subsecciones: [
+      {
+        nombre: 'Catálogos',
+        ruta: '/app/disciplina/catalogos',
+        permiso: 'disciplina.catalogo:EDITAR',
+        descripcion: 'Tipos de incidencia y artículos del reglamento.',
+      },
+    ],
+  },
   {
     nombre: 'Administración',
     ruta: '/app/administracion',
