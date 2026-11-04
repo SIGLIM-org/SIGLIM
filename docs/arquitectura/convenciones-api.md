@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.4 · 3 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 2.5 · 3 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -22,6 +22,7 @@ Versión 2.4 · 3 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 2.2 | 31 de octubre de 2026 | H-21.1: §6.1 con el detalle de la consulta de auditoría y `GET /auditoria/opciones-filtro`. |
 | 2.3 | 2 de noviembre de 2026 | H-04.1: §6.2 con el contrato de temporadas, la lista de verificación de activación y los errores de activación y cierre. |
 | 2.4 | 3 de noviembre de 2026 | H-06.1: §6.3 con el contrato de clubes y equipos (sin `PATCH /clubes/{id}`), sus errores y acciones de auditoría; §2.1 con la baja de un equipo. |
+| 2.5 | 3 de noviembre de 2026 | H-26.1: §6.9 con las rutas completas de los catálogos disciplinarios, el filtro `activo`, la baja lógica y los valores por tipo de sanción. |
 
 ## Índice
 
@@ -532,8 +533,8 @@ resolución disciplinaria (RF-048, VAL-010).
 
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
-| `GET /tipos-incidencia` · `POST` · `PATCH` | Catálogo; indica si abre expediente | `disciplina.catalogo:EDITAR` | RF-128 | N |
-| `GET /articulos` · `POST` · `PATCH` | Artículos con sanción, sujeto, efecto y aplicación automática | `disciplina.catalogo:EDITAR` | RF-129, RF-060 | N |
+| `GET /tipos-incidencia?activo=` · `POST /tipos-incidencia` · `PATCH /tipos-incidencia/{id}` | Catálogo; indica si abre expediente | `disciplina.catalogo:EDITAR` | RF-128 | N |
+| `GET /articulos?activo=` · `POST /articulos` · `PATCH /articulos/{id}` | Artículos con sanción, sujeto, efecto y aplicación automática | `disciplina.catalogo:EDITAR` | RF-129, RF-060 | N |
 | `GET /expedientes?estado=&temporadaId=` · `GET /expedientes/{id}` | Expediente con incidencia, involucrados, cédula y resoluciones | `disciplina.expediente:CONSULTAR` | RF-057, RF-058 | N |
 | `POST /expedientes` | Expediente manual | `disciplina.expediente:RESOLVER` | RF-057 | N |
 | `POST /expedientes/{id}/revision` | Iniciar revisión | `disciplina.expediente:RESOLVER` | RF-062 | N |
@@ -543,6 +544,15 @@ resolución disciplinaria (RF-048, VAL-010).
 | `GET /sanciones?vigente=true&sujeto=` | Lista de castigados | `disciplina.expediente:CONSULTAR` | RF-066 | B |
 | `POST /sanciones/{id}/publicacion` | Autorizar difusión | `disciplina.sancion:PUBLICAR` | RF-068 | B |
 | `POST /expedientes/{id}/recursos` · `POST /recursos/{id}/resolucion` | Recurso de inconformidad | `disciplina.recurso:*` | RF-067 | B |
+
+Los dos catálogos son de la liga y **no se borran**: un elemento que deja de usarse se desactiva con
+`PATCH … { "activo": false }` (RN-005). `GET` acepta `?activo=true|false`; sin el parámetro devuelve
+también los inactivos. El alta responde `201` con `Location` y la edición `200`.
+
+En los artículos, `SUSPENSION_PARTIDOS` exige `partidosSuspension`, `PERDIDA_PUNTOS` exige `puntos`
+y `MULTA` exige `montoMulta`; `PERDIDA_PARTIDO` y `BAJA` no llevan ninguno de esos valores
+(DEC-30). Si no se envían, `efecto` nace `HACIA_ADELANTE`, `aplicacionAutomatica` en `false` y
+`otorgaDefaultRestantes` en `true` (DEC-31, DEC-32).
 
 Las resoluciones son inmutables: no hay `PATCH` ni `PUT` sobre `resoluciones` ni `sanciones`
 (RF-065). Una corrección es una resolución nueva en instancia de recurso.

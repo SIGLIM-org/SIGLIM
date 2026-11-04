@@ -8,8 +8,8 @@ package mx.tecnm.morelia.siglim.disciplina;
  * @param id             identificador del catálogo
  * @param codigo         código único legible por el sistema
  * @param nombre         nombre para la persona
- * @param abreExpediente si la incidencia abre expediente al aprobarse la cÃ³dula (DEC-22)
- * @param activo         si el tipo se sigue ofreciendo al capturar una cÃ³dula
+ * @param abreExpediente si la incidencia abre expediente al aprobarse la cédula (DEC-22)
+ * @param activo         si el tipo se sigue ofreciendo al capturar una cédula
  * @param esDemo         valor de demostración [DEMO]: configurable y rotulado «no oficial»
  */
 public record TipoIncidenciaDto(long id, String codigo, String nombre, boolean abreExpediente,
