@@ -46,6 +46,10 @@ public class ArticulosService {
     private static final String EDITAR = "disciplina.catalogo:EDITAR";
     private static final String MODULO = "M-09";
     private static final String ENTIDAD = "articulos";
+    /** Límites de las columnas: {@code smallint} para partidos y puntos, {@code numeric(12,2)} para el monto. */
+    private static final int MAXIMO_PARTIDOS = Short.MAX_VALUE;
+    private static final int MAXIMO_PUNTOS = Short.MAX_VALUE;
+    private static final BigDecimal MAXIMO_MONTO = new BigDecimal("9999999999.99");
 
     private final ArticulosRepository articulos;
     private final Autorizacion autorizacion;
@@ -184,6 +188,9 @@ public class ArticulosService {
                 if (partidos == null || partidos < 1) {
                     throw invalida("Un artículo de suspensión debe indicar los partidos de suspensión (mayor a cero).");
                 }
+                if (partidos > MAXIMO_PARTIDOS) {
+                    throw invalida("Los partidos de suspensión admiten hasta " + MAXIMO_PARTIDOS + ".");
+                }
                 if (puntos != null || monto != null) {
                     throw valoresDeOtroTipo(tipo);
                 }
@@ -192,6 +199,9 @@ public class ArticulosService {
                 if (puntos == null || puntos < 1) {
                     throw invalida("Un artículo de pérdida de puntos debe indicar los puntos (mayor a cero).");
                 }
+                if (puntos > MAXIMO_PUNTOS) {
+                    throw invalida("Los puntos admiten hasta " + MAXIMO_PUNTOS + ".");
+                }
                 if (partidos != null || monto != null) {
                     throw valoresDeOtroTipo(tipo);
                 }
@@ -199,6 +209,9 @@ public class ArticulosService {
             case MULTA -> {
                 if (monto == null || monto.signum() <= 0) {
                     throw invalida("Un artículo de multa debe indicar el monto (mayor a cero).");
+                }
+                if (monto.compareTo(MAXIMO_MONTO) > 0) {
+                    throw invalida("El monto de la multa admite hasta " + MAXIMO_MONTO.toPlainString() + ".");
                 }
                 if (partidos != null || puntos != null) {
                     throw valoresDeOtroTipo(tipo);

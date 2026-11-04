@@ -194,6 +194,39 @@ class ArticulosServiceTest {
     }
 
     @Test
+    @DisplayName("RF-129: una suspensión fuera del rango de la columna responde 400 VALIDACION")
+    void crearSuspensionFueraDeRango() {
+        assertThatThrownBy(() -> servicio.crear(crear("A-1", "Suspensión", TipoSancion.SUSPENSION_PARTIDOS,
+                SujetoSancion.JUGADOR, 32768, null, null)))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("hasta 32767");
+
+        verifyNoInteractions(articulos);
+    }
+
+    @Test
+    @DisplayName("RF-129: una pérdida de puntos fuera del rango de la columna responde 400 VALIDACION")
+    void crearPerdidaPuntosFueraDeRango() {
+        assertThatThrownBy(() -> servicio.crear(crear("A-2", "Pérdida de puntos", TipoSancion.PERDIDA_PUNTOS,
+                SujetoSancion.EQUIPO, null, 32768, null)))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("hasta 32767");
+
+        verifyNoInteractions(articulos);
+    }
+
+    @Test
+    @DisplayName("RF-129: una multa fuera del rango de la columna responde 400 VALIDACION")
+    void crearMultaFueraDeRango() {
+        assertThatThrownBy(() -> servicio.crear(crear("A-3", "Multa", TipoSancion.MULTA,
+                SujetoSancion.CLUB, null, null, new BigDecimal("10000000000.00"))))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("hasta 9999999999.99");
+
+        verifyNoInteractions(articulos);
+    }
+
+    @Test
     @DisplayName("RF-129: un valor de otro tipo de sanción responde 400 VALIDACION")
     void crearConValoresDeOtroTipo() {
         assertThatThrownBy(() -> servicio.crear(crear("A-3", "Multa", TipoSancion.MULTA,
@@ -261,6 +294,20 @@ class ArticulosServiceTest {
                 .hasMessageContaining("monto");
 
         verify(articulos, never()).actualizar(any(), any(), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("RF-129: una edición fuera del rango de la columna responde 400 VALIDACION")
+    void actualizarFueraDeRango() {
+        given(articulos.buscarParaActualizar(LIGA, ID)).willReturn(Optional.of(SUSPENSION));
+
+        assertThatThrownBy(() -> servicio.actualizar(ID, new ActualizarArticuloRequest(null, null, null,
+                null, null, null, 40000, null, null, null, null)))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("hasta 32767");
+
+        verify(articulos, never()).actualizar(any(), any(), anyBoolean());
+        verifyNoInteractions(auditoria);
     }
 
     @Test

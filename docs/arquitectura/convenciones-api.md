@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.5 · 3 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 2.6 · 3 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -23,6 +23,7 @@ Versión 2.5 · 3 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 2.3 | 2 de noviembre de 2026 | H-04.1: §6.2 con el contrato de temporadas, la lista de verificación de activación y los errores de activación y cierre. |
 | 2.4 | 3 de noviembre de 2026 | H-06.1: §6.3 con el contrato de clubes y equipos (sin `PATCH /clubes/{id}`), sus errores y acciones de auditoría; §2.1 con la baja de un equipo. |
 | 2.5 | 3 de noviembre de 2026 | H-26.1: §6.9 con las rutas completas de los catálogos disciplinarios, el filtro `activo`, la baja lógica y los valores por tipo de sanción. |
+| 2.6 | 3 de noviembre de 2026 | H-26.1: §6.9 con el rango numérico de `partidosSuspension`, `puntos` y `montoMulta` según sus columnas. |
 
 ## Índice
 
@@ -552,7 +553,9 @@ también los inactivos. El alta responde `201` con `Location` y la edición `200
 En los artículos, `SUSPENSION_PARTIDOS` exige `partidosSuspension`, `PERDIDA_PUNTOS` exige `puntos`
 y `MULTA` exige `montoMulta`; `PERDIDA_PARTIDO` y `BAJA` no llevan ninguno de esos valores
 (DEC-30). Si no se envían, `efecto` nace `HACIA_ADELANTE`, `aplicacionAutomatica` en `false` y
-`otorgaDefaultRestantes` en `true` (DEC-31, DEC-32).
+`otorgaDefaultRestantes` en `true` (DEC-31, DEC-32). Los valores numéricos respetan el rango de sus
+columnas: `partidosSuspension` y `puntos` admiten de `1` a `32767` (`smallint`) y `montoMulta` de
+`0.01` a `9999999999.99` (`numeric(12,2)`); fuera de rango la respuesta es `400 VALIDACION`.
 
 Las resoluciones son inmutables: no hay `PATCH` ni `PUT` sobre `resoluciones` ni `sanciones`
 (RF-065). Una corrección es una resolución nueva en instancia de recurso.

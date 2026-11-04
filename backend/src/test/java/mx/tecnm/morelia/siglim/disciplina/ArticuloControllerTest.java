@@ -116,6 +116,45 @@ class ArticuloControllerTest {
     }
 
     @Test
+    @DisplayName("RF-129: POST con partidos fuera del rango responde 400 VALIDACION")
+    void crearConPartidosFueraDeRango() {
+        MvcTestResult resultado = post(BASE, """
+                {"numero":"A-1","descripcion":"Suspensión","tipoSancion":"SUSPENSION_PARTIDOS",
+                 "sujeto":"JUGADOR","partidosSuspension":40000}
+                """);
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(resultado).bodyJson().extractingPath("$.errores[0].campo").isEqualTo("partidosSuspension");
+        Mockito.verifyNoInteractions(servicio);
+    }
+
+    @Test
+    @DisplayName("RF-129: POST con puntos fuera del rango responde 400 VALIDACION")
+    void crearConPuntosFueraDeRango() {
+        MvcTestResult resultado = post(BASE, """
+                {"numero":"A-2","descripcion":"Pérdida de puntos","tipoSancion":"PERDIDA_PUNTOS",
+                 "sujeto":"EQUIPO","puntos":40000}
+                """);
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(resultado).bodyJson().extractingPath("$.errores[0].campo").isEqualTo("puntos");
+        Mockito.verifyNoInteractions(servicio);
+    }
+
+    @Test
+    @DisplayName("RF-129: PATCH con monto fuera del rango responde 400 VALIDACION")
+    void actualizarConMontoFueraDeRango() {
+        MvcTestResult resultado = mvc.patch().uri(BASE + "/" + ID)
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"montoMulta\":99999999999999}").exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(resultado).bodyJson().extractingPath("$.errores[0].campo").isEqualTo("montoMulta");
+        Mockito.verifyNoInteractions(servicio);
+    }
+
+    @Test
     @DisplayName("RF-129: PATCH edita el artículo y devuelve el resultado")
     void actualizar() {
         given(servicio.actualizar(eq(ID), any(ActualizarArticuloRequest.class))).willReturn(ARTICULO);

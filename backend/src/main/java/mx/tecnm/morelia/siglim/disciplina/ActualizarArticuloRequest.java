@@ -1,6 +1,8 @@
 package mx.tecnm.morelia.siglim.disciplina;
 
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
@@ -18,9 +20,12 @@ public record ActualizarArticuloRequest(
         SujetoSancion sujeto,
         EfectoSancion efecto,
         Boolean aplicacionAutomatica,
+        @Max(value = 32767, message = "Los partidos de suspensión admiten hasta 32767")
         Integer partidosSuspension,
+        @Max(value = 32767, message = "Los puntos admiten hasta 32767")
         Integer puntos,
         @DecimalMin(value = "0.01", message = "El monto de la multa debe ser mayor a cero")
+        @DecimalMax(value = "9999999999.99", message = "El monto de la multa admite hasta 9999999999.99")
         BigDecimal montoMulta,
         Boolean otorgaDefaultRestantes,
         /** {@code false} deja de aplicar el artículo sin borrar su historial. */
