@@ -145,7 +145,7 @@ class ComunicadosIT extends BaseDatosPrueba {
                 .update();
 
         UUID perfil = jdbc.sql("""
-                        INSERT INTO perfiles (usuario_auth_id, nombre_mostrado, correo)
+                        INSERT INTO siglim.perfiles (usuario_auth_id, nombre_mostrado, correo)
                         VALUES (:usuario, :nombre, :correo)
                         RETURNING id
                         """)
@@ -156,9 +156,9 @@ class ComunicadosIT extends BaseDatosPrueba {
                 .single();
 
         jdbc.sql("""
-                        INSERT INTO asignaciones_rol (perfil_id, rol_id, liga_id, ambito)
+                        INSERT INTO siglim.asignaciones_rol (perfil_id, rol_id, liga_id, ambito)
                         SELECT :perfil, r.id, r.liga_id, 'LIGA'
-                          FROM roles r
+                          FROM siglim.roles r
                          WHERE r.codigo = :rol
                         """)
                 .param("perfil", perfil)
@@ -179,7 +179,7 @@ class ComunicadosIT extends BaseDatosPrueba {
     private Fila fila(UUID id) {
         return jdbc.sql("""
                         SELECT estado_publicacion, aprobado_por, publicado_en, observaciones
-                          FROM comunicados
+                          FROM siglim.comunicados
                          WHERE id = :id
                         """)
                 .param("id", id)
@@ -194,7 +194,7 @@ class ComunicadosIT extends BaseDatosPrueba {
     private List<Historial> historial(UUID id) {
         return jdbc.sql("""
                         SELECT estado_anterior, estado_nuevo, motivo, cambiado_por
-                          FROM historial_publicacion
+                          FROM siglim.historial_publicacion
                          WHERE entidad = 'COMUNICADO' AND entidad_id = :id
                          ORDER BY cambiado_en, id
                         """)
@@ -210,7 +210,7 @@ class ComunicadosIT extends BaseDatosPrueba {
     private List<Auditoria> auditoria(UUID id) {
         return jdbc.sql("""
                         SELECT accion, perfil_id, motivo
-                          FROM auditoria
+                          FROM siglim.auditoria
                          WHERE entidad = 'comunicados' AND entidad_id = :id
                          ORDER BY id
                         """)
