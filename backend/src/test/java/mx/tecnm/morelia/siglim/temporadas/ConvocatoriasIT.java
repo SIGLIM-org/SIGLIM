@@ -38,6 +38,9 @@ class ConvocatoriasIT extends BaseDatosPrueba {
     @Autowired
     private TemporadaService temporadas;
 
+    @Autowired
+    private ParametrosService parametros;
+
     @BeforeEach
     void cerrarTemporadasActivas() {
         jdbc.sql("UPDATE siglim.temporadas SET estado = 'CERRADA' WHERE estado = 'ACTIVA'").update();
@@ -133,8 +136,7 @@ class ConvocatoriasIT extends BaseDatosPrueba {
 
     private TemporadaDto crearYActivar() {
         TemporadaDto temporada = nuevaTemporada();
-        jdbc.sql("INSERT INTO siglim.parametros_temporada (temporada_id, motivo) VALUES (:id, 'Parámetros de prueba')")
-                .param("id", temporada.id()).update();
+        parametros.registrar(temporada.id(), ParametrosPrueba.valido());
         UUID categoriaTemporada = jdbc.sql("""
                         INSERT INTO siglim.categorias (liga_id, nombre, tipo, orden)
                         SELECT t.liga_id, :nombre, 'LIBRE',
