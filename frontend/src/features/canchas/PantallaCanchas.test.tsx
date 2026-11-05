@@ -273,6 +273,38 @@ describe('PantallaCanchas', () => {
     ).toBeInTheDocument()
   })
 
+  it('RF-031 (E6): tras registrar un mantenimiento avisa de los partidos que quedaron dentro', async () => {
+    post.mockResolvedValue({
+      disponibilidad: {
+        id: 'd1',
+        tipo: 'MANTENIMIENTO',
+        periodo: PARTIDO.periodo,
+        motivo: MOTIVO,
+        creadoEn: '2030-03-01T10:00:00-06:00',
+      },
+      partidosAfectados: [PARTIDO],
+    })
+    montar(`${RUTA}/c1`)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Bloquear intervalo' }))
+    const dialogo = screen.getByRole('dialog', { name: /Bloquear intervalo/ })
+    await userEvent.selectOptions(
+      within(dialogo).getByRole('combobox', { name: /Tipo de restricción/ }),
+      'MANTENIMIENTO',
+    )
+    await userEvent.type(within(dialogo).getByLabelText(/Inicio/), '2030-03-10T10:00')
+    await userEvent.type(within(dialogo).getByLabelText(/^Fin/), '2030-03-10T12:00')
+    await userEvent.type(within(dialogo).getByLabelText(/Motivo/), MOTIVO)
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByText('Mantenimiento registrado.')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        '1 partido(s) quedaron dentro del mantenimiento y no se reprogramaron: reprográmalos manualmente.',
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('RF-028 (CA-2): filtrar por sede pide sedeId y «Quitar filtros» lo quita', async () => {
     responder({ lista: pagina([]) })
     montar()

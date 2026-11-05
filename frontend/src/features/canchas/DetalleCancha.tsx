@@ -14,7 +14,7 @@ import { rangoSemana } from '@/features/canchas/fechas'
 import { FormularioCancha } from '@/features/canchas/FormularioCancha'
 import { ModalEstadoCancha } from '@/features/canchas/ModalEstadoCancha'
 import { ModalIntervalo } from '@/features/canchas/ModalIntervalo'
-import type { PartidoEnCancha } from '@/features/canchas/tipos'
+import type { PartidoEnCancha, TipoDisponibilidad } from '@/features/canchas/tipos'
 import { ConPermiso } from '@/features/seguridad/ConPermiso'
 
 type Props = {
@@ -26,11 +26,19 @@ type Props = {
 }
 
 type Modal = 'disponibilidad' | 'bloqueo' | 'editar' | 'estado' | null
-type Aviso = { mensaje: string; afectados: PartidoEnCancha[] }
+type Restriccion = 'bloqueo' | 'mantenimiento'
+type Aviso = { mensaje: string; afectados: PartidoEnCancha[]; restriccion?: Restriccion | null }
 
 const EDITAR = 'canchas.cancha:EDITAR'
 
-/** Datos de la cancha, sus acciones y su calendario (RF-027, RF-029, RF-030, VAL-005). */
+/** [PROPUESTA] E6: aviso de éxito por tipo registrado; el `Record` obliga a cubrir cada tipo. */
+const avisoPorTipo: Record<TipoDisponibilidad, { exito: string; restriccion: Restriccion | null }> = {
+  DISPONIBLE: { exito: 'Disponibilidad registrada.', restriccion: null },
+  BLOQUEO: { exito: 'Bloqueo registrado.', restriccion: 'bloqueo' },
+  MANTENIMIENTO: { exito: 'Mantenimiento registrado.', restriccion: 'mantenimiento' },
+}
+
+/** Datos de la cancha, sus acciones y su calendario (RF-027, RF-029, RF-030, RF-031, VAL-005). */
 export function DetalleCancha({ canchaId, semana, rutaCatalogo, onCambiarSemana }: Props) {
   const consulta = useCancha(canchaId)
   const rango = useMemo(() => rangoSemana(semana), [semana])
@@ -136,7 +144,7 @@ export function DetalleCancha({ canchaId, semana, rutaCatalogo, onCambiarSemana 
             </p>
             {aviso.afectados.length > 0 && (
               <AvisoPartidosAfectados
-                mensaje={`${aviso.afectados.length} partido(s) quedaron dentro del bloqueo y no se reprogramaron: reprográmalos manualmente.`}
+                mensaje={`${aviso.afectados.length} partido(s) quedaron dentro del ${aviso.restriccion ?? 'bloqueo'} y no se reprogramaron: reprográmalos manualmente.`}
                 nota="Los partidos conservan su horario y su estado."
                 partidos={aviso.afectados}
               />
@@ -161,11 +169,9 @@ export function DetalleCancha({ canchaId, semana, rutaCatalogo, onCambiarSemana 
           tipo={modal === 'bloqueo' ? 'BLOQUEO' : 'DISPONIBLE'}
           onCerrar={() => setModal(null)}
           onRegistrado={({ disponibilidad, partidosAfectados }) => {
+            const { exito, restriccion } = avisoPorTipo[disponibilidad.tipo]
             setModal(null)
-            setAviso({
-              mensaje: disponibilidad.tipo === 'BLOQUEO' ? 'Bloqueo registrado.' : 'Disponibilidad registrada.',
-              afectados: partidosAfectados,
-            })
+            setAviso({ mensaje: exito, afectados: partidosAfectados, restriccion })
           }}
         />
       )}
