@@ -28,6 +28,19 @@ describe('subsecciones', () => {
     expect(seccionDeRuta('/app/administracion/auditoria')?.nombre).toBe('Administración')
   })
 
+  it('H-03.2: Administración ofrece Usuarios con su permiso y la ruta queda en la sección', () => {
+    const administracion = seccionesApp.find(({ nombre }) => nombre === 'Administración')
+
+    expect(administracion?.subsecciones).toContainEqual(
+      expect.objectContaining({
+        nombre: 'Usuarios',
+        ruta: '/app/administracion/usuarios',
+        permiso: 'seguridad.usuario:CONSULTAR',
+      }),
+    )
+    expect(seccionDeRuta('/app/administracion/usuarios')?.nombre).toBe('Administración')
+  })
+
   it('H-04.2: Administración ofrece Temporadas con su permiso y la ruta queda en la sección', () => {
     const administracion = seccionesApp.find(({ nombre }) => nombre === 'Administración')
 
