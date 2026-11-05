@@ -60,6 +60,10 @@ class CanchaControllerTest {
             {"tipo":"BLOQUEO","periodo":{"desde":"2030-03-10T10:00:00-06:00","hasta":"2030-03-10T12:00:00-06:00"},
              "motivo":"Riego de la cancha programado"}
             """;
+    private static final String CUERPO_MANTENIMIENTO = """
+            {"tipo":"MANTENIMIENTO","periodo":{"desde":"2030-03-10T10:00:00-06:00","hasta":"2030-03-10T12:00:00-06:00"},
+             "motivo":"Resiembra del pasto en el área chica","confirmarPartidosAfectados":true}
+            """;
 
     @Autowired
     private MockMvcTester mvc;
@@ -165,6 +169,26 @@ class CanchaControllerTest {
                 ArgumentCaptor.forClass(RegistrarDisponibilidadRequest.class);
         Mockito.verify(servicio).registrarDisponibilidad(eq(ID), peticion.capture());
         assertThat(peticion.getValue().periodo().desde().toInstant()).isEqualTo(DESDE.toInstant());
+    }
+
+    @Test
+    @DisplayName("RF-031: POST con tipo MANTENIMIENTO responde 201 y llega al servicio como MANTENIMIENTO")
+    void registrarMantenimiento() {
+        given(servicio.registrarDisponibilidad(eq(ID), any(RegistrarDisponibilidadRequest.class)))
+                .willReturn(new RegistroDisponibilidadDto(new DisponibilidadDto(UUID.randomUUID(),
+                        TipoDisponibilidad.MANTENIMIENTO, PERIODO, "Resiembra del pasto en el área chica", DESDE),
+                        List.of()));
+
+        MvcTestResult resultado = post(BASE + "/" + ID + "/disponibilidad", CUERPO_MANTENIMIENTO);
+
+        assertThat(resultado).hasStatus(HttpStatus.CREATED);
+        assertThat(resultado).bodyJson().extractingPath("$.disponibilidad.tipo").isEqualTo("MANTENIMIENTO");
+        ArgumentCaptor<RegistrarDisponibilidadRequest> peticion =
+                ArgumentCaptor.forClass(RegistrarDisponibilidadRequest.class);
+        Mockito.verify(servicio).registrarDisponibilidad(eq(ID), peticion.capture());
+        assertThat(peticion.getValue().tipo()).isEqualTo(TipoDisponibilidad.MANTENIMIENTO);
+        assertThat(peticion.getValue().motivo()).isEqualTo("Resiembra del pasto en el área chica");
+        assertThat(peticion.getValue().confirmarPartidosAfectados()).isTrue();
     }
 
     @Test

@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.8 · 4 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 2.9 · 4 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -27,6 +27,7 @@ Versión 2.8 · 4 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 2.6 | 3 de noviembre de 2026 | H-26.1: §6.9 con el rango numérico de `partidosSuspension`, `puntos` y `montoMulta` según sus columnas. |
 | 2.7 | 4 de noviembre de 2026 | B-02.1: §6.2 con el contrato de la convocatoria (`PUT /temporadas/{id}/convocatoria`), su reemplazo completo, sus errores y la auditoría; la temporada incluye `convocatoria` cuando existe. |
 | 2.8 | 4 de noviembre de 2026 | B-11.1: §6.6 con el contrato de sedes (`CONSULTAR` en el `GET`, `EDITAR` en `POST` y `PATCH`, lista sin paginar), el filtro `sedeId` de `GET /canchas`, `sede` en la cancha, `quitarSede` y el `422 REFERENCIA_INVALIDA` de una sede inexistente. |
+| 2.9 | 4 de noviembre de 2026 | B-12.1: §6.6 con el registro de `MANTENIMIENTO` (RF-031) como bloqueo tipificado: motivo obligatorio, mismo `409 RF-030` aceptable sobre partidos, traslape libre y acción `REGISTRAR_MANTENIMIENTO`. |
 
 ## Índice
 
@@ -512,14 +513,25 @@ Cada equipo trae referencias anidadas (§9.1):
   sin la dirección en el detalle.
 - `desde` y `hasta` son obligatorios en las consultas de disponibilidad y ocupación, con un rango de
   31 días como máximo **[PROPUESTA]**. Sin ellos, o con un rango mayor, `400 VALIDACION`.
-- **Bloqueo sobre partidos (PEN-007, [PROPUESTA]).** Un `BLOQUEO` que se traslapa con partidos
-  `PROGRAMADO` o `REPROGRAMADO` responde `409`, `codigo: "RF-030"`, `"aceptable": true` y
-  `"partidosAfectados": […]`, sin guardar. Reenviado con `"confirmarPartidosAfectados": true`, se
-  guarda (`201`). Los partidos **no se modifican**: se reprograman a mano. Desactivar una cancha con
-  partidos en curso o futuros sigue el mismo flujo en el `PATCH`.
+- **Bloqueo y mantenimiento sobre partidos (PEN-007, [PROPUESTA]).** Un `BLOQUEO` o un
+  `MANTENIMIENTO` que se traslapa con partidos `PROGRAMADO` o `REPROGRAMADO` responde `409`,
+  `codigo: "RF-030"`, `"aceptable": true` y `"partidosAfectados": […]`, sin guardar. Reenviado con
+  `"confirmarPartidosAfectados": true`, se guarda (`201`). Los partidos **no se modifican**: se
+  reprograman a mano. Desactivar una cancha con partidos en curso o futuros sigue el mismo flujo en
+  el `PATCH`.
 - Dos `DISPONIBLE` de la misma cancha no se traslapan: `409`, `codigo: "RF-029"` **[PROPUESTA]**. Un
-  `BLOQUEO` puede traslaparse con cualquier registro.
-- `MANTENIMIENTO` se lee si existe, pero no se registra hasta B-12 (RF-031): `400 VALIDACION`.
+  `BLOQUEO` o un `MANTENIMIENTO` puede traslaparse con cualquier registro, también entre ellos
+  **[PROPUESTA]**.
+- **Mantenimiento (RF-031, [PROPUESTA] B-12.1).** `MANTENIMIENTO` es un bloqueo tipificado: el
+  trigger de VAL-005 rechaza cualquier partido que caiga en él, igual que en un `BLOQUEO`.
+  - El `motivo` es obligatorio, de al menos 10 caracteres: sin él, `400 RN-021` sin guardar.
+  - Sobre partidos sigue el flujo de dos pasos del bloqueo, con el mismo código `RF-030` (la regla de
+    confirmación es de RF-030 y RF-031 la hereda) y el mensaje «El mantenimiento afecta a N
+    partido(s), que no se reprogramarán solos.».
+  - En la ocupación sale como un bloque `MANTENIMIENTO`, separado de los `BLOQUEO`, con su motivo.
+- **Auditoría del `POST` [PROPUESTA].** Cada tipo tiene su acción: `REGISTRAR_DISPONIBILIDAD`,
+  `BLOQUEAR_CANCHA` y `REGISTRAR_MANTENIMIENTO`. El evento lleva el `motivo` y en el detalle
+  `canchaId`, `tipo`, `desde`, `hasta`, `partidosAfectados` y `partidosAfectadosIds`.
 
 ### 6.7 M-07 Programación manual
 

@@ -67,6 +67,8 @@ class CanchaServiceTest {
             DESDE);
     private static final DisponibilidadDto BLOQUEO_GUARDADO = new DisponibilidadDto(UUID.randomUUID(),
             TipoDisponibilidad.BLOQUEO, PERIODO, MOTIVO, DESDE);
+    private static final DisponibilidadDto MANTENIMIENTO_GUARDADO = new DisponibilidadDto(UUID.randomUUID(),
+            TipoDisponibilidad.MANTENIMIENTO, PERIODO, MOTIVO, DESDE);
 
     private final CanchaRepository canchas = mock(CanchaRepository.class);
     private final SedeRepository sedes = mock(SedeRepository.class);
@@ -112,6 +114,10 @@ class CanchaServiceTest {
 
     private static RegistrarDisponibilidadRequest bloqueo(String motivo, Boolean confirmar) {
         return new RegistrarDisponibilidadRequest(TipoDisponibilidad.BLOQUEO, PERIODO, motivo, confirmar);
+    }
+
+    private static RegistrarDisponibilidadRequest mantenimiento(String motivo, Boolean confirmar) {
+        return new RegistrarDisponibilidadRequest(TipoDisponibilidad.MANTENIMIENTO, PERIODO, motivo, confirmar);
     }
 
     private static Consumer<ReglaNegocioException> error(HttpStatus estado, String codigo) {
@@ -406,13 +412,16 @@ class CanchaServiceTest {
     }
 
     @Test
-    @DisplayName("RF-031: MANTENIMIENTO no se registra todavía (B-12)")
-    void mantenimientoRechazado() {
+    @DisplayName("RN-021: sin motivo o con motivo de menos de 10 caracteres, el mantenimiento responde 400 RN-021 y no inserta")
+    void mantenimientoSinMotivo() {
         canchaBloqueable();
-        var peticion = new RegistrarDisponibilidadRequest(TipoDisponibilidad.MANTENIMIENTO, PERIODO, MOTIVO, null);
 
-        assertThatThrownBy(() -> servicio.registrarDisponibilidad(ID, peticion))
-                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "VALIDACION"));
+        assertThatThrownBy(() -> servicio.registrarDisponibilidad(ID, mantenimiento(null, true)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "RN-021"));
+        assertThatThrownBy(() -> servicio.registrarDisponibilidad(ID, mantenimiento("  Pintura  ", true)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "RN-021"));
+        verify(disponibilidades, never()).insertar(any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
     }
 
     @Test
@@ -501,6 +510,52 @@ class CanchaServiceTest {
     }
 
     @Test
+    @DisplayName("RF-031: un mantenimiento con partidos afectados y sin confirmación responde 409 RF-030 aceptable y no inserta")
+    void mantenimientoSinConfirmacion() {
+        canchaBloqueable();
+        given(partidos.listarProgramados(ID, PERIODO)).willReturn(List.of(PARTIDO));
+
+        assertThatThrownBy(() -> servicio.registrarDisponibilidad(ID, mantenimiento(MOTIVO, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
+                    assertThat(excepcion.estado()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(excepcion.codigo()).isEqualTo("RF-030");
+                    assertThat(excepcion.getMessage())
+                            .isEqualTo("El mantenimiento afecta a 1 partido(s), que no se reprogramarán solos.");
+                    assertThat(excepcion.propiedades()).containsEntry("aceptable", true)
+                            .containsEntry("partidosAfectados", List.of(PARTIDO));
+                });
+        verify(disponibilidades, never()).insertar(any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-031: con confirmación guarda el tipo MANTENIMIENTO y devuelve los partidos afectados")
+    void mantenimientoConConfirmacion() {
+        canchaBloqueable();
+        given(partidos.listarProgramados(ID, PERIODO)).willReturn(List.of(PARTIDO));
+        given(disponibilidades.insertar(ID, TipoDisponibilidad.MANTENIMIENTO, PERIODO, MOTIVO, PERFIL))
+                .willReturn(MANTENIMIENTO_GUARDADO);
+
+        var registro = servicio.registrarDisponibilidad(ID, mantenimiento(MOTIVO, true));
+
+        assertThat(registro.partidosAfectados()).containsExactly(PARTIDO);
+        assertThat(registro.disponibilidad()).isEqualTo(MANTENIMIENTO_GUARDADO);
+    }
+
+    @Test
+    @DisplayName("RF-031: un MANTENIMIENTO no se compara contra la disponibilidad existente")
+    void mantenimientoPuedeTraslaparse() {
+        canchaBloqueable();
+        given(partidos.listarProgramados(ID, PERIODO)).willReturn(List.of());
+        given(disponibilidades.insertar(ID, TipoDisponibilidad.MANTENIMIENTO, PERIODO, MOTIVO, PERFIL))
+                .willReturn(MANTENIMIENTO_GUARDADO);
+
+        servicio.registrarDisponibilidad(ID, mantenimiento(MOTIVO, null));
+
+        verify(disponibilidades, never()).buscarDisponibleTraslapado(any(), any());
+    }
+
+    @Test
     @DisplayName("RF-030: desactivar una cancha con partidos futuros sigue el mismo flujo de dos pasos")
     void desactivarConPartidos() {
         canchaBloqueable();
@@ -551,6 +606,28 @@ class CanchaServiceTest {
         Map<String, Object> detalle = evento.detalle();
         assertThat(detalle).containsEntry("partidosAfectados", 1);
         assertThat(detalle).containsEntry("partidosAfectadosIds", List.of(PARTIDO.id().toString()));
+    }
+
+    @Test
+    @DisplayName("RF-093: un mantenimiento se audita como REGISTRAR_MANTENIMIENTO con su motivo y los partidos afectados")
+    void auditaMantenimiento() {
+        canchaBloqueable();
+        given(partidos.listarProgramados(ID, PERIODO)).willReturn(List.of(PARTIDO));
+        given(disponibilidades.insertar(ID, TipoDisponibilidad.MANTENIMIENTO, PERIODO, MOTIVO, PERFIL))
+                .willReturn(MANTENIMIENTO_GUARDADO);
+
+        servicio.registrarDisponibilidad(ID, mantenimiento(MOTIVO, true));
+
+        verify(motivoOperacion).fijar(MOTIVO);
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.accion()).isEqualTo("REGISTRAR_MANTENIMIENTO");
+        assertThat(evento.entidadId()).isEqualTo(MANTENIMIENTO_GUARDADO.id().toString());
+        assertThat(evento.motivo()).isEqualTo(MOTIVO);
+        Map<String, Object> detalle = evento.detalle();
+        assertThat(detalle).containsEntry("canchaId", ID.toString())
+                .containsEntry("tipo", "MANTENIMIENTO")
+                .containsEntry("partidosAfectados", 1)
+                .containsEntry("partidosAfectadosIds", List.of(PARTIDO.id().toString()));
     }
 
     @Test
