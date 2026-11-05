@@ -1,0 +1,30 @@
+{
+  "disponibilidad": {
+    "id": "e91495fb-9a32-4a9c-a8e2-688b1399d64c",
+    "tipo": "MANTENIMIENTO",
+    "periodo": {
+      "desde": "2026-11-05T14:00:00-06:00",
+      "hasta": "2026-11-05T16:00:00-06:00"
+    },
+    "motivo": "Mantenimiento por resiembra del área chica",
+    "creadoEn": "2026-11-05T08:26:12.945316-06:00"
+  },
+  "partidosAfectados": [
+    {
+      "id": "a4000000-0000-4000-8000-000000000001",
+      "estado": "PROGRAMADO",
+      "periodo": {
+        "desde": "2026-11-05T15:00:00-06:00",
+        "hasta": "2026-11-05T17:00:00-06:00"
+      },
+      "equipoLocal": {
+        "id": "b2000000-0000-4000-8000-000000000001",
+        "nombre": "Halcones B-12"
+      },
+      "equipoVisitante": {
+        "id": "b2000000-0000-4000-8000-000000000002",
+        "nombre": "Toros B-12"
+      }
+    }
+  ]
+}

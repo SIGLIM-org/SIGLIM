@@ -231,8 +231,11 @@ RF-027, RF-029, RF-030 o VAL-005.
 1. **PEN-007 sigue abierto.** Lo probado es la propuesta del ERS: el bloqueo se confirma en dos pasos
    y los partidos afectados se reprograman a mano. La formalidad del bloqueo debe validarse con la
    Liga; si cambia, cambian el `409` y el aviso, no la validación `VAL-005`.
-2. **`MANTENIMIENTO` todavía no se registra** (B-12): el calendario ya lo distingue con su color, pero
-   la pantalla solo ofrece disponibilidad y bloqueo.
+2. **`MANTENIMIENTO` ya se registra desde B-12.** La pantalla ofrece «Mantenimiento» en el modal
+   «Bloquear intervalo» (B-12.2) y el backend lo guarda como bloqueo tipificado (B-12.1); la prueba
+   de aceptación de esa historia está en
+   [`B-12-mantenimiento-canchas.md`](B-12-mantenimiento-canchas.md). Esta observación describe la
+   versión `4be2795`, en la que la funcionalidad aún no existía.
 3. El partido de la prueba se sembró con SQL directo porque la programación manual es H-12. La
    comprobación de `VAL-005` se hizo, por tanto, en el trigger del esquema, que es el que usará la
    historia de programación.

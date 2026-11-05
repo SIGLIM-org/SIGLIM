@@ -1,0 +1,13 @@
+{
+  "disponibilidad": {
+    "id": "2c6e7157-81a2-4bbf-a389-5f9153f2253e",
+    "tipo": "MANTENIMIENTO",
+    "periodo": {
+      "desde": "2026-11-04T08:00:00-06:00",
+      "hasta": "2026-11-04T10:00:00-06:00"
+    },
+    "motivo": "Riego y mantenimiento del césped",
+    "creadoEn": "2026-11-05T08:26:12.144788-06:00"
+  },
+  "partidosAfectados": []
+}

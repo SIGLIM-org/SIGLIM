@@ -1,0 +1,20 @@
+Corrida de verificación · B-12.3 · 2026-11-05
+
+Backend (./mvnw -q test, surefire):
+  tests=653  errors=0  skipped=0  failures=0
+
+Frontend (npm test -- --run):
+  Test Files  46 passed (46)
+  Tests       312 passed (312)
+
+Frontend (npm run lint):
+  Found 0 warnings and 0 errors.
+
+Frontend (npm run build):
+  ✓ built
+
+Pruebas de integración con Testcontainers (CanchasIT): no ejecutadas en esta corrida
+porque el entorno no tenía Docker. El trigger VAL-005, la auditoría y el flujo completo
+se verificaron contra PostgreSQL 18.6 local, el backend y el frontend reales; la salida
+del trigger está en CA2-val-005-mantenimiento.txt y la auditoría en
+auditoria-mantenimientos.txt.
