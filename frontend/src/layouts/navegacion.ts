@@ -96,6 +96,12 @@ export const seccionesApp: SeccionApp[] = [
         descripcion: 'Ciclos deportivos, activación y cierre.',
       },
       {
+        nombre: 'Usuarios',
+        ruta: '/app/administracion/usuarios',
+        permiso: 'seguridad.usuario:CONSULTAR',
+        descripcion: 'Cuentas, roles y ámbitos de acceso.',
+      },
+      {
         nombre: 'Comunicados',
         ruta: '/app/administracion/comunicados',
         permiso: [
