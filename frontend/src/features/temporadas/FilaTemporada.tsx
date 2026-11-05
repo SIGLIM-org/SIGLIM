@@ -1,9 +1,12 @@
 import { useId } from 'react'
-import { FileText, Lock, LockKeyhole, Pencil, Play } from 'lucide-react'
+import { Link } from 'react-router'
+import { FileText, Lock, LockKeyhole, Network, Pencil, Play } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { clasesBoton } from '@/components/ui/estilosBoton'
 import { Insignia } from '@/components/ui/Insignia'
 import { etiquetaEstadoTemporada } from '@/features/temporadas/etiquetas'
 import { formatearFecha, formatearPeriodo } from '@/features/temporadas/fechas'
+import { PESTANA_DE_REQUISITO, rutaEstructura } from '@/features/temporadas/pestanas'
 import type { Temporada } from '@/features/temporadas/tipos'
 import { ConPermiso } from '@/features/seguridad/ConPermiso'
 
@@ -113,18 +116,22 @@ export function FilaTemporada({
 
       <td role="cell" className="block pt-3 lg:table-cell lg:px-4 lg:py-3 lg:text-right">
         <span className={CLASE_ETIQUETA}>Acciones</span>
-        {temporada.estado === 'CERRADA' ? (
-          <span className="inline-flex items-center gap-1.5 text-body-sm text-text-muted">
-            <Lock aria-hidden="true" className="size-4 shrink-0" />
-            Solo lectura
-          </span>
-        ) : (
-          <ConPermiso
-            permiso={['temporadas.temporada:EDITAR', 'temporadas.convocatoria:EDITAR']}
-            alternativa={<span className="text-body-sm text-text-muted">Solo consulta</span>}
-          >
-            <div className="flex flex-col items-start gap-2 lg:items-end">
-              <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col items-start gap-2 lg:items-end">
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+            <Link to={rutaEstructura(temporada.id)} className={clasesBoton('secundario')}>
+              <Network aria-hidden="true" className="size-4 shrink-0" />
+              {temporada.estado === 'CERRADA' ? 'Ver estructura' : 'Estructura'}
+            </Link>
+            {temporada.estado === 'CERRADA' ? (
+              <span className="flex items-center gap-1.5 text-body-sm text-text-muted">
+                <Lock aria-hidden="true" className="size-4 shrink-0" />
+                Solo lectura
+              </span>
+            ) : (
+              <ConPermiso
+                permiso={['temporadas.temporada:EDITAR', 'temporadas.convocatoria:EDITAR']}
+                alternativa={<span className="text-body-sm text-text-muted">Solo consulta</span>}
+              >
                 <ConPermiso permiso="temporadas.convocatoria:EDITAR">
                   <Button
                     variante="secundario"
@@ -178,34 +185,49 @@ export function FilaTemporada({
                     </>
                   )}
                 </ConPermiso>
+              </ConPermiso>
+            )}
+          </div>
+          {esConfiguracion && !puedeActivarse && (
+            <ConPermiso permiso="temporadas.temporada:EDITAR">
+              <div id={idAyuda} className="max-w-xs text-left lg:text-right">
+                <p className="text-body-sm text-text-muted">No se puede activar todavía:</p>
+                {faltantes.length > 0 ? (
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-left text-body-sm text-text-muted">
+                    {faltantes.map((requisito) => {
+                      const pestana = PESTANA_DE_REQUISITO[requisito.codigo]
+
+                      return (
+                        <li key={requisito.codigo}>
+                          {pestana ? (
+                            <Link
+                              to={rutaEstructura(temporada.id, pestana)}
+                              className="text-primary underline underline-offset-2 hover:text-primary-hover"
+                            >
+                              {requisito.descripcion}
+                            </Link>
+                          ) : (
+                            requisito.descripcion
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-body-sm text-text-muted">
+                    No se pudo verificar la lista de requisitos.
+                  </p>
+                )}
+                <a
+                  href={`#panel-${temporada.id}`}
+                  className="mt-1 inline-flex min-h-11 items-center text-body-sm text-primary underline-offset-2 hover:underline"
+                >
+                  Ver lista de verificación
+                </a>
               </div>
-              {esConfiguracion && !puedeActivarse && (
-                <ConPermiso permiso="temporadas.temporada:EDITAR">
-                  <div id={idAyuda} className="max-w-xs text-left lg:text-right">
-                    <p className="text-body-sm text-text-muted">No se puede activar todavía:</p>
-                    {faltantes.length > 0 ? (
-                      <ul className="mt-1 list-disc space-y-0.5 pl-4 text-left text-body-sm text-text-muted">
-                        {faltantes.map((requisito) => (
-                          <li key={requisito.codigo}>{requisito.descripcion}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="mt-1 text-body-sm text-text-muted">
-                        No se pudo verificar la lista de requisitos.
-                      </p>
-                    )}
-                    <a
-                      href={`#panel-${temporada.id}`}
-                      className="mt-1 inline-flex min-h-11 items-center text-body-sm text-primary underline-offset-2 hover:underline"
-                    >
-                      Ver lista de verificación
-                    </a>
-                  </div>
-                </ConPermiso>
-              )}
-            </div>
-          </ConPermiso>
-        )}
+            </ConPermiso>
+          )}
+        </div>
       </td>
     </tr>
   )

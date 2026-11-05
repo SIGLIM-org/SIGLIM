@@ -238,6 +238,50 @@ describe('PantallaTemporadas', () => {
     expect(within(panel).getByText('Faltan requisitos')).toBeInTheDocument()
   })
 
+  it('H-05.3: el enlace «Estructura» lleva a F-11 y en una cerrada dice «Ver estructura»', async () => {
+    montar()
+
+    const activa = await filaDe('Temporada 2025–2026')
+    expect(within(activa).getByRole('link', { name: 'Estructura' })).toHaveAttribute(
+      'href',
+      '/app/administracion/temporadas/t-activa/estructura',
+    )
+
+    const cerrada = await filaDe('Temporada 2024–2025')
+    expect(within(cerrada).getByRole('link', { name: 'Ver estructura' })).toHaveAttribute(
+      'href',
+      '/app/administracion/temporadas/t-cerrada/estructura',
+    )
+  })
+
+  it('H-05.3: sin EDITAR también se ve el enlace a la estructura', async () => {
+    otorgar(CONSULTAR)
+    montar()
+
+    const fila = await filaDe('Temporada 2025–2026')
+    expect(within(fila).getByRole('link', { name: 'Estructura' })).toBeInTheDocument()
+  })
+
+  it('RF-004, RF-005, RF-100: cada faltante enlaza a su pestaña y RN-058 queda como texto', async () => {
+    montar()
+
+    const fila = await filaDe('Temporada 2026–2027')
+    const base = '/app/administracion/temporadas/t-config/estructura'
+
+    expect(
+      within(fila).getByRole('link', { name: 'Faltan los parámetros deportivos de la temporada.' }),
+    ).toHaveAttribute('href', `${base}?pestana=parametros`)
+    expect(
+      within(fila).getByRole('link', { name: 'Falta asignar al menos una categoría a la temporada.' }),
+    ).toHaveAttribute('href', `${base}?pestana=categorias`)
+    expect(
+      within(fila).getByRole('link', { name: 'Falta crear al menos un grupo en una categoría.' }),
+    ).toHaveAttribute('href', `${base}?pestana=grupos`)
+    expect(
+      within(fila).queryByRole('link', { name: /ciérrala antes de activar esta/ }),
+    ).not.toBeInTheDocument()
+  })
+
   it('H-04.2: activar envía la acción y avisa cuando la lista está completa', async () => {
     responder(pagina([CONFIGURACION_LISTA]))
     post.mockResolvedValue({ ...CONFIGURACION_LISTA, estado: 'ACTIVA' })
