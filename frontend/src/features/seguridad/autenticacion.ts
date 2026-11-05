@@ -36,8 +36,17 @@ export function correoValido(correo: string): boolean {
 }
 
 /**
+ * Fallas del servicio de autenticación: un 5xx o un 404 (URL de Supabase Auth
+ * mal configurada) no son credenciales incorrectas (DEF-01).
+ */
+const MENSAJE_SERVICIO_NO_DISPONIBLE =
+  'El servicio de acceso no está disponible en este momento. Intenta de nuevo más tarde; si continúa, contacta al administrador de la Liga.'
+
+/**
  * Mensaje genérico de acceso fallido: no revela si el correo existe o si la
- * contraseña es la incorrecta (criterio de aceptación 2 de H-01, VAL-015).
+ * contraseña es la incorrecta (criterio de aceptación 2 de H-01, VAL-015). Los
+ * errores del servidor o de configuración se informan como tales para no
+ * culpar al usuario ni ocultar la causa real (DEF-01).
  */
 export function mensajeDeErrorDeAcceso(error: ErrorAutenticacion): string {
   if (error.status === 429) {
@@ -46,6 +55,10 @@ export function mensajeDeErrorDeAcceso(error: ErrorAutenticacion): string {
 
   if (error.status === undefined || error.status === 0) {
     return 'No se pudo conectar con el servicio. Revisa tu conexión e intenta de nuevo.'
+  }
+
+  if (error.status === 404 || error.status >= 500) {
+    return MENSAJE_SERVICIO_NO_DISPONIBLE
   }
 
   return 'Correo o contraseña incorrectos.'

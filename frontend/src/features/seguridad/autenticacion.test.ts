@@ -39,6 +39,19 @@ describe('autenticacion', () => {
     expect(mensajeDeErrorDeAcceso({})).toContain('No se pudo conectar')
   })
 
+  it('DEF-01: no atribuye a las credenciales las fallas del servidor ni de configuración', () => {
+    const mensajeServidor = mensajeDeErrorDeAcceso({ status: 500 })
+
+    expect(mensajeServidor).toContain('El servicio de acceso no está disponible')
+    expect(mensajeServidor).not.toMatch(/correo o contraseña incorrectos/i)
+    expect(mensajeDeErrorDeAcceso({ status: 503 })).toBe(mensajeServidor)
+    expect(mensajeDeErrorDeAcceso({ status: 502 })).toBe(mensajeServidor)
+    expect(mensajeDeErrorDeAcceso({ status: 404 })).toBe(mensajeServidor)
+    expect(
+      mensajeDeErrorDeAcceso({ status: 400, code: 'invalid_credentials' }),
+    ).toBe('Correo o contraseña incorrectos.')
+  })
+
   it('H-01.2: usa un mensaje genérico al fallar la recuperación', () => {
     expect(mensajeDeErrorDeRecuperacion({ status: 400 })).toBe(
       'No pudimos enviar el enlace en este momento. Intenta de nuevo más tarde.',

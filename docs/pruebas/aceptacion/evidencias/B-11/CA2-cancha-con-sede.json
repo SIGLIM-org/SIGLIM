@@ -1,0 +1,12 @@
+{
+  "id": "d781a315-8198-405b-a6af-dcf09c06b06c",
+  "nombre": "Cancha Norte de Aceptación B-11",
+  "ubicacion": "UNIDAD_DEPORTIVA",
+  "sede": {
+    "id": "cf45aab0-5407-48a4-83ae-b53a5fdcfcf3",
+    "nombre": "Unidad Deportiva Morelia"
+  },
+  "propietario": "LIGA",
+  "activa": true,
+  "creadoEn": "2026-11-05T09:31:02.702341-06:00"
+}

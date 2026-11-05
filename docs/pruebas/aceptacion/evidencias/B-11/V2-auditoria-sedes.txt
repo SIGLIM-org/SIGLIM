@@ -1,0 +1,15 @@
+fecha: 2026-11-05T15:31:03.089Z
+perfil: admin
+modulo: M-06
+accion: REGISTRAR_SEDE
+entidad: sedes cf45aab0-5407-48a4-83ae-b53a5fdcfcf3
+motivo: null
+detalle: {"campos":["nombre","direccion"]}
+
+fecha: 2026-11-05T15:31:04.205Z
+perfil: admin
+modulo: M-06
+accion: EDITAR_SEDE
+entidad: sedes cf45aab0-5407-48a4-83ae-b53a5fdcfcf3
+motivo: null
+detalle: {"campos":["direccion"]}
