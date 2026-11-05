@@ -2,7 +2,9 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import type {
   ActualizarTemporadaPeticion,
   CerrarTemporadaPeticion,
+  Convocatoria,
   CrearTemporadaPeticion,
+  ReemplazarConvocatoriaPeticion,
   Temporada,
 } from '@/features/temporadas/tipos'
 import { api } from '@/lib/api/cliente'
@@ -65,6 +67,16 @@ export function useCerrarTemporada() {
   return useMutation({
     mutationFn: ({ id, motivo }: CerrarTemporadaPeticion & { id: string }) =>
       api.post<Temporada>(`temporadas/${id}/cierre`, { motivo }),
+    onSuccess: () => clienteConsultas.invalidateQueries({ queryKey: clavesTemporadas.todas }),
+  })
+}
+
+export function useReemplazarConvocatoria(id: string) {
+  const clienteConsultas = useQueryClient()
+
+  return useMutation({
+    mutationFn: (peticion: ReemplazarConvocatoriaPeticion) =>
+      api.put<Convocatoria>(`temporadas/${id}/convocatoria`, peticion),
     onSuccess: () => clienteConsultas.invalidateQueries({ queryKey: clavesTemporadas.todas }),
   })
 }

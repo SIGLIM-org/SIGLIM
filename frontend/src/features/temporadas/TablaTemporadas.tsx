@@ -9,6 +9,7 @@ type Props = {
   onEditar: (temporada: Temporada) => void
   onActivar: (temporada: Temporada) => void
   onCerrar: (temporada: Temporada) => void
+  onConvocatoria: (temporada: Temporada) => void
 }
 
 const CLASE_ENCABEZADO = 'px-4 py-3 text-left text-label-sm text-text-muted'
@@ -24,6 +25,7 @@ export function TablaTemporadas({
   onEditar,
   onActivar,
   onCerrar,
+  onConvocatoria,
 }: Props) {
   return (
     <div
@@ -55,6 +57,9 @@ export function TablaTemporadas({
             <th role="columnheader" scope="col" className={CLASE_ENCABEZADO}>
               Estructura
             </th>
+            <th role="columnheader" scope="col" className={CLASE_ENCABEZADO}>
+              Convocatoria
+            </th>
             <th role="columnheader" scope="col" className={`${CLASE_ENCABEZADO} text-right`}>
               Acciones
             </th>
@@ -70,6 +75,7 @@ export function TablaTemporadas({
               onEditar={onEditar}
               onActivar={onActivar}
               onCerrar={onCerrar}
+              onConvocatoria={onConvocatoria}
             />
           ))}
         </tbody>
