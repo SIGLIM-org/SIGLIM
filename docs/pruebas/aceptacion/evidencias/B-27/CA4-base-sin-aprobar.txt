@@ -1,0 +1,5 @@
+                  id                  |              titulo               | estado_publicacion |            redactado_por             | aprobado_por | aprobado_en | publicado_en 
+--------------------------------------+-----------------------------------+--------------------+--------------------------------------+--------------+-------------+--------------
+ 7ec46db5-b4dc-44f9-b58a-14b3e72709ef | Prueba de separación de funciones | REVISION           | a1000000-0000-4000-8000-000000000003 |              |             | 
+(1 fila)
+

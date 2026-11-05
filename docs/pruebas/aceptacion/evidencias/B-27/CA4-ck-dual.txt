@@ -1,0 +1,6 @@
+-- Intento directo en la base local: aprobado_por = redactado_por.
+-- El backend nunca lo intenta; la restricción ck_comunicados_dual es la última garantía.
+UPDATE siglim.comunicados SET aprobado_por = redactado_por WHERE id = '7ec46db5-b4dc-44f9-b58a-14b3e72709ef';
+
+ERROR:  new row for relation "comunicados" violates check constraint "ck_comunicados_dual"
+DETALLE:  Failing row contains (7ec46db5-b4dc-44f9-b58a-14b3e72709ef, a0000000-0000-4000-8000-000000000001, Prueba de separación de funciones, Comunicado redactado y enviado por la misma cuenta que intentar..., REVISION, a1000000-0000-4000-8000-000000000003, a1000000-0000-4000-8000-000000000003, null, null, null, 2026-11-04 19:09:34.615503-06, 2026-11-04 19:12:05.794548-06).
