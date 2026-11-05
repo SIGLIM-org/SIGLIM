@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.7 · 4 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 2.8 · 4 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -26,6 +26,7 @@ Versión 2.7 · 4 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 2.5 | 3 de noviembre de 2026 | H-26.1: §6.9 con las rutas completas de los catálogos disciplinarios, el filtro `activo`, la baja lógica y los valores por tipo de sanción. |
 | 2.6 | 3 de noviembre de 2026 | H-26.1: §6.9 con el rango numérico de `partidosSuspension`, `puntos` y `montoMulta` según sus columnas. |
 | 2.7 | 4 de noviembre de 2026 | B-02.1: §6.2 con el contrato de la convocatoria (`PUT /temporadas/{id}/convocatoria`), su reemplazo completo, sus errores y la auditoría; la temporada incluye `convocatoria` cuando existe. |
+| 2.8 | 4 de noviembre de 2026 | B-11.1: §6.6 con el contrato de sedes (`CONSULTAR` en el `GET`, `EDITAR` en `POST` y `PATCH`, lista sin paginar), el filtro `sedeId` de `GET /canchas`, `sede` en la cancha, `quitarSede` y el `422 REFERENCIA_INVALIDA` de una sede inexistente. |
 
 ## Índice
 
@@ -494,13 +495,21 @@ Cada equipo trae referencias anidadas (§9.1):
 
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
-| `GET /canchas` · `GET /canchas/{id}` · `POST` · `PATCH /canchas/{id}` | Catálogo con ubicación y propietario. `orden`: `nombre`, `creadoEn`. Activar o desactivar por `PATCH` con `activa` y `motivo` | `canchas.cancha:CONSULTAR` en los `GET`, `canchas.cancha:EDITAR` en `POST` y `PATCH` | RF-027 | N |
-| `GET /sedes` · `POST` · `PATCH` | Sedes | `canchas.cancha:EDITAR` | RF-028 | B |
+| `GET /canchas?activa=&ubicacion=&propietario=&sedeId=&q=` · `GET /canchas/{id}` · `POST` · `PATCH /canchas/{id}` | Catálogo con ubicación, propietario y sede (`sede: { id, nombre }`, omitida si no tiene). `orden`: `nombre`, `creadoEn`. Activar o desactivar por `PATCH` con `activa` y `motivo` | `canchas.cancha:CONSULTAR` en los `GET`, `canchas.cancha:EDITAR` en `POST` y `PATCH` | RF-027, RF-028 | N · B |
+| `GET /sedes` · `POST /sedes` · `PATCH /sedes/{id}` | Sedes que agrupan canchas. El `GET` responde la lista completa sin paginar, por `nombre` | `canchas.cancha:CONSULTAR` en el `GET` (cualquier ámbito), `canchas.cancha:EDITAR` en `POST` y `PATCH` | RF-028 | B |
 | `GET /canchas/{id}/disponibilidad?desde=&hasta=` · `POST` | Disponibilidad, bloqueos y mantenimiento con motivo. El `POST` responde `{ disponibilidad, partidosAfectados }` | `canchas.cancha:CONSULTAR` en el `GET`, `canchas.cancha:EDITAR` en el `POST` | RF-029, RF-030, RF-031 | N · B |
 | `GET /canchas/{id}/ocupacion?desde=&hasta=` | Disponibilidad, bloqueos, mantenimiento y partidos no cancelados del rango (calendario semanal y apoyo a la programación) | `canchas.cancha:CONSULTAR` | RF-032, RF-039 | N |
 | `GET /canchas/{id}/horarios-club` · `PUT` | Horarios por categoría y comodato | `canchas.cancha:EDITAR` | RF-119 | B |
 | `GET /solicitudes-cancha` · `POST` · `POST …/{id}/resolucion` · `GET …/{id}/oficio` | Formatos 1 y 2 y su carta | `canchas.solicitud:*`, `canchas.oficio:GENERAR` | RF-116 a RF-118 | B |
 
+- **Sede de una cancha (RF-028, [PROPUESTA]).** `POST /canchas` acepta `sedeId` opcional. En el
+  `PATCH`, sin `sedeId` ni `quitarSede` la sede se conserva; `sedeId` asigna esa sede y
+  `"quitarSede": true` deja la cancha sin sede; los dos juntos responden `400 VALIDACION`. Una sede
+  inexistente o de otra liga responde `422 REFERENCIA_INVALIDA` sin guardar. En el filtro
+  `GET /canchas?sedeId=` no es error: la lista sale vacía.
+- Un nombre de sede repetido en la liga responde `409 DUPLICADO`. Las sedes no se borran ni se
+  desactivan (no hay `DELETE`). El alta y la edición se auditan como `REGISTRAR_SEDE` y `EDITAR_SEDE`,
+  sin la dirección en el detalle.
 - `desde` y `hasta` son obligatorios en las consultas de disponibilidad y ocupación, con un rango de
   31 días como máximo **[PROPUESTA]**. Sin ellos, o con un rango mayor, `400 VALIDACION`.
 - **Bloqueo sobre partidos (PEN-007, [PROPUESTA]).** Un `BLOQUEO` que se traslapa con partidos

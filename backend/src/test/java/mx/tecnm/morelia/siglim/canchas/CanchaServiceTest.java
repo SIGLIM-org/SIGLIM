@@ -58,18 +58,24 @@ class CanchaServiceTest {
     private static final PartidoEnCanchaDto PARTIDO = new PartidoEnCanchaDto(
             UUID.fromString("44444444-4444-4444-8444-444444444444"), "PROGRAMADO", PERIODO,
             new EquipoDto(UUID.randomUUID(), "Halcones"), new EquipoDto(UUID.randomUUID(), "Toros"));
-    private static final CanchaDto DE_LIGA = new CanchaDto(ID, "Cancha 1", UbicacionCancha.UNIDAD_DEPORTIVA, null,
+    private static final CanchaDto DE_LIGA = new CanchaDto(ID, "Cancha 1", UbicacionCancha.UNIDAD_DEPORTIVA, null, null,
             PropietarioCancha.LIGA, null, null, null, true, DESDE);
+    private static final UUID SEDE = UUID.fromString("55555555-5555-4555-8555-555555555555");
+    private static final SedeDto SEDE_NORTE = new SedeDto(SEDE, "Unidad Norte", null);
+    private static final CanchaDto CON_SEDE = new CanchaDto(ID, "Cancha 1", UbicacionCancha.UNIDAD_DEPORTIVA,
+            new CanchaDto.SedeResumenDto(SEDE, "Unidad Norte"), null, PropietarioCancha.LIGA, null, null, null, true,
+            DESDE);
     private static final DisponibilidadDto BLOQUEO_GUARDADO = new DisponibilidadDto(UUID.randomUUID(),
             TipoDisponibilidad.BLOQUEO, PERIODO, MOTIVO, DESDE);
 
     private final CanchaRepository canchas = mock(CanchaRepository.class);
+    private final SedeRepository sedes = mock(SedeRepository.class);
     private final DisponibilidadCanchaRepository disponibilidades = mock(DisponibilidadCanchaRepository.class);
     private final ConsultaPartidosEnCancha partidos = mock(ConsultaPartidosEnCancha.class);
     private final Autorizacion autorizacion = mock(Autorizacion.class);
     private final AuditoriaService auditoria = mock(AuditoriaService.class);
     private final MotivoOperacion motivoOperacion = mock(MotivoOperacion.class);
-    private final CanchaService servicio = new CanchaService(canchas, disponibilidades, partidos, autorizacion,
+    private final CanchaService servicio = new CanchaService(canchas, sedes, disponibilidades, partidos, autorizacion,
             auditoria, motivoOperacion, Clock.fixed(AHORA, ZoneOffset.UTC),
             new SiglimPropiedades(null, null, null, LIGA));
 
@@ -87,15 +93,21 @@ class CanchaServiceTest {
 
     private static CrearCanchaRequest crear(PropietarioCancha propietario, UUID club, String externo) {
         return new CrearCanchaRequest(" Cancha 1 ", UbicacionCancha.UNIDAD_DEPORTIVA, "Calle Reforma 1", propietario,
-                club, externo, null);
+                club, externo, null, null);
     }
 
     private static ActualizarCanchaRequest cambiarActiva(boolean activa, String motivo, Boolean confirmar) {
-        return new ActualizarCanchaRequest(null, null, null, null, null, null, null, activa, motivo, confirmar);
+        return new ActualizarCanchaRequest(null, null, null, null, null, null, null, activa, motivo, confirmar,
+                null, null);
     }
 
     private static ActualizarCanchaRequest cambiarNombre(String nombre) {
-        return new ActualizarCanchaRequest(nombre, null, null, null, null, null, null, null, null, null);
+        return new ActualizarCanchaRequest(nombre, null, null, null, null, null, null, null, null, null, null, null);
+    }
+
+    private static ActualizarCanchaRequest cambiarSede(UUID sedeId, Boolean quitarSede) {
+        return new ActualizarCanchaRequest(null, null, null, null, null, null, null, null, null, null, sedeId,
+                quitarSede);
     }
 
     private static RegistrarDisponibilidadRequest bloqueo(String motivo, Boolean confirmar) {
@@ -144,7 +156,7 @@ class CanchaServiceTest {
     @Test
     @DisplayName("ADR-0007: una cancha de club se consulta con el objetivo de ese club")
     void objetivoDeClub() {
-        CanchaDto deClub = new CanchaDto(ID, "Cancha club", UbicacionCancha.EXTERNA, null, PropietarioCancha.CLUB,
+        CanchaDto deClub = new CanchaDto(ID, "Cancha club", UbicacionCancha.EXTERNA, null, null, PropietarioCancha.CLUB,
                 new CanchaDto.ClubDto(CLUB, "Halcones"), null, null, true, DESDE);
         given(canchas.buscar(LIGA, ID)).willReturn(Optional.of(deClub));
 
@@ -179,7 +191,7 @@ class CanchaServiceTest {
     @DisplayName("ADR-0007: el listado usa el alcance del permiso y la liga activa")
     void listarUsaAlcance() {
         AlcanceAutorizacion alcance = new AlcanceAutorizacion(false, Set.of(CLUB), false);
-        FiltroCanchas filtro = new FiltroCanchas(null, null, null, null, 0, 20, "nombre,asc");
+        FiltroCanchas filtro = new FiltroCanchas(null, null, null, null, null, 0, 20, "nombre,asc");
         given(autorizacion.alcance(CONSULTAR)).willReturn(alcance);
         given(canchas.listar(LIGA, filtro, alcance)).willReturn(List.of(DE_LIGA));
         given(canchas.contar(LIGA, filtro, alcance)).willReturn(21L);
@@ -196,9 +208,9 @@ class CanchaServiceTest {
     void listarValidaOrdenYTamano() {
         given(autorizacion.alcance(CONSULTAR)).willReturn(new AlcanceAutorizacion(true, Set.of(), false));
 
-        assertThatThrownBy(() -> servicio.listar(new FiltroCanchas(null, null, null, null, 0, 20, "direccion,asc")))
+        assertThatThrownBy(() -> servicio.listar(new FiltroCanchas(null, null, null, null, null, 0, 20, "direccion,asc")))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "VALIDACION"));
-        assertThatThrownBy(() -> servicio.listar(new FiltroCanchas(null, null, null, null, 0, 101, "nombre,asc")))
+        assertThatThrownBy(() -> servicio.listar(new FiltroCanchas(null, null, null, null, null, 0, 101, "nombre,asc")))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "VALIDACION"));
     }
 
@@ -233,7 +245,7 @@ class CanchaServiceTest {
     @DisplayName("RF-027: en PATCH valida el estado resultante: una cancha de liga no acepta solo un club")
     void patchValidaResultante() {
         canchaBloqueable();
-        var peticion = new ActualizarCanchaRequest(null, null, null, null, CLUB, null, null, null, null, null);
+        var peticion = new ActualizarCanchaRequest(null, null, null, null, CLUB, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> servicio.actualizar(ID, peticion))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "VALIDACION"));
@@ -243,12 +255,12 @@ class CanchaServiceTest {
     @Test
     @DisplayName("RF-027: en PATCH, al cambiar de propietario no se arrastran los datos del anterior")
     void patchCambiaPropietario() {
-        CanchaDto externa = new CanchaDto(ID, "Cancha 1", UbicacionCancha.EXTERNA, null, PropietarioCancha.EXTERNO,
+        CanchaDto externa = new CanchaDto(ID, "Cancha 1", UbicacionCancha.EXTERNA, null, null, PropietarioCancha.EXTERNO,
                 null, "Sr. Pérez", null, true, DESDE);
         given(canchas.buscarParaActualizar(LIGA, ID)).willReturn(Optional.of(externa));
         given(canchas.buscar(LIGA, ID)).willReturn(Optional.of(DE_LIGA));
         var peticion = new ActualizarCanchaRequest(null, null, null, PropietarioCancha.LIGA, null, null, null, null,
-                null, null);
+                null, null, null, null);
 
         servicio.actualizar(ID, peticion);
 
@@ -274,6 +286,99 @@ class CanchaServiceTest {
 
         assertThatThrownBy(() -> servicio.actualizar(ID, cambiarNombre("   ")))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "VALIDACION"));
+    }
+
+    // ── Sede (B-11.1) ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-028: crear con una sede de la liga la guarda y la audita con su id")
+    void crearConSede() {
+        given(sedes.buscar(LIGA, SEDE)).willReturn(Optional.of(SEDE_NORTE));
+        given(canchas.insertar(eq(LIGA), any(DatosCancha.class))).willReturn(ID);
+        given(canchas.buscar(LIGA, ID)).willReturn(Optional.of(CON_SEDE));
+
+        CanchaDto cancha = servicio.crear(new CrearCanchaRequest("Cancha 1", UbicacionCancha.UNIDAD_DEPORTIVA, null,
+                PropietarioCancha.LIGA, null, null, null, SEDE));
+
+        assertThat(cancha.sede().nombre()).isEqualTo("Unidad Norte");
+        ArgumentCaptor<DatosCancha> datos = ArgumentCaptor.forClass(DatosCancha.class);
+        verify(canchas).insertar(eq(LIGA), datos.capture());
+        assertThat(datos.getValue().sedeId()).isEqualTo(SEDE);
+        assertThat(eventoAuditado().detalle()).containsEntry("sedeId", SEDE.toString());
+    }
+
+    @Test
+    @DisplayName("RF-028: crear con una sede inexistente o de otra liga responde 422 REFERENCIA_INVALIDA sin escribir")
+    void crearConSedeInexistente() {
+        given(sedes.buscar(LIGA, SEDE)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.crear(new CrearCanchaRequest("Cancha 1", UbicacionCancha.UNIDAD_DEPORTIVA,
+                null, PropietarioCancha.LIGA, null, null, null, SEDE)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.UNPROCESSABLE_CONTENT, "REFERENCIA_INVALIDA"));
+        verify(canchas, never()).insertar(any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-028: editar asigna la sede y audita el campo sede")
+    void asignarSede() {
+        canchaBloqueable();
+        given(sedes.buscar(LIGA, SEDE)).willReturn(Optional.of(SEDE_NORTE));
+
+        servicio.actualizar(ID, cambiarSede(SEDE, null));
+
+        ArgumentCaptor<DatosCancha> datos = ArgumentCaptor.forClass(DatosCancha.class);
+        verify(canchas).actualizar(eq(ID), datos.capture(), eq(true));
+        assertThat(datos.getValue().sedeId()).isEqualTo(SEDE);
+        assertThat(eventoAuditado().detalle()).containsEntry("campos", List.of("sede"));
+    }
+
+    @Test
+    @DisplayName("RF-028: con quitarSede la cancha queda sin sede")
+    void quitarSede() {
+        given(canchas.buscarParaActualizar(LIGA, ID)).willReturn(Optional.of(CON_SEDE));
+        given(canchas.buscar(LIGA, ID)).willReturn(Optional.of(DE_LIGA));
+
+        servicio.actualizar(ID, cambiarSede(null, true));
+
+        ArgumentCaptor<DatosCancha> datos = ArgumentCaptor.forClass(DatosCancha.class);
+        verify(canchas).actualizar(eq(ID), datos.capture(), eq(true));
+        assertThat(datos.getValue().sedeId()).isNull();
+        verifyNoInteractions(sedes);
+    }
+
+    @Test
+    @DisplayName("RF-028: sin sedeId ni quitarSede la sede se conserva y no se escribe nada")
+    void conservaSede() {
+        given(canchas.buscarParaActualizar(LIGA, ID)).willReturn(Optional.of(CON_SEDE));
+
+        servicio.actualizar(ID, cambiarNombre("Cancha 1"));
+
+        verify(canchas, never()).actualizar(any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-028: sedeId y quitarSede juntos responden 400 VALIDACION")
+    void sedeYQuitarSede() {
+        canchaBloqueable();
+
+        assertThatThrownBy(() -> servicio.actualizar(ID, cambiarSede(SEDE, true)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "VALIDACION"));
+        verify(canchas, never()).actualizar(any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    @Test
+    @DisplayName("RF-028: editar con una sede inexistente responde 422 REFERENCIA_INVALIDA sin escribir")
+    void asignarSedeInexistente() {
+        canchaBloqueable();
+        given(sedes.buscar(LIGA, SEDE)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.actualizar(ID, cambiarSede(SEDE, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.UNPROCESSABLE_CONTENT, "REFERENCIA_INVALIDA"));
+        verify(canchas, never()).actualizar(any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
     // ── Intervalo, tipo y motivo ──────────────────────────────────────────────────────────────

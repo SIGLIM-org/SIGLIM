@@ -39,11 +39,12 @@ class CanchaController {
     Pagina<CanchaDto> listar(@RequestParam(required = false) Boolean activa,
             @RequestParam(required = false) UbicacionCancha ubicacion,
             @RequestParam(required = false) PropietarioCancha propietario,
+            @RequestParam(required = false) UUID sedeId,
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int pagina,
             @RequestParam(defaultValue = "20") int tamano,
             @RequestParam(defaultValue = "nombre,asc") String orden) {
-        return servicio.listar(new FiltroCanchas(activa, ubicacion, propietario, q, pagina, tamano, orden));
+        return servicio.listar(new FiltroCanchas(activa, ubicacion, propietario, sedeId, q, pagina, tamano, orden));
     }
 
     @GetMapping("/{id}")
