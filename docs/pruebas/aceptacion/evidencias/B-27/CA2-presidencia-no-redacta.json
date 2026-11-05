@@ -1,0 +1,8 @@
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/comunicados",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}

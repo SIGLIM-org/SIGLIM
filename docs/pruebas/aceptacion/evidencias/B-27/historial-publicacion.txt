@@ -1,0 +1,11 @@
+              entidad_id              | estado_anterior | estado_nuevo |                                    motivo                                     |       cambiado_por        |          cambiado_en          
+--------------------------------------+-----------------+--------------+-------------------------------------------------------------------------------+---------------------------+-------------------------------
+ e14ae10e-1ea9-4f0f-b560-32ede132e75d | BORRADOR        | REVISION     |                                                                               | Secretaría de la Liga     | 2026-11-04 19:09:18.449081-06
+ e14ae10e-1ea9-4f0f-b560-32ede132e75d | REVISION        | PUBLICADO    |                                                                               | Presidencia del Comité    | 2026-11-04 19:09:21.470491-06
+ 833c3d67-55d5-433f-abf1-7b07f48af67a | BORRADOR        | REVISION     |                                                                               | Secretaría de la Liga     | 2026-11-04 19:09:24.199779-06
+ 833c3d67-55d5-433f-abf1-7b07f48af67a | REVISION        | BORRADOR     | Indica la cancha, el horario y el motivo del mantenimiento antes de publicar. | Presidencia del Comité    | 2026-11-04 19:09:26.551909-06
+ 833c3d67-55d5-433f-abf1-7b07f48af67a | BORRADOR        | REVISION     |                                                                               | Secretaría de la Liga     | 2026-11-04 19:09:29.73625-06
+ 833c3d67-55d5-433f-abf1-7b07f48af67a | REVISION        | PUBLICADO    |                                                                               | Presidencia del Comité    | 2026-11-04 19:09:32.208673-06
+ 7ec46db5-b4dc-44f9-b58a-14b3e72709ef | BORRADOR        | REVISION     |                                                                               | Cuenta con ambos permisos | 2026-11-04 19:09:34.803345-06
+(7 filas)
+
