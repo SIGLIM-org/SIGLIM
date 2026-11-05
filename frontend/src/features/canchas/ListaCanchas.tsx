@@ -8,6 +8,7 @@ import { EstadoCarga } from '@/components/ui/EstadoCarga'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { Insignia } from '@/components/ui/Insignia'
 import { CampoSeleccion } from '@/components/ui/CampoSeleccion'
+import { useSedes } from '@/features/canchas/api'
 import { etiquetaUbicacion, nombrePropietario } from '@/features/canchas/etiquetas'
 import type { Cancha, FiltrosCanchas, UbicacionCancha } from '@/features/canchas/tipos'
 import { ConPermiso } from '@/features/seguridad/ConPermiso'
@@ -29,7 +30,11 @@ type Props = {
   onNueva: () => void
 }
 
-/** Catálogo con búsqueda, filtros y paginación (H-07, criterio 1). */
+/**
+ * Catálogo con búsqueda, filtros y paginación (H-07, criterio 1). [PROPUESTA] D8: filtro por
+ * sede (RF-028) con «Todas» más las sedes, sin opción «sin sede» porque el contrato no la
+ * admite; la sede encabeza la línea de datos de cada cancha.
+ */
 export function ListaCanchas({
   filtros,
   datos,
@@ -42,8 +47,11 @@ export function ListaCanchas({
   onNueva,
 }: Props) {
   const id = useId()
+  const sedes = useSedes()
   const [texto, setTexto] = useState(filtros.q ?? '')
-  const hayFiltros = Boolean(filtros.q || filtros.ubicacion || filtros.activa !== undefined)
+  const hayFiltros = Boolean(
+    filtros.q || filtros.ubicacion || filtros.activa !== undefined || filtros.sedeId,
+  )
 
   useEffect(() => {
     const q = texto.trim() || undefined
@@ -108,6 +116,24 @@ export function ListaCanchas({
           <option value="true">Activas</option>
           <option value="false">Inactivas</option>
         </CampoSeleccion>
+        <div className="col-span-2">
+          <CampoSeleccion
+            id={`${id}-sede`}
+            etiqueta="Sede"
+            disabled={sedes.isPending && !filtros.sedeId}
+            value={filtros.sedeId ?? ''}
+            onChange={(evento) =>
+              onCambiarFiltros({ ...filtros, sedeId: evento.target.value || undefined, pagina: 0 })
+            }
+          >
+            <option value="">{sedes.isPending ? 'Cargando sedes…' : 'Todas'}</option>
+            {sedes.data?.map((sede) => (
+              <option key={sede.id} value={sede.id}>
+                {sede.nombre}
+              </option>
+            ))}
+          </CampoSeleccion>
+        </div>
       </div>
 
       {cargando && <EstadoCarga etiqueta="Cargando canchas…" filas={4} columnas={1} />}
@@ -163,7 +189,9 @@ export function ListaCanchas({
                       )}
                     </span>
                     <span className="break-words text-body-md text-text-muted">
-                      {etiquetaUbicacion[cancha.ubicacion]} · {nombrePropietario(cancha)}
+                      {[cancha.sede?.nombre, etiquetaUbicacion[cancha.ubicacion], nombrePropietario(cancha)]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </span>
                     {cancha.direccion && (
                       <span className="break-words text-body-sm text-text-muted">{cancha.direccion}</span>

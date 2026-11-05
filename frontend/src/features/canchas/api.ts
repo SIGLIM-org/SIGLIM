@@ -1,14 +1,17 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
   ActualizarCanchaPeticion,
+  ActualizarSedePeticion,
   Cancha,
   CrearCanchaPeticion,
+  CrearSedePeticion,
   FiltrosCanchas,
   Intervalo,
   Ocupacion,
   PartidoEnCancha,
   RegistrarDisponibilidadPeticion,
   RegistroDisponibilidad,
+  Sede,
 } from '@/features/canchas/tipos'
 import { ApiError } from '@/lib/api/ApiError'
 import { api } from '@/lib/api/cliente'
@@ -22,7 +25,11 @@ export const clavesCanchas = {
     ['canchas', 'ocupacion', id, desde, hasta] as const,
 }
 
-function consultaDeFiltros({ q, ubicacion, activa, pagina, tamano }: FiltrosCanchas): string {
+export const clavesSedes = {
+  todas: ['sedes'] as const,
+}
+
+function consultaDeFiltros({ q, ubicacion, activa, sedeId, pagina, tamano }: FiltrosCanchas): string {
   const parametros = new URLSearchParams()
 
   if (q) {
@@ -33,6 +40,9 @@ function consultaDeFiltros({ q, ubicacion, activa, pagina, tamano }: FiltrosCanc
   }
   if (activa !== undefined) {
     parametros.set('activa', String(activa))
+  }
+  if (sedeId) {
+    parametros.set('sedeId', sedeId)
   }
   parametros.set('pagina', String(pagina))
   parametros.set('tamano', String(tamano))
@@ -86,6 +96,40 @@ export function useActualizarCancha(id: string) {
       clienteConsultas.setQueryData(clavesCanchas.detalle(id), cancha)
       void clienteConsultas.invalidateQueries({ queryKey: ['canchas', 'lista'] })
       void clienteConsultas.invalidateQueries({ queryKey: ['canchas', 'ocupacion', id] })
+    },
+  })
+}
+
+/** Sedes de la liga (RF-028): lista completa sin paginar, ordenada por nombre (convenciones §6.6). */
+export function useSedes() {
+  return useQuery({
+    queryKey: clavesSedes.todas,
+    queryFn: () => api.get<Sede[]>('sedes'),
+  })
+}
+
+export function useCrearSede() {
+  const clienteConsultas = useQueryClient()
+
+  return useMutation({
+    mutationFn: (peticion: CrearSedePeticion) => api.post<Sede>('sedes', peticion),
+    onSuccess: () => void clienteConsultas.invalidateQueries({ queryKey: clavesSedes.todas }),
+  })
+}
+
+/** El nombre de la sede va embebido en cada cancha: renombrarla refresca también las canchas. */
+export function useActualizarSede(id: string) {
+  const clienteConsultas = useQueryClient()
+
+  return useMutation({
+    mutationFn: (peticion: ActualizarSedePeticion) => api.patch<Sede>(`sedes/${id}`, peticion),
+    onSuccess: (sede) => {
+      clienteConsultas.setQueryData<Sede[]>(clavesSedes.todas, (actuales) =>
+        actuales?.map((actual) => (actual.id === sede.id ? sede : actual)),
+      )
+      void clienteConsultas.invalidateQueries({ queryKey: clavesSedes.todas })
+      void clienteConsultas.invalidateQueries({ queryKey: ['canchas', 'lista'] })
+      void clienteConsultas.invalidateQueries({ queryKey: ['canchas', 'detalle'] })
     },
   })
 }
