@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 3.0 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 3.1 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -29,6 +29,7 @@ Versión 3.0 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 2.8 | 4 de noviembre de 2026 | B-11.1: §6.6 con el contrato de sedes (`CONSULTAR` en el `GET`, `EDITAR` en `POST` y `PATCH`, lista sin paginar), el filtro `sedeId` de `GET /canchas`, `sede` en la cancha, `quitarSede` y el `422 REFERENCIA_INVALIDA` de una sede inexistente. |
 | 2.9 | 4 de noviembre de 2026 | B-12.1: §6.6 con el registro de `MANTENIMIENTO` (RF-031) como bloqueo tipificado: motivo obligatorio, mismo `409 RF-030` aceptable sobre partidos, traslape libre y acción `REGISTRAR_MANTENIMIENTO`. |
 | 3.0 | 5 de noviembre de 2026 | H-03.1: §6.1 con el contrato de usuarios, invitación, activación/desactivación, asignaciones y catálogo de roles; §2.1 con la activación de una cuenta. |
+| 3.1 | 5 de noviembre de 2026 | H-05.1: §6.2 con el contrato del catálogo de categorías (jerarquía sin ciclos, desactivación, reactivación solo con superior activa o sin ella, y reordenamiento atómico), las categorías de la temporada con sus grupos anidados y los grupos; `temporadas.temporada:CONSULTAR` en los `GET` de categorías y grupos (antes pedía `EDITAR`); errores y acciones de auditoría. |
 
 ## Índice
 
@@ -419,9 +420,9 @@ matriz de permisos y la denegación VAL-022 del propio rol son H-20, no de este 
 | --- | --- | --- | --- | --- |
 | `GET /temporadas` · `POST /temporadas` · `PATCH /temporadas/{id}` | Temporadas | `temporadas.temporada:CONSULTAR` en los `GET`; `temporadas.temporada:EDITAR` en `POST` y `PATCH` | RF-001, RF-003 | N |
 | `POST /temporadas/{id}/activacion` · `/cierre` | Activar y cerrar | `temporadas.temporada:EDITAR` | RF-001, RF-003, RF-100, RN-058 | N |
-| `GET /categorias` · `POST` · `PATCH /categorias/{id}` | Catálogo con orden y categoría superior | `temporadas.temporada:EDITAR` | RF-099 | N |
-| `GET /temporadas/{id}/categorias` · `POST` | Categorías que participan en la temporada | `temporadas.temporada:EDITAR` | RF-004 | N |
-| `GET /grupos?categoriaTemporadaId=` · `POST /grupos` · `PATCH` | Grupos | `temporadas.temporada:EDITAR` | RF-005 | N |
+| `GET /categorias?activa=` · `GET /categorias/{id}` · `POST /categorias` · `PATCH /categorias/{id}` · `POST /categorias/reordenamiento` | Catálogo con orden y categoría superior | `temporadas.temporada:CONSULTAR` en los `GET`; `temporadas.temporada:EDITAR` en `POST` y `PATCH` | RF-099 | N |
+| `GET /temporadas/{id}/categorias` · `GET /temporadas/{id}/categorias/{categoriaTemporadaId}` · `POST /temporadas/{id}/categorias` | Categorías que participan en la temporada, con sus grupos | `temporadas.temporada:CONSULTAR` en los `GET`; `temporadas.temporada:EDITAR` en `POST` | RF-004, RF-005 | N |
+| `GET /grupos?categoriaTemporadaId=` · `GET /grupos/{id}` · `POST /grupos` · `PATCH /grupos/{id}` | Grupos | `temporadas.temporada:CONSULTAR` en los `GET`; `temporadas.temporada:EDITAR` en `POST` y `PATCH` | RF-005 | N |
 | `GET /temporadas/{id}/parametros` · `POST /temporadas/{id}/parametros` | Versiones de parámetros; `POST` crea una versión nueva, nunca edita la vigente | `temporadas.parametros:EDITAR` | RF-006, RF-100 | N |
 | `PUT /temporadas/{id}/convocatoria` | Referencia de la convocatoria | `temporadas.convocatoria:EDITAR` | RF-002 | B |
 | `GET /interpretaciones-regla` · `POST` · `POST …/{id}/resolucion` | Reglas interpretadas | `temporadas.interpretacion:*` | RF-007 | B |
@@ -472,6 +473,109 @@ extensión `requisitos` para los que falten, y `409 RF-001` si la temporada no e
 `ACTIVA → CERRADA`, fija el motivo para el historial y la auditoría (RN-021, RF-093); sin motivo
 responde `400 RN-021` y si no está activa, `409 RF-001`. Ambas acciones se auditan como
 `ACTIVAR_TEMPORADA` y `CERRAR_TEMPORADA`.
+
+**Permisos y ámbito de categorías y grupos (H-05.1).** Todos los `GET` de categorías, categorías de
+la temporada y grupos exigen `temporadas.temporada:CONSULTAR`; los `POST` y `PATCH`,
+`temporadas.temporada:EDITAR`. Ambos con ámbito de liga: son datos de la liga y un ámbito de club no
+los alcanza. La liga sale de la configuración del backend, no del cuerpo. Las escrituras validan en
+este orden: sesión (`401`) → permiso (`403`) → cuerpo (`400`) → recurso de la ruta (`404`) →
+referencias del cuerpo (`422`) → reglas de negocio (`409`). No hay `DELETE` en ninguno de los tres
+recursos (§2).
+
+**Catálogo de categorías (RF-099, DEC-16).** `GET /categorias?activa=` responde un arreglo **sin
+paginar** (§4) ordenado por `orden` y `nombre`; `activa` es opcional (`true` o `false`) y sin él
+vienen todas. Cada categoría trae `id`, `nombre`, `tipo` (`INFANTIL`, `LIBRE` o `VETERANOS`),
+`orden`, `categoriaSuperior` (`{ id, nombre }`, omitida si la categoría es el tope de su rama),
+`activa` y `creadoEn`. `GET /categorias/{id}` responde ese objeto; una categoría inexistente o de otra
+liga, `404`.
+
+```json
+{
+  "id": "…",
+  "nombre": "Juvenil",
+  "tipo": "LIBRE",
+  "orden": 2,
+  "categoriaSuperior": { "id": "…", "nombre": "Libre" },
+  "activa": true,
+  "creadoEn": "2026-11-05T10:00:00-06:00"
+}
+```
+
+- `POST /categorias` lleva `{ "nombre", "tipo", "categoriaSuperiorId"? }` y responde `201` con
+  `Location: /api/v1/categorias/{id}`. El nombre se guarda sin espacios al inicio ni al final y mide
+  de 1 a 80 caracteres; sin nombre o sin tipo, `400 VALIDACION`. La categoría nace activa y al final
+  del catálogo (`orden` = máximo actual + 1). Nombre ya usado en la liga, `409 DUPLICADO`.
+- `PATCH /categorias/{id}` acepta `nombre`, `tipo`, `categoriaSuperiorId`, `quitarSuperior` y
+  `activa`; lo ausente conserva su valor y responde `200` con la categoría. Con
+  `"quitarSuperior": true` la categoría queda como tope de su rama; junto con `categoriaSuperiorId`
+  responde `400 VALIDACION`. El orden no se edita aquí. Un `PATCH` sin cambios responde `200` y no se
+  audita.
+- **Jerarquía.** En `POST` y `PATCH`, una superior inexistente o de otra liga responde
+  `422 REFERENCIA_INVALIDA`; una superior inactiva, la propia categoría o una superior que formaría
+  un ciclo (A → B → A, A → B → C → A) responden `409 RF-099`, y el mensaje muestra la cadena. El
+  backend bloquea las categorías de la liga durante la edición para que dos cambios simultáneos no
+  formen un ciclo.
+- **Jerarquía en uso (RF-110).** Cambiar o quitar la superior de una categoría que participa en una
+  temporada `ACTIVA` responde `409 RF-110`: el trigger de alineaciones usa esa jerarquía para decidir
+  en qué equipos puede jugar un jugador.
+- **Desactivar.** `"activa": false` responde `409 RF-099` si la categoría participa en una temporada
+  en `CONFIGURACION` o `ACTIVA`, o si es la superior de otra categoría activa. Reactivar
+  (`"activa": true`) procede salvo que su superior resultante (la actual o la que venga en el mismo
+  `PATCH`) esté inactiva: `409 RF-099`, porque toda categoría activa tiene una superior activa o
+  ninguna. Con `"quitarSuperior": true` en el mismo `PATCH`, la reactivación procede.
+- `POST /categorias/reordenamiento` lleva `{ "ids": [ … ] }` con **todas** las categorías de la liga,
+  activas e inactivas, en el orden nuevo, y asigna `orden` de 1 a n en una sola transacción. Responde
+  `200` con el catálogo completo ya ordenado. Si falta, sobra o se repite alguna, responde
+  `400 VALIDACION` con las extensiones `faltantes`, `sobrantes` y `repetidos` (listas de `id`) y no
+  cambia nada. Si el orden pedido es el actual, no escribe ni audita.
+
+**Categorías de la temporada (RF-004).** `GET /temporadas/{id}/categorias` responde un arreglo sin
+paginar ordenado por el `orden` del catálogo; cada elemento trae los grupos anidados, por nombre,
+con el conteo de sus equipos en cualquier estado (§9.1). Una temporada inexistente responde `404`.
+
+```json
+[
+  {
+    "id": "…",
+    "categoria": {
+      "id": "…", "nombre": "Juvenil", "tipo": "LIBRE", "orden": 2,
+      "categoriaSuperior": { "id": "…", "nombre": "Libre" }
+    },
+    "grupos": [ { "id": "…", "nombre": "A", "equipos": 8 } ]
+  }
+]
+```
+
+El `id` de cada elemento es el `categoriaTemporadaId` que usan los grupos.
+`GET /temporadas/{id}/categorias/{categoriaTemporadaId}` responde un elemento; si no existe o es de
+otra temporada, `404`. `POST /temporadas/{id}/categorias` lleva `{ "categoriaId" }` y responde `201`
+con `Location` al `GET` anterior y el elemento en el cuerpo. Errores: temporada inexistente, `404`;
+sin `categoriaId`, `400 VALIDACION`; categoría inexistente, `422 REFERENCIA_INVALIDA`; temporada
+`CERRADA`, `409 RF-003`; temporada `ACTIVA`, `409 RF-004`; categoría inactiva, `409 RF-004`; ya
+asignada, `409 DUPLICADO`. Todavía no hay forma de quitar una categoría de la temporada (§11).
+
+**Grupos (RF-005).** `GET /grupos?categoriaTemporadaId=` exige el filtro (sin él, `400 VALIDACION`) y
+responde un arreglo sin paginar ordenado por nombre con `{ "id", "nombre", "categoriaTemporadaId",
+"equipos" }`; una categoría de la temporada inexistente responde `404`. `GET /grupos/{id}` agrega
+`temporadaId` y `categoria` (`{ id, nombre }`).
+
+- `POST /grupos` lleva `{ "categoriaTemporadaId", "nombre" }` y responde `201` con `Location`. El
+  nombre se guarda sin espacios al inicio ni al final y mide de 1 a 60 caracteres (`400 VALIDACION`).
+  Categoría de la temporada inexistente, `422 REFERENCIA_INVALIDA`; temporada `CERRADA`,
+  `409 RF-003`; temporada `ACTIVA`, `409 RF-005`; nombre repetido en la categoría, `409 DUPLICADO`.
+- `PATCH /grupos/{id}` lleva `{ "nombre" }` y responde `200`. Procede con la temporada en
+  `CONFIGURACION` o `ACTIVA`; `CERRADA` responde `409 RF-003`. Grupo inexistente, `404`; nombre
+  repetido, `409 DUPLICADO`. Sin nombre o con el mismo, responde `200` y no se audita. El grupo no
+  cambia de categoría.
+- Todavía no hay forma de borrar un grupo (§11).
+
+**Auditoría de categorías y grupos.** En el módulo `M-02`, sin motivo: `REGISTRAR_CATEGORIA`
+(`tipo`, `orden` y `categoriaSuperiorId`), `EDITAR_CATEGORIA` (`campos` cambiados y, si cambiaron,
+`categoriaSuperiorId` y `activa`) y `REORDENAR_CATEGORIAS` (los `ids` en el orden nuevo, sin
+`entidadId`) sobre `categorias`; `ASIGNAR_CATEGORIA_TEMPORADA` (`temporadaId` y `categoriaId`) sobre
+`categorias_temporada`; `REGISTRAR_GRUPO` (`categoriaTemporadaId` y `temporadaId`) y `EDITAR_GRUPO`
+(`campos` y `temporadaId`) sobre `grupos`. El detalle lleva solo identificadores y datos no
+personales.
 
 Las respuestas de parámetros incluyen `"esDemo": true` en cada valor **[DEMO]** para que la
 interfaz los rotule «no oficial».
@@ -845,4 +949,5 @@ El frontend mantiene un diccionario único `enum → texto` (por ejemplo, `PENDI
 | Textos definitivos de los mensajes de error | PEN-016 |
 | Duración y renovación de la sesión, política de contraseñas, intentos | PEN-030 |
 | Proveedor de correo para RF-143 | PEN-034, DEC-46 |
+| Quitar una categoría de la temporada y borrar un grupo en configuración: `siglim_app` no tiene `DELETE` sobre `categorias_temporada` ni `grupos`, así que requiere una migración y una decisión del equipo | H-05.1 (D7) |
 | Valores **[PROPUESTA]** de este documento: longitud mínima del motivo, límites de tamaño, vigencia de la URL prefirmada, caché del portal, intervalo de consulta de avisos, enmascarado de CURP | Validar con el equipo y el profesor |
