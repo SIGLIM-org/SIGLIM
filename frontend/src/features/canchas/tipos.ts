@@ -11,6 +11,13 @@ export type Intervalo = {
   hasta: string
 }
 
+/** Agrupa canchas en una misma ubicación (RF-028); `direccion` se omite si no tiene. */
+export type Sede = {
+  id: string
+  nombre: string
+  direccion?: string
+}
+
 export type Cancha = {
   id: string
   nombre: string
@@ -18,6 +25,8 @@ export type Cancha = {
   direccion?: string
   propietario: PropietarioCancha
   club?: { id: string; nombre: string }
+  /** Se omite si la cancha no pertenece a una sede (RF-028). */
+  sede?: { id: string; nombre: string }
   propietarioExterno?: string
   caracteristicas?: string
   activa: boolean
@@ -63,6 +72,7 @@ export type FiltrosCanchas = {
   q?: string
   ubicacion?: UbicacionCancha
   activa?: boolean
+  sedeId?: string
   pagina: number
   tamano: number
 }
@@ -74,6 +84,7 @@ export type CrearCanchaPeticion = {
   propietario: PropietarioCancha
   propietarioExterno?: string
   caracteristicas?: string
+  sedeId?: string
 }
 
 /** Un campo ausente conserva su valor; `direccion` y `caracteristicas` en blanco se vacían. */
@@ -81,7 +92,17 @@ export type ActualizarCanchaPeticion = Partial<CrearCanchaPeticion> & {
   activa?: boolean
   motivo?: string
   confirmarPartidosAfectados?: boolean
+  /** Deja la cancha sin sede. Excluyente con `sedeId`: los dos juntos responden 400 (D2). */
+  quitarSede?: boolean
 }
+
+export type CrearSedePeticion = {
+  nombre: string
+  direccion?: string
+}
+
+/** Un campo ausente conserva su valor; `direccion` en blanco se vacía (convenciones §6.6). */
+export type ActualizarSedePeticion = Partial<CrearSedePeticion>
 
 export type RegistrarDisponibilidadPeticion = {
   tipo: 'DISPONIBLE' | 'BLOQUEO'

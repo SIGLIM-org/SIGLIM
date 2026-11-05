@@ -3,12 +3,17 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FormularioCancha } from '@/features/canchas/FormularioCancha'
-import type { Cancha } from '@/features/canchas/tipos'
+import type { Cancha, Sede } from '@/features/canchas/tipos'
 import { ApiError } from '@/lib/api/ApiError'
 
-const { post, patch } = vi.hoisted(() => ({ post: vi.fn(), patch: vi.fn() }))
+const { get, post, patch } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), patch: vi.fn() }))
 
-vi.mock('@/lib/api/cliente', () => ({ api: { post, patch } }))
+vi.mock('@/lib/api/cliente', () => ({ api: { get, post, patch } }))
+
+const SEDES: Sede[] = [
+  { id: 's1', nombre: 'Unidad Deportiva Morelos', direccion: 'Av. Morelos 1' },
+  { id: 's2', nombre: 'Unidad Deportiva Norte' },
+]
 
 const CANCHA: Cancha = {
   id: 'c1',
@@ -38,8 +43,15 @@ const guardar = () => userEvent.click(screen.getByRole('button', { name: 'Guarda
 
 describe('FormularioCancha', () => {
   beforeEach(() => {
+    get.mockReset()
     post.mockReset()
     patch.mockReset()
+    get.mockImplementation(async (ruta: string) => {
+      if (ruta === 'sedes') {
+        return SEDES
+      }
+      throw new Error(`Ruta no simulada: ${ruta}`)
+    })
   })
 
   it('RF-027: crear con propietario externo envía solo lo que corresponde', async () => {
@@ -165,5 +177,134 @@ describe('FormularioCancha', () => {
 
     expect(await screen.findByText('El nombre admite hasta 120 caracteres')).toBeInTheDocument()
     expect(screen.getByText('Revisa los campos marcados.')).toBeInTheDocument()
+  })
+
+  it('RF-028 (CA-2): crear con sede envía sedeId', async () => {
+    post.mockResolvedValue(CANCHA)
+    montar()
+
+    await userEvent.type(screen.getByLabelText(/Nombre/), 'Cancha Norte')
+    await userEvent.selectOptions(screen.getByLabelText(/Ubicación/), 'UNIDAD_DEPORTIVA')
+    await userEvent.selectOptions(screen.getByLabelText(/^Propietario/), 'LIGA')
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: 'Sede' }),
+      'Unidad Deportiva Norte',
+    )
+    await guardar()
+
+    expect(post).toHaveBeenCalledWith('canchas', {
+      nombre: 'Cancha Norte',
+      ubicacion: 'UNIDAD_DEPORTIVA',
+      propietario: 'LIGA',
+      sedeId: 's2',
+    })
+  })
+
+  it('RF-028 (CA-2): crear con «Sin sede» no envía sedeId', async () => {
+    post.mockResolvedValue(CANCHA)
+    montar()
+
+    expect(await screen.findByRole('option', { name: 'Unidad Deportiva Norte' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Sede' })).toHaveValue('')
+    await userEvent.type(screen.getByLabelText(/Nombre/), 'Cancha Norte')
+    await userEvent.selectOptions(screen.getByLabelText(/Ubicación/), 'EXTERNA')
+    await userEvent.selectOptions(screen.getByLabelText(/^Propietario/), 'LIGA')
+    await guardar()
+
+    expect(post.mock.calls[0][1]).not.toHaveProperty('sedeId')
+  })
+
+  it('RF-028 (CA-2): editar cambiando de sede envía sedeId sin quitarSede', async () => {
+    patch.mockResolvedValue(CANCHA)
+    montar({ ...CANCHA, sede: { id: 's1', nombre: 'Unidad Deportiva Morelos' } })
+
+    await screen.findByRole('option', { name: 'Unidad Deportiva Norte' })
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sede' }), 's2')
+    await guardar()
+
+    expect(patch).toHaveBeenCalledWith('canchas/c1', { sedeId: 's2' })
+  })
+
+  it('RF-028 (CA-3): editar a «Sin sede» envía quitarSede sin sedeId', async () => {
+    patch.mockResolvedValue(CANCHA)
+    montar({ ...CANCHA, sede: { id: 's1', nombre: 'Unidad Deportiva Morelos' } })
+
+    await screen.findByRole('option', { name: 'Unidad Deportiva Norte' })
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sede' }), '')
+    await guardar()
+
+    expect(patch).toHaveBeenCalledWith('canchas/c1', { quitarSede: true })
+  })
+
+  it('RF-028: editar sin tocar la sede no envía sedeId ni quitarSede', async () => {
+    patch.mockResolvedValue(CANCHA)
+    montar({ ...CANCHA, sede: { id: 's1', nombre: 'Unidad Deportiva Morelos' } })
+
+    await screen.findByRole('option', { name: 'Unidad Deportiva Norte' })
+    await userEvent.type(screen.getByLabelText(/Nombre/), ' B')
+    await guardar()
+
+    expect(patch).toHaveBeenCalledWith('canchas/c1', { nombre: 'Cancha 1 B' })
+  })
+
+  it('RF-028: mientras cargan las sedes conserva la sede actual y deshabilita el campo', async () => {
+    get.mockReturnValue(new Promise(() => {}))
+    montar({ ...CANCHA, sede: { id: 's9', nombre: 'Sede Antigua' } })
+
+    const campo = screen.getByRole('combobox', { name: 'Sede' })
+
+    expect(campo).toBeDisabled()
+    expect(campo).toHaveValue('s9')
+    expect(screen.getByRole('option', { name: 'Sede Antigua' })).toBeInTheDocument()
+    await guardar()
+    expect(patch).not.toHaveBeenCalled()
+  })
+
+  it('RF-028: conserva la sede actual aunque no venga en la lista de sedes', async () => {
+    montar({ ...CANCHA, sede: { id: 's9', nombre: 'Sede Antigua' } })
+
+    await screen.findByRole('option', { name: 'Unidad Deportiva Norte' })
+
+    expect(screen.getByRole('combobox', { name: 'Sede' })).toHaveValue('s9')
+    expect(screen.getByRole('option', { name: 'Sede Antigua' })).toBeInTheDocument()
+  })
+
+  it('RF-028: sin sede, mientras cargan las sedes muestra «Cargando sedes…»', () => {
+    get.mockReturnValue(new Promise(() => {}))
+    montar()
+
+    expect(screen.getByRole('combobox', { name: 'Sede' })).toBeDisabled()
+    expect(screen.getByRole('option', { name: 'Cargando sedes…' })).toBeInTheDocument()
+  })
+
+  it('RF-028: sin sedes registradas explica cómo agregarlas', async () => {
+    get.mockResolvedValue([])
+    montar()
+
+    expect(await screen.findByText('Registra sedes con el botón Sedes.')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Sede' })).toHaveAttribute(
+      'aria-describedby',
+      expect.stringContaining('sede-ayuda'),
+    )
+  })
+
+  it('RF-028 (D9): un 422 REFERENCIA_INVALIDA marca el campo Sede', async () => {
+    patch.mockRejectedValue(
+      new ApiError({
+        title: 'Referencia inválida',
+        status: 422,
+        detail: 'La sede no existe.',
+        codigo: 'REFERENCIA_INVALIDA',
+      }),
+    )
+    montar(CANCHA)
+
+    await screen.findByRole('option', { name: 'Unidad Deportiva Norte' })
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sede' }), 's2')
+    await guardar()
+
+    expect(await screen.findByText('La sede elegida ya no existe. Elige otra.')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Sede' })).toHaveAttribute('aria-invalid', 'true')
+    expect(get).toHaveBeenCalledTimes(2)
   })
 })

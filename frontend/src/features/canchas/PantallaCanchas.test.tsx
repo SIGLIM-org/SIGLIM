@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PantallaCanchas } from '@/features/canchas/PantallaCanchas'
-import type { Cancha, Ocupacion, PartidoEnCancha } from '@/features/canchas/tipos'
+import type { Cancha, Ocupacion, PartidoEnCancha, Sede } from '@/features/canchas/tipos'
 import type { Permiso } from '@/features/seguridad/tipos'
 import { ApiError } from '@/lib/api/ApiError'
 
@@ -47,6 +47,10 @@ const OCUPACION: Ocupacion = {
   periodo: { desde: '2026-10-26T00:00:00-06:00', hasta: '2026-11-02T00:00:00-06:00' },
   bloques: [],
 }
+const SEDES: Sede[] = [
+  { id: 's1', nombre: 'Unidad Deportiva Morelos' },
+  { id: 's2', nombre: 'Unidad Deportiva Norte' },
+]
 const PARTIDO: PartidoEnCancha = {
   id: 'p1',
   estado: 'PROGRAMADO',
@@ -74,9 +78,11 @@ function responder({
   get.mockImplementation(async (ruta: string) => {
     const respuesta = ruta.startsWith('canchas?')
       ? lista
-      : ruta.includes('/ocupacion')
-        ? OCUPACION
-        : detalle
+      : ruta === 'sedes'
+        ? SEDES
+        : ruta.includes('/ocupacion')
+          ? OCUPACION
+          : detalle
 
     if (respuesta instanceof Error) {
       throw respuesta
@@ -265,5 +271,57 @@ describe('PantallaCanchas', () => {
     expect(
       screen.getByText('1 partido(s) quedaron dentro del bloqueo y no se reprogramaron: reprográmalos manualmente.'),
     ).toBeInTheDocument()
+  })
+
+  it('RF-028 (CA-2): filtrar por sede pide sedeId y «Quitar filtros» lo quita', async () => {
+    responder({ lista: pagina([]) })
+    montar()
+
+    await screen.findByRole('option', { name: 'Unidad Deportiva Norte' })
+    await userEvent.selectOptions(screen.getByLabelText('Sede'), 'Unidad Deportiva Norte')
+
+    expect(get).toHaveBeenCalledWith('canchas?sedeId=s2&pagina=0&tamano=20&orden=nombre%2Casc')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Quitar filtros' }))
+
+    expect(screen.getByLabelText('Sede')).toHaveValue('')
+    expect(get).toHaveBeenLastCalledWith('canchas?pagina=0&tamano=20&orden=nombre%2Casc')
+  })
+
+  it('RF-028 (D8): la sede encabeza los datos de la cancha en la lista y en el detalle', async () => {
+    const conSede = { ...CANCHA, sede: { id: 's1', nombre: 'Unidad Deportiva Morelos' } }
+    responder({ lista: pagina([conSede]), detalle: conSede })
+    montar(`${RUTA}/c1`)
+
+    const fila = await screen.findByRole('link', { name: /Cancha Norte/ })
+
+    expect(within(fila).getByText('Unidad Deportiva Morelos · Externa · Sr. Pérez')).toBeInTheDocument()
+    const sede = (await screen.findByText('Sede', { selector: 'dt' })).nextElementSibling
+    expect(sede).toHaveTextContent('Unidad Deportiva Morelos')
+  })
+
+  it('RF-028 (CA-3): el detalle de una cancha sin sede dice «Sin sede»', async () => {
+    montar(`${RUTA}/c1`)
+
+    const sede = (await screen.findByText('Sede', { selector: 'dt' })).nextElementSibling
+    expect(sede).toHaveTextContent('Sin sede')
+  })
+
+  it('RF-028 (D6): con EDITAR el botón «Sedes» abre el modal de sedes', async () => {
+    montar()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Sedes' }))
+
+    const dialogo = screen.getByRole('dialog', { name: 'Sedes' })
+    expect(await within(dialogo).findByText('Unidad Deportiva Norte')).toBeInTheDocument()
+  })
+
+  it('RF-028 (D1): solo con CONSULTAR no aparece «Sedes», pero sí el filtro por sede', async () => {
+    otorgar(CONSULTAR)
+    montar()
+
+    expect(await screen.findByRole('option', { name: 'Unidad Deportiva Norte' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Sede')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sedes' })).not.toBeInTheDocument()
   })
 })

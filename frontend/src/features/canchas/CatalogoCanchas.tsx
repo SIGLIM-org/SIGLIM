@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
-import { ArrowLeft, MapPinned, Plus } from 'lucide-react'
+import { ArrowLeft, Building2, MapPinned, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { useCanchas } from '@/features/canchas/api'
@@ -8,6 +8,7 @@ import { DetalleCancha } from '@/features/canchas/DetalleCancha'
 import { semanaDeParametro } from '@/features/canchas/fechas'
 import { FormularioCancha } from '@/features/canchas/FormularioCancha'
 import { ListaCanchas } from '@/features/canchas/ListaCanchas'
+import { ModalSedes } from '@/features/canchas/ModalSedes'
 import type { FiltrosCanchas } from '@/features/canchas/tipos'
 import { ConPermiso } from '@/features/seguridad/ConPermiso'
 import { esSinPermiso } from '@/lib/api/errores'
@@ -28,6 +29,7 @@ export function CatalogoCanchas() {
   const navegar = useNavigate()
   const [filtros, setFiltros] = useState<FiltrosCanchas>(FILTROS_INICIALES)
   const [creando, setCreando] = useState(false)
+  const [gestionandoSedes, setGestionandoSedes] = useState(false)
   const consulta = useCanchas(filtros)
   const abrirNueva = useCallback(() => setCreando(true), [])
 
@@ -48,10 +50,16 @@ export function CatalogoCanchas() {
             Catálogo de canchas, su disponibilidad y sus bloqueos.
           </p>
         </div>
+        {/* [PROPUESTA] D6: las sedes se gestionan en un modal junto a «Nueva cancha» (RF-028). */}
         <ConPermiso permiso="canchas.cancha:EDITAR">
-          <Button icono={Plus} onClick={abrirNueva} className="shrink-0">
-            Nueva cancha
-          </Button>
+          <div className="flex shrink-0 flex-col-reverse gap-2 sm:flex-row">
+            <Button variante="secundario" icono={Building2} onClick={() => setGestionandoSedes(true)}>
+              Sedes
+            </Button>
+            <Button icono={Plus} onClick={abrirNueva}>
+              Nueva cancha
+            </Button>
+          </div>
         </ConPermiso>
       </header>
 
@@ -103,6 +111,7 @@ export function CatalogoCanchas() {
         </div>
       </div>
 
+      {gestionandoSedes && <ModalSedes onCerrar={() => setGestionandoSedes(false)} />}
       {creando && (
         <FormularioCancha
           onCerrar={() => setCreando(false)}

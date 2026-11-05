@@ -1,7 +1,8 @@
 import { useId, useState, type FormEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/Button'
 import { CampoTexto } from '@/components/ui/CampoTexto'
-import { useActualizarCancha, useCrearCancha } from '@/features/canchas/api'
+import { clavesSedes, useActualizarCancha, useCrearCancha, useSedes } from '@/features/canchas/api'
 import { CampoSeleccion } from '@/components/ui/CampoSeleccion'
 import { etiquetaPropietario, etiquetaUbicacion } from '@/features/canchas/etiquetas'
 import type {
@@ -28,7 +29,12 @@ type Valores = {
   propietario: PropietarioCancha | ''
   propietarioExterno: string
   caracteristicas: string
+  /** `""` es «Sin sede». */
+  sedeId: string
 }
+
+/** [PROPUESTA] D9: mensaje del 422 `REFERENCIA_INVALIDA` (la sede se eligió y ya no existe). */
+const SEDE_INEXISTENTE = 'La sede elegida ya no existe. Elige otra.'
 
 const CAMPOS_FORMULARIO = new Set<string>([
   'nombre',
@@ -37,6 +43,7 @@ const CAMPOS_FORMULARIO = new Set<string>([
   'propietario',
   'propietarioExterno',
   'caracteristicas',
+  'sedeId',
 ])
 
 function valoresDe(cancha?: Cancha): Valores {
@@ -47,6 +54,7 @@ function valoresDe(cancha?: Cancha): Valores {
     propietario: cancha?.propietario ?? '',
     propietarioExterno: cancha?.propietarioExterno ?? '',
     caracteristicas: cancha?.caracteristicas ?? '',
+    sedeId: cancha?.sede?.id ?? '',
   }
 }
 
@@ -81,15 +89,28 @@ function cambiosDe(cancha: Cancha, valores: Valores): ActualizarCanchaPeticion {
     cambios.propietarioExterno = externo
   }
 
+  // D2: `sedeId` y `quitarSede` nunca van juntos; sin cambio de sede no se envía ninguno.
+  if (valores.sedeId !== (cancha.sede?.id ?? '')) {
+    if (valores.sedeId) {
+      cambios.sedeId = valores.sedeId
+    } else {
+      cambios.quitarSede = true
+    }
+  }
+
   return cambios
 }
 
 /**
- * Crea y edita una cancha (RF-027). Mientras no exista el catálogo de clubes, una cancha de
+ * Crea y edita una cancha (RF-027) y la asigna a una sede (RF-028). [PROPUESTA] D7: la sede es
+ * opcional, con «Sin sede»; si la sede actual no llega en la lista (cargando o error), se agrega
+ * su opción desde la cancha para no perder el valor. Mientras no exista el catálogo de clubes, una cancha de
  * club no se puede registrar aquí; al editarla se muestra su club sin ofrecer cambiarlo por otro.
  */
 export function FormularioCancha({ cancha, onCerrar, onGuardada }: Props) {
   const dialogoRef = useDialogoModal()
+  const clienteConsultas = useQueryClient()
+  const sedes = useSedes()
   const crear = useCrearCancha()
   const actualizar = useActualizarCancha(cancha?.id ?? '')
   const [valores, setValores] = useState(() => valoresDe(cancha))
@@ -99,8 +120,12 @@ export function FormularioCancha({ cancha, onCerrar, onGuardada }: Props) {
   const idTitulo = `${id}-titulo`
   const idCaracteristicas = `${id}-caracteristicas`
   const idAyudaCaracteristicas = `${id}-caracteristicas-ayuda`
+  const idAyudaSede = `${id}-sede-ayuda`
   const guardando = crear.isPending || actualizar.isPending
   const ayudaOpcional = cancha ? 'Déjalo vacío para borrarlo.' : undefined
+  const sedeActualFuera =
+    cancha?.sede && !sedes.data?.some((sede) => sede.id === cancha.sede?.id) ? cancha.sede : undefined
+  const sinSedes = sedes.isSuccess && sedes.data.length === 0
 
   const cambiar = (campo: keyof Valores, valor: string) => {
     setValores((actuales) => ({ ...actuales, [campo]: valor }))
@@ -121,6 +146,13 @@ export function FormularioCancha({ cancha, onCerrar, onGuardada }: Props) {
     if (error.problema.codigo === 'DUPLICADO') {
       setErrores({ nombre: error.problema.detail })
       setErrorGeneral(null)
+      return
+    }
+
+    if (error.problema.codigo === 'REFERENCIA_INVALIDA') {
+      setErrores({ sedeId: SEDE_INEXISTENTE })
+      setErrorGeneral(null)
+      void clienteConsultas.invalidateQueries({ queryKey: clavesSedes.todas })
       return
     }
 
@@ -178,6 +210,7 @@ export function FormularioCancha({ cancha, onCerrar, onGuardada }: Props) {
       propietario: valores.propietario as PropietarioCancha,
       ...(direccion ? { direccion } : {}),
       ...(caracteristicas ? { caracteristicas } : {}),
+      ...(valores.sedeId ? { sedeId: valores.sedeId } : {}),
       ...(valores.propietario === 'EXTERNO'
         ? { propietarioExterno: valores.propietarioExterno.trim() }
         : {}),
@@ -224,6 +257,34 @@ export function FormularioCancha({ cancha, onCerrar, onGuardada }: Props) {
           <option value="UNIDAD_DEPORTIVA">{etiquetaUbicacion.UNIDAD_DEPORTIVA}</option>
           <option value="EXTERNA">{etiquetaUbicacion.EXTERNA}</option>
         </CampoSeleccion>
+        <div className="flex flex-col gap-1.5">
+          <CampoSeleccion
+            id={`${id}-sede`}
+            etiqueta="Sede"
+            disabled={sedes.isPending}
+            {...(sinSedes && !errores.sedeId ? { 'aria-describedby': idAyudaSede } : {})}
+            error={errores.sedeId}
+            value={valores.sedeId}
+            onChange={(evento) => cambiar('sedeId', evento.target.value)}
+          >
+            {sedes.isPending && !sedeActualFuera ? (
+              <option value={valores.sedeId}>Cargando sedes…</option>
+            ) : (
+              <option value="">Sin sede</option>
+            )}
+            {sedeActualFuera && <option value={sedeActualFuera.id}>{sedeActualFuera.nombre}</option>}
+            {sedes.data?.map((sede) => (
+              <option key={sede.id} value={sede.id}>
+                {sede.nombre}
+              </option>
+            ))}
+          </CampoSeleccion>
+          {sinSedes && !errores.sedeId && (
+            <p id={idAyudaSede} className="text-body-sm text-text-muted">
+              Registra sedes con el botón Sedes.
+            </p>
+          )}
+        </div>
         <CampoTexto
           id={`${id}-direccion`}
           etiqueta="Dirección"

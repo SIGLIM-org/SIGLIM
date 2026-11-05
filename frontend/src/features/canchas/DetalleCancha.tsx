@@ -71,6 +71,13 @@ export function DetalleCancha({ canchaId, semana, rutaCatalogo, onCambiarSemana 
         </div>
 
         <dl className="grid gap-x-6 gap-y-3 text-body-md sm:grid-cols-2">
+          {/* [PROPUESTA] D8: la sede siempre se muestra, con «Sin sede» si no tiene (RF-028). */}
+          <div>
+            <dt className="text-label-md text-text-muted">Sede</dt>
+            <dd className={cancha.sede ? 'break-words text-text-main' : 'text-text-muted'}>
+              {cancha.sede?.nombre ?? 'Sin sede'}
+            </dd>
+          </div>
           <div>
             <dt className="text-label-md text-text-muted">Ubicación</dt>
             <dd className="text-text-main">{etiquetaUbicacion[cancha.ubicacion]}</dd>
