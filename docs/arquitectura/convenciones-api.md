@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 3.1 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 3.2 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -30,6 +30,7 @@ Versión 3.1 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 2.9 | 4 de noviembre de 2026 | B-12.1: §6.6 con el registro de `MANTENIMIENTO` (RF-031) como bloqueo tipificado: motivo obligatorio, mismo `409 RF-030` aceptable sobre partidos, traslape libre y acción `REGISTRAR_MANTENIMIENTO`. |
 | 3.0 | 5 de noviembre de 2026 | H-03.1: §6.1 con el contrato de usuarios, invitación, activación/desactivación, asignaciones y catálogo de roles; §2.1 con la activación de una cuenta. |
 | 3.1 | 5 de noviembre de 2026 | H-05.1: §6.2 con el contrato del catálogo de categorías (jerarquía sin ciclos, desactivación, reactivación solo con superior activa o sin ella, y reordenamiento atómico), las categorías de la temporada con sus grupos anidados y los grupos; `temporadas.temporada:CONSULTAR` en los `GET` de categorías y grupos (antes pedía `EDITAR`); errores y acciones de auditoría. |
+| 3.2 | 5 de noviembre de 2026 | H-05.2: §6.2 con el contrato de parámetros versionados (juego completo por versión, `esDemo` por versión con `camposDemo`, criterios de desempate sin nombre de equipo, filas por categoría, historial con `camposCambiados`, valores predeterminados y `GET` por versión); `temporadas.temporada:CONSULTAR` en los `GET` de parámetros (antes pedía `temporadas.parametros:EDITAR`); errores y la acción `REGISTRAR_PARAMETROS`; §11 con la confirmación parcial de valores oficiales. |
 
 ## Índice
 
@@ -423,7 +424,7 @@ matriz de permisos y la denegación VAL-022 del propio rol son H-20, no de este 
 | `GET /categorias?activa=` · `GET /categorias/{id}` · `POST /categorias` · `PATCH /categorias/{id}` · `POST /categorias/reordenamiento` | Catálogo con orden y categoría superior | `temporadas.temporada:CONSULTAR` en los `GET`; `temporadas.temporada:EDITAR` en `POST` y `PATCH` | RF-099 | N |
 | `GET /temporadas/{id}/categorias` · `GET /temporadas/{id}/categorias/{categoriaTemporadaId}` · `POST /temporadas/{id}/categorias` | Categorías que participan en la temporada, con sus grupos | `temporadas.temporada:CONSULTAR` en los `GET`; `temporadas.temporada:EDITAR` en `POST` | RF-004, RF-005 | N |
 | `GET /grupos?categoriaTemporadaId=` · `GET /grupos/{id}` · `POST /grupos` · `PATCH /grupos/{id}` | Grupos | `temporadas.temporada:CONSULTAR` en los `GET`; `temporadas.temporada:EDITAR` en `POST` y `PATCH` | RF-005 | N |
-| `GET /temporadas/{id}/parametros` · `POST /temporadas/{id}/parametros` | Versiones de parámetros; `POST` crea una versión nueva, nunca edita la vigente | `temporadas.parametros:EDITAR` | RF-006, RF-100 | N |
+| `GET /temporadas/{id}/parametros` · `GET /temporadas/{id}/parametros/{version}` · `POST /temporadas/{id}/parametros` | Versiones de parámetros; `POST` crea una versión nueva, nunca edita la vigente | `temporadas.temporada:CONSULTAR` en los `GET`; `temporadas.parametros:EDITAR` en `POST` | RF-006, RF-100 | N |
 | `PUT /temporadas/{id}/convocatoria` | Referencia de la convocatoria | `temporadas.convocatoria:EDITAR` | RF-002 | B |
 | `GET /interpretaciones-regla` · `POST` · `POST …/{id}/resolucion` | Reglas interpretadas | `temporadas.interpretacion:*` | RF-007 | B |
 
@@ -577,8 +578,120 @@ responde un arreglo sin paginar ordenado por nombre con `{ "id", "nombre", "cate
 (`campos` y `temporadaId`) sobre `grupos`. El detalle lleva solo identificadores y datos no
 personales.
 
-Las respuestas de parámetros incluyen `"esDemo": true` en cada valor **[DEMO]** para que la
-interfaz los rotule «no oficial».
+**Parámetros deportivos (H-05.2, RF-006, RF-100).** Cada temporada guarda sus reglas en versiones
+inmutables: un cambio es una versión nueva y la de número mayor es la vigente (DP-002). Con al menos
+una versión se cumple el requisito `RF-100` de la activación. Los `GET` exigen
+`temporadas.temporada:CONSULTAR` y el `POST`, `temporadas.parametros:EDITAR`, ambos con ámbito de
+liga; la liga sale de la configuración del backend. El `POST` valida en el mismo orden que H-05.1:
+`401` → `403` → cuerpo (`400`) → temporada de la ruta (`404`) → categorías del cuerpo (`422`) →
+reglas de negocio (`409`). No hay `PATCH` ni `DELETE`.
+
+`POST /temporadas/{id}/parametros` lleva el juego **completo** de valores: nada se hereda de la
+versión anterior y todos los campos son obligatorios salvo `esDemo` y `categorias`.
+
+```json
+{
+  "puntosVictoria": 3, "puntosEmpate": 1, "puntosDerrota": 0,
+  "criteriosDesempate": ["PUNTOS", "DIFERENCIA_GOLES", "GOLES_FAVOR", "ENFRENTAMIENTO_DIRECTO", "MENOS_EXPULSIONES", "SORTEO"],
+  "golesDefaultGanador": 3, "golesDefaultPerdedor": 0,
+  "plazoValidacionCedulaHoras": 48,
+  "duracionJuegoMin": 90, "bloqueCanchaMin": 120,
+  "clasificadosLiguilla": 8, "formatoLiguilla": "PARTIDO_UNICO", "empateLiguillaPorPenales": true,
+  "equiposAscienden": 2, "equiposDescienden": 2, "permiteCambioClub": true,
+  "esDemo": true,
+  "categorias": [ { "categoriaId": "…", "duracionJuegoMin": 70, "bloqueCanchaMin": 90 } ],
+  "motivo": "Valores de demostración para la temporada"
+}
+```
+
+| Campo | Regla |
+| --- | --- |
+| `puntosVictoria`, `puntosEmpate`, `puntosDerrota` | Enteros de 0 a 100 **[PROPUESTA]**; victoria ≥ empate ≥ derrota |
+| `criteriosDesempate` | De 1 a 8, el primero `PUNTOS`, sin repetidos; `SORTEO` es opcional y, si aparece, va al final. Valores: `PUNTOS`, `DIFERENCIA_GOLES`, `GOLES_FAVOR`, `MENOS_GOLES_CONTRA`, `PARTIDOS_GANADOS`, `ENFRENTAMIENTO_DIRECTO`, `MENOS_EXPULSIONES`, `SORTEO` |
+| `golesDefaultGanador`, `golesDefaultPerdedor` | Enteros de 0 a 99; ganador > perdedor (marcador por default, DEC-24) |
+| `plazoValidacionCedulaHoras` | Entero de 1 a 720 horas **[PROPUESTA]** (DEC-20) |
+| `duracionJuegoMin`, `bloqueCanchaMin` | Enteros de 1 a 600 minutos **[PROPUESTA]**; bloque ≥ duración (DEC-25) |
+| `clasificadosLiguilla` | 2, 4, 8, 16 o 32 (DEC-28) |
+| `formatoLiguilla` | `PARTIDO_UNICO` o `IDA_Y_VUELTA` |
+| `empateLiguillaPorPenales`, `permiteCambioClub` | Booleanos |
+| `equiposAscienden`, `equiposDescienden` | Enteros de 0 a 32 **[PROPUESTA]** (DEC-29) |
+| `esDemo` | Opcional; omitido vale `true` |
+| `categorias` | Opcional. Duración y bloque propios de una categoría **asignada a esta temporada**, sin repetir categoría y con bloque ≥ duración. Una categoría omitida usa los valores de la temporada |
+| `motivo` | De 10 a 500 caracteres sin espacios en los extremos (RN-021); se guarda en la versión y en la auditoría |
+
+Responde `201` con `Location: /api/v1/temporadas/{id}/parametros/{version}` y la versión creada, con
+la misma forma que `GET /temporadas/{id}/parametros/{version}`:
+
+```json
+{
+  "id": "…", "temporadaId": "…", "version": 2,
+  "puntosVictoria": 3, "puntosEmpate": 1, "puntosDerrota": 0,
+  "criteriosDesempate": ["PUNTOS", "DIFERENCIA_GOLES", "GOLES_FAVOR", "ENFRENTAMIENTO_DIRECTO", "MENOS_EXPULSIONES", "SORTEO"],
+  "golesDefaultGanador": 3, "golesDefaultPerdedor": 0, "plazoValidacionCedulaHoras": 48,
+  "duracionJuegoMin": 90, "bloqueCanchaMin": 120, "clasificadosLiguilla": 8,
+  "formatoLiguilla": "PARTIDO_UNICO", "empateLiguillaPorPenales": true,
+  "equiposAscienden": 2, "equiposDescienden": 2, "permiteCambioClub": true,
+  "categorias": [ { "categoria": { "id": "…", "nombre": "Veteranos" }, "duracionJuegoMin": 70, "bloqueCanchaMin": 90 } ],
+  "esDemo": true,
+  "camposDemo": ["puntosVictoria", "puntosEmpate", "puntosDerrota", "criteriosDesempate",
+                 "golesDefaultGanador", "golesDefaultPerdedor", "plazoValidacionCedulaHoras", "bloqueCanchaMin",
+                 "clasificadosLiguilla", "formatoLiguilla", "empateLiguillaPorPenales",
+                 "equiposAscienden", "equiposDescienden"],
+  "motivo": "Ajuste de la asamblea de la Liga",
+  "creadoPor": { "id": "…", "nombre": "Ana López" },
+  "creadoEn": "2026-11-05T10:00:00-06:00"
+}
+```
+
+`categorias` va por el orden del catálogo y `creadoPor` se omite si la versión no lo tiene.
+
+- **`esDemo` y `camposDemo`.** `esDemo` vale para la versión completa: es `true` mientras la Liga no
+  confirme los valores como oficiales (PEN-021). Con `esDemo: true`, `camposDemo` lista los campos
+  **[DEMO]** que la interfaz rotula «No oficial»; con `esDemo: false` va vacío. La lista es fija y no
+  incluye `duracionJuegoMin` (DEC-25 adopta 90 minutos como estándar) ni `permiteCambioClub`
+  (DEC-13). «Oficial» significa que la Liga confirmó los valores; se registra con una versión nueva
+  con `esDemo: false`.
+- **Criterios de desempate (RF-050).** Ninguno usa el nombre del equipo. Un valor fuera de la lista,
+  como `NOMBRE_EQUIPO`, no se puede leer del JSON y responde `400 VALIDACION`.
+- **`GET /temporadas/{id}/parametros`** responde la vigente completa, el historial de la mayor a la
+  menor (incluida la vigente) y, solo si todavía no hay versiones, los valores predeterminados de la
+  tabla para precargar el formulario (`esDemo: true`, sin `categorias` ni `motivo`):
+
+  ```json
+  {
+    "vigente": { "…": "la versión 2 completa" },
+    "historial": [
+      { "id": "…", "version": 2, "esDemo": true, "motivo": "Ajuste de la asamblea de la Liga",
+        "creadoPor": { "id": "…", "nombre": "Ana López" }, "creadoEn": "…",
+        "camposCambiados": ["puntosVictoria", "categorias"] },
+      { "id": "…", "version": 1, "esDemo": true, "motivo": "…", "creadoEn": "…",
+        "camposCambiados": ["puntosVictoria", "…", "esDemo"] }
+    ]
+  }
+  ```
+
+  Sin versiones: `{ "vigente": null, "historial": [], "predeterminados": { … } }`.
+  `camposCambiados` compara cada versión con la anterior en camelCase, incluye `esDemo` y agrega
+  `categorias` si cambió el conjunto de filas por categoría. La versión 1 lista todos los campos (y
+  `categorias` solo si trae filas propias).
+- **Qué es retroactivo.** La tabla de posiciones se calcula con la versión vigente
+  (`calcular_tabla()`, RN-022): un cambio de puntos o de criterios cambia las tablas de toda la
+  temporada. **No** cambia lo ya guardado: el `fin_bloque` de los partidos programados, el
+  `plazo_vence_en` de las cédulas enviadas, ni las fases y propuestas de movimiento que registraron
+  su `parametros_id`.
+- **Errores.** Motivo ausente o de menos de 10 caracteres, `400 RN-021`; motivo de más de 500 o
+  cualquier otro campo inválido, `400 VALIDACION` con la extensión `errores` (`campo`, `mensaje`),
+  como en §3. El motivo se valida antes que los demás campos. Temporada inexistente o de otra liga,
+  `404`; categoría inexistente o no asignada a la temporada, `422 REFERENCIA_INVALIDA` con la
+  extensión `categoriasInvalidas`; temporada `CERRADA`, `409 RF-003` (`CONFIGURACION` y `ACTIVA`
+  admiten versiones nuevas). En el `GET` por versión, una versión inexistente responde `404`.
+- **Concurrencia.** El backend bloquea la temporada (`FOR UPDATE`, el mismo candado que activación y
+  cierre) antes de leer la versión anterior e insertar, así que dos registros simultáneos reciben
+  versiones consecutivas.
+- **Auditoría.** `REGISTRAR_PARAMETROS` en el módulo `M-02` sobre `parametros_temporada`, con el
+  `id` de la versión nueva y el motivo; el `detalle` lleva `temporadaId`, `version`,
+  `versionAnterior` (`null` en la primera), `esDemo` y `campos` (los `camposCambiados`). Sin valores
+  ni datos personales.
 
 ### 6.3 M-03 Organización deportiva
 
@@ -950,4 +1063,5 @@ El frontend mantiene un diccionario único `enum → texto` (por ejemplo, `PENDI
 | Duración y renovación de la sesión, política de contraseñas, intentos | PEN-030 |
 | Proveedor de correo para RF-143 | PEN-034, DEC-46 |
 | Quitar una categoría de la temporada y borrar un grupo en configuración: `siglim_app` no tiene `DELETE` sobre `categorias_temporada` ni `grupos`, así que requiere una migración y una decisión del equipo | H-05.1 (D7) |
+| Confirmar como oficiales solo una parte de los parámetros: `es_demo` es una sola columna por versión, así que marcarlos campo por campo requiere una migración | H-05.2 (D2), PEN-021 |
 | Valores **[PROPUESTA]** de este documento: longitud mínima del motivo, límites de tamaño, vigencia de la URL prefirmada, caché del portal, intervalo de consulta de avisos, enmascarado de CURP | Validar con el equipo y el profesor |
