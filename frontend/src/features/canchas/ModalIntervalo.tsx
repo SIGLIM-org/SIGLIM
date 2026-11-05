@@ -1,15 +1,18 @@
 import { useId, useState, type FormEvent } from 'react'
 import { AlertaBloqueo } from '@/components/ui/AlertaBloqueo'
 import { Button } from '@/components/ui/Button'
+import { CampoSeleccion } from '@/components/ui/CampoSeleccion'
 import { CampoTexto } from '@/components/ui/CampoTexto'
 import { MAXIMO_MOTIVO, MINIMO_MOTIVO } from '@/components/ui/ModalMotivo'
 import { esBloqueoAceptable, partidosAfectadosDe, useRegistrarDisponibilidad } from '@/features/canchas/api'
 import { AvisoPartidosAfectados } from '@/features/canchas/AvisoPartidosAfectados'
+import { etiquetaBloque } from '@/features/canchas/etiquetas'
 import { aIsoConDesplazamiento } from '@/features/canchas/fechas'
 import type {
   PartidoEnCancha,
   RegistrarDisponibilidadPeticion,
   RegistroDisponibilidad,
+  TipoRestriccion,
 } from '@/features/canchas/tipos'
 import { useDialogoModal } from '@/components/ui/useDialogoModal'
 import { ApiError } from '@/lib/api/ApiError'
@@ -17,6 +20,7 @@ import { ApiError } from '@/lib/api/ApiError'
 type Props = {
   canchaId: string
   canchaNombre: string
+  /** Modo del modal; en `BLOQUEO` se elige además el tipo de restricción (RF-031). */
   tipo: 'DISPONIBLE' | 'BLOQUEO'
   onCerrar: () => void
   onRegistrado: (registro: RegistroDisponibilidad) => void
@@ -24,6 +28,11 @@ type Props = {
 
 type ErroresCampos = { inicio?: string; fin?: string; motivo?: string }
 type Aviso = { detalle: string; partidos: PartidoEnCancha[] }
+
+/** [PROPUESTA] E4: valida el valor del selector sin `as`. */
+function esTipoRestriccion(valor: string): valor is TipoRestriccion {
+  return valor === 'BLOQUEO' || valor === 'MANTENIMIENTO'
+}
 
 /** Lleva un error de la API a su campo; `RN-021` siempre se refiere al motivo. */
 function erroresDeApi(error: ApiError): ErroresCampos {
@@ -47,9 +56,13 @@ function erroresDeApi(error: ApiError): ErroresCampos {
 }
 
 /**
- * Registra disponibilidad (RF-029) o un bloqueo con motivo (RF-030). Un bloqueo sobre
- * partidos se hace en dos pasos: el 409 `RF-030` lista los afectados y solo se confirma ese
- * mismo intervalo con ese mismo motivo; cualquier cambio vuelve al primer paso (PEN-007).
+ * Registra disponibilidad (RF-029), un bloqueo con motivo (RF-030) o un periodo de mantenimiento
+ * (RF-031), que bloquea la cancha igual que un bloqueo. Una restricción sobre partidos se hace en
+ * dos pasos: el 409 `RF-030` lista los afectados y solo se confirma ese mismo intervalo con ese
+ * mismo tipo y motivo; cualquier cambio vuelve al primer paso (PEN-007).
+ *
+ * [PROPUESTA] E1/E2/E3/E5: el mantenimiento es una opción del modal de bloqueo (mismo título y
+ * motivo obligatorio), no un modal aparte; solo cambia el botón de confirmación.
  */
 export function ModalIntervalo({ canchaId, canchaNombre, tipo, onCerrar, onRegistrado }: Props) {
   const dialogoRef = useDialogoModal()
@@ -57,6 +70,7 @@ export function ModalIntervalo({ canchaId, canchaNombre, tipo, onCerrar, onRegis
   const [inicio, setInicio] = useState('')
   const [fin, setFin] = useState('')
   const [motivo, setMotivo] = useState('')
+  const [tipoRestriccion, setTipoRestriccion] = useState<TipoRestriccion>('BLOQUEO')
   const [errores, setErrores] = useState<ErroresCampos>({})
   const [errorApi, setErrorApi] = useState<ApiError | null>(null)
   const [aviso, setAviso] = useState<Aviso | null>(null)
@@ -71,7 +85,7 @@ export function ModalIntervalo({ canchaId, canchaNombre, tipo, onCerrar, onRegis
   const motivoLimpio = motivo.trim()
 
   const cuerpo = (confirmar: boolean): RegistrarDisponibilidadPeticion => ({
-    tipo,
+    tipo: tipo === 'DISPONIBLE' ? 'DISPONIBLE' : tipoRestriccion,
     periodo: { desde: aIsoConDesplazamiento(inicio), hasta: aIsoConDesplazamiento(fin) },
     ...(motivoLimpio ? { motivo: motivoLimpio } : {}),
     ...(confirmar ? { confirmarPartidosAfectados: true } : {}),
@@ -123,10 +137,14 @@ export function ModalIntervalo({ canchaId, canchaNombre, tipo, onCerrar, onRegis
   }
 
   /** Cambiar un dato invalida el aviso: nunca se confirma algo distinto a lo que se avisó. */
-  const alCambiar = (asignar: (valor: string) => void, campo: keyof ErroresCampos) => (valor: string) => {
-    asignar(valor)
+  const invalidarAviso = () => {
     setAviso(null)
     setErrorApi(null)
+  }
+
+  const alCambiar = (asignar: (valor: string) => void, campo: keyof ErroresCampos) => (valor: string) => {
+    asignar(valor)
+    invalidarAviso()
     setErrores((actuales) => ({ ...actuales, [campo]: undefined }))
   }
 
@@ -154,6 +172,30 @@ export function ModalIntervalo({ canchaId, canchaNombre, tipo, onCerrar, onRegis
         <h2 id={idTitulo} className="text-balance text-headline-md">
           {esBloqueo ? 'Bloquear intervalo' : 'Agregar disponibilidad'} — {canchaNombre}
         </h2>
+
+        {esBloqueo && (
+          <CampoSeleccion
+            id={`${id}-tipo`}
+            etiqueta="Tipo de restricción"
+            required
+            value={tipoRestriccion}
+            ayuda={
+              tipoRestriccion === 'MANTENIMIENTO'
+                ? 'Bloquea la cancha igual que un bloqueo y se distingue en el calendario.'
+                : undefined
+            }
+            onChange={(evento) => {
+              const valor = evento.target.value
+              if (esTipoRestriccion(valor)) {
+                setTipoRestriccion(valor)
+                invalidarAviso()
+              }
+            }}
+          >
+            <option value="BLOQUEO">{etiquetaBloque.BLOQUEO}</option>
+            <option value="MANTENIMIENTO">{etiquetaBloque.MANTENIMIENTO}</option>
+          </CampoSeleccion>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <CampoTexto
@@ -245,7 +287,7 @@ export function ModalIntervalo({ canchaId, canchaNombre, tipo, onCerrar, onRegis
                 Cambiar horario
               </Button>
               <Button type="submit" variante="destructivo" cargando={registrar.isPending}>
-                Bloquear de todos modos
+                {tipoRestriccion === 'MANTENIMIENTO' ? 'Registrar de todos modos' : 'Bloquear de todos modos'}
               </Button>
             </>
           ) : (

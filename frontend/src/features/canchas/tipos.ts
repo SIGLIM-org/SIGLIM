@@ -3,6 +3,8 @@
 export type UbicacionCancha = 'UNIDAD_DEPORTIVA' | 'EXTERNA'
 export type PropietarioCancha = 'LIGA' | 'CLUB' | 'EXTERNO'
 export type TipoDisponibilidad = 'DISPONIBLE' | 'BLOQUEO' | 'MANTENIMIENTO'
+/** Tipos que se registran desde el modal de bloqueo: los dos impiden programar (RF-030, RF-031). */
+export type TipoRestriccion = 'BLOQUEO' | 'MANTENIMIENTO'
 export type TipoBloqueOcupacion = TipoDisponibilidad | 'PARTIDO'
 
 /** `hasta` es exclusivo; las fechas son ISO 8601 con desplazamiento. */
@@ -105,7 +107,7 @@ export type CrearSedePeticion = {
 export type ActualizarSedePeticion = Partial<CrearSedePeticion>
 
 export type RegistrarDisponibilidadPeticion = {
-  tipo: 'DISPONIBLE' | 'BLOQUEO'
+  tipo: 'DISPONIBLE' | TipoRestriccion
   periodo: Intervalo
   motivo?: string
   confirmarPartidosAfectados?: boolean

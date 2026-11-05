@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ModalIntervalo } from '@/features/canchas/ModalIntervalo'
@@ -34,11 +34,13 @@ const CUERPO = {
   motivo: MOTIVO,
 }
 
-function conflictoAceptable() {
+const AYUDA_MANTENIMIENTO = 'Bloquea la cancha igual que un bloqueo y se distingue en el calendario.'
+
+function conflictoAceptable(detail = 'El bloqueo afecta a 1 partido(s), que no se reprogramarán solos.') {
   return new ApiError({
     title: 'Conflicto',
     status: 409,
-    detail: 'El bloqueo afecta a 1 partido(s), que no se reprogramarán solos.',
+    detail,
     codigo: 'RF-030',
     aceptable: true,
     extensiones: { partidosAfectados: [PARTIDO] },
@@ -73,6 +75,8 @@ function llenar(motivo = MOTIVO) {
 }
 
 const guardar = () => userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+const selectorTipo = () => screen.getByRole('combobox', { name: /Tipo de restricción/ })
+const elegirMantenimiento = () => userEvent.selectOptions(selectorTipo(), 'MANTENIMIENTO')
 
 describe('ModalIntervalo', () => {
   beforeEach(() => {
@@ -236,5 +240,90 @@ describe('ModalIntervalo', () => {
     await guardar()
     fireEvent(dialogo, new Event('cancel', { cancelable: true }))
     expect(onCerrar).toHaveBeenCalledOnce()
+  })
+
+  it('RF-031 (E1/E3): el modo bloqueo ofrece «Tipo de restricción» con «Bloqueo» por defecto; el de disponibilidad no', () => {
+    montar()
+
+    expect(selectorTipo()).toHaveValue('BLOQUEO')
+    expect(selectorTipo()).toHaveDisplayValue('Bloqueo')
+    expect(screen.getByRole('option', { name: 'Mantenimiento' })).toBeInTheDocument()
+
+    cleanup()
+    montar('DISPONIBLE')
+
+    expect(screen.queryByRole('combobox', { name: /Tipo de restricción/ })).not.toBeInTheDocument()
+  })
+
+  it('RF-031 (criterio 1): registra un mantenimiento con su motivo', async () => {
+    post.mockResolvedValue({ ...REGISTRO, partidosAfectados: [] })
+    const { onRegistrado } = montar()
+    expect(screen.queryByText(AYUDA_MANTENIMIENTO)).not.toBeInTheDocument()
+
+    await elegirMantenimiento()
+    llenar()
+
+    expect(screen.getByText(AYUDA_MANTENIMIENTO)).toBeInTheDocument()
+    expect(selectorTipo()).toHaveAccessibleDescription(AYUDA_MANTENIMIENTO)
+
+    await guardar()
+
+    expect(post).toHaveBeenCalledWith('canchas/c1/disponibilidad', { ...CUERPO, tipo: 'MANTENIMIENTO' })
+    expect(onRegistrado).toHaveBeenCalledOnce()
+  })
+
+  it('RF-031 / RN-021 (criterio 3): no envía un mantenimiento con motivo de menos de 10 caracteres', async () => {
+    montar()
+    await elegirMantenimiento()
+    llenar('corto')
+
+    await guardar()
+
+    expect(post).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent('al menos 10 caracteres')
+    expect(screen.getByRole('textbox')).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('RF-031 / RF-030 (criterio 2): un mantenimiento sobre partidos se confirma con «Registrar de todos modos»', async () => {
+    const detalle = 'El mantenimiento afecta a 1 partido(s), que no se reprogramarán solos.'
+    post.mockRejectedValueOnce(conflictoAceptable(detalle)).mockResolvedValueOnce(REGISTRO)
+    const { onRegistrado } = montar()
+    await elegirMantenimiento()
+    llenar()
+
+    await guardar()
+
+    expect(await screen.findByText(detalle)).toBeInTheDocument()
+    expect(screen.getByText('Halcones vs Toros')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Bloquear de todos modos' })).not.toBeInTheDocument()
+    expect(onRegistrado).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Registrar de todos modos' }))
+
+    expect(post).toHaveBeenNthCalledWith(2, 'canchas/c1/disponibilidad', {
+      ...CUERPO,
+      tipo: 'MANTENIMIENTO',
+      confirmarPartidosAfectados: true,
+    })
+    expect(onRegistrado).toHaveBeenCalledOnce()
+  })
+
+  it('PEN-007 (E4): cambiar el tipo en el segundo paso vuelve al primero y no confirma', async () => {
+    post.mockRejectedValueOnce(conflictoAceptable())
+    montar()
+    llenar()
+    await guardar()
+    await screen.findByText('Halcones vs Toros')
+
+    await elegirMantenimiento()
+
+    expect(screen.queryByText('Halcones vs Toros')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Bloquear de todos modos' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Registrar de todos modos' })).not.toBeInTheDocument()
+
+    post.mockResolvedValueOnce(REGISTRO)
+    await guardar()
+
+    expect(post).toHaveBeenLastCalledWith('canchas/c1/disponibilidad', { ...CUERPO, tipo: 'MANTENIMIENTO' })
   })
 })
