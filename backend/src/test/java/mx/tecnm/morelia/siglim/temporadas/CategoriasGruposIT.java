@@ -37,6 +37,9 @@ class CategoriasGruposIT extends BaseDatosPrueba {
     @Autowired
     private TemporadaService temporadas;
 
+    @Autowired
+    private ParametrosService parametros;
+
     // ── Flujo completo ────────────────────────────────────────────────────────────────────────
 
     @Test
@@ -146,9 +149,8 @@ class CategoriasGruposIT extends BaseDatosPrueba {
                 new AsignarCategoriaRequest(juvenil.id()));
         grupos.crear(new CrearGrupoRequest(asignada.id(), "A"));
 
-        // Preparación: H-05.2 (parámetros) aún no existe y RN-058 admite una sola temporada activa.
-        jdbc.sql("INSERT INTO siglim.parametros_temporada (temporada_id, motivo) VALUES (:id, 'Parámetros de prueba')")
-                .param("id", temporada.id()).update();
+        // Preparación: RN-058 admite una sola temporada activa y la base es compartida con las demás *IT.
+        parametros.registrar(temporada.id(), ParametrosPrueba.valido());
         jdbc.sql("UPDATE siglim.temporadas SET estado = 'CERRADA' WHERE estado = 'ACTIVA'").update();
         assertThat(temporadas.activar(temporada.id()).estado()).isEqualTo(EstadoTemporada.ACTIVA);
 

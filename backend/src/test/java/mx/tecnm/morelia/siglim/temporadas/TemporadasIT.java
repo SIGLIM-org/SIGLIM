@@ -34,6 +34,9 @@ class TemporadasIT extends BaseDatosPrueba {
     @Autowired
     private TemporadaService servicio;
 
+    @Autowired
+    private ParametrosService parametros;
+
     @BeforeEach
     void cerrarTemporadasActivas() {
         jdbc.sql("UPDATE siglim.temporadas SET estado = 'CERRADA' WHERE estado = 'ACTIVA'").update();
@@ -96,8 +99,7 @@ class TemporadasIT extends BaseDatosPrueba {
         iniciarSesionComoAdministrador();
         TemporadaDto temporada = servicio.crear(new CrearTemporadaRequest("Requisitos " + UUID.randomUUID(), INICIO, FIN));
 
-        jdbc.sql("INSERT INTO siglim.parametros_temporada (temporada_id, motivo) VALUES (:id, 'Parámetros de prueba')")
-                .param("id", temporada.id()).update();
+        parametros.registrar(temporada.id(), ParametrosPrueba.valido());
         assertThatThrownBy(() -> servicio.activar(temporada.id()))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-004"));
 
@@ -185,8 +187,7 @@ class TemporadasIT extends BaseDatosPrueba {
     }
 
     private void completarRequisitos(UUID temporada) {
-        jdbc.sql("INSERT INTO siglim.parametros_temporada (temporada_id, motivo) VALUES (:id, 'Parámetros de prueba')")
-                .param("id", temporada).update();
+        parametros.registrar(temporada, ParametrosPrueba.valido());
         UUID categoriaTemporada = agregarCategoria(temporada);
         jdbc.sql("INSERT INTO siglim.grupos (categoria_temporada_id, nombre) VALUES (:categoria, 'A')")
                 .param("categoria", categoriaTemporada).update();
