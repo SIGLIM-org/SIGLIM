@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.9 · 4 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 3.0 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -28,6 +28,7 @@ Versión 2.9 · 4 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 2.7 | 4 de noviembre de 2026 | B-02.1: §6.2 con el contrato de la convocatoria (`PUT /temporadas/{id}/convocatoria`), su reemplazo completo, sus errores y la auditoría; la temporada incluye `convocatoria` cuando existe. |
 | 2.8 | 4 de noviembre de 2026 | B-11.1: §6.6 con el contrato de sedes (`CONSULTAR` en el `GET`, `EDITAR` en `POST` y `PATCH`, lista sin paginar), el filtro `sedeId` de `GET /canchas`, `sede` en la cancha, `quitarSede` y el `422 REFERENCIA_INVALIDA` de una sede inexistente. |
 | 2.9 | 4 de noviembre de 2026 | B-12.1: §6.6 con el registro de `MANTENIMIENTO` (RF-031) como bloqueo tipificado: motivo obligatorio, mismo `409 RF-030` aceptable sobre partidos, traslape libre y acción `REGISTRAR_MANTENIMIENTO`. |
+| 3.0 | 5 de noviembre de 2026 | H-03.1: §6.1 con el contrato de usuarios, invitación, activación/desactivación, asignaciones y catálogo de roles; §2.1 con la activación de una cuenta. |
 
 ## Índice
 
@@ -89,6 +90,7 @@ Versión 2.9 · 4 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | Temporada | Activar | `POST /temporadas/{id}/activacion` | `{}` | `CONFIGURACION → ACTIVA` | `temporadas.temporada:EDITAR` | RF-001 |
 | Temporada | Cerrar | `POST /temporadas/{id}/cierre` | `{ "motivo" }` | `ACTIVA → CERRADA` | `temporadas.temporada:EDITAR` | RF-003 |
 | Equipo | Baja | `POST /equipos/{id}/baja` | `{ "motivo" }` | `ACTIVO → BAJA` | `organizacion.equipo:EDITAR` | RF-009, RN-005 |
+| Cuenta | Activar / desactivar | `PATCH /usuarios/{id}` | `{ "activo", "motivo"? }` | `activo` ↔ `inactivo` | `seguridad.usuario:EDITAR` | RF-094 |
 | Afiliación | Aprobar / rechazar | `POST /afiliaciones/{id}/resolucion` | `{ "decision": "APROBADA"\|"RECHAZADA", "observaciones" }` | `SOLICITADA → …` | `organizacion.afiliacion:APROBAR` | RF-101 |
 | Registro de jugador | Validar / rechazar | `POST /registros-jugador/{id}/validacion` | `{ "decision": "ACTIVO"\|"RECHAZADO", "observaciones" }` | `PENDIENTE_VALIDACION → …` | `registros.registro:VALIDAR` | RF-109 |
 | Registro de jugador | Baja | `POST /registros-jugador/{id}/baja` | `{ "motivo" }` | `ACTIVO → BAJA` | `registros.registro:EDITAR` | RF-014 |
@@ -335,6 +337,81 @@ implementa hasta que su historia entre a un Sprint (AGENTS.md §3). Los permisos
   "detalle": { "tipo": "BLOQUEO" }
 }
 ```
+
+**Usuarios, invitación y asignaciones (H-03.1, RF-094).** Los permisos son
+`seguridad.usuario:CONSULTAR` para `GET /usuarios` y `GET /usuarios/{id}`,
+`seguridad.usuario:CREAR` para `POST /usuarios` y `seguridad.usuario:EDITAR` para
+`PATCH /usuarios/{id}`, `POST /usuarios/{id}/asignaciones` y
+`POST /asignaciones-rol/{id}/revocacion`. Todos se exigen con ámbito de liga: una cuenta no
+pertenece a un club. `GET /roles` exige `seguridad.rol:CONSULTAR` y es la lista que llena el
+selector de rol de F-12.
+
+`GET /usuarios` responde la envoltura de paginación (§4) y admite `q` (nombre o correo), `rolId`,
+`ambito` (`LIGA`, `CLUB` o `PROPIO`), `clubId`, `activo`, `pagina` y `tamano`; el orden es fijo por
+nombre. Cada fila trae `id`, `nombreMostrado`, `correo`, `activo`, `creadoEn` y `asignaciones`
+(solo las activas, para los chips de rol):
+
+```json
+{
+  "contenido": [
+    {
+      "id": "…",
+      "nombreMostrado": "Ana López",
+      "correo": "ana@ejemplo.mx",
+      "activo": true,
+      "creadoEn": "2026-10-25T12:30:00-06:00",
+      "asignaciones": [
+        {
+          "id": "…",
+          "rol": { "id": "…", "codigo": "DIRECTIVA_CLUB", "nombre": "Directiva de club" },
+          "ambito": "CLUB",
+          "club": { "id": "…", "nombre": "Club Halcones" },
+          "activa": true,
+          "creadoEn": "2026-10-25T12:30:00-06:00"
+        }
+      ]
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 1,
+  "totalPaginas": 1
+}
+```
+
+`GET /usuarios/{id}` es el panel lateral: la misma cuenta con **todas** sus asignaciones, incluidas
+las revocadas (`activa: false` y `revocadaEn`). El perfil técnico `SISTEMA` no se lista ni se opera y
+un `id` inexistente responde `404`. Las respuestas llevan `Cache-Control: no-store` por los datos
+personales (RNF-012). Con el permiso en ámbito de club, el listado responde `200` con página vacía y
+`totalElementos = 0`; las demás rutas responden `404` como un recurso fuera de ámbito (VAL-024).
+
+`POST /usuarios` invita:
+`{ "nombreMostrado", "correo", "asignaciones": [ { "rolId", "ambito"?, "clubId"? } ] }`. El ámbito
+es opcional y, si se omite, se usa `roles.ambito_predeterminado`; con `CLUB` el `clubId` es
+obligatorio y el club debe ser de la liga. Responde `201` con `Location` y el detalle. Errores:
+`400 VALIDACION` si falta un rol, el ámbito `CLUB` no lleva club (o al revés), el rol no es asignable
+(`asignable = false`), el club no existe o la asignación está repetida; `409 DUPLICADO` si el correo
+ya tiene perfil; `503 SERVICIO_NO_DISPONIBLE` si Supabase Auth no responde. El backend llama a la API
+de administración de Supabase Auth (ADR-0003 punto 5) y, si la transacción falla después de crear la
+cuenta, la elimina como compensación para no dejarla sin perfil. Se audita `INVITAR_USUARIO` sobre
+`perfiles` con los roles, ámbitos y clubes, sin nombre ni correo.
+
+`PATCH /usuarios/{id}` lleva `{ "activo": true|false, "motivo"? }`. Al desactivar, el motivo es
+obligatorio (mínimo 10 caracteres, **[PROPUESTA]**) y el cambio se audita como `DESACTIVAR_CUENTA`;
+al activar, como `ACTIVAR_CUENTA`. Una cuenta inactiva se rechaza en cada petición aunque su token
+siga vigente (ADR-0003 punto 6). Repetir el estado actual responde `200` sin generar un evento.
+
+`POST /usuarios/{id}/asignaciones` lleva `{ "rolId", "ambito"?, "clubId"? }` y responde `201` con
+`Location` y la asignación. Una asignación activa repetida responde `409 DUPLICADO`. La revocación es
+`POST /asignaciones-rol/{id}/revocacion` con `{ "motivo" }` (mínimo 10): la asignación no se borra,
+queda `activa: false` con `revocadaEn` y se audita `REVOCAR_ASIGNACION`; sin motivo, `400 RN-021`; si
+ya estaba revocada, `409 RF-094`. Asignar (`ASIGNAR_ROL`) y revocar se auditan sobre
+`asignaciones_rol` con el rol, el ámbito y el club, sin datos personales (RF-093, RNF-012).
+
+`GET /roles` devuelve un arreglo sin paginación con `id`, `codigo`, `nombre`, `descripcion`,
+`ambitoPredeterminado` y `asignable`; los roles `asignable = false` (`SISTEMA`, `USUARIO_PUBLICO`) se
+listan, pero no se pueden asignar. El detalle `GET /roles/{id}`, `GET /permisos`, la edición de la
+matriz de permisos y la denegación VAL-022 del propio rol son H-20, no de este contrato.
 
 ### 6.2 M-02 Temporadas y normativa
 

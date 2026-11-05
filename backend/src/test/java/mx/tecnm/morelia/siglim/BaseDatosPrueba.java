@@ -38,6 +38,7 @@ import org.testcontainers.utility.MountableFile;
  */
 @SpringBootTest(properties = {
         "SUPABASE_URL=https://proyecto-prueba.supabase.co",
+        "SUPABASE_SECRET_KEY=clave-secreta-de-prueba",
         "SIGLIM_LIGA_ID=a0000000-0000-4000-8000-000000000001",
         "SIGLIM_S3_BUCKET=siglim-documentos-prueba",
         "AWS_REGION=us-east-2",

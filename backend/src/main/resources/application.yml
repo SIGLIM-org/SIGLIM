@@ -36,6 +36,12 @@ siglim:
   liga-id: ${SIGLIM_LIGA_ID}
   supabase:
     url: ${SUPABASE_URL}
+  # Alta de cuentas por invitación (H-03.1, ADR-0003 punto 5). La clave secreta solo vive aquí:
+  # nunca en el frontend ni en la bitácora.
+  invitaciones:
+    clave-secreta: ${SUPABASE_SECRET_KEY}
+    tiempo-conexion: 5s      # [PROPUESTA]
+    tiempo-respuesta: 10s    # [PROPUESTA]
   cors:
     origenes: ${SIGLIM_CORS_ORIGEN}
   # Documentos en AWS S3 (ADR-0013). Si las llaves quedan vacías, el SDK usa ~/.aws.

@@ -21,6 +21,7 @@ cp .env.example .env    # Windows: copy .env.example .env
 | `DB_URL` | Cadena JDBC de Supabase (Connect → JDBC → *Transaction pooler*, puerto 6543) terminada en `?currentSchema=siglim&prepareThreshold=0` (ADR-0014) |
 | `DB_USERNAME` / `DB_PASSWORD` | Usuario del pooler (`postgres.<ref>`) y contraseña de la base de datos |
 | `SUPABASE_URL` | `https://<ref>.supabase.co`, sin diagonal final; de aquí se derivan el JWKS y el emisor del JWT |
+| `SUPABASE_SECRET_KEY` | Clave secreta del proyecto para invitar cuentas desde el backend (H-03.1, ADR-0003). Es `sb_secret_…` o el JWT de `service_role`; **nunca** va al frontend |
 | `SIGLIM_CORS_ORIGEN` | Orígenes del frontend permitidos, separados por coma (convenciones de API §5) |
 | `SIGLIM_LIGA_ID` | UUID de la liga activa (ADR-0011 §5); en `.env.example` está el de la semilla |
 
