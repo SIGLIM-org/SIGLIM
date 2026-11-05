@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import { Lock, LockKeyhole, Pencil, Play } from 'lucide-react'
+import { FileText, Lock, LockKeyhole, Pencil, Play } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Insignia } from '@/components/ui/Insignia'
 import { etiquetaEstadoTemporada } from '@/features/temporadas/etiquetas'
@@ -16,6 +16,7 @@ type Props = {
   onEditar: (temporada: Temporada) => void
   onActivar: (temporada: Temporada) => void
   onCerrar: (temporada: Temporada) => void
+  onConvocatoria: (temporada: Temporada) => void
 }
 
 const CLASE_ETIQUETA = 'block text-label-sm text-text-muted lg:hidden'
@@ -37,6 +38,7 @@ export function FilaTemporada({
   onEditar,
   onActivar,
   onCerrar,
+  onConvocatoria,
 }: Props) {
   const idAyuda = useId()
   const estado = etiquetaEstadoTemporada[temporada.estado]
@@ -88,6 +90,27 @@ export function FilaTemporada({
         </span>
       </td>
 
+      <td role="cell" className="block py-1 lg:table-cell lg:px-4 lg:py-3">
+        <span className={CLASE_ETIQUETA}>Convocatoria</span>
+        {temporada.convocatoria ? (
+          <>
+            <span className="block max-w-xs break-words text-body-md text-text-main">
+              {temporada.convocatoria.referencia}
+            </span>
+            {temporada.convocatoria.version && (
+              <span className="block font-mono text-mono-data text-text-muted">
+                Versión {temporada.convocatoria.version}
+              </span>
+            )}
+            <span className="block text-body-sm text-text-muted">
+              Asociada el {formatearFecha(temporada.convocatoria.creadoEn.slice(0, 10))}
+            </span>
+          </>
+        ) : (
+          <span className="block text-body-sm text-text-muted">Sin asociar</span>
+        )}
+      </td>
+
       <td role="cell" className="block pt-3 lg:table-cell lg:px-4 lg:py-3 lg:text-right">
         <span className={CLASE_ETIQUETA}>Acciones</span>
         {temporada.estado === 'CERRADA' ? (
@@ -97,74 +120,88 @@ export function FilaTemporada({
           </span>
         ) : (
           <ConPermiso
-            permiso="temporadas.temporada:EDITAR"
+            permiso={['temporadas.temporada:EDITAR', 'temporadas.convocatoria:EDITAR']}
             alternativa={<span className="text-body-sm text-text-muted">Solo consulta</span>}
           >
             <div className="flex flex-col items-start gap-2 lg:items-end">
-              {esConfiguracion && (
-                <>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variante="secundario"
-                      icono={Pencil}
-                      disabled={accionesDeshabilitadas}
-                      onClick={() => onEditar(temporada)}
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      icono={Play}
-                      disabled={!puedeActivarse || accionesDeshabilitadas}
-                      cargando={activando}
-                      aria-describedby={!puedeActivarse ? idAyuda : undefined}
-                      onClick={() => onActivar(temporada)}
-                    >
-                      Activar
-                    </Button>
-                  </div>
-                  {!puedeActivarse && (
-                    <div id={idAyuda} className="max-w-xs text-left lg:text-right">
-                      <p className="text-body-sm text-text-muted">No se puede activar todavía:</p>
-                      {faltantes.length > 0 ? (
-                        <ul className="mt-1 list-disc space-y-0.5 pl-4 text-left text-body-sm text-text-muted">
-                          {faltantes.map((requisito) => (
-                            <li key={requisito.codigo}>{requisito.descripcion}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="mt-1 text-body-sm text-text-muted">
-                          No se pudo verificar la lista de requisitos.
-                        </p>
-                      )}
-                      <a
-                        href={`#panel-${temporada.id}`}
-                        className="mt-1 inline-flex min-h-11 items-center text-body-sm text-primary underline-offset-2 hover:underline"
-                      >
-                        Ver lista de verificación
-                      </a>
-                    </div>
-                  )}
-                </>
-              )}
-              {esActiva && (
-                <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
+                <ConPermiso permiso="temporadas.convocatoria:EDITAR">
                   <Button
                     variante="secundario"
-                    icono={Pencil}
+                    icono={FileText}
                     disabled={accionesDeshabilitadas}
-                    onClick={() => onEditar(temporada)}
+                    onClick={() => onConvocatoria(temporada)}
                   >
-                    Editar
+                    Convocatoria
                   </Button>
-                  <Button
-                    variante="destructivo"
-                    icono={LockKeyhole}
-                    disabled={accionesDeshabilitadas}
-                    onClick={() => onCerrar(temporada)}
-                  >
-                    Cerrar temporada
-                  </Button>
-                </div>
+                </ConPermiso>
+                <ConPermiso permiso="temporadas.temporada:EDITAR">
+                  {esConfiguracion && (
+                    <>
+                      <Button
+                        variante="secundario"
+                        icono={Pencil}
+                        disabled={accionesDeshabilitadas}
+                        onClick={() => onEditar(temporada)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        icono={Play}
+                        disabled={!puedeActivarse || accionesDeshabilitadas}
+                        cargando={activando}
+                        aria-describedby={!puedeActivarse ? idAyuda : undefined}
+                        onClick={() => onActivar(temporada)}
+                      >
+                        Activar
+                      </Button>
+                    </>
+                  )}
+                  {esActiva && (
+                    <>
+                      <Button
+                        variante="secundario"
+                        icono={Pencil}
+                        disabled={accionesDeshabilitadas}
+                        onClick={() => onEditar(temporada)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variante="destructivo"
+                        icono={LockKeyhole}
+                        disabled={accionesDeshabilitadas}
+                        onClick={() => onCerrar(temporada)}
+                      >
+                        Cerrar temporada
+                      </Button>
+                    </>
+                  )}
+                </ConPermiso>
+              </div>
+              {esConfiguracion && !puedeActivarse && (
+                <ConPermiso permiso="temporadas.temporada:EDITAR">
+                  <div id={idAyuda} className="max-w-xs text-left lg:text-right">
+                    <p className="text-body-sm text-text-muted">No se puede activar todavía:</p>
+                    {faltantes.length > 0 ? (
+                      <ul className="mt-1 list-disc space-y-0.5 pl-4 text-left text-body-sm text-text-muted">
+                        {faltantes.map((requisito) => (
+                          <li key={requisito.codigo}>{requisito.descripcion}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-body-sm text-text-muted">
+                        No se pudo verificar la lista de requisitos.
+                      </p>
+                    )}
+                    <a
+                      href={`#panel-${temporada.id}`}
+                      className="mt-1 inline-flex min-h-11 items-center text-body-sm text-primary underline-offset-2 hover:underline"
+                    >
+                      Ver lista de verificación
+                    </a>
+                  </div>
+                </ConPermiso>
               )}
             </div>
           </ConPermiso>

@@ -15,6 +15,17 @@ export type ActivacionTemporada = {
   requisitos: RequisitoActivacion[]
 }
 
+/** Referencia de la convocatoria de una temporada (RF-002, RN-002). */
+export type Convocatoria = {
+  id: string
+  temporadaId: string
+  referencia: string
+  version?: string
+  documentoUrl?: string
+  /** Fecha de la primera asociación; el reemplazo no la actualiza. */
+  creadoEn: string
+}
+
 export type Temporada = {
   id: string
   nombre: string
@@ -27,6 +38,8 @@ export type Temporada = {
   versionParametros?: number
   /** Solo viene para una temporada en `CONFIGURACION` (H-04.1). */
   activacion?: ActivacionTemporada
+  /** Solo viene cuando la temporada ya tiene convocatoria asociada (B-02.1). */
+  convocatoria?: Convocatoria
 }
 
 export type CrearTemporadaPeticion = {
@@ -40,4 +53,11 @@ export type ActualizarTemporadaPeticion = Partial<CrearTemporadaPeticion>
 
 export type CerrarTemporadaPeticion = {
   motivo: string
+}
+
+/** `PUT /temporadas/{id}/convocatoria`: reemplazo completo (B-02.1). */
+export type ReemplazarConvocatoriaPeticion = {
+  referencia: string
+  version?: string
+  documentoUrl?: string
 }

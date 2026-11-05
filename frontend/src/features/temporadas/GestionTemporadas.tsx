@@ -5,6 +5,7 @@ import { ErrorConsulta } from '@/components/ui/ErrorConsulta'
 import { EstadoCarga } from '@/components/ui/EstadoCarga'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { useActivarTemporada, useTemporadas } from '@/features/temporadas/api'
+import { FormularioConvocatoria } from '@/features/temporadas/FormularioConvocatoria'
 import { FormularioTemporada } from '@/features/temporadas/FormularioTemporada'
 import { ListaVerificacion } from '@/features/temporadas/ListaVerificacion'
 import { ModalCerrarTemporada } from '@/features/temporadas/ModalCerrarTemporada'
@@ -34,6 +35,7 @@ export function GestionTemporadas() {
   const [creando, setCreando] = useState(false)
   const [editando, setEditando] = useState<Temporada | null>(null)
   const [cerrando, setCerrando] = useState<Temporada | null>(null)
+  const [asociando, setAsociando] = useState<Temporada | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
   const consulta = useTemporadas(pagina, TAMANO)
@@ -68,6 +70,12 @@ export function GestionTemporadas() {
     setCerrando(temporada)
   }
 
+  const abrirConvocatoria = (temporada: Temporada) => {
+    setMensaje(null)
+    setErrorAccion(null)
+    setAsociando(temporada)
+  }
+
   const alActivar = (temporada: Temporada) => {
     setMensaje(null)
     setErrorAccion(null)
@@ -94,6 +102,18 @@ export function GestionTemporadas() {
   const alCerrar = (temporada: Temporada) => {
     setCerrando(null)
     setMensaje(`Temporada «${temporada.nombre}» cerrada.`)
+  }
+
+  const alGuardarConvocatoria = () => {
+    if (!asociando) {
+      return
+    }
+
+    const reemplazada = Boolean(asociando.convocatoria)
+    setMensaje(
+      `Convocatoria de «${asociando.nombre}» ${reemplazada ? 'reemplazada' : 'asociada'}.`,
+    )
+    setAsociando(null)
   }
 
   return (
@@ -202,6 +222,7 @@ export function GestionTemporadas() {
             onEditar={abrirEdicion}
             onActivar={alActivar}
             onCerrar={abrirCierre}
+            onConvocatoria={abrirConvocatoria}
           />
           {datos.totalPaginas > 1 && (
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -264,6 +285,15 @@ export function GestionTemporadas() {
           temporada={cerrando}
           onCerrar={() => setCerrando(null)}
           onCerrada={alCerrar}
+        />
+      )}
+
+      {asociando && (
+        <FormularioConvocatoria
+          key={asociando.id}
+          temporada={asociando}
+          onCerrar={() => setAsociando(null)}
+          onGuardada={alGuardarConvocatoria}
         />
       )}
     </div>

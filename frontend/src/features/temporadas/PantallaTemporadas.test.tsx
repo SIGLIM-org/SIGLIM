@@ -8,10 +8,11 @@ import { PantallaTemporadas } from '@/features/temporadas/PantallaTemporadas'
 import type { Temporada } from '@/features/temporadas/tipos'
 import { ApiError } from '@/lib/api/ApiError'
 
-const { get, post, patch, sesion } = vi.hoisted(() => ({
+const { get, post, patch, put, sesion } = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   patch: vi.fn(),
+  put: vi.fn(),
   sesion: {
     yo: {
       perfil: { id: 'perfil-1', nombreMostrado: 'Ana Pérez', correo: null },
@@ -21,13 +22,14 @@ const { get, post, patch, sesion } = vi.hoisted(() => ({
   },
 }))
 
-vi.mock('@/lib/api/cliente', () => ({ api: { get, post, patch } }))
+vi.mock('@/lib/api/cliente', () => ({ api: { get, post, patch, put } }))
 vi.mock('@/features/seguridad/ProveedorSesionActual', () => ({
   useSesionActual: () => sesion,
 }))
 
 const CONSULTAR = 'temporadas.temporada:CONSULTAR'
 const EDITAR = 'temporadas.temporada:EDITAR'
+const CONVOCATORIA = 'temporadas.convocatoria:EDITAR'
 const RUTA = '/app/administracion/temporadas'
 const MOTIVO = 'Cierre de temporada por conclusión del calendario'
 
@@ -101,6 +103,18 @@ const CONFIGURACION_LISTA: Temporada = {
       },
       { codigo: 'RF-005', descripcion: 'Al menos un grupo está creado.', cumple: true },
     ],
+  },
+}
+
+const CON_CONVOCATORIA: Temporada = {
+  ...ACTIVA,
+  convocatoria: {
+    id: 'c-1',
+    temporadaId: 't-activa',
+    referencia: 'Convocatoria 2025–2026',
+    version: '2.0',
+    documentoUrl: 'https://liga.mx/convocatoria-2025.pdf',
+    creadoEn: '2025-09-15T10:00:00-06:00',
   },
 }
 
@@ -178,6 +192,7 @@ describe('PantallaTemporadas', () => {
     get.mockReset()
     post.mockReset()
     patch.mockReset()
+    put.mockReset()
     otorgar(CONSULTAR, EDITAR)
     responder()
   })
@@ -301,6 +316,7 @@ describe('PantallaTemporadas', () => {
     expect(within(fila).getByText('Solo lectura')).toBeInTheDocument()
     expect(within(fila).queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
     expect(within(fila).queryByRole('button', { name: 'Cerrar temporada' })).not.toBeInTheDocument()
+    expect(within(fila).queryByRole('button', { name: 'Convocatoria' })).not.toBeInTheDocument()
   })
 
   it('H-02.4: sin EDITAR no aparecen las acciones de escritura', async () => {
@@ -313,6 +329,7 @@ describe('PantallaTemporadas', () => {
     expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Activar' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Cerrar temporada' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Convocatoria' })).not.toBeInTheDocument()
     expect(screen.getAllByText('Solo consulta')).toHaveLength(2)
   })
 
@@ -376,6 +393,169 @@ describe('PantallaTemporadas', () => {
     })
     expect(
       await screen.findByText('Temporada «Temporada 2025–2026 ajustada» actualizada.'),
+    ).toBeInTheDocument()
+  })
+
+  it('B-02.2: el Secretario asocia la convocatoria sin permiso de editar la temporada', async () => {
+    otorgar(CONSULTAR, CONVOCATORIA)
+    put.mockResolvedValue({
+      id: 'c-1',
+      temporadaId: 't-activa',
+      referencia: 'Convocatoria 2025–2026',
+      version: '2.0',
+      documentoUrl: 'https://liga.mx/convocatoria-2025.pdf',
+      creadoEn: '2025-09-15T10:00:00-06:00',
+    })
+    montar()
+
+    const fila = await filaDe('Temporada 2025–2026')
+
+    expect(within(fila).getByText('Sin asociar')).toBeInTheDocument()
+    expect(within(fila).queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
+    expect(within(fila).queryByText('Solo consulta')).not.toBeInTheDocument()
+
+    await userEvent.click(within(fila).getByRole('button', { name: 'Convocatoria' }))
+
+    const dialogo = screen.getByRole('dialog', {
+      name: 'Convocatoria de «Temporada 2025–2026»',
+    })
+
+    await userEvent.type(within(dialogo).getByLabelText(/Referencia/), 'Convocatoria 2025–2026')
+    await userEvent.type(within(dialogo).getByLabelText(/Versión/), '2.0')
+    await userEvent.type(
+      within(dialogo).getByLabelText(/Enlace al documento/),
+      'https://liga.mx/convocatoria-2025.pdf',
+    )
+    await userEvent.click(
+      within(dialogo).getByRole('button', { name: 'Guardar convocatoria' }),
+    )
+
+    expect(put).toHaveBeenCalledWith('temporadas/t-activa/convocatoria', {
+      referencia: 'Convocatoria 2025–2026',
+      version: '2.0',
+      documentoUrl: 'https://liga.mx/convocatoria-2025.pdf',
+    })
+    expect(
+      await screen.findByText('Convocatoria de «Temporada 2025–2026» asociada.'),
+    ).toBeInTheDocument()
+  })
+
+  it('B-02.2: muestra la convocatoria asociada y el formulario llega prellenado', async () => {
+    otorgar(CONSULTAR, CONVOCATORIA)
+    responder(pagina([CON_CONVOCATORIA]))
+    montar()
+
+    const fila = await filaDe('Temporada 2025–2026')
+
+    expect(within(fila).getByText('Convocatoria 2025–2026')).toBeInTheDocument()
+    expect(within(fila).getByText('Versión 2.0')).toBeInTheDocument()
+    expect(within(fila).getByText(/Asociada el/)).toBeInTheDocument()
+
+    await userEvent.click(within(fila).getByRole('button', { name: 'Convocatoria' }))
+
+    const dialogo = screen.getByRole('dialog', {
+      name: 'Convocatoria de «Temporada 2025–2026»',
+    })
+
+    expect(within(dialogo).getByLabelText(/Referencia/)).toHaveValue('Convocatoria 2025–2026')
+    expect(within(dialogo).getByLabelText(/Versión/)).toHaveValue('2.0')
+    expect(within(dialogo).getByLabelText(/Enlace al documento/)).toHaveValue(
+      'https://liga.mx/convocatoria-2025.pdf',
+    )
+    expect(within(dialogo).getByText(/Al guardar se reemplaza la referencia anterior/)).toBeInTheDocument()
+  })
+
+  it('B-02.2: reemplaza la convocatoria y vaciar un campo opcional lo borra', async () => {
+    otorgar(CONSULTAR, CONVOCATORIA)
+    responder(pagina([CON_CONVOCATORIA]))
+    put.mockResolvedValue({
+      ...CON_CONVOCATORIA.convocatoria,
+      version: undefined,
+      documentoUrl: undefined,
+    })
+    montar()
+
+    const fila = await filaDe('Temporada 2025–2026')
+    await userEvent.click(within(fila).getByRole('button', { name: 'Convocatoria' }))
+
+    const dialogo = screen.getByRole('dialog', {
+      name: 'Convocatoria de «Temporada 2025–2026»',
+    })
+    await userEvent.clear(within(dialogo).getByLabelText(/Versión/))
+    await userEvent.clear(within(dialogo).getByLabelText(/Enlace al documento/))
+    await userEvent.click(
+      within(dialogo).getByRole('button', { name: 'Guardar convocatoria' }),
+    )
+
+    expect(put).toHaveBeenCalledWith('temporadas/t-activa/convocatoria', {
+      referencia: 'Convocatoria 2025–2026',
+    })
+    expect(
+      await screen.findByText('Convocatoria de «Temporada 2025–2026» reemplazada.'),
+    ).toBeInTheDocument()
+  })
+
+  it('RF-002: no envía una convocatoria sin referencia ni con un enlace inválido', async () => {
+    otorgar(CONSULTAR, CONVOCATORIA)
+    montar()
+
+    const fila = await filaDe('Temporada 2025–2026')
+    await userEvent.click(within(fila).getByRole('button', { name: 'Convocatoria' }))
+
+    const dialogo = screen.getByRole('dialog', {
+      name: 'Convocatoria de «Temporada 2025–2026»',
+    })
+    await userEvent.click(
+      within(dialogo).getByRole('button', { name: 'Guardar convocatoria' }),
+    )
+
+    expect(
+      within(dialogo).getByText('Escribe la referencia de la convocatoria.'),
+    ).toBeInTheDocument()
+    expect(put).not.toHaveBeenCalled()
+
+    await userEvent.type(within(dialogo).getByLabelText(/Referencia/), 'Convocatoria 2025–2026')
+    await userEvent.type(
+      within(dialogo).getByLabelText(/Enlace al documento/),
+      'liga.mx/convocatoria-2025.pdf',
+    )
+    await userEvent.click(
+      within(dialogo).getByRole('button', { name: 'Guardar convocatoria' }),
+    )
+
+    expect(
+      within(dialogo).getByText('El enlace debe empezar por http:// o https://.'),
+    ).toBeInTheDocument()
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  it('RF-003: si el servidor rechaza la convocatoria, conserva el modal y explica la causa', async () => {
+    otorgar(CONSULTAR, CONVOCATORIA)
+    put.mockRejectedValue(
+      error(
+        409,
+        'RF-003',
+        'La temporada «Temporada 2025–2026» está cerrada: su convocatoria es de solo lectura.',
+      ),
+    )
+    montar()
+
+    const fila = await filaDe('Temporada 2025–2026')
+    await userEvent.click(within(fila).getByRole('button', { name: 'Convocatoria' }))
+
+    const dialogo = screen.getByRole('dialog', {
+      name: 'Convocatoria de «Temporada 2025–2026»',
+    })
+    await userEvent.type(within(dialogo).getByLabelText(/Referencia/), 'Convocatoria 2025–2026')
+    await userEvent.click(
+      within(dialogo).getByRole('button', { name: 'Guardar convocatoria' }),
+    )
+
+    expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+      'La temporada «Temporada 2025–2026» está cerrada: su convocatoria es de solo lectura.',
+    )
+    expect(
+      screen.getByRole('dialog', { name: 'Convocatoria de «Temporada 2025–2026»' }),
     ).toBeInTheDocument()
   })
 
