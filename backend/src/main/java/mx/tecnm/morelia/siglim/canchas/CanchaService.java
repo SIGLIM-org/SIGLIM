@@ -34,9 +34,11 @@ import org.springframework.transaction.annotation.Transactional;
  * <ul>
  *   <li><b>Ámbito.</b> Una cancha de club pertenece a ese club; las de la liga o externas solo las
  *       alcanza el ámbito {@code LIGA}. Una cancha inexistente o de otra liga responde 404.</li>
- *   <li><b>Bloqueo sobre partidos (PEN-007, [PROPUESTA]).</b> Se hace en dos pasos: sin confirmación
- *       responde {@code 409 RF-030} aceptable con los partidos afectados y no guarda; con
- *       confirmación guarda. Los partidos <b>nunca</b> se modifican: se reprograman a mano.</li>
+ *   <li><b>Bloqueo y mantenimiento sobre partidos (PEN-007, [PROPUESTA] B-12.1 D1).</b> Se hacen en
+ *       dos pasos: sin confirmación responden {@code 409 RF-030} aceptable con los partidos afectados
+ *       y no guardan; con confirmación guardan. El mantenimiento (RF-031) es un bloqueo tipificado y
+ *       hereda la regla de RF-030, también su código (B-12.1 D2). Los partidos <b>nunca</b> se modifican:
+ *       se reprograman a mano.</li>
  *   <li><b>{@code DISPONIBLE} es informativo (D3).</b> Una cancha activa sin bloqueo se puede usar
  *       aunque no tenga {@code DISPONIBLE}, como hace {@code tg_partidos_programacion}; aquí no se
  *       calcula «fuera de disponibilidad» (VAL-005).</li>
@@ -48,8 +50,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       {@code 422 REFERENCIA_INVALIDA}; en el filtro del listado no es error y sale vacío (D4).</li>
  * </ul>
  *
- * <p>Refs: H-07.1, B-11.1, RF-027, RF-028, RF-029, RF-030, RN-014, RN-021, VAL-005, PEN-007, ADR-0007,
- * ADR-0011
+ * <p>Refs: H-07.1, B-11.1, B-12.1, RF-027, RF-028, RF-029, RF-030, RF-031, RN-014, RN-021, VAL-005,
+ * PEN-007, ADR-0007, ADR-0011
  */
 @Service
 public class CanchaService {
@@ -185,27 +187,37 @@ public class CanchaService {
     }
 
     /**
-     * Registra disponibilidad (RF-029) o un bloqueo con motivo (RF-030). Un {@code DISPONIBLE} no se
-     * traslapa con otro; un {@code BLOQUEO} puede traslaparse con cualquiera (D4, [PROPUESTA]).
+     * Registra disponibilidad (RF-029), un bloqueo (RF-030) o un periodo de mantenimiento (RF-031).
+     *
+     * <ul>
+     *   <li>Un {@code DISPONIBLE} no se traslapa con otro; su motivo es opcional.</li>
+     *   <li>{@code BLOQUEO} y {@code MANTENIMIENTO} son restricciones: exigen motivo de al menos 10
+     *       caracteres, que se fija en la transacción ({@code 400 RN-021}; [PROPUESTA] B-12.1 D5), y
+     *       pueden traslaparse con cualquier registro (D4 de H-07.1; [PROPUESTA] B-12.1 D3).</li>
+     *   <li>Sobre partidos {@code PROGRAMADO} o {@code REPROGRAMADO} siguen el flujo de dos pasos:
+     *       sin confirmación, {@code 409 RF-030} aceptable con {@code partidosAfectados}; con
+     *       {@code confirmarPartidosAfectados}, se guardan sin tocar los partidos ([PROPUESTA] B-12.1
+     *       D1, D2 y D6).</li>
+     *   <li>Se auditan como {@code REGISTRAR_DISPONIBILIDAD}, {@code BLOQUEAR_CANCHA} o
+     *       {@code REGISTRAR_MANTENIMIENTO} ([PROPUESTA] B-12.1 D4).</li>
+     * </ul>
+     *
+     * <p>El trigger de VAL-005 rechaza después cualquier partido que caiga en un bloqueo o mantenimiento.
      */
     @Transactional
     public RegistroDisponibilidadDto registrarDisponibilidad(UUID canchaId, RegistrarDisponibilidadRequest peticion) {
         CanchaDto cancha = buscarConCandado(canchaId);
         autorizacion.exigir(EDITAR, objetivo(cancha));
         TipoDisponibilidad tipo = peticion.tipo();
-        if (tipo == TipoDisponibilidad.MANTENIMIENTO) {
-            throw invalida("El mantenimiento aún no se registra aquí: se habilita con B-12.");
-        }
         Intervalo periodo = peticion.periodo();
         validarOrden(periodo);
 
         String motivo = textoOpcional(peticion.motivo());
         List<PartidoEnCanchaDto> afectados = List.of();
-        if (tipo == TipoDisponibilidad.BLOQUEO) {
+        if (esRestriccion(tipo)) {
             motivo = fijarMotivo(motivo);
             afectados = partidos.listarProgramados(canchaId, periodo);
-            exigirConfirmacion(afectados, peticion.confirmarPartidosAfectados(),
-                    "El bloqueo afecta a %d partido(s), que no se reprogramarán solos.");
+            exigirConfirmacion(afectados, peticion.confirmarPartidosAfectados(), mensajeAfectados(tipo));
         } else {
             disponibilidades.buscarDisponibleTraslapado(canchaId, periodo).ifPresent(existente -> {
                 throw ReglaNegocioException.conflicto(RF_DISPONIBILIDAD,
@@ -224,8 +236,7 @@ public class CanchaService {
         detalle.put("tipo", tipo.name());
         detalle.put("desde", periodo.desde().toString());
         detalle.put("hasta", periodo.hasta().toString());
-        auditar(tipo == TipoDisponibilidad.BLOQUEO ? "BLOQUEAR_CANCHA" : "REGISTRAR_DISPONIBILIDAD",
-                ENTIDAD_DISPONIBILIDAD, registro.id(), motivo, detallePartidos(detalle, afectados));
+        auditar(accionAuditoria(tipo), ENTIDAD_DISPONIBILIDAD, registro.id(), motivo, detallePartidos(detalle, afectados));
         return new RegistroDisponibilidadDto(registro, afectados);
     }
 
@@ -385,6 +396,32 @@ public class CanchaService {
         }
         motivoOperacion.fijar(texto);
         return texto;
+    }
+
+    /**
+     * {@code BLOQUEO} y {@code MANTENIMIENTO} restringen el uso de la cancha; {@code DISPONIBLE} es
+     * informativo (RF-030, RF-031).
+     */
+    private static boolean esRestriccion(TipoDisponibilidad tipo) {
+        return switch (tipo) {
+            case BLOQUEO, MANTENIMIENTO -> true;
+            case DISPONIBLE -> false;
+        };
+    }
+
+    /** Mensaje del {@code 409 RF-030} según el tipo de restricción ([PROPUESTA] B-12.1 D6). */
+    private static String mensajeAfectados(TipoDisponibilidad tipo) {
+        String sujeto = tipo == TipoDisponibilidad.MANTENIMIENTO ? "El mantenimiento" : "El bloqueo";
+        return sujeto + " afecta a %d partido(s), que no se reprogramarán solos.";
+    }
+
+    /** Acción de auditoría de cada tipo de registro ([PROPUESTA] B-12.1 D4). */
+    private static String accionAuditoria(TipoDisponibilidad tipo) {
+        return switch (tipo) {
+            case DISPONIBLE -> "REGISTRAR_DISPONIBILIDAD";
+            case BLOQUEO -> "BLOQUEAR_CANCHA";
+            case MANTENIMIENTO -> "REGISTRAR_MANTENIMIENTO";
+        };
     }
 
     /** Sin confirmación y con partidos afectados: {@code 409 RF-030} aceptable, sin guardar (PEN-007). */

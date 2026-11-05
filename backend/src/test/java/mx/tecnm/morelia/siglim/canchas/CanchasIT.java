@@ -3,6 +3,7 @@ package mx.tecnm.morelia.siglim.canchas;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -25,7 +26,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 /**
- * H-07.1 contra PostgreSQL real, con {@link CanchaService} completo: autorización, SQL, RLS y
+ * H-07.1 y B-12.1 contra PostgreSQL real, con {@link CanchaService} completo: autorización, SQL, RLS y
  * triggers. Cada prueba usa canchas nuevas; las fechas son futuras para que los partidos cuenten como
  * programados por venir.
  */
@@ -34,6 +35,7 @@ class CanchasIT extends BaseDatosPrueba {
     private static final UUID LIGA = UUID.fromString("a0000000-0000-4000-8000-000000000001");
     private static final OffsetDateTime DIEZ = OffsetDateTime.parse("2031-03-10T10:00:00-06:00");
     private static final String MOTIVO = "Riego de la cancha programado";
+    private static final String MOTIVO_MANTENIMIENTO = "Resiembra del pasto en el área chica";
 
     @Autowired
     private CanchaService servicio;
@@ -369,6 +371,75 @@ class CanchasIT extends BaseDatosPrueba {
                 });
     }
 
+    // ── Mantenimiento como bloqueo tipificado (B-12.1) ────────────────────────────────────────
+
+    @Test
+    @DisplayName("VAL-005: el trigger rechaza un partido nuevo que cae en un mantenimiento")
+    void partidoEnMantenimiento() {
+        iniciarSesionComoAdministrador();
+        UUID cancha = nuevaCancha();
+        mantener(cancha, DIEZ, DIEZ.plusHours(2), null);
+
+        PSQLException error = errorBd(() -> partidos().programar(cancha, DIEZ.plusHours(1)));
+
+        assertThat(error.getServerErrorMessage().getHint()).isEqualTo("VAL-005");
+    }
+
+    @Test
+    @DisplayName("RF-031: un mantenimiento sobre un partido responde 409 RF-030 con el partido; con confirmación se guarda y el partido no cambia")
+    void mantenimientoSobrePartido() {
+        iniciarSesionComoAdministrador();
+        UUID cancha = nuevaCancha();
+        UUID partido = partidos().programar(cancha, DIEZ);
+        var antes = estadoDelPartido(partido);
+
+        assertThatThrownBy(() -> mantener(cancha, DIEZ, DIEZ.plusHours(1), null))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
+                    error(HttpStatus.CONFLICT, "RF-030").accept(excepcion);
+                    assertThat(excepcion.getMessage()).startsWith("El mantenimiento afecta a 1 partido(s)");
+                    assertThat(excepcion.propiedades()).containsEntry("aceptable", true);
+                    assertThat((List<?>) excepcion.propiedades().get("partidosAfectados"))
+                            .extracting(afectado -> ((PartidoEnCanchaDto) afectado).id())
+                            .containsExactly(partido);
+                });
+        assertThat(servicio.listarDisponibilidad(cancha, DIEZ, DIEZ.plusDays(1))).as("no se guardó").isEmpty();
+
+        RegistroDisponibilidadDto registro = mantener(cancha, DIEZ, DIEZ.plusHours(1), true);
+
+        assertThat(registro.disponibilidad().tipo()).isEqualTo(TipoDisponibilidad.MANTENIMIENTO);
+        assertThat(registro.partidosAfectados()).extracting(PartidoEnCanchaDto::id).containsExactly(partido);
+        assertThat(estadoDelPartido(partido)).as("estado, inicio y cancha").isEqualTo(antes);
+    }
+
+    @Test
+    @DisplayName("RN-021: un mantenimiento sin motivo o con motivo corto se rechaza y no queda guardado")
+    void mantenimientoSinMotivo() {
+        iniciarSesionComoAdministrador();
+        UUID cancha = nuevaCancha();
+
+        assertThatThrownBy(() -> mantener(cancha, DIEZ, DIEZ.plusHours(1), null, null))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "RN-021"));
+        assertThatThrownBy(() -> mantener(cancha, DIEZ, DIEZ.plusHours(1), "Pintura", null))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "RN-021"));
+        assertThat(servicio.listarDisponibilidad(cancha, DIEZ, DIEZ.plusDays(1))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("RF-031: un mantenimiento se guarda aunque se traslape con una disponibilidad y un bloqueo de la misma cancha")
+    void mantenimientoTraslapado() {
+        iniciarSesionComoAdministrador();
+        UUID cancha = nuevaCancha();
+        disponible(cancha, DIEZ, DIEZ.plusHours(4));
+        bloquear(cancha, DIEZ.plusHours(1), DIEZ.plusHours(2), null);
+
+        mantener(cancha, DIEZ, DIEZ.plusHours(3), null);
+
+        assertThat(servicio.listarDisponibilidad(cancha, DIEZ, DIEZ.plusDays(1)))
+                .extracting(DisponibilidadDto::tipo)
+                .containsExactlyInAnyOrder(TipoDisponibilidad.DISPONIBLE, TipoDisponibilidad.BLOQUEO,
+                        TipoDisponibilidad.MANTENIMIENTO);
+    }
+
     // ── Ocupación ─────────────────────────────────────────────────────────────────────────────
 
     @Test
@@ -388,6 +459,22 @@ class CanchasIT extends BaseDatosPrueba {
         assertThat(ocupacion.bloques().get(2).motivo()).isEqualTo(MOTIVO);
         assertThat(ocupacion.bloques().get(1).periodo().desde().getOffset().getTotalSeconds())
                 .as("en la zona de negocio, America/Mexico_City").isEqualTo(-6 * 3600);
+    }
+
+    @Test
+    @DisplayName("RF-031: en la ocupación, el mantenimiento y el bloqueo salen con su tipo y su motivo")
+    void ocupacionConMantenimiento() {
+        iniciarSesionComoAdministrador();
+        UUID cancha = nuevaCancha();
+        mantener(cancha, DIEZ, DIEZ.plusHours(2), null);
+        bloquear(cancha, DIEZ.plusHours(4), DIEZ.plusHours(5), null);
+
+        OcupacionDto ocupacion = servicio.consultarOcupacion(cancha, DIEZ.minusDays(1), DIEZ.plusDays(6));
+
+        assertThat(ocupacion.bloques())
+                .extracting(OcupacionDto.BloqueOcupacionDto::tipo, OcupacionDto.BloqueOcupacionDto::motivo)
+                .containsExactly(tuple(TipoBloqueOcupacion.MANTENIMIENTO, MOTIVO_MANTENIMIENTO),
+                        tuple(TipoBloqueOcupacion.BLOQUEO, MOTIVO));
     }
 
     // ── Auditoría ─────────────────────────────────────────────────────────────────────────────
@@ -436,6 +523,23 @@ class CanchasIT extends BaseDatosPrueba {
 
         assertThat(accionAuditada(registro)).isEqualTo("REGISTRAR_DISPONIBILIDAD");
         assertThat(accionAuditada(bloqueo)).isEqualTo("BLOQUEAR_CANCHA");
+    }
+
+    @Test
+    @DisplayName("RF-093: el mantenimiento se audita como REGISTRAR_MANTENIMIENTO con su motivo")
+    void auditoriaDeMantenimiento() {
+        iniciarSesionComoAdministrador();
+        UUID cancha = nuevaCancha();
+
+        UUID mantenimiento = mantener(cancha, DIEZ, DIEZ.plusHours(1), null).disponibilidad().id();
+
+        assertThat(accionAuditada(mantenimiento)).isEqualTo("REGISTRAR_MANTENIMIENTO");
+        assertThat(jdbc.sql("""
+                        SELECT motivo FROM siglim.auditoria
+                         WHERE entidad = 'disponibilidad_canchas' AND entidad_id = :id
+                        """)
+                .param("id", mantenimiento.toString()).query(String.class).single())
+                .isEqualTo(MOTIVO_MANTENIMIENTO);
     }
 
     // ── Permisos con la matriz de la migración ────────────────────────────────────────────────
@@ -496,6 +600,16 @@ class CanchasIT extends BaseDatosPrueba {
     private RegistroDisponibilidadDto bloquear(UUID cancha, OffsetDateTime desde, OffsetDateTime hasta, Boolean confirmar) {
         return servicio.registrarDisponibilidad(cancha, new RegistrarDisponibilidadRequest(
                 TipoDisponibilidad.BLOQUEO, new Intervalo(desde, hasta), MOTIVO, confirmar));
+    }
+
+    private RegistroDisponibilidadDto mantener(UUID cancha, OffsetDateTime desde, OffsetDateTime hasta, Boolean confirmar) {
+        return mantener(cancha, desde, hasta, MOTIVO_MANTENIMIENTO, confirmar);
+    }
+
+    private RegistroDisponibilidadDto mantener(UUID cancha, OffsetDateTime desde, OffsetDateTime hasta, String motivo,
+            Boolean confirmar) {
+        return servicio.registrarDisponibilidad(cancha, new RegistrarDisponibilidadRequest(
+                TipoDisponibilidad.MANTENIMIENTO, new Intervalo(desde, hasta), motivo, confirmar));
     }
 
     private static ActualizarCanchaRequest desactivar(Boolean confirmar) {
