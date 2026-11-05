@@ -172,6 +172,58 @@ describe('router', () => {
     expect(screen.queryByRole('link', { name: /Auditoría/ })).not.toBeInTheDocument()
   })
 
+  it('H-03.2: la sección Administración enlaza a Usuarios solo con su permiso', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('seguridad.usuario:CONSULTAR', 'M-01')],
+    })
+
+    montar('/app/administracion')
+
+    expect(await screen.findByRole('link', { name: /Usuarios/ })).toHaveAttribute(
+      'href',
+      '/app/administracion/usuarios',
+    )
+  })
+
+  it('H-03.2: con otro permiso del módulo no enlaza a Usuarios y su URL responde 403', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('seguridad.rol:CONSULTAR', 'M-01')],
+    })
+
+    montar('/app/administracion/usuarios')
+
+    expect(
+      await screen.findByRole('heading', { name: 'No tienes permiso para esta acción' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Usuarios/ })).not.toBeInTheDocument()
+  })
+
+  it('H-03.2: con permiso, la URL de Usuarios muestra la pantalla', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('seguridad.usuario:CONSULTAR', 'M-01')],
+    })
+    obtenerCatalogo.mockImplementation(async (ruta: string) => {
+      if (ruta.startsWith('usuarios?')) {
+        return { contenido: [], pagina: 0, tamano: 20, totalElementos: 0, totalPaginas: 0 }
+      }
+      if (ruta.startsWith('clubes?')) {
+        return { contenido: [], pagina: 0, tamano: 100, totalElementos: 0, totalPaginas: 0 }
+      }
+      return []
+    })
+
+    montar('/app/administracion/usuarios')
+
+    expect(await screen.findByRole('heading', { name: 'Usuarios' })).toBeInTheDocument()
+    expect(await screen.findByText('Aún no hay cuentas registradas')).toBeInTheDocument()
+  })
+
   it('B-27.2: la sección Administración enlaza a Comunicados con permiso de aprobar', async () => {
     iniciarSesion()
     obtenerYo.mockResolvedValue({
