@@ -12,7 +12,7 @@ import java.util.UUID;
  * <p>La interfaz permite sustituir el adaptador HTTP en las pruebas del servicio: la regla de
  * negocio (crear el perfil y sus asignaciones) no depende de la red.
  *
- * <p>Refs: H-03.1, RF-094, ADR-0003
+ * <p>Refs: H-03.1, RF-094, ADR-0003, DEF-03
  */
 public interface InvitadorAuth {
 
@@ -22,9 +22,11 @@ public interface InvitadorAuth {
      * @param correo correo ya normalizado en minúsculas
      * @return {@code auth.users.id} de la cuenta creada, para enlazarla desde {@code perfiles}
      * @throws mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException 409 {@code DUPLICADO}
-     *                         si el correo ya tiene cuenta
+     *                         si el correo ya tiene cuenta en Supabase Auth ({@code error_code}
+     *                         {@code email_exists} o {@code user_already_exists})
      * @throws mx.tecnm.morelia.siglim.compartido.error.ServicioNoDisponibleException 503 si
-     *                         Supabase Auth no responde o rechaza la petición por configuración
+     *                         Supabase Auth no responde o rechaza la invitación por cualquier otra
+     *                         causa (otro {@code error_code}, 409, 429, 5xx o un cuerpo ilegible)
      */
     UUID invitar(String correo);
 

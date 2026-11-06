@@ -40,6 +40,10 @@ el tutor de un menor recibe acceso a partir del registro del jugador (RF-106, RN
    - tutores: se invitan con el correo capturado en el registro del menor; el menor no tiene
      credenciales propias (RF-106, RN-055);
    - árbitros: se invitan al validarse (RF-113).
+
+   > Nota (5-nov-2026, DEF-03): el backend envía `redirect_to` a `/restablecer-contrasena` del
+   > origen configurado en `SIGLIM_FRONTEND_ORIGEN`, para que el enlace del correo lleve al
+   > invitado a fijar su contraseña en el frontend.
 6. Una cuenta desactivada en SIGLIM (`perfil.activo = false`) se rechaza en el backend aunque su
    JWT siga vigente.
 

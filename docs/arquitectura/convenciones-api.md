@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 3.4 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 3.5 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -33,6 +33,7 @@ Versión 3.4 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 3.2 | 5 de noviembre de 2026 | H-05.2: §6.2 con el contrato de parámetros versionados (juego completo por versión, `esDemo` por versión con `camposDemo`, criterios de desempate sin nombre de equipo, filas por categoría, historial con `camposCambiados`, valores predeterminados y `GET` por versión); `temporadas.temporada:CONSULTAR` en los `GET` de parámetros (antes pedía `temporadas.parametros:EDITAR`); errores y la acción `REGISTRAR_PARAMETROS`; §11 con la confirmación parcial de valores oficiales. |
 | 3.3 | 5 de noviembre de 2026 | H-05.3: §6.2 documenta `GET /temporadas/{id}`, que usa F-11. |
 | 3.4 | 5 de noviembre de 2026 | DEF-04 (SCRUM-399): §6.1 aplica VAL-022 a las asignaciones y al estado de la propia cuenta (DEC-53); §3 lo cita entre los 403. |
+| 3.5 | 5 de noviembre de 2026 | DEF-03 (SCRUM-398): §6.1 precisa que la invitación envía `redirect_to` a `/restablecer-contrasena` del frontend, que `409 DUPLICADO` también cubre un correo con cuenta en Supabase Auth (`email_exists`) y que cualquier otro rechazo de Supabase Auth responde `503`. |
 
 ## Índice
 
@@ -395,9 +396,13 @@ es opcional y, si se omite, se usa `roles.ambito_predeterminado`; con `CLUB` el 
 obligatorio y el club debe ser de la liga. Responde `201` con `Location` y el detalle. Errores:
 `400 VALIDACION` si falta un rol, el ámbito `CLUB` no lleva club (o al revés), el rol no es asignable
 (`asignable = false`), el club no existe o la asignación está repetida; `409 DUPLICADO` si el correo
-ya tiene perfil; `503 SERVICIO_NO_DISPONIBLE` si Supabase Auth no responde. El backend llama a la API
-de administración de Supabase Auth (ADR-0003 punto 5) y, si la transacción falla después de crear la
-cuenta, la elimina como compensación para no dejarla sin perfil. Se audita `INVITAR_USUARIO` sobre
+ya tiene perfil o ya tiene cuenta en Supabase Auth (`error_code` `email_exists` o
+`user_already_exists`); `503 SERVICIO_NO_DISPONIBLE` si Supabase Auth no responde o rechaza la
+invitación por cualquier otra causa (por ejemplo, el correo integrado de Supabase solo envía a
+miembros del equipo del proyecto). El backend llama a la API de administración de Supabase Auth
+(ADR-0003 punto 5) y, si la transacción falla después de crear la cuenta, la elimina como
+compensación para no dejarla sin perfil. El enlace del correo vuelve a
+`<SIGLIM_FRONTEND_ORIGEN>/restablecer-contrasena`, donde el invitado fija su contraseña. Se audita `INVITAR_USUARIO` sobre
 `perfiles` con los roles, ámbitos y clubes, sin nombre ni correo.
 
 `PATCH /usuarios/{id}` lleva `{ "activo": true|false, "motivo"? }`. Al desactivar, el motivo es
