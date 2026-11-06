@@ -1,0 +1,26 @@
+Prueba de aceptación H-03 · re-ejecución de CA-4 · consulta de solo lectura al proyecto compartido de Supabase
+Versión probada: develop en c725e01 (incluye DEF-04 #72 y DEF-03 #73).
+Fecha de la consulta: 2026-11-05 22:07 (America/Mexico_City). Cuenta objetivo = cuenta que ejecuta (Administrador).
+
+Antes de las peticiones (consulta previa, 2026-11-05 hacia las 21:52 hora local)
+  siglim.asignaciones_rol de la cuenta Administrador
+    ADMINISTRADOR_GENERAL · LIGA · activa true  · sin revocar
+    CAPTURISTA            · LIGA · activa false · revocada 2026-11-06 02:18:07 UTC (corrida del 5-nov, id 37fae165-cfd3-4555-a60f-b500bb86fadd)
+  siglim.perfiles: Administrador activo = true
+  siglim.auditoria: último evento id 25 (DESACTIVAR_CUENTA, 2026-11-06 02:29:08 UTC)
+
+Peticiones directas a la API (ver CA4R-respuestas-api.txt), 2026-11-06 04:05:12 a 04:05:15 UTC (22:05 hora local)
+  1. POST /usuarios/{propio}/asignaciones (Capturista · Liga)      → 403 VAL-022
+  2. POST /asignaciones-rol/{propia}/revocacion (ya revocada)       → 403 VAL-022 (no 409 RF-094)
+  3. PATCH /usuarios/{propio} {"activo": true}                      → 403 VAL-022
+
+Después de las peticiones (2026-11-06 04:07:10 UTC, 22:07 hora local)
+  siglim.asignaciones_rol de la cuenta Administrador
+    ADMINISTRADOR_GENERAL · LIGA · activa true  · sin revocar                   (sin cambios)
+    CAPTURISTA            · LIGA · activa false · revocada 2026-11-06 02:18:07 UTC (sin cambios)
+  siglim.perfiles: Administrador activo = true                                   (sin cambios)
+  siglim.auditoria: último evento id 25; 0 eventos nuevos desde el inicio de la re-ejecución
+
+Conclusión: el servidor rechazó con 403 VAL-022 las tres operaciones sobre la propia cuenta
+(asignar, revocar y cambiar el estado), antes de evaluar el estado de la asignación, y la base no
+registró ningún cambio ni evento de auditoría.

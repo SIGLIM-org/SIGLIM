@@ -5,10 +5,10 @@
 | Historia | H-03 (SCRUM-179) · subtarea H-03.3 (SCRUM-262) |
 | Requisitos | RF-094, VAL-022, UI-029; relacionados RF-093, RN-005, RN-021, RN-054, ADR-0003 |
 | Pantallas | F-12 (usuarios y roles) y pantalla de auditoría |
-| Versión probada | `develop` en `1455acd` (incluye H-03.1 #66 y H-03.2 #69); sin migraciones nuevas |
-| Fecha | 2026-11-05 |
+| Versión probada | Corrida inicial: `develop` en `1455acd` (incluye H-03.1 #66 y H-03.2 #69); sin migraciones nuevas. Re-ejecución: `develop` en `c725e01` (incluye las correcciones DEF-04 #72 y DEF-03 #73) |
+| Fecha | 2026-11-05 (corrida inicial y re-ejecución, esta de 21:50 a 22:25, hora de México) |
 | Ejecutó | López Meza Leonardo (Scrum Master y responsable de calidad), con apoyo de un agente de IA |
-| Resultado global | **Rechazado** (3 de 4 criterios aprobados; CA-4 rechazado; defectos DEF-03 y DEF-04) |
+| Resultado global | **Aprobado** tras la re-ejecución (4 de 4 criterios; DEF-03 y DEF-04 corregidos y verificados, sección 9). Corrida inicial: rechazado (CA-4 rechazado; defectos DEF-03 y DEF-04) |
 
 ## 1. Entorno
 
@@ -271,20 +271,21 @@ Supabase Auth y `InvitacionSupabase` lo tradujo a `409 DUPLICADO`.
 
 ## 4. Resumen
 
-| Criterio | Resultado |
-| --- | --- |
-| CA-1 La invitación crea el perfil, la asignación y envía el correo | Aprobado, con defecto D-01 |
-| CA-2 Una asignación CLUB sin club se rechaza con 400 | Aprobado |
-| CA-3 Una cuenta desactivada con motivo ya no opera y queda auditada | Aprobado |
-| CA-4 El Administrador no puede cambiar las asignaciones de su propio rol | **Rechazado** (D-02) |
-| V-1 Correo ya registrado en Auth | Aprobado |
+| Criterio | Corrida inicial (`1455acd`) | Re-ejecución (`c725e01`) |
+| --- | --- | --- |
+| CA-1 La invitación crea el perfil, la asignación y envía el correo | Aprobado, con defecto D-01 | **Aprobado**: el enlace lleva a `/restablecer-contrasena` y el invitado fija su contraseña e inicia sesión (D-01 corregido) |
+| CA-2 Una asignación CLUB sin club se rechaza con 400 | Aprobado | No se repite (sin cambios en ese flujo) |
+| CA-3 Una cuenta desactivada con motivo ya no opera y queda auditada | Aprobado | No se repite (sin cambios en ese flujo) |
+| CA-4 El Administrador no puede cambiar las asignaciones de su propio rol | **Rechazado** (D-02) | **Aprobado**: F-12 no ofrece las acciones y la API responde `403 VAL-022` (D-02 corregido) |
+| V-1 Correo ya registrado en Auth | Aprobado | No se repite manualmente; cubierto por prueba automática con la respuesta real de Supabase (sección 9) |
 
 Pruebas automáticas de la misma versión, ejecutadas el 2026-11-05 a las 20:28: backend
 `./mvnw test -Dtest=UsuarioServiceTest,UsuarioControllerTest,InvitacionSupabaseTest,RolControllerTest`
 con **68/68** pruebas sin fallos (17 de servicio, 41 de controlador, 4 de invitación y 6 de roles);
 frontend `npx vitest run src/features/usuarios` con **14/14** pruebas en dos archivos. Todas pasan
 porque ninguna cubre el envío de `redirect_to` ni el criterio 4: los dos defectos están fuera de lo
-que las pruebas automáticas verifican.
+que las pruebas automáticas verifican. Las pruebas automáticas de la re-ejecución están en la
+sección 9.
 
 ## 5. Defectos encontrados
 
@@ -293,8 +294,8 @@ corrida:
 
 | ID | Defecto | Severidad | Afecta un criterio | Seguimiento |
 | --- | --- | --- | --- | --- |
-| D-01 (confirmado en CA-1) | La invitación no envía `redirect_to`: el enlace del correo confirma la cuenta y redirige a la Site URL (`localhost:3000`), donde no corre el frontend; el invitado no puede fijar su contraseña y su cuenta queda inutilizable. Corrección propuesta: enviar `redirect_to = <origen del frontend>/restablecer-contrasena`, que ya está en las Redirect URLs y ya acepta el evento `SIGNED_IN` | Alta | No de forma literal (el usuario sí recibe la invitación), pero impide el propósito de la historia | DEF-03 (SCRUM-398), Sprint 2; bloquea H-03 |
-| D-02 (confirmado en CA-4) | VAL-022 no está implementado para la propia cuenta: el Administrador puede agregarse y revocarse asignaciones (y, por el mismo código, revocar su asignación de Administrador general o desactivarse, con lo que la liga se quedaría sin administrador). `UsuarioService.asignar`, `revocar` y `actualizar` no comparan la cuenta objetivo con el usuario actual, F-12 ofrece esas acciones en el panel propio y `convenciones-api.md` §6.1 difiere VAL-022 a H-20, aunque el criterio 4 de H-03 lo pide. Corrección propuesta: `403` con `codigo: "VAL-022"` en esas tres operaciones cuando la cuenta objetivo es la del usuario actual, ocultar las acciones en el panel propio y agregar pruebas «H-03 criterio 4» | Alta | Sí: CA-4 | DEF-04 (SCRUM-399), Sprint 2; bloquea H-03 |
+| D-01 (confirmado en CA-1) | La invitación no envía `redirect_to`: el enlace del correo confirma la cuenta y redirige a la Site URL (`localhost:3000`), donde no corre el frontend; el invitado no puede fijar su contraseña y su cuenta queda inutilizable. Corrección propuesta: enviar `redirect_to = <origen del frontend>/restablecer-contrasena`, que ya está en las Redirect URLs y ya acepta el evento `SIGNED_IN` | Alta | No de forma literal (el usuario sí recibe la invitación), pero impide el propósito de la historia | DEF-03 (SCRUM-398), Sprint 2. **Corregido** en #73 (`c725e01`) y verificado en la re-ejecución (sección 9) |
+| D-02 (confirmado en CA-4) | VAL-022 no está implementado para la propia cuenta: el Administrador puede agregarse y revocarse asignaciones (y, por el mismo código, revocar su asignación de Administrador general o desactivarse, con lo que la liga se quedaría sin administrador). `UsuarioService.asignar`, `revocar` y `actualizar` no comparan la cuenta objetivo con el usuario actual, F-12 ofrece esas acciones en el panel propio y `convenciones-api.md` §6.1 difiere VAL-022 a H-20, aunque el criterio 4 de H-03 lo pide. Corrección propuesta: `403` con `codigo: "VAL-022"` en esas tres operaciones cuando la cuenta objetivo es la del usuario actual, ocultar las acciones en el panel propio y agregar pruebas «H-03 criterio 4» | Alta | Sí: CA-4 | DEF-04 (SCRUM-399), Sprint 2. **Corregido** en #72 y verificado en la re-ejecución (sección 9) |
 
 ## 6. Observaciones
 
@@ -307,7 +308,9 @@ corrida:
    existe una cuenta» sin que sea cierto. **No se presentó en esta corrida**, porque todas las
    invitaciones usaron buzones del equipo de Supabase; el riesgo sigue abierto y se recomienda
    distinguir el código de error de Supabase (`email_exists` frente a los demás) en la corrección de
-   D-01.
+   D-01. **Resuelta en DEF-03 (#73):** solo `email_exists` y `user_already_exists` responden
+   `409 DUPLICADO`; cualquier otro rechazo de Supabase Auth responde `503 SERVICIO_NO_DISPONIBLE`
+   (convenciones de API §6.1, versión 3.5).
 3. **Nota previa sobre CA-4.** Al preparar la prueba se revisó el código de H-03.1 y H-03.2 y no se
    encontró ninguna validación del propio usuario ni pruebas del criterio 4 (ver D-02, DEF-04).
 4. **No hay clubes registrados**, así que solo se pudo probar el caso negativo de la asignación
@@ -334,6 +337,9 @@ corrida:
 | Revocar la asignación Capturista del Administrador si CA-4 la permitió | Hecho en CA-4 a las 20:18:07 (`REVOCAR_ASIGNACION` id 24) |
 | Desactivar con motivo la cuenta Invitado (no se borra, RN-005) | Hecho a las 20:29:08: `DESACTIVAR_CUENTA` id 25 con el motivo «Cuenta de prueba de H-03 sin uso tras la prueba de aceptación» |
 | Quitar el buzón de prueba del equipo de la organización en Supabase | Hecho por el ejecutor al terminar la corrida |
+| Re-ejecución de CA-4: revertir cambios | No hizo falta: las tres operaciones se rechazaron con `403` y no hubo eventos de auditoría nuevos |
+| Re-ejecución de CA-1: desactivar con motivo la cuenta Invitado nueva | Hecho a las 22:22:26: `DESACTIVAR_CUENTA` id 27 con el motivo «Cuenta de prueba de H-03 sin uso tras la re-ejecucion» |
+| Re-ejecución de CA-1: quitar el buzón nuevo del equipo de la organización en Supabase | Hecho por el ejecutor al terminar la re-ejecución |
 
 ## 8. Conclusión
 
@@ -346,11 +352,127 @@ puede cambiar las asignaciones de su propia cuenta sin el rechazo VAL-022 (DEF-0
 CA-1 se cumple al pie de la letra, el enlace de la invitación no lleva al frontend y el invitado no
 puede fijar su contraseña (DEF-03).
 
-H-03 queda **«En curso»** hasta que DEF-03 y DEF-04 se corrijan y se repitan el CA-4 y el paso 6 del
-CA-1 (sección 9). H-03.1 y H-03.2 conservan su estado; las correcciones se rastrean en los defectos.
+**Actualización tras la re-ejecución (sección 9).** Con DEF-04 (#72) y DEF-03 (#73) fusionados en
+`develop` (`c725e01`), se repitieron el CA-4 completo y el paso 6 del CA-1. CA-4 se **aprobó**: F-12
+no ofrece cambiar las asignaciones ni el estado de la propia cuenta y la API rechaza las tres
+operaciones con `403 VAL-022` sin tocar la base. El paso 6 del CA-1 también se **aprobó**: el enlace
+del correo llevó al invitado a `/restablecer-contrasena`, donde fijó su contraseña, y después inició
+sesión con ella. **H-03 cumple sus cuatro criterios de aceptación** y puede pasar a «Finalizado» junto
+con DEF-03 (SCRUM-398) y DEF-04 (SCRUM-399) cuando se fusione esta actualización.
 
 ## 9. Re-ejecución
 
-[PENDIENTE: se llena después de fusionar en `develop` las correcciones de DEF-03 y DEF-04. Alcance:
-CA-4 completo y paso 6 de CA-1 con un buzón nuevo (observación 6); se registran el commit, la fecha
-y el resultado, y se actualizan el resultado global, la sección 4 y la conclusión.]
+| Campo | Valor |
+| --- | --- |
+| Versión probada | `develop` en `c725e01`: incluye DEF-04 (#72, VAL-022 sobre la propia cuenta) y DEF-03 (#73, `redirect_to` y clasificación de errores de Supabase); sin migraciones nuevas |
+| Fecha | 2026-11-05, de 21:50 a 22:25 (hora de México) |
+| Ejecutó | López Meza Leonardo, con apoyo de un agente de IA (consultas de solo lectura a la base y a la bitácora de Supabase Auth) |
+| Entorno | El de la sección 1, sin cambios: Site URL `http://localhost:3000` y Redirect URLs `http://localhost:5173/restablecer-contrasena`; backend con `SIGLIM_FRONTEND_ORIGEN=http://localhost:5173` en `backend/.env` |
+| Alcance | CA-4 completo y paso 6 de CA-1 con un buzón nuevo (observación 6). CA-2, CA-3 y V-1 no se repiten porque las correcciones no cambian esos flujos de forma visible; el cambio de V-1 (clasificar por `error_code`) lo cubren pruebas automáticas con la respuesta real que Supabase dio en la corrida inicial (`422`, `error_code: "email_exists"`) |
+| Resultado | **Aprobado**: CA-4 y paso 6 de CA-1 |
+
+### CA-4 · Re-ejecución
+
+**Precaución.** Igual que en la corrida inicial, no se intentó revocar la asignación de
+Administrador general ni desactivar la propia cuenta. Las tres peticiones directas a la API se
+eligieron para que, si VAL-022 fallara, no cambiaran nada: asignar el rol Capturista (reversible),
+revocar la asignación Capturista **ya revocada** en la corrida inicial (sin la regla respondería
+`409 RF-094`) y enviar `activo: true` sobre la propia cuenta, que ya estaba activa (sin la regla
+respondería `200`).
+
+**Pasos**
+
+1. Como Administrador, abrir F-12 y comprobar la acción de la fila propia y el panel propio.
+2. Como control, abrir el panel del Capturista y comprobar que ahí sí aparecen las acciones.
+3. Enviar a la API, con el token de la sesión del Administrador (leído con `read -rs` y borrado al
+   terminar, nunca pegado en un chat ni en un archivo):
+   - `POST /api/v1/usuarios/{propio}/asignaciones` con el rol Capturista y ámbito `LIGA`;
+   - `POST /api/v1/asignaciones-rol/{asignación propia ya revocada}/revocacion` con un motivo válido;
+   - `PATCH /api/v1/usuarios/{propio}` con `{"activo": true}`.
+4. Consultar la base antes y después.
+
+**Resultado esperado**
+
+- F-12 no ofrece agregar, revocar ni cambiar el estado en la cuenta propia.
+- Las tres peticiones responden `403` con `codigo: "VAL-022"` y la base no cambia.
+
+**Resultado obtenido:** **Aprobado.** En la tabla, la fila propia ofrece solo «Ver detalle». El
+panel propio muestra el aviso «Esta es tu cuenta. Por separación de funciones (VAL-022) no puedes
+cambiar tus asignaciones ni el estado de tu cuenta.», el texto «Tu cuenta» en lugar del interruptor
+«Cuenta activa», la asignación Administrador general **VIGENTE** y la Capturista **REVOCADA**, sin
+«Agregar asignación» ni «Revocar». En el panel del Capturista (control) sí aparecen esas acciones.
+Las tres peticiones directas (22:05:12 a 22:05:15) respondieron `403` con `codigo: "VAL-022"`: las
+dos de asignaciones con «No puedes cambiar las asignaciones de rol de tu propia cuenta. Otra cuenta
+con permiso para gestionar usuarios debe hacerlo.» y el `PATCH` con «No puedes activar ni
+desactivar tu propia cuenta. Otra cuenta con permiso para gestionar usuarios debe hacerlo.». La
+revocación de la asignación ya revocada respondió `403` y no `409`: la regla se evalúa antes que el
+estado de la asignación. La base quedó igual: las mismas dos asignaciones, el perfil activo y el
+último evento de auditoría sigue siendo el id 25.
+
+**Evidencia:** [`CA4R-panel-propio.png`](evidencias/H-03/CA4R-panel-propio.png),
+[`CA4R-terminal-curl.png`](evidencias/H-03/CA4R-terminal-curl.png),
+[`CA4R-respuestas-api.txt`](evidencias/H-03/CA4R-respuestas-api.txt) (respuestas completas, sin
+token) y [`CA4R-base-y-auditoria.txt`](evidencias/H-03/CA4R-base-y-auditoria.txt) (consulta directa
+a la base, antes y después)
+
+### CA-1 paso 6 · Re-ejecución
+
+**Pasos**
+
+1. Agregar como miembro del equipo de Supabase un buzón **nuevo**, sin cuenta previa en Auth
+   (comprobado en *Authentication → Users*).
+2. Como Administrador, invitarlo desde F-12 con el nombre «Prueba Reejecucion H-03» y el rol
+   Secretario (liga) con ámbito Liga.
+3. Abrir el enlace del correo en una ventana de incógnito (para no reemplazar la sesión del
+   Administrador), fijar la contraseña e iniciar sesión con ella.
+4. Revisar la bitácora de Supabase Auth y la base.
+
+**Resultado esperado**
+
+- La invitación lleva `redirect_to` a `/restablecer-contrasena` del frontend.
+- El enlace del correo abre `http://localhost:5173/restablecer-contrasena`, el invitado fija su
+  contraseña y después inicia sesión con ella.
+
+**Resultado obtenido:** **Aprobado.** La invitación (22:11:48) creó el perfil vinculado a su cuenta
+de Auth, la asignación `SECRETARIO · LIGA` activa y el evento `INVITAR_USUARIO` (id 26) sin nombre ni
+correo, y el correo llegó. La bitácora de Supabase Auth registró la invitación con destino
+`http://localhost:5173/restablecer-contrasena` (en la corrida inicial era `http://localhost:3000`).
+Al abrir el enlace (22:13:36), Supabase confirmó la cuenta y el navegador llegó a
+`localhost:5173/restablecer-contrasena` con el formulario «Restablecer contraseña»; el frontend ya
+había quitado los tokens del fragmento. El invitado fijó su contraseña (22:15:57) y, tras cerrar la
+sesión, inició sesión con ella (22:16:58): la aplicación lo mostró como «Prueba Reejecucion H-03 ·
+Secretario (liga) · Liga». Como la Site URL sigue en `localhost:3000` y el destino registrado incluye
+la ruta `/restablecer-contrasena`, el resultado se debe al `redirect_to` que ahora envía el backend.
+
+**Evidencia:** [`CA1R-correo-recibido.png`](evidencias/H-03/CA1R-correo-recibido.png),
+[`CA1R-restablecer-contrasena.png`](evidencias/H-03/CA1R-restablecer-contrasena.png),
+[`CA1R-sesion-invitado.png`](evidencias/H-03/CA1R-sesion-invitado.png) y
+[`CA1R-base-y-auditoria.txt`](evidencias/H-03/CA1R-base-y-auditoria.txt) (base y bitácora de
+Supabase Auth)
+
+### Pruebas automáticas de la re-ejecución
+
+- `./mvnw verify` sobre la rama de DEF-03, con el mismo contenido que `c725e01`: **932/932** pruebas
+  unitarias y de controlador y **148** de integración sin fallos (una omitida: la prueba contra el
+  S3 real, que solo corre si se pide).
+- `InvitacionSupabaseTest` · «DEF-03: la invitación envía redirect_to con /restablecer-contrasena del
+  origen configurado», «RF-094: un correo ya registrado en Auth (email_exists) responde 409
+  DUPLICADO» (con la respuesta real de V-1) y las pruebas «DEF-03» de los demás errores, que responden `503`.
+- `PropiedadesInvitacionTest` · validación de `SIGLIM_FRONTEND_ORIGEN`.
+- Las pruebas «H-03 criterio 4» de DEF-04 (#72) en el servicio, el controlador y F-12.
+
+### Observaciones de la re-ejecución
+
+1. **Primer intento de la revocación por la API.** Se envió con un motivo con acentos desde Git Bash
+   en Windows y respondió `400 VALIDACION` con el mensaje genérico de un cuerpo ilegible: el texto no
+   llegó en UTF-8. La petición no llegó al servicio y la base no cambió (último evento id 25). Se
+   repitió con un motivo sin acentos y las tres peticiones se volvieron a ejecutar para que la
+   evidencia quede completa. Es un problema de la herramienta de prueba, no de SIGLIM.
+2. **Recarga de la configuración de Supabase Auth.** La bitácora registra una recarga de la
+   configuración a las 22:10:11, poco antes de la invitación. El ejecutor no cambió ni guardó nada en
+   *Authentication*. No afecta al resultado: el destino registrado incluye la ruta
+   `/restablecer-contrasena`, que solo puede venir del `redirect_to` porque la Site URL no la lleva.
+3. **Correo integrado de Supabase.** Sigue vigente la limitación de la sección 1. Con DEF-03, una
+   invitación a un buzón que no sea del equipo responde `503` (`email_address_not_authorized` en la
+   bitácora del backend) en lugar del falso «Ya existe una cuenta»; desaparece con el SMTP propio de
+   ADR-0010.
