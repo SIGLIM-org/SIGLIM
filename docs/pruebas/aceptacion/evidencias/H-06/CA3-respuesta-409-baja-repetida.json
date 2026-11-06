@@ -1,0 +1,8 @@
+{
+  "detail": "El equipo «Fuego Nuevo F.C.» está dado de baja: ya está dado de baja.",
+  "instance": "/api/v1/equipos/a4b11083-0708-4a18-8e2a-f37c629da94e/baja",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/rf-009",
+  "codigo": "RF-009"
+}

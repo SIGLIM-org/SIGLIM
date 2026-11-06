@@ -1,0 +1,8 @@
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/clubes/60000000-0000-4000-8000-000000000006",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
