@@ -1,0 +1,16 @@
+Prueba de aceptación H-03 · CA-4 · consulta de solo lectura al proyecto compartido de Supabase
+Fecha de la consulta: 2026-11-05 20:20 (America/Mexico_City). Cuenta objetivo = cuenta que ejecuta (Administrador).
+
+siglim.asignaciones_rol de la cuenta Administrador
+  ADMINISTRADOR_GENERAL · LIGA · activa true  · creada 2026-10-22 14:26:56 UTC (sin cambios)
+  CAPTURISTA            · LIGA · activa false · creada 2026-11-06 02:17:29 UTC (20:17:29 hora local)
+
+siglim.auditoria
+  id 23 · 2026-11-06 02:17:29 UTC · M-01 · ASIGNAR_ROL        · asignaciones_rol 37fae165-cfd3-4555-a60f-b500bb86fadd
+          motivo null · detalle {"rol": "CAPTURISTA", "ambito": "LIGA"} · ejecutó: Administrador (sobre su propia cuenta)
+  id 24 · 2026-11-06 02:18:07 UTC · M-01 · REVOCAR_ASIGNACION · asignaciones_rol 37fae165-cfd3-4555-a60f-b500bb86fadd
+          motivo «Reversión de la prueba de aceptación H-03 CA-4» · detalle {"rol": "CAPTURISTA", "ambito": "LIGA"}
+          ejecutó: Administrador (sobre su propia cuenta)
+
+Conclusión: el sistema aceptó que el Administrador agregara y revocara asignaciones de su propia
+cuenta; no hubo rechazo VAL-022.
