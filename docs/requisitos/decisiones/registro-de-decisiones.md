@@ -5,7 +5,7 @@
 > actualicen contra una sola fuente.
 >
 > **Vigencia.** Las decisiones DEC-01 a DEC-44 están **integradas en el ERS Rev. 0.4**, y DEC-45 y
-> DEC-46 en la Rev. 0.4.1; DEC-47 y DEC-50 (planificación), DEC-48 (inicio de sesión), DEC-49 (cambio de nombre de club) y DEC-53 (VAL-022 sobre la propia cuenta) se integran en la siguiente revisión ([`../ERS.md`](../ERS.md)), que vuelve a ser la fuente principal. DEC-51 (flujo de ramas) y DEC-52 (aplicación de migraciones) son de proceso y no entran al ERS: sus reglas viven en [`CONTRIBUTING.md`](../../../CONTRIBUTING.md) y [`supabase/README.md`](../../../supabase/README.md). Este
+> DEC-46 en la Rev. 0.4.1; DEC-47 y DEC-50 (planificación), DEC-48 (inicio de sesión), DEC-49 (cambio de nombre de club), DEC-53 (VAL-022 sobre la propia cuenta), DEC-54 (Directiva sin selector de grupos en F-15) y DEC-55 (Tesorero consulta equipos) se integran en la siguiente revisión ([`../ERS.md`](../ERS.md)), que vuelve a ser la fuente principal. DEC-51 (flujo de ramas) y DEC-52 (aplicación de migraciones) son de proceso y no entran al ERS: sus reglas viven en [`CONTRIBUTING.md`](../../../CONTRIBUTING.md) y [`supabase/README.md`](../../../supabase/README.md). Este
 > archivo queda como evidencia de origen de cada requisito.
 >
 > **Fecha de corte:** 25 de octubre de 2026.
@@ -85,6 +85,7 @@ Ninguna decisión de este registro se presenta como aprobada por la Liga.
 | DEC-36 | **Tesorería (módulo nuevo M-13):** cobros a club o a equipo con concepto, monto y periodo de pago. Cobros **automáticos** por partido al publicarse la jornada, con tarifas de arbitraje y cancha por temporada y categoría (sin cobro de cancha si el equipo juega en la propia). El Tesorero de la liga también crea cobros manuales y registra pagos hechos fuera del sistema. | R2, EQ | Aprobada (equipo) | Módulo nuevo; P nuevo |
 | DEC-37 | **Pago en línea simulado:** existen los campos y estados (`PENDIENTE` → `PAGADO` / `RECHAZADO` / `VENCIDO`) con referencia ficticia; no hay pasarela real. | EQ | Aprobada (equipo) | M-13 |
 | DEC-38 | **Notificaciones** dentro del sistema y por correo electrónico. El proveedor de correo se justificará por costo, seguridad y necesidad en una ADR (PEN-033, PEN-034). | EQ | Aprobada (equipo) | ERS 3.1.3; integraciones |
+| DEC-55 | **Tesorero consulta equipos** (6-nov-2026): el Apéndice E no da M-03 al Tesorero, pero RF-137 lo hace actor de cobros "a un club o a un equipo" y la semilla ya le daba `organizacion.club:CONSULTAR`. Se le agrega `organizacion.equipo:CONSULTAR` (solo lectura; no `EDITAR`) para que F-33 le ofrezca los equipos. A diferencia de DEC-54, no se crea un endpoint dedicado: el permiso es de lectura sobre el mismo catálogo que el cobro referencia. | EQ | Aprobada (equipo) | RF-137; Apéndice E; F-33; DEF-06; migración 20261106160000 |
 
 ## 7. Matriz inicial rol → módulo → acción
 

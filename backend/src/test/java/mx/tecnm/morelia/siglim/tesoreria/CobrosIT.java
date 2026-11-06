@@ -16,6 +16,10 @@ import mx.tecnm.morelia.siglim.compartido.api.Pagina;
 import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
 import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
+import mx.tecnm.morelia.siglim.organizacion.ActualizarEquipoRequest;
+import mx.tecnm.morelia.siglim.organizacion.EquipoDto;
+import mx.tecnm.morelia.siglim.organizacion.EquipoService;
+import mx.tecnm.morelia.siglim.organizacion.FiltroEquipos;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +46,9 @@ class CobrosIT extends BaseDatosPrueba {
 
     @Autowired
     private AdeudoService adeudos;
+
+    @Autowired
+    private EquipoService equipos;
 
     @Autowired
     private Clock reloj;
@@ -121,6 +128,20 @@ class CobrosIT extends BaseDatosPrueba {
                 .isInstanceOfSatisfying(ReglaNegocioException.class,
                         error(HttpStatus.FORBIDDEN, "VAL-015"));
         assertThat(contarCobros(escenario.clubA())).isZero();
+    }
+
+    @Test
+    @DisplayName("DEF-06 · RF-137, DEC-55: el TESORERO consulta los equipos de un club para dirigir un cobro")
+    void tesoreroConsultaEquiposDelClub() {
+        Escenario escenario = escenario();
+        iniciarSesion(escenario.tesorero());
+
+        Pagina<EquipoDto> delClub = equipos.listar(new FiltroEquipos(null, null, escenario.clubA(), null, 0, 20));
+        assertThat(delClub.contenido()).extracting(EquipoDto::id).containsExactly(escenario.equipoA());
+        assertThat(delClub.totalElementos()).isEqualTo(1);
+
+        assertThatThrownBy(() -> equipos.actualizar(escenario.equipoA(), new ActualizarEquipoRequest("Otro", null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "VAL-015"));
     }
 
     // ── Criterios 2 y 3: adeudos y cobros según el ámbito ────────────────────────────────────

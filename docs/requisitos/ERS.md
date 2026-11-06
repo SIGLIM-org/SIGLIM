@@ -1649,7 +1649,7 @@ Configuración inicial de DEC-04. **C** crear/registrar · **L** consultar · **
 | 1 | Administrador general | M-01 C L E (usuarios, roles, permisos, auditoría) · M-02 C L E (temporadas, categorías, parámetros) · M-03 L E · M-06 C L E (catálogo de canchas) · M-09 C L E (catálogos) · M-12 L X. No aprueba decisiones del negocio. |
 | 2 | Presidente del Comité Ejecutivo | M-02 A (reglas interpretadas) · M-03 A (afiliaciones, cambios de directiva, venta de equipo, plaza) · M-06 A (préstamos, ofertas, comodatos) · M-07 A (programación) · M-09 A (recursos) · M-10 A (ascensos y descensos) · M-11 A (comunicados) · M-01 A (pares de permisos incompatibles), L (auditoría) · M-12 L X |
 | 3 | Secretario (liga) | M-02 C E (convocatoria) · M-03 C L E (tarjetones) · M-04 L A (documentos e identidad) · M-06 C (oficios; ofertas de externos) · M-11 C E P (comunicados aprobados) · M-12 L X |
-| 4 | Tesorero (liga) | M-13 C L E A (tarifas, cobros, pagos, adeudos) · M-06 L (costos de cancha) · M-12 L X |
+| 4 | Tesorero (liga) | M-13 C L E A (tarifas, cobros, pagos, adeudos) · M-06 L (costos de cancha) · M-12 L X · M-03 L (clubes y equipos, para dirigir cobros; DEC-55) |
 | 5 | Comisión Disciplinaria | M-09 C L E A (expedientes, resoluciones, sanciones, publicación de sanciones) · M-08 L (cédulas e incidencias) · M-04 L (elegibilidad) · M-12 L X |
 | 6 | Comisión de Arbitraje | M-05 C L E A (catálogo, validación, disponibilidad, designaciones) · M-08 A (cédula con plazo vencido) · M-07 L · M-12 L X |
 | 7 | Programador de partidos | M-07 C L E (programación y ajustes) · M-08 E (Suspendido, Reprogramado, Cancelado) · M-10 C E (fases y llaves) · M-05 L · M-06 L |
