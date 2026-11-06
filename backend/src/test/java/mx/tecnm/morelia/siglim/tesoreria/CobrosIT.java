@@ -217,7 +217,7 @@ class CobrosIT extends BaseDatosPrueba {
                 "Cuota 1", new BigDecimal("100.00"), null, hoy.plusDays(10)));
         CobroDto segundo = cobros.crear(new CrearCobroRequest(escenario.clubA(), escenario.equipoA(),
                 "Cuota 2", new BigDecimal("50.00"), null, hoy.plusDays(20)));
-        CobroDto tercero = cobros.crear(new CrearCobroRequest(escenario.clubA(), escenario.equipoB(),
+        CobroDto tercero = cobros.crear(new CrearCobroRequest(escenario.clubA(), null,
                 "Cuota 3", new BigDecimal("25.00"), null, hoy.plusDays(30)));
         cobros.crear(new CrearCobroRequest(escenario.clubB(), escenario.equipoB(),
                 "Cuota 4", new BigDecimal("75.00"), null, hoy.plusDays(40)));
