@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 3.5 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 3.6 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -34,6 +34,7 @@ Versión 3.5 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 3.3 | 5 de noviembre de 2026 | H-05.3: §6.2 documenta `GET /temporadas/{id}`, que usa F-11. |
 | 3.4 | 5 de noviembre de 2026 | DEF-04 (SCRUM-399): §6.1 aplica VAL-022 a las asignaciones y al estado de la propia cuenta (DEC-53); §3 lo cita entre los 403. |
 | 3.5 | 5 de noviembre de 2026 | DEF-03 (SCRUM-398): §6.1 precisa que la invitación envía `redirect_to` a `/restablecer-contrasena` del frontend, que `409 DUPLICADO` también cubre un correo con cuenta en Supabase Auth (`email_exists`) y que cualquier otro rechazo de Supabase Auth responde `503`. |
+| 3.6 | 5 de noviembre de 2026 | H-29.1: §6.13 con el contrato de cobros manuales (`POST /cobros`) y de la consulta de cobros y adeudos (`GET /cobros`, `GET /adeudos`), sus filtros, montos `BigDecimal`, errores y acciones de auditoría. |
 
 ## Índice
 
@@ -982,6 +983,91 @@ los módulos; los endpoints `/reportes` y la exportación son B.
 
 La pantalla de pago simulado muestra siempre «Pago simulado: no se realiza ningún cargo». La API
 **no acepta** datos de tarjeta en ningún campo.
+
+#### Cobros (H-29.1, RF-137, RF-140)
+
+`GET /cobros` lista los cobros visibles con la envoltura de paginación de §4:
+
+| Parámetro | Tipo | Descripción |
+| --- | --- | --- |
+| `clubId` | uuid | Club; opcional. |
+| `equipoId` | uuid | Equipo; opcional. |
+| `tipo` | enum `tipo_cobro` | `ARBITRAJE`, `CANCHA`, `MULTA` o `MANUAL`; opcional. |
+| `estado` | lista | Uno o varios `estado_cobro` separados por coma (`PENDIENTE,VENCIDO`); sin él, todos. |
+| `desde` / `hasta` | fecha | Filtran por `fechaLimite`: `desde` incluido y `hasta` excluido; opcionales. |
+| `pagina` / `tamano` | entero | Página desde 0 y tamaño de 1 a 100 (predeterminados 0 y 20). |
+| `orden` | texto | `creadoEn` (predeterminado), `fechaLimite` o `monto`, con `asc` o `desc`; el desempate es `id`. |
+
+Cada cobro se representa con `id`, `tipo`, `concepto`, `monto` (`BigDecimal`, dos decimales),
+`periodoInicio`, `fechaLimite`, `estado`, `club` y `equipo` anidados (`{ id, nombre }`; `equipo` se
+omite en un cobro al club) y `creadoEn`. El `totalElementos` cuenta solo las filas del ámbito, con
+la misma condición que el `WHERE` (ADR-0007).
+
+`POST /cobros` crea un cobro **manual** y siempre `PENDIENTE`; responde `201` con `Location` y el
+cobro. El cuerpo es:
+
+```json
+{
+  "clubId": "…",
+  "equipoId": "…",
+  "concepto": "Cuota de inscripción",
+  "monto": 1500.00,
+  "periodoInicio": "2026-11-05",
+  "fechaLimite": "2026-11-20"
+}
+```
+
+- `clubId` es obligatorio; `equipoId` es opcional y, si se indica, debe pertenecer a ese club.
+- `concepto` va de 1 a 200 caracteres; `monto` es mayor que cero y admite hasta dos decimales.
+- `periodoInicio` es opcional (se usa el día de negocio en `America/Mexico_City`); `fechaLimite` es
+  obligatoria y no puede ser anterior al inicio.
+- No se aceptan `tipo`, `estado`, `partidoId` ni `sancionId`: los cobros automáticos son RF-136 y
+  RF-133 (backlog) y sus flujos los generan.
+- Errores: `404` si el club no existe o está fuera del ámbito (VAL-024); `403 VAL-015` sin
+  `tesoreria.cobro:CREAR`; `422 REFERENCIA_INVALIDA` si el equipo no existe o es de otro club;
+  `400 VALIDACION` si el concepto, el monto o las fechas no cumplen.
+- Auditoría: `REGISTRAR_COBRO` en `M-13`, entidad `cobros`, con club, equipo, tipo, monto, periodo,
+  fecha límite y estado; el detalle no lleva concepto ni datos personales.
+
+#### Adeudos (H-29.1, RF-140)
+
+`GET /adeudos` suma los cobros `PENDIENTE` y `VENCIDO` visibles, por club y por equipo; `PAGADO` y
+`RECHAZADO` no son adeudo. El filtro `clubId` es opcional y no cambia el ámbito: un club ajeno
+simplemente no aparece.
+
+```json
+{
+  "total": 825.50,
+  "pendiente": 300.00,
+  "vencido": 525.50,
+  "cobros": 5,
+  "clubes": [
+    {
+      "club": { "id": "…", "nombre": "Halcones" },
+      "total": 825.50,
+      "pendiente": 300.00,
+      "vencido": 525.50,
+      "cobros": 5,
+      "equipos": [
+        {
+          "equipo": { "id": "…", "nombre": "Halcones A" },
+          "total": 250.00,
+          "pendiente": 200.00,
+          "vencido": 50.00,
+          "cobros": 2
+        }
+      ]
+    }
+  ]
+}
+```
+
+- Un cobro cargado al club sin equipo suma en el club y no en un equipo; `equipos` solo lista los
+  equipos con adeudo. Un club sin adeudo no aparece.
+- `total = pendiente + vencido`; los montos son `BigDecimal` con dos decimales. SQL suma por club y
+  equipo sobre `numeric`; el servicio acumula los totales generales.
+- La Directiva de club solo recibe su club; el Tesorero, toda la liga (ADR-0007).
+- Sin adeudos responde `200` con ceros y `clubes: []`.
 
 ### 6.14 M-14 Notificaciones
 
