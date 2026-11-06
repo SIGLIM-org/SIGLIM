@@ -1,0 +1,24 @@
+Prueba de aceptación H-03 · CA-1 · consulta de solo lectura al proyecto compartido de Supabase
+Fecha de la consulta: 2026-11-05 18:06 (America/Mexico_City). Correo de la cuenta omitido (RNF-012).
+
+auth.users (cuenta Invitado)
+  created_at         2026-11-05 23:57:25.620 UTC   (17:57:25 hora local)
+  invited_at         2026-11-05 23:57:25.640 UTC
+  email_confirmed_at 2026-11-06 00:05:35.474 UTC   (al abrir el enlace del correo)
+  last_sign_in_at    2026-11-06 00:05:35.480 UTC   (sesión creada por el enlace; la contraseña nunca se fijó)
+
+siglim.perfiles
+  id                 bc70263a-2d63-4110-a094-d7f83228a468
+  nombre_mostrado    Prueba Aceptación H-03
+  activo             true
+  usuario_auth_id    vinculado a la cuenta de Auth
+  creado_en          2026-11-05 23:57:24.710 UTC
+
+siglim.asignaciones_rol
+  rol SECRETARIO · ámbito LIGA · club null · activa true · creado_en 2026-11-05 23:57:24.710 UTC
+
+siglim.auditoria
+  id 20 · 2026-11-05 23:57:24.710 UTC · M-01 · INVITAR_USUARIO · perfiles · bc70263a-2d63-4110-a094-d7f83228a468
+  motivo null
+  detalle {"asignaciones": [{"rol": "SECRETARIO", "ambito": "LIGA"}]}   (sin nombre ni correo)
+  ejecutó: perfil Administrador general
