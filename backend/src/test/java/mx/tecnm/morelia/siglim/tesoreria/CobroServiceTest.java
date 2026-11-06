@@ -218,7 +218,7 @@ class CobroServiceTest {
     }
 
     @Test
-    @DisplayName("REFERENCIA_INVALIDA: un equipo de otro club responde 422 sin escribir")
+    @DisplayName("REFERENCIA_INVALIDA: un equipo de otro club responde 422 sin escribir ni revelar su nombre")
     void equipoDeOtroClub() {
         clubValido();
         given(cobros.buscarEquipo(LIGA, EQUIPO))
@@ -227,8 +227,10 @@ class CobroServiceTest {
         assertThatThrownBy(() -> servicio.crear(peticionValida()))
                 .isInstanceOfSatisfying(ReglaNegocioException.class,
                         error(HttpStatus.UNPROCESSABLE_CONTENT, "REFERENCIA_INVALIDA"))
-                .hasMessageContaining("Ajenos");
+                .hasMessage("El equipo indicado no pertenece al club.")
+                .hasMessageNotContaining("Ajenos");
         verify(cobros, never()).insertar(any(), any(), any());
+        verifyNoInteractions(auditoria);
     }
 
     @Test
@@ -243,12 +245,13 @@ class CobroServiceTest {
         verify(cobros, never()).insertar(any(), any(), any());
     }
 
+    /** La escala del monto (dos decimales, diez enteros) es una sola regla y vive en el cuerpo HTTP. */
     @Test
-    @DisplayName("RF-137: rechaza monto nulo, cero, negativo o con más de dos decimales")
+    @DisplayName("RF-137: rechaza monto nulo, cero o negativo")
     void montoInvalido() {
         clubValido();
 
-        for (BigDecimal monto : List.of(new BigDecimal("-1.00"), BigDecimal.ZERO, new BigDecimal("10.123"))) {
+        for (BigDecimal monto : List.of(new BigDecimal("-1.00"), BigDecimal.ZERO)) {
             assertThatThrownBy(() -> servicio.crear(peticion(CLUB, null, CONCEPTO, monto, null, LIMITE)))
                     .isInstanceOfSatisfying(ReglaNegocioException.class,
                             error(HttpStatus.BAD_REQUEST, "VALIDACION"));

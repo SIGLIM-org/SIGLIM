@@ -1018,14 +1018,17 @@ cobro. El cuerpo es:
 ```
 
 - `clubId` es obligatorio; `equipoId` es opcional y, si se indica, debe pertenecer a ese club.
-- `concepto` va de 1 a 200 caracteres; `monto` es mayor que cero y admite hasta dos decimales.
+- `concepto` va de 1 a 200 caracteres; `monto` es mayor que cero, con hasta diez dígitos enteros
+  y dos decimales (`numeric(12,2)`): tres decimales se rechazan aunque sean ceros (`1500.000` da
+  `400`, como `10.123`).
 - `periodoInicio` es opcional (se usa el día de negocio en `America/Mexico_City`); `fechaLimite` es
   obligatoria y no puede ser anterior al inicio.
 - No se aceptan `tipo`, `estado`, `partidoId` ni `sancionId`: los cobros automáticos son RF-136 y
   RF-133 (backlog) y sus flujos los generan.
 - Errores: `404` si el club no existe o está fuera del ámbito (VAL-024); `403 VAL-015` sin
-  `tesoreria.cobro:CREAR`; `422 REFERENCIA_INVALIDA` si el equipo no existe o es de otro club;
-  `400 VALIDACION` si el concepto, el monto o las fechas no cumplen.
+  `tesoreria.cobro:CREAR`; `422 REFERENCIA_INVALIDA` si el equipo no existe o es de otro club (el
+  mensaje no revela el nombre del equipo, que puede estar fuera del ámbito); `400 VALIDACION` si el
+  concepto, el monto o las fechas no cumplen.
 - Auditoría: `REGISTRAR_COBRO` en `M-13`, entidad `cobros`, con club, equipo, tipo, monto, periodo,
   fecha límite y estado; el detalle no lleva concepto ni datos personales.
 
