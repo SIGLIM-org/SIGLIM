@@ -1,0 +1,19 @@
+# CA1 · Resumen de llamadas a la API (backend local, tokens del JWKS local; no se reproducen)
+
+# CA-1 · POST /cobros con "estado": "PAGADO" en el cuerpo (Tesorero) · ejecutado después de las evidencias del CA-2 y CA-3
+# Cuenta: Tesorero (LIGA) · token de sesión firmado por el JWKS local (no se reproduce)
+# Petición: POST /api/v1/cobros
+# Cuerpo enviado:
+{"clubId":"e2000000-0000-4000-8000-000000000002","concepto":"Prueba campo estado","monto":10.00,"periodoInicio":"2026-11-06","fechaLimite":"2026-11-20","estado":"PAGADO"}
+# Respuesta: HTTP 201
+location: /api/v1/cobros/13df5ee3-67bd-41be-b18f-61849e957827
+# Cuerpo de la respuesta: CA1-respuesta-post-con-estado-pagado.json
+
+# CA-1 · POST /cobros con "tipo": "MULTA" en el cuerpo (Tesorero) · ejecutado después de las evidencias del CA-2 y CA-3
+# Cuenta: Tesorero (LIGA) · token de sesión firmado por el JWKS local (no se reproduce)
+# Petición: POST /api/v1/cobros
+# Cuerpo enviado:
+{"clubId":"e2000000-0000-4000-8000-000000000002","concepto":"Prueba campo tipo","monto":20.00,"periodoInicio":"2026-11-06","fechaLimite":"2026-11-20","tipo":"MULTA"}
+# Respuesta: HTTP 201
+location: /api/v1/cobros/f689523a-a4d8-48b2-97bf-3454d0ed78bd
+# Cuerpo de la respuesta: CA1-respuesta-post-con-tipo-multa.json

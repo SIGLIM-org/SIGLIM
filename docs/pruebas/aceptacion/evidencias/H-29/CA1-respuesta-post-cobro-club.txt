@@ -1,0 +1,9 @@
+# CA-1 · Cobro 2 al club (sin equipo) creado desde el modal «Nuevo cobro» de F-33 por el Tesorero
+# Petición capturada en el navegador: POST /api/v1/cobros
+# Cuerpo enviado por la pantalla:
+{"clubId":"e1000000-0000-4000-8000-000000000001","concepto":"Uso de cancha para entrenamiento","monto":350.5,"fechaLimite":"2026-11-20","periodoInicio":"2026-11-06"}
+# Respuesta: HTTP 201
+location: /api/v1/cobros/e1c9a897-e909-4297-a4b2-5d9fc991c600
+content-type: application/json
+
+{"id":"e1c9a897-e909-4297-a4b2-5d9fc991c600","tipo":"MANUAL","concepto":"Uso de cancha para entrenamiento","monto":350.50,"periodoInicio":"2026-11-06","fechaLimite":"2026-11-20","estado":"PENDIENTE","club":{"id":"e1000000-0000-4000-8000-000000000001","nombre":"Club Halcones Morelia"},"creadoEn":"2026-11-06T20:24:29.913409Z"}
