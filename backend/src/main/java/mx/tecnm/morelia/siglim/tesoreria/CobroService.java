@@ -36,14 +36,16 @@ import org.springframework.transaction.annotation.Transactional;
  *       (RF-136 y RF-133, backlog) y no se aceptan por este endpoint.</li>
  *   <li><b>Destino.</b> El club es obligatorio y debe existir en la liga. El equipo es opcional; si
  *       se indica, debe existir y pertenecer a ese club ({@code 422 REFERENCIA_INVALIDA}).</li>
- *   <li><b>Monto y periodo.</b> El monto es {@link BigDecimal} mayor que cero y con hasta dos
- *       decimales; la fecha límite no puede ser anterior al inicio del periodo, que sin indicarse es
- *       el día de la zona de negocio.</li>
+ *   <li><b>Monto y periodo.</b> El monto es {@link BigDecimal} mayor que cero; la fecha límite no
+ *       puede ser anterior al inicio del periodo, que sin indicarse es el día de la zona de negocio.</li>
+ *   <li><b>Escala del monto (H-29.4).</b> La regla de hasta dos decimales y diez dígitos enteros, que
+ *       es la de la columna {@code numeric(12,2)}, vive solo en {@link CrearCobroRequest} con
+ *       {@code @Digits}: no se repite aquí para que no haya dos reglas distintas.</li>
  *   <li><b>Auditoría (RF-093).</b> El alta se audita en la misma transacción como
  *       {@code REGISTRAR_COBRO}; el detalle solo lleva identificadores, monto y fechas.</li>
  * </ul>
  *
- * <p>Refs: H-29.1, RF-137, RF-140, UI-027, VAL-024, ADR-0007
+ * <p>Refs: H-29.1, H-29.4, RF-137, RF-140, UI-027, VAL-024, ADR-0007
  */
 @Service
 public class CobroService {
@@ -97,8 +99,9 @@ public class CobroService {
                     .orElseThrow(() -> ReglaNegocioException.noProcesable(ErroresTecnicos.REFERENCIA_INVALIDA,
                             "El equipo indicado no existe. Actualiza la página y elige otro."));
             if (!equipo.clubId().equals(club.id())) {
+                // Sin el nombre: el permiso es configurable y el equipo puede estar fuera del ámbito (H-29.4).
                 throw ReglaNegocioException.noProcesable(ErroresTecnicos.REFERENCIA_INVALIDA,
-                        "El equipo «" + equipo.nombre() + "» no pertenece al club indicado.");
+                        "El equipo indicado no pertenece al club.");
             }
         }
 
@@ -142,12 +145,13 @@ public class CobroService {
         return texto;
     }
 
+    /**
+     * Monto positivo. La escala (hasta dos decimales) y el máximo de diez dígitos enteros se validan
+     * una sola vez, en {@link CrearCobroRequest#monto()} con {@code @Digits} (H-29.4).
+     */
     private static void validarMonto(BigDecimal monto) {
         if (monto == null || monto.signum() <= 0) {
             throw invalida("El monto debe ser mayor que cero.");
-        }
-        if (monto.stripTrailingZeros().scale() > 2) {
-            throw invalida("El monto admite hasta dos decimales.");
         }
     }
 

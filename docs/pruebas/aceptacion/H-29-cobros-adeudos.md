@@ -141,11 +141,11 @@ real de SQL),
 
 - `CobroServiceTest` · «RF-137: crea un cobro MANUAL PENDIENTE con monto BigDecimal y periodo
   predeterminado», «RF-137: un cobro al club no lleva equipo y lo omite en la auditoría»,
-  «REFERENCIA_INVALIDA: un equipo de otro club responde 422 sin escribir», «RF-137: rechaza monto
-  nulo, cero, negativo o con más de dos decimales» y «RF-137: la fecha límite es obligatoria y no
+  «REFERENCIA_INVALIDA: un equipo de otro club responde 422 sin escribir ni revelar su nombre»,
+  «RF-137: rechaza monto nulo, cero o negativo» y «RF-137: la fecha límite es obligatoria y no
   puede ser anterior al periodo».
 - `CobroControllerTest` · «RF-137: POST responde 201 con Location y el monto con dos decimales» y
-  «RF-137: POST con monto no positivo o con tres decimales responde 400 VALIDACION».
+  «RF-137: POST con monto no positivo o con más de dos decimales responde 400 VALIDACION».
 - `CobrosIT` · «H-29 criterio 1 · RF-137: el TESORERO crea un cobro MANUAL PENDIENTE con monto
   BigDecimal y lo audita» y «RF-137: rechaza un equipo de otro club y un club inexistente sin
   escribir».
@@ -330,6 +330,13 @@ Ninguno de los dos se corrigió en esta tarea, como pide la prueba de aceptació
    este cálculo.
 5. **La asignación de la Directiva se insertó con SQL**, igual que en H-06: la pantalla de
    asignaciones de roles (H-02) no crea esta asignación con ámbito de club desde la interfaz.
+6. **Mensaje del 422 y regla de decimales del monto (H-29.4).** El `422 REFERENCIA_INVALIDA` por un
+   equipo de otro club ya no incluye su nombre («El equipo indicado no pertenece al club.»), porque
+   el permiso es configurable y el equipo puede estar fuera del ámbito de quien llama;
+   [`CA1-respuesta-422-equipo-de-otro-club.txt`](evidencias/H-29/CA1-respuesta-422-equipo-de-otro-club.txt)
+   conserva la respuesta de esta corrida. La escala del monto se valida una sola vez, con `@Digits`
+   en `CrearCobroRequest`, igual que `numeric(12,2)` y que la pantalla: `1500.000` responde `400
+   VALIDACION`, como `10.123`.
 
 ## 7. Conclusión
 

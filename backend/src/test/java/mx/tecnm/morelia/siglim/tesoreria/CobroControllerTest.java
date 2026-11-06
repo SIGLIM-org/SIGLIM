@@ -126,7 +126,7 @@ class CobroControllerTest {
     }
 
     @Test
-    @DisplayName("RF-137: POST con monto no positivo o con tres decimales responde 400 VALIDACION")
+    @DisplayName("RF-137: POST con monto no positivo o con más de dos decimales responde 400 VALIDACION")
     void crearMontoInvalido() {
         String negativo = """
                 {"clubId":"%s","concepto":"Cuota","monto":-1.00,"fechaLimite":"2030-03-15"}
@@ -134,9 +134,17 @@ class CobroControllerTest {
         String tresDecimales = """
                 {"clubId":"%s","concepto":"Cuota","monto":10.123,"fechaLimite":"2030-03-15"}
                 """.formatted(CLUB);
+        String tresDecimalesEnCero = """
+                {"clubId":"%s","concepto":"Cuota","monto":1500.000,"fechaLimite":"2030-03-15"}
+                """.formatted(CLUB);
 
         assertThat(post(BASE, negativo)).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(post(BASE, tresDecimales)).hasStatus(HttpStatus.BAD_REQUEST);
+        MvcTestResult ceros = post(BASE, tresDecimalesEnCero);
+        assertThat(ceros).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(ceros).bodyJson().extractingPath("$.errores[0].campo").isEqualTo("monto");
+        assertThat(ceros).bodyJson().extractingPath("$.errores[0].mensaje")
+                .isEqualTo("El monto admite hasta dos decimales");
         Mockito.verifyNoInteractions(servicio);
     }
 

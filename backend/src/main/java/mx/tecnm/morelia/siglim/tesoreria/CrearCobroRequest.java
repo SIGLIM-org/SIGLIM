@@ -16,9 +16,12 @@ import java.util.UUID;
  * <p>{@code periodoInicio} es opcional; sin él se usa la fecha del día en la zona de negocio.
  * {@code fechaLimite} es el último día para pagar. Un equipo, si se indica, debe pertenecer al club.
  *
- * <p>Refs: H-29.1, RF-137
+ * <p>El monto se valida solo aquí ({@code @Digits} y {@code @DecimalMin}), con la misma regla que la
+ * columna {@code numeric(12,2)} y que la pantalla: es la única comprobación de su escala (H-29.4).
  *
- * @param monto importe en pesos mexicanos, mayor que cero y con hasta dos decimales
+ * <p>Refs: H-29.1, H-29.4, RF-137
+ *
+ * @param monto importe en pesos mexicanos, mayor que cero, con hasta diez dígitos enteros y dos decimales
  */
 public record CrearCobroRequest(
         @NotNull(message = "El club es obligatorio")
