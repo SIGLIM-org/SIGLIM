@@ -97,6 +97,17 @@ export const rutas: RouteObject[] = [
             children: [
               ...paginasApp,
               {
+                path: '/app/organizacion/clubes/:clubId?',
+                lazy: async () => {
+                  const { PantallaClubes } = await import(
+                    '@/features/organizacion/PantallaClubes'
+                  )
+
+                  return { Component: PantallaClubes }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
                 path: '/app/programacion/canchas/:canchaId?',
                 lazy: async () => {
                   const { PantallaCanchas } = await import(

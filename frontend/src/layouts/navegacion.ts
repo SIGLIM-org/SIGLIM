@@ -53,6 +53,14 @@ export const seccionesApp: SeccionApp[] = [
     ruta: '/app/organizacion',
     icono: Building2,
     modulos: ['M-03', 'M-04'],
+    subsecciones: [
+      {
+        nombre: 'Clubes',
+        ruta: '/app/organizacion/clubes',
+        permiso: 'organizacion.club:CONSULTAR',
+        descripcion: 'Clubes de la liga y sus equipos.',
+      },
+    ],
   },
   {
     nombre: 'Programación',
