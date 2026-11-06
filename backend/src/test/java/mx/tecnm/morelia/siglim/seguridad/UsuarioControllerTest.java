@@ -230,6 +230,34 @@ class UsuarioControllerTest {
         assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.DUPLICADO);
     }
 
+    @Test
+    @DisplayName("H-03 criterio 4: VAL-022 responde 403 con su código en las tres rutas")
+    void cuentaPropiaVal022() {
+        given(servicio.asignar(eq(ID), any(AsignacionRequest.class)))
+                .willThrow(ReglaNegocioException.prohibida("VAL-022",
+                        "No puedes cambiar las asignaciones de rol de tu propia cuenta."));
+        given(servicio.revocar(eq(ASIGNACION), any(RevocarAsignacionRequest.class)))
+                .willThrow(ReglaNegocioException.prohibida("VAL-022",
+                        "No puedes cambiar las asignaciones de rol de tu propia cuenta."));
+        given(servicio.actualizar(eq(ID), any(ActualizarUsuarioRequest.class)))
+                .willThrow(ReglaNegocioException.prohibida("VAL-022",
+                        "No puedes activar ni desactivar tu propia cuenta."));
+
+        List<MvcTestResult> resultados = List.of(
+                post(BASE + "/" + ID + "/asignaciones", CUERPO_ASIGNAR),
+                post("/api/v1/asignaciones-rol/" + ASIGNACION + "/revocacion", CUERPO_REVOCAR),
+                mvc.patch().uri(BASE + "/" + ID)
+                        .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"activo\":true}").exchange());
+
+        for (MvcTestResult resultado : resultados) {
+            assertThat(resultado).hasStatus(HttpStatus.FORBIDDEN)
+                    .hasContentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON);
+            assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo("VAL-022");
+        }
+    }
+
     // ── 401, 403 y 404 de cada endpoint (convenciones de API §10) ───────────────────────────────
 
     @TestFactory

@@ -360,6 +360,44 @@ describe('PantallaUsuarios', () => {
     expect(within(panel).queryByRole('button', { name: 'Revocar' })).not.toBeInTheDocument()
   })
 
+  it('H-03 criterio 4: en el panel propio no ofrece agregar, revocar ni el interruptor, y explica por qué', async () => {
+    const PROPIA: Usuario = {
+      ...USUARIO,
+      id: 'perfil-1',
+      nombreMostrado: 'Ana Pérez',
+      correo: 'ana.perez@ejemplo.mx',
+      asignaciones: [{ ...ASIGNACION, id: 'a-propia' }],
+    }
+    otorgar(CONSULTAR, EDITAR)
+    responder(pagina([PROPIA, USUARIO]))
+    const responderBase = get.getMockImplementation()
+    get.mockImplementation(async (ruta: string) =>
+      ruta === 'usuarios/perfil-1' ? PROPIA : responderBase?.(ruta),
+    )
+    montar()
+
+    expect(
+      await screen.findByRole('button', { name: 'Gestionar a Ana López' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Gestionar a Ana Pérez' }),
+    ).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Ver detalle de Ana Pérez' }))
+    const panel = await screen.findByRole('dialog', { name: 'Detalle de usuario' })
+
+    expect(await within(panel).findByText('Directiva de club')).toBeInTheDocument()
+    expect(within(panel).getByText('Vigente')).toBeInTheDocument()
+    expect(
+      within(panel).getByText(/Esta es tu cuenta\. Por separación de funciones \(VAL-022\)/),
+    ).toBeInTheDocument()
+    expect(within(panel).getByText('Tu cuenta')).toBeInTheDocument()
+    expect(within(panel).queryByRole('switch', { name: 'Cuenta activa' })).not.toBeInTheDocument()
+    expect(
+      within(panel).queryByRole('button', { name: 'Agregar asignación' }),
+    ).not.toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: 'Revocar' })).not.toBeInTheDocument()
+  })
+
   it('H-02.4: sin CONSULTAR muestra la 403 y no pide datos', () => {
     otorgar()
     montar()

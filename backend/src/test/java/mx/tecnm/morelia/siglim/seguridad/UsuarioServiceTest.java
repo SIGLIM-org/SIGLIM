@@ -45,7 +45,10 @@ class UsuarioServiceTest {
     private static final String CREAR = "seguridad.usuario:CREAR";
     private static final String EDITAR = "seguridad.usuario:EDITAR";
     private static final UUID LIGA = UUID.fromString("a0000000-0000-4000-8000-000000000001");
+    /** Cuenta sobre la que operan las pruebas. */
     private static final UUID PERFIL = UUID.fromString("0b7c3e1a-2d4f-4a6b-9c8d-7e6f5a4b3c2d");
+    /** Cuenta de la sesión: otra cuenta, para no chocar con VAL-022 (DEC-53). */
+    private static final UUID ADMIN = UUID.fromString("7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d");
     private static final UUID AUTH = UUID.fromString("6f1d2a3b-4c5d-4e6f-8a9b-0c1d2e3f4a5b");
     private static final UUID ROL_ADMIN = UUID.fromString("11111111-1111-4111-8111-111111111111");
     private static final UUID ROL_CLUB = UUID.fromString("22222222-2222-4222-8222-222222222222");
@@ -67,9 +70,13 @@ class UsuarioServiceTest {
 
     @BeforeEach
     void iniciarSesion() {
+        iniciarSesionComo(ADMIN);
+    }
+
+    private static void iniciarSesionComo(UUID perfilId) {
         Jwt token = Jwt.withTokenValue("token-de-prueba").header("alg", "ES256")
                 .subject(UUID.randomUUID().toString()).issuedAt(AHORA).expiresAt(AHORA.plusSeconds(3600)).build();
-        SecurityContextHolder.getContext().setAuthentication(new AutenticacionSiglim(token, PERFIL));
+        SecurityContextHolder.getContext().setAuthentication(new AutenticacionSiglim(token, perfilId));
     }
 
     @AfterEach
@@ -168,7 +175,7 @@ class UsuarioServiceTest {
         given(usuarios.existeClub(LIGA, CLUB)).willReturn(true);
         given(invitador.invitar("ana@ejemplo.mx")).willReturn(AUTH);
         given(usuarios.insertarPerfil(AUTH, "Ana López", "ana@ejemplo.mx")).willReturn(PERFIL);
-        given(usuarios.insertarAsignacion(PERFIL, ROL_CLUB, LIGA, "CLUB", CLUB, PERFIL)).willReturn(ASIGNACION);
+        given(usuarios.insertarAsignacion(PERFIL, ROL_CLUB, LIGA, "CLUB", CLUB, ADMIN)).willReturn(ASIGNACION);
         given(usuarios.buscarPerfil(PERFIL)).willReturn(Optional.of(perfil(true)));
         given(usuarios.listarAsignaciones(PERFIL, false)).willReturn(List.of(asignacion(true, null)));
 
@@ -177,7 +184,7 @@ class UsuarioServiceTest {
 
         verify(autorizacion).exigir(CREAR, ObjetivoAutorizacion.deLiga());
         verify(usuarios).insertarPerfil(AUTH, "Ana López", "ana@ejemplo.mx");
-        verify(usuarios).insertarAsignacion(PERFIL, ROL_CLUB, LIGA, "CLUB", CLUB, PERFIL);
+        verify(usuarios).insertarAsignacion(PERFIL, ROL_CLUB, LIGA, "CLUB", CLUB, ADMIN);
         assertThat(creado.id()).isEqualTo(PERFIL);
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(auditoria).registrar(evento.capture());
@@ -194,14 +201,14 @@ class UsuarioServiceTest {
         given(usuarios.existeClub(LIGA, CLUB)).willReturn(true);
         given(invitador.invitar("ana@ejemplo.mx")).willReturn(AUTH);
         given(usuarios.insertarPerfil(AUTH, "Ana", "ana@ejemplo.mx")).willReturn(PERFIL);
-        given(usuarios.insertarAsignacion(PERFIL, ROL_CLUB, LIGA, "CLUB", CLUB, PERFIL)).willReturn(ASIGNACION);
+        given(usuarios.insertarAsignacion(PERFIL, ROL_CLUB, LIGA, "CLUB", CLUB, ADMIN)).willReturn(ASIGNACION);
         given(usuarios.buscarPerfil(PERFIL)).willReturn(Optional.of(perfil(true)));
         given(usuarios.listarAsignaciones(PERFIL, false)).willReturn(List.of(asignacion(true, null)));
 
         servicio.invitar(new CrearUsuarioRequest("Ana", "ana@ejemplo.mx",
                 List.of(new AsignacionRequest(ROL_CLUB, null, CLUB))));
 
-        verify(usuarios).insertarAsignacion(PERFIL, ROL_CLUB, LIGA, "CLUB", CLUB, PERFIL);
+        verify(usuarios).insertarAsignacion(PERFIL, ROL_CLUB, LIGA, "CLUB", CLUB, ADMIN);
     }
 
     @Test
@@ -380,5 +387,82 @@ class UsuarioServiceTest {
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error ->
                         assertThat(error.codigo()).isEqualTo("VAL-015"));
         verifyNoInteractions(usuarios, roles, auditoria);
+    }
+
+    // ── Separación de funciones sobre la propia cuenta (VAL-022, DEC-53) ──────────────────────
+
+    private static void assertProhibidaVal022(Throwable error) {
+        assertThat(error).isInstanceOfSatisfying(ReglaNegocioException.class, regla -> {
+            assertThat(regla.estado()).isEqualTo(HttpStatus.FORBIDDEN);
+            assertThat(regla.codigo()).isEqualTo("VAL-022");
+        });
+    }
+
+    private void verificarSinEscrituraNiAuditoria() {
+        verify(usuarios, never()).insertarAsignacion(any(), any(), any(), any(), any(), any());
+        verify(usuarios, never()).revocarAsignacion(any());
+        verify(usuarios, never()).actualizarActivo(any(), anyBoolean());
+        verify(auditoria, never()).registrar(any());
+    }
+
+    @Test
+    @DisplayName("H-03 criterio 4: agregarse una asignación responde 403 VAL-022 sin escribir ni auditar")
+    void asignarseAsiMismo() {
+        iniciarSesionComo(PERFIL);
+        given(usuarios.buscarPerfil(PERFIL)).willReturn(Optional.of(perfil(true)));
+        given(roles.buscar(LIGA, ROL_CLUB)).willReturn(Optional.of(rolClub()));
+        given(usuarios.existeClub(LIGA, CLUB)).willReturn(true);
+
+        assertThatThrownBy(() -> servicio.asignar(PERFIL, new AsignacionRequest(ROL_CLUB, Ambito.CLUB, CLUB)))
+                .satisfies(UsuarioServiceTest::assertProhibidaVal022);
+        verify(autorizacion).exigir(EDITAR, ObjetivoAutorizacion.deLiga());
+        verifyNoInteractions(roles);
+        verificarSinEscrituraNiAuditoria();
+    }
+
+    @Test
+    @DisplayName("H-03 criterio 4: revocar una asignación propia responde 403 VAL-022 sin escribir ni auditar")
+    void revocarAsignacionPropia() {
+        iniciarSesionComo(PERFIL);
+        given(usuarios.buscarAsignacion(ASIGNACION)).willReturn(Optional.of(asignacion(true, null)));
+
+        assertThatThrownBy(() -> servicio.revocar(ASIGNACION, new RevocarAsignacionRequest(MOTIVO)))
+                .satisfies(UsuarioServiceTest::assertProhibidaVal022);
+        verify(autorizacion).exigir(EDITAR, ObjetivoAutorizacion.deLiga());
+        verificarSinEscrituraNiAuditoria();
+    }
+
+    @Test
+    @DisplayName("H-03 criterio 4: desactivar la propia cuenta responde 403 VAL-022 aunque falte el motivo")
+    void desactivarCuentaPropiaSinMotivo() {
+        iniciarSesionComo(PERFIL);
+        given(usuarios.buscarPerfil(PERFIL)).willReturn(Optional.of(perfil(true)));
+
+        // Sin motivo otra cuenta recibiría 400 RN-021; VAL-022 se evalúa antes.
+        assertThatThrownBy(() -> servicio.actualizar(PERFIL, new ActualizarUsuarioRequest(false, null)))
+                .satisfies(UsuarioServiceTest::assertProhibidaVal022);
+        verificarSinEscrituraNiAuditoria();
+    }
+
+    @Test
+    @DisplayName("H-03 criterio 4: activar la propia cuenta ya activa también responde 403 VAL-022")
+    void activarCuentaPropiaYaActiva() {
+        iniciarSesionComo(PERFIL);
+        given(usuarios.buscarPerfil(PERFIL)).willReturn(Optional.of(perfil(true)));
+
+        assertThatThrownBy(() -> servicio.actualizar(PERFIL, new ActualizarUsuarioRequest(true, null)))
+                .satisfies(UsuarioServiceTest::assertProhibidaVal022);
+        verificarSinEscrituraNiAuditoria();
+    }
+
+    @Test
+    @DisplayName("H-03 criterio 4: revocar una asignación propia ya revocada responde 403, no 409")
+    void revocarAsignacionPropiaYaRevocada() {
+        iniciarSesionComo(PERFIL);
+        given(usuarios.buscarAsignacion(ASIGNACION)).willReturn(Optional.of(asignacion(false, CREADO_EN)));
+
+        assertThatThrownBy(() -> servicio.revocar(ASIGNACION, new RevocarAsignacionRequest(MOTIVO)))
+                .satisfies(UsuarioServiceTest::assertProhibidaVal022);
+        verificarSinEscrituraNiAuditoria();
     }
 }

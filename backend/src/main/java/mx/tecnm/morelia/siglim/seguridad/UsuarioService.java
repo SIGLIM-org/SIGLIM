@@ -49,9 +49,17 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li><b>Auditoría (RF-093).</b> Invitar, asignar, revocar, activar y desactivar se registran en
  *       la misma transacción. El detalle solo lleva identificadores, roles, ámbitos y estados, nunca
  *       el nombre ni el correo (RNF-012).</li>
+ *   <li><b>Separación de funciones (VAL-022, DEC-53).</b> Ninguna cuenta puede agregarse ni
+ *       revocarse asignaciones de rol ni activar o desactivar su propia cuenta, sin importar su
+ *       rol: se compara la cuenta objetivo (en la revocación, la dueña de la asignación) con
+ *       {@link UsuarioActual#idRequerido()} y se responde 403 {@code VAL-022}. Se evalúa después
+ *       del permiso y del 404 y antes de las demás reglas del servicio (la validación de forma del
+ *       cuerpo ocurre antes, en el controlador); con el 403 no se escribe ni se audita nada.
+ *       Consultar el detalle propio sigue permitido.</li>
  * </ul>
  *
- * <p>Refs: H-03.1, RF-094, RF-093, RN-005, RN-054, RNF-012, VAL-022, ADR-0003, ADR-0007
+ * <p>Refs: H-03, H-03.1, DEF-04, RF-094, RF-093, RN-005, RN-054, RNF-012, VAL-022, ADR-0003,
+ * ADR-0007
  */
 @Service
 public class UsuarioService {
@@ -63,6 +71,10 @@ public class UsuarioService {
     private static final String ENTIDAD = "perfiles";
     private static final String ENTIDAD_ASIGNACION = "asignaciones_rol";
     private static final int LONGITUD_MINIMA_MOTIVO = 10;
+    private static final String MENSAJE_ASIGNACIONES_PROPIAS = "No puedes cambiar las asignaciones de"
+            + " rol de tu propia cuenta. Otra cuenta con permiso para gestionar usuarios debe hacerlo.";
+    private static final String MENSAJE_ESTADO_PROPIO = "No puedes activar ni desactivar tu propia"
+            + " cuenta. Otra cuenta con permiso para gestionar usuarios debe hacerlo.";
 
     private final UsuarioRepository usuarios;
     private final RolRepository roles;
@@ -146,11 +158,18 @@ public class UsuarioService {
         }
     }
 
-    /** Agrega una asignación de rol a una cuenta existente (RF-094, RN-054). */
+    /**
+     * Agrega una asignación de rol a una cuenta existente (RF-094, RN-054).
+     *
+     * @throws ReglaNegocioException 403 {@code VAL-022} si la cuenta es la del usuario actual;
+     *                               400 {@code VALIDACION} si la asignación no es coherente; 409
+     *                               {@code DUPLICADO} si ya está activa
+     */
     @Transactional
     public AsignacionDto asignar(UUID perfilId, AsignacionRequest peticion) {
         autorizacion.exigir(EDITAR, ObjetivoAutorizacion.deLiga());
         buscarPerfil(perfilId);
+        rechazarCuentaPropia(perfilId, MENSAJE_ASIGNACIONES_PROPIAS);
 
         AsignacionValidada asignacion = validarAsignaciones(List.of(peticion)).getFirst();
         if (usuarios.existeAsignacionActiva(perfilId, asignacion.rolId(), asignacion.clubId())) {
@@ -167,14 +186,16 @@ public class UsuarioService {
     /**
      * Revoca una asignación con motivo: no se borra, queda inactiva con su fecha (RF-094, RN-005).
      *
-     * @throws ReglaNegocioException 400 {@code RN-021} sin motivo; 409 {@code RF-094} si ya estaba
-     *                               revocada
+     * @throws ReglaNegocioException 403 {@code VAL-022} si la asignación es de la cuenta del usuario
+     *                               actual; 400 {@code RN-021} sin motivo; 409 {@code RF-094} si ya
+     *                               estaba revocada
      */
     @Transactional
     public AsignacionDto revocar(UUID asignacionId, RevocarAsignacionRequest peticion) {
         autorizacion.exigir(EDITAR, ObjetivoAutorizacion.deLiga());
         FilaAsignacion asignacion = usuarios.buscarAsignacion(asignacionId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Asignación " + asignacionId));
+        rechazarCuentaPropia(asignacion.perfilId(), MENSAJE_ASIGNACIONES_PROPIAS);
         if (!asignacion.activa()) {
             throw ReglaNegocioException.conflicto("RF-094", "La asignación ya está revocada.");
         }
@@ -190,11 +211,16 @@ public class UsuarioService {
     /**
      * Activa o desactiva una cuenta (RF-094; ADR-0003 punto 6). Desactivar exige motivo y queda
      * auditado; el detalle no guarda datos personales (RF-093, RNF-012).
+     *
+     * @throws ReglaNegocioException 403 {@code VAL-022} si la cuenta es la del usuario actual, aunque
+     *                               el estado pedido sea el actual; 400 {@code RN-021} si se
+     *                               desactiva sin motivo
      */
     @Transactional
     public UsuarioDto actualizar(UUID perfilId, ActualizarUsuarioRequest peticion) {
         autorizacion.exigir(EDITAR, ObjetivoAutorizacion.deLiga());
         FilaPerfil perfil = buscarPerfil(perfilId);
+        rechazarCuentaPropia(perfilId, MENSAJE_ESTADO_PROPIO);
         boolean activo = peticion.activo();
 
         if (activo == perfil.activo()) {
@@ -217,6 +243,16 @@ public class UsuarioService {
     }
 
     // ── Validación y conversión ────────────────────────────────────────────────────────────────
+
+    /**
+     * Separación de funciones (VAL-022, DEC-53): ninguna cuenta cambia sus propias asignaciones ni
+     * su estado. Compara identificadores de perfil, nunca el rol (ADR-0007).
+     */
+    private static void rechazarCuentaPropia(UUID perfilObjetivo, String mensaje) {
+        if (perfilObjetivo.equals(UsuarioActual.idRequerido())) {
+            throw ReglaNegocioException.prohibida("VAL-022", mensaje);
+        }
+    }
 
     private UsuarioDto detalle(UUID perfilId) {
         FilaPerfil perfil = buscarPerfil(perfilId);

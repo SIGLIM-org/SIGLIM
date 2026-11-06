@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 3.3 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 3.4 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -32,6 +32,7 @@ Versión 3.3 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 3.1 | 5 de noviembre de 2026 | H-05.1: §6.2 con el contrato del catálogo de categorías (jerarquía sin ciclos, desactivación, reactivación solo con superior activa o sin ella, y reordenamiento atómico), las categorías de la temporada con sus grupos anidados y los grupos; `temporadas.temporada:CONSULTAR` en los `GET` de categorías y grupos (antes pedía `EDITAR`); errores y acciones de auditoría. |
 | 3.2 | 5 de noviembre de 2026 | H-05.2: §6.2 con el contrato de parámetros versionados (juego completo por versión, `esDemo` por versión con `camposDemo`, criterios de desempate sin nombre de equipo, filas por categoría, historial con `camposCambiados`, valores predeterminados y `GET` por versión); `temporadas.temporada:CONSULTAR` en los `GET` de parámetros (antes pedía `temporadas.parametros:EDITAR`); errores y la acción `REGISTRAR_PARAMETROS`; §11 con la confirmación parcial de valores oficiales. |
 | 3.3 | 5 de noviembre de 2026 | H-05.3: §6.2 documenta `GET /temporadas/{id}`, que usa F-11. |
+| 3.4 | 5 de noviembre de 2026 | DEF-04 (SCRUM-399): §6.1 aplica VAL-022 a las asignaciones y al estado de la propia cuenta (DEC-53); §3 lo cita entre los 403. |
 
 ## Índice
 
@@ -153,7 +154,7 @@ propiedades de extensión: `codigo` (siempre) y `errores` (cuando hay campos se�
 | `400` | JSON mal formado, tipos incorrectos, campos obligatorios ausentes o formato inválido (CURP, correo) | `VALIDACION` |
 | `401` | Sin token, token vencido o inválido | `NO_AUTENTICADO` |
 | `403` | El usuario no tiene el permiso (denegación por defecto) | `VAL-015` |
-| `403` | Separación de funciones de la persona: aprobar la cédula que capturó, cambiar permisos de su propio rol, corregir un resultado sin resolución | `VAL-021`, `VAL-022`, `VAL-010` |
+| `403` | Separación de funciones de la persona: aprobar la cédula que capturó, cambiar permisos de su propio rol, cambiar sus propias asignaciones o el estado de su cuenta, corregir un resultado sin resolución | `VAL-021`, `VAL-022`, `VAL-010` |
 | `404` | El recurso no existe **o** está fuera del ámbito del usuario (no se revela cuál de los dos) | `NO_ENCONTRADO` (VAL-024) |
 | `405` | El recurso existe pero no admite ese método (la respuesta incluye la cabecera `Allow`) | `METODO_NO_PERMITIDO` |
 | `406`, `415` | La petición no envía o no acepta JSON (`Content-Type`, `Accept`) | `FORMATO_NO_SOPORTADO` |
@@ -402,7 +403,8 @@ cuenta, la elimina como compensación para no dejarla sin perfil. Se audita `INV
 `PATCH /usuarios/{id}` lleva `{ "activo": true|false, "motivo"? }`. Al desactivar, el motivo es
 obligatorio (mínimo 10 caracteres, **[PROPUESTA]**) y el cambio se audita como `DESACTIVAR_CUENTA`;
 al activar, como `ACTIVAR_CUENTA`. Una cuenta inactiva se rechaza en cada petición aunque su token
-siga vigente (ADR-0003 punto 6). Repetir el estado actual responde `200` sin generar un evento.
+siga vigente (ADR-0003 punto 6). Repetir el estado actual responde `200` sin generar un evento, salvo
+sobre la propia cuenta (ver la separación de funciones abajo).
 
 `POST /usuarios/{id}/asignaciones` lleva `{ "rolId", "ambito"?, "clubId"? }` y responde `201` con
 `Location` y la asignación. Una asignación activa repetida responde `409 DUPLICADO`. La revocación es
@@ -411,10 +413,24 @@ queda `activa: false` con `revocadaEn` y se audita `REVOCAR_ASIGNACION`; sin mot
 ya estaba revocada, `409 RF-094`. Asignar (`ASIGNAR_ROL`) y revocar se auditan sobre
 `asignaciones_rol` con el rol, el ámbito y el club, sin datos personales (RF-093, RNF-012).
 
+**Separación de funciones (VAL-022, DEC-53).** Ninguna cuenta cambia sus propias asignaciones ni su
+estado, sin importar su rol. `POST /usuarios/{id}/asignaciones`, `POST /asignaciones-rol/{id}/revocacion`
+y `PATCH /usuarios/{id}` responden `403` con `codigo: "VAL-022"` cuando la cuenta objetivo es la del
+usuario actual; en la revocación, la cuenta objetivo es la dueña de la asignación. El `PATCH` sobre la
+propia cuenta responde `403` aunque no cambiaría nada (por ejemplo, `activo: true` sobre una cuenta
+activa). La regla se evalúa después de la validación de forma del cuerpo (`400 VALIDACION` de §3,
+por ejemplo un motivo de menos de 10 caracteres en la revocación o un `PATCH` sin `activo`), del
+permiso (`403 VAL-015`) y del `404` de la cuenta o la asignación, y antes de las reglas del servicio
+(`400 VALIDACION` del rol, el ámbito o el club, `409 DUPLICADO`, `409 RF-094` y `400 RN-021` al
+desactivar sin motivo); con el `403` no se escribe ni se audita nada. Consultar el propio detalle
+(`GET /usuarios/{id}`) sigue permitido.
+
 `GET /roles` devuelve un arreglo sin paginación con `id`, `codigo`, `nombre`, `descripcion`,
 `ambitoPredeterminado` y `asignable`; los roles `asignable = false` (`SISTEMA`, `USUARIO_PUBLICO`) se
 listan, pero no se pueden asignar. El detalle `GET /roles/{id}`, `GET /permisos`, la edición de la
-matriz de permisos y la denegación VAL-022 del propio rol son H-20, no de este contrato.
+matriz de permisos y la denegación VAL-022 sobre los permisos del propio rol son H-20, no de este
+contrato; la denegación VAL-022 sobre las asignaciones y el estado de la propia cuenta es de H-03
+(arriba).
 
 ### 6.2 M-02 Temporadas y normativa
 
