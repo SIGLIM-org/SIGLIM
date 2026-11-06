@@ -375,6 +375,95 @@ describe('router', () => {
     expect(
       screen.getByRole('navigation', { name: 'Menú Ejecutivo' }),
     ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Tesorería y cuotas' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('H-29.2: /app muestra la tarjeta de adeudos con tesoreria.cobro:CONSULTAR', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('tesoreria.cobro:CONSULTAR', 'M-13')],
+    })
+    obtenerCatalogo.mockImplementation(async (ruta: string) => {
+      if (ruta === 'adeudos') {
+        return {
+          total: 1500,
+          pendiente: 1500,
+          vencido: 0,
+          cobros: 1,
+          clubes: [
+            {
+              club: { id: 'c-1', nombre: 'Club Halcones' },
+              total: 1500,
+              pendiente: 1500,
+              vencido: 0,
+              cobros: 1,
+              equipos: [],
+            },
+          ],
+        }
+      }
+      return []
+    })
+
+    montar('/app')
+
+    expect(
+      await screen.findByRole('heading', { name: 'Tesorería y cuotas' }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText('$1,500.00')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver tesorería' })).toHaveAttribute(
+      'href',
+      '/app/tesoreria',
+    )
+  })
+
+  it('H-29.2: con tesoreria.cobro:CONSULTAR, /app/tesoreria muestra la pantalla', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('tesoreria.cobro:CONSULTAR', 'M-13')],
+    })
+    obtenerCatalogo.mockImplementation(async (ruta: string) => {
+      if (ruta.startsWith('cobros?')) {
+        return { contenido: [], pagina: 0, tamano: 20, totalElementos: 0, totalPaginas: 0 }
+      }
+      if (ruta === 'adeudos') {
+        return { total: 0, pendiente: 0, vencido: 0, cobros: 0, clubes: [] }
+      }
+      if (ruta.startsWith('clubes?')) {
+        return { contenido: [], pagina: 0, tamano: 100, totalElementos: 0, totalPaginas: 0 }
+      }
+      return []
+    })
+
+    montar('/app/tesoreria')
+
+    expect(
+      await screen.findByRole('heading', { name: 'Tesorería' }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText('Aún no hay cobros registrados')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Tesorería/ })).toHaveAttribute(
+      'href',
+      '/app/tesoreria',
+    )
+  })
+
+  it('H-29.2: sin tesoreria.cobro:CONSULTAR, su URL responde 403', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('tesoreria.cobro:CREAR', 'M-13')],
+    })
+
+    montar('/app/tesoreria')
+
+    expect(
+      await screen.findByRole('heading', { name: 'No tienes permiso para esta acción' }),
+    ).toBeInTheDocument()
+    expect(obtenerCatalogo).not.toHaveBeenCalled()
   })
 
   it('con sesión, /app/inexistente muestra la 404 dentro de la aplicación interna', async () => {

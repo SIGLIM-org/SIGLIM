@@ -66,6 +66,20 @@ describe('subsecciones', () => {
     )
     expect(seccionDeRuta('/app/administracion/temporadas')?.nombre).toBe('Administración')
   })
+
+  it('H-29.2: Tesorería es una sección propia de M-13 y su ruta queda en ella', () => {
+    const tesoreria = seccionesApp.find(({ nombre }) => nombre === 'Tesorería')
+    const administracion = seccionesApp.find(({ nombre }) => nombre === 'Administración')
+
+    expect(tesoreria).toEqual(
+      expect.objectContaining({
+        ruta: '/app/tesoreria',
+        modulos: ['M-13'],
+      }),
+    )
+    expect(administracion?.modulos).not.toContain('M-13')
+    expect(seccionDeRuta('/app/tesoreria')?.nombre).toBe('Tesorería')
+  })
 })
 
 const permiso = (codigo: string, modulo: string) => ({ codigo, modulo })
@@ -97,6 +111,7 @@ describe('seccionesPermitidas', () => {
       permiso('competencias.propuesta:APROBAR', 'M-10'),
       permiso('publicacion.comunicado:APROBAR', 'M-11'),
       permiso('reportes.reporte:CONSULTAR', 'M-12'),
+      permiso('tesoreria.cobro:CONSULTAR', 'M-13'),
     ])
 
     expect(secciones.map((seccion) => seccion.nombre)).toEqual([
@@ -105,7 +120,19 @@ describe('seccionesPermitidas', () => {
       'Programación',
       'Partidos',
       'Disciplina',
+      'Tesorería',
       'Administración',
+    ])
+  })
+
+  it('H-29.2: un permiso de M-13 muestra Inicio y Tesorería', () => {
+    const secciones = seccionesPermitidas([
+      permiso('tesoreria.cobro:CONSULTAR', 'M-13'),
+    ])
+
+    expect(secciones.map((seccion) => seccion.nombre)).toEqual([
+      'Inicio',
+      'Tesorería',
     ])
   })
 

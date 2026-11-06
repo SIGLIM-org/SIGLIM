@@ -5,6 +5,7 @@ import {
   Goal,
   LayoutDashboard,
   Settings,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react'
 import { puedeVerModulo } from '@/features/seguridad/permisos'
@@ -92,10 +93,16 @@ export const seccionesApp: SeccionApp[] = [
     ],
   },
   {
+    nombre: 'Tesorería',
+    ruta: '/app/tesoreria',
+    icono: Wallet,
+    modulos: ['M-13'],
+  },
+  {
     nombre: 'Administración',
     ruta: '/app/administracion',
     icono: Settings,
-    modulos: ['M-01', 'M-02', 'M-11', 'M-12', 'M-13'],
+    modulos: ['M-01', 'M-02', 'M-11', 'M-12'],
     subsecciones: [
       {
         nombre: 'Temporadas',
