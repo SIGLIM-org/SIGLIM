@@ -1,0 +1,22 @@
+[
+  {
+    "id": "4ec5a98d-d708-4f7f-b7b4-2e617a4adc5f",
+    "nombre": "Primera Fuerza (aceptación H-05)",
+    "tipo": "LIBRE",
+    "orden": 1,
+    "activa": true,
+    "creadoEn": "2026-11-05T21:36:10.766791-06:00"
+  },
+  {
+    "id": "89aa8284-ccd8-41bb-9756-240f50bcf8af",
+    "nombre": "Segunda Fuerza (aceptación H-05)",
+    "tipo": "LIBRE",
+    "orden": 2,
+    "categoriaSuperior": {
+      "id": "4ec5a98d-d708-4f7f-b7b4-2e617a4adc5f",
+      "nombre": "Primera Fuerza (aceptación H-05)"
+    },
+    "activa": true,
+    "creadoEn": "2026-11-05T21:36:11.020923-06:00"
+  }
+]

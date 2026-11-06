@@ -1,0 +1,4 @@
+version | puntos_victoria | puntos_empate | puntos_derrota | plazo | criterios | es_demo | motivo
+-------------------------------------------------------------------------------------------------
+1 | 3 | 1 | 0 | 48:00:00 | {PUNTOS,DIFERENCIA_GOLES,GOLES_FAVOR,ENFRENTAMIENTO_DIRECTO,MENOS_EXPULSIONES,SORTEO} | t | Versión inicial acordada para la aceptación H-05
+2 | 4 | 1 | 0 | 36:00:00 | {PUNTOS,GOLES_FAVOR,DIFERENCIA_GOLES,ENFRENTAMIENTO_DIRECTO,MENOS_EXPULSIONES,SORTEO} | t | Ajuste de puntos, plazo y desempates para la temporada
