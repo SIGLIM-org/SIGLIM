@@ -1,0 +1,39 @@
+Prueba de aceptación H-03 · re-ejecución del paso 6 de CA-1 (DEF-03) · consulta de solo lectura al proyecto compartido de Supabase
+Versión probada: develop en c725e01 (incluye DEF-04 #72 y DEF-03 #73).
+Fecha de la consulta: 2026-11-05 22:21 (America/Mexico_City). Buzón nuevo, miembro del equipo de Supabase y sin cuenta previa en Auth.
+Los correos se omiten (RNF-012); las cuentas se identifican por su rol.
+
+Configuración de Supabase Auth durante la prueba
+  Site URL: http://localhost:3000 (sin cambios respecto de la primera corrida)
+  Redirect URLs: http://localhost:5173/restablecer-contrasena
+  Nota: la bitácora registra una recarga de la configuración de Auth a las 04:10:11 UTC; el ejecutor no
+  cambió ni guardó nada en Authentication. El destino registrado incluye la ruta /restablecer-contrasena,
+  que solo puede venir de redirect_to (la Site URL no la lleva).
+
+Bitácora de Supabase Auth (auth_logs), horas en UTC (hora local = UTC − 6)
+  04:11:48 · POST /invite  · 200 · user_invited por service_role · referer = http://localhost:5173/restablecer-contrasena
+  04:11:48 · mail.send     · mail_type = invite
+  04:13:36 · GET  /verify  · 303 · user_signedup · referer = http://localhost:5173/restablecer-contrasena
+  04:13:36 · Login         · login_method = implicit (sesión abierta por el enlace)
+  04:15:57 · PUT  /user    · 200 · user_modified (el invitado fijó su contraseña)
+  04:15:58 · POST /logout  · 204
+  04:16:58 · POST /token   · 200 · grant_type = password · login (inicio de sesión con la contraseña nueva)
+  En la primera corrida (2026-11-05 23:57:25 UTC) la misma invitación salió con referer = http://localhost:3000.
+
+siglim.perfiles + auth.users de la cuenta Invitado (re-ejecución)
+  nombre_mostrado «Prueba Reejecucion H-03» · activo true · creado 2026-11-06 04:11:47 UTC
+  vinculado a su cuenta de Auth (perfiles.usuario_auth_id = auth.users.id)
+  invited_at         2026-11-06 04:11:48 UTC
+  email_confirmed_at 2026-11-06 04:13:36 UTC
+  last_sign_in_at    2026-11-06 04:16:58 UTC
+
+siglim.asignaciones_rol
+  SECRETARIO · LIGA · activa true
+
+siglim.auditoria
+  id 26 · 2026-11-06 04:11:47 UTC · M-01 · INVITAR_USUARIO · perfiles f8d6c5d2-7b93-4bfe-bc05-2dcfcf2a5ca1
+          motivo null · detalle {"asignaciones": [{"rol": "SECRETARIO", "ambito": "LIGA"}]} (sin nombre ni correo)
+          ejecutó: Administrador
+
+Conclusión: la invitación envió redirect_to a /restablecer-contrasena del frontend; el enlace del
+correo llevó al invitado a esa pantalla, fijó su contraseña y después inició sesión con ella.
