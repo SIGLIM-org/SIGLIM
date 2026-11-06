@@ -1,0 +1,31 @@
+{
+  "contenido": [
+    {
+      "id": "a4b11083-0708-4a18-8e2a-f37c629da94e",
+      "nombre": "Fuego Nuevo A",
+      "estado": "ACTIVO",
+      "club": {
+        "id": "85fa5789-fa97-4ddb-aa9e-b724fb5aafa3",
+        "nombre": "Club Fuego Nuevo"
+      },
+      "grupo": {
+        "id": "60000000-0000-4000-8000-000000000004",
+        "nombre": "Grupo 1"
+      },
+      "categoria": {
+        "id": "60000000-0000-4000-8000-000000000002",
+        "nombre": "Libre"
+      },
+      "temporada": {
+        "id": "60000000-0000-4000-8000-000000000001",
+        "nombre": "Temporada de aceptación 2026-27",
+        "estado": "ACTIVA"
+      },
+      "creadoEn": "2026-11-06T01:06:08.397393-06:00"
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 1,
+  "totalPaginas": 1
+}
