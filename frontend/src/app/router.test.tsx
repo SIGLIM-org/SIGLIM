@@ -4,16 +4,19 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { rutas } from '@/app/router'
 
-const { obtenerSesion, obtenerYo, obtenerCatalogo } = vi.hoisted(() => ({
-  obtenerSesion: vi.fn(),
-  obtenerYo: vi.fn(),
-  obtenerCatalogo: vi.fn(),
-}))
+const { obtenerSesion, alCambiarSesion, obtenerYo, obtenerCatalogo } =
+  vi.hoisted(() => ({
+    obtenerSesion: vi.fn(),
+    alCambiarSesion: vi.fn(),
+    obtenerYo: vi.fn(),
+    obtenerCatalogo: vi.fn(),
+  }))
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
       getSession: obtenerSesion,
+      onAuthStateChange: alCambiarSesion,
     },
   },
 }))
@@ -62,6 +65,10 @@ function iniciarSesion() {
 describe('router', () => {
   beforeEach(() => {
     obtenerSesion.mockReset()
+    alCambiarSesion.mockReset()
+    alCambiarSesion.mockReturnValue({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    })
     obtenerYo.mockReset()
     obtenerCatalogo.mockReset()
     obtenerCatalogo.mockResolvedValue([])
