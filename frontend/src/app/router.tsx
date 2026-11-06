@@ -15,27 +15,31 @@ import { PaginaNoEncontrada } from '@/pages/PaginaNoEncontrada'
  */
 
 /**
- * Marcador de cada módulo de `/app` en un fragmento aparte. Hoy los seis
- * comparten `EnConstruccion`; cuando el módulo tenga sus pantallas reales, su
- * import apuntará a ellas y el fragmento se separará solo.
+ * Marcador de cada módulo de `/app` en un fragmento aparte. Las secciones con pantalla propia
+ * (Inicio y Tesorería) se registran más abajo; el resto sigue usando `EnConstruccion` hasta que su
+ * historia lo sustituya.
  */
-const paginasApp: RouteObject[] = seccionesApp.map(({ nombre, ruta, subsecciones }) => ({
-  path: ruta,
-  lazy: async () => {
-    const { EnConstruccion } = await import('@/pages/EnConstruccion')
+const RUTAS_CON_PANTALLA_PROPIA = new Set(['/app', '/app/tesoreria'])
 
-    return {
-      element: (
-        <EnConstruccion
-          titulo={nombre}
-          descripcion="Módulo de la aplicación interna en construcción."
-          subsecciones={subsecciones}
-        />
-      ),
-    }
-  },
-  HydrateFallback: CargandoPagina,
-}))
+const paginasApp: RouteObject[] = seccionesApp
+  .filter(({ ruta }) => !RUTAS_CON_PANTALLA_PROPIA.has(ruta))
+  .map(({ nombre, ruta, subsecciones }) => ({
+    path: ruta,
+    lazy: async () => {
+      const { EnConstruccion } = await import('@/pages/EnConstruccion')
+
+      return {
+        element: (
+          <EnConstruccion
+            titulo={nombre}
+            descripcion="Módulo de la aplicación interna en construcción."
+            subsecciones={subsecciones}
+          />
+        ),
+      }
+    },
+    HydrateFallback: CargandoPagina,
+  }))
 
 export const rutas: RouteObject[] = [
   {
@@ -95,6 +99,26 @@ export const rutas: RouteObject[] = [
             },
             HydrateFallback: CargandoPagina,
             children: [
+              {
+                path: '/app',
+                lazy: async () => {
+                  const { PanelInicio } = await import('@/pages/PanelInicio')
+
+                  return { Component: PanelInicio }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
+                path: '/app/tesoreria',
+                lazy: async () => {
+                  const { PantallaTesoreria } = await import(
+                    '@/features/tesoreria/PantallaTesoreria'
+                  )
+
+                  return { Component: PantallaTesoreria }
+                },
+                HydrateFallback: CargandoPagina,
+              },
               ...paginasApp,
               {
                 path: '/app/organizacion/clubes/:clubId?',
