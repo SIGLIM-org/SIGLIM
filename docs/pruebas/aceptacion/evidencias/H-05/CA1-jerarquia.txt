@@ -1,0 +1,4 @@
+nombre | superior | asignada
+----------------------------
+Primera Fuerza (aceptación H-05) | (tope de su rama) | t
+Segunda Fuerza (aceptación H-05) | Primera Fuerza (aceptación H-05) | t

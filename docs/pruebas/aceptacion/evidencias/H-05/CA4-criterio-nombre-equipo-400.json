@@ -1,0 +1,8 @@
+{
+  "detail": "La solicitud no es válida. Revisa los datos enviados.",
+  "instance": "/api/v1/temporadas/778a2bd5-c1a6-40df-8ebe-89e2c566c2b2/parametros",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION"
+}

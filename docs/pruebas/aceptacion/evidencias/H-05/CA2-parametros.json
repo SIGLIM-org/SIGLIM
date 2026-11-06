@@ -1,0 +1,99 @@
+{
+  "vigente": {
+    "id": "c668f08b-913d-4837-af1d-e41fb8f268a8",
+    "temporadaId": "778a2bd5-c1a6-40df-8ebe-89e2c566c2b2",
+    "version": 2,
+    "puntosVictoria": 4,
+    "puntosEmpate": 1,
+    "puntosDerrota": 0,
+    "criteriosDesempate": [
+      "PUNTOS",
+      "GOLES_FAVOR",
+      "DIFERENCIA_GOLES",
+      "ENFRENTAMIENTO_DIRECTO",
+      "MENOS_EXPULSIONES",
+      "SORTEO"
+    ],
+    "golesDefaultGanador": 3,
+    "golesDefaultPerdedor": 0,
+    "plazoValidacionCedulaHoras": 36,
+    "duracionJuegoMin": 90,
+    "bloqueCanchaMin": 120,
+    "clasificadosLiguilla": 8,
+    "formatoLiguilla": "PARTIDO_UNICO",
+    "empateLiguillaPorPenales": true,
+    "equiposAscienden": 2,
+    "equiposDescienden": 2,
+    "permiteCambioClub": true,
+    "categorias": [],
+    "esDemo": true,
+    "camposDemo": [
+      "puntosVictoria",
+      "puntosEmpate",
+      "puntosDerrota",
+      "criteriosDesempate",
+      "golesDefaultGanador",
+      "golesDefaultPerdedor",
+      "plazoValidacionCedulaHoras",
+      "bloqueCanchaMin",
+      "clasificadosLiguilla",
+      "formatoLiguilla",
+      "empateLiguillaPorPenales",
+      "equiposAscienden",
+      "equiposDescienden"
+    ],
+    "motivo": "Ajuste de puntos, plazo y desempates para la temporada",
+    "creadoPor": {
+      "id": "58581246-4ff0-4256-a9f7-4a946b2db227",
+      "nombre": "admin"
+    },
+    "creadoEn": "2026-11-05T21:36:14.599773-06:00"
+  },
+  "historial": [
+    {
+      "id": "c668f08b-913d-4837-af1d-e41fb8f268a8",
+      "version": 2,
+      "esDemo": true,
+      "motivo": "Ajuste de puntos, plazo y desempates para la temporada",
+      "creadoPor": {
+        "id": "58581246-4ff0-4256-a9f7-4a946b2db227",
+        "nombre": "admin"
+      },
+      "creadoEn": "2026-11-05T21:36:14.599773-06:00",
+      "camposCambiados": [
+        "puntosVictoria",
+        "criteriosDesempate",
+        "plazoValidacionCedulaHoras"
+      ]
+    },
+    {
+      "id": "b52f0ab0-8bbf-4c17-bdf4-ffed2fdace30",
+      "version": 1,
+      "esDemo": true,
+      "motivo": "Versión inicial acordada para la aceptación H-05",
+      "creadoPor": {
+        "id": "58581246-4ff0-4256-a9f7-4a946b2db227",
+        "nombre": "admin"
+      },
+      "creadoEn": "2026-11-05T21:36:13.352304-06:00",
+      "camposCambiados": [
+        "puntosVictoria",
+        "puntosEmpate",
+        "puntosDerrota",
+        "criteriosDesempate",
+        "golesDefaultGanador",
+        "golesDefaultPerdedor",
+        "plazoValidacionCedulaHoras",
+        "duracionJuegoMin",
+        "bloqueCanchaMin",
+        "clasificadosLiguilla",
+        "formatoLiguilla",
+        "empateLiguillaPorPenales",
+        "equiposAscienden",
+        "equiposDescienden",
+        "permiteCambioClub",
+        "esDemo"
+      ]
+    }
+  ]
+}
