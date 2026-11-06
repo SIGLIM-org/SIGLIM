@@ -1,0 +1,9 @@
+# CA-1 · Equipo Riviera F.C. (club Riviera) con clubId de Club Halcones Morelia
+# Cuenta: Tesorero (LIGA) · token de sesión firmado por el JWKS local (no se reproduce)
+# Petición: POST /api/v1/cobros
+# Cuerpo enviado:
+{"clubId":"e1000000-0000-4000-8000-000000000001","equipoId":"f2000000-0000-4000-8000-00000000000f","concepto":"Arbitraje jornada 1","monto":600.00,"periodoInicio":"2026-11-06","fechaLimite":"2026-11-20"}
+# Respuesta: HTTP 422
+content-type: application/problem+json
+
+{"detail":"El equipo «Riviera F.C.» no pertenece al club indicado.","instance":"/api/v1/cobros","status":422,"title":"No se puede procesar","type":"https://siglim.mx/errores/referencia-invalida","codigo":"REFERENCIA_INVALIDA"}

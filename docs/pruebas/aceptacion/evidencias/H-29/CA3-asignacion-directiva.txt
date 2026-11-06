@@ -1,0 +1,24 @@
+-- H-29.3 · CA-3 · Asignación del rol DIRECTIVA_CLUB con ámbito CLUB sobre «Club Halcones Morelia».
+-- La pantalla de asignaciones (H-02) no crea esta asignación con ámbito de club: se inserta con SQL
+-- en la base local efímera, igual que en la prueba de H-06.
+\set ON_ERROR_STOP on
+INSERT INTO siglim.asignaciones_rol (perfil_id, rol_id, liga_id, ambito, club_id)
+SELECT 'a2222222-2222-4222-8222-222222222222', r.id, r.liga_id, 'CLUB', 'e1000000-0000-4000-8000-000000000001'
+  FROM siglim.roles r WHERE r.codigo = 'DIRECTIVA_CLUB';
+
+SELECT pf.nombre_mostrado AS cuenta, r.codigo AS rol, a.ambito, cl.nombre AS club, a.activa
+  FROM siglim.asignaciones_rol a
+  JOIN siglim.perfiles pf ON pf.id = a.perfil_id
+  JOIN siglim.roles r ON r.id = a.rol_id
+  LEFT JOIN siglim.clubes cl ON cl.id = a.club_id
+ ORDER BY r.codigo;
+
+-- ===== Salida real de psql =====
+INSERT 0 1
+            cuenta            |      rol       | ambito |         club          | activa 
+------------------------------+----------------+--------+-----------------------+--------
+ Directiva Halcones de prueba | DIRECTIVA_CLUB | CLUB   | Club Halcones Morelia | t
+ Sistema                      | SISTEMA        | LIGA   |                       | t
+ Tesorería de prueba          | TESORERO       | LIGA   |                       | t
+(3 rows)
+

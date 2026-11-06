@@ -1,0 +1,25 @@
+# CA2 · Resumen de llamadas a la API (backend local, tokens del JWKS local; no se reproducen)
+
+# CA-2 · GET /adeudos sin filtro (Tesorero, toda la liga)
+# Cuenta: Tesorero (LIGA) · token de sesión firmado por el JWKS local (no se reproduce)
+# Petición: GET /api/v1/adeudos
+# Respuesta: HTTP 200
+# Cuerpo de la respuesta: CA2-respuesta-adeudos-tesorero.json
+
+# CA-2 · GET /adeudos?clubId=<Club Halcones Morelia> (Tesorero)
+# Cuenta: Tesorero (LIGA) · token de sesión firmado por el JWKS local (no se reproduce)
+# Petición: GET /api/v1/adeudos?clubId=e1000000-0000-4000-8000-000000000001
+# Respuesta: HTTP 200
+# Cuerpo de la respuesta: CA2-respuesta-adeudos-tesorero-halcones.json
+
+# CA-2 · GET /cobros (Tesorero, toda la liga)
+# Cuenta: Tesorero (LIGA) · token de sesión firmado por el JWKS local (no se reproduce)
+# Petición: GET /api/v1/cobros?pagina=0&tamano=20
+# Respuesta: HTTP 200
+# Cuerpo de la respuesta: CA2-respuesta-cobros-tesorero.json
+
+# CA-2 · GET /adeudos sin filtro (Directiva de Halcones)
+# Cuenta: Directiva de club (CLUB = Club Halcones Morelia) · token de sesión firmado por el JWKS local (no se reproduce)
+# Petición: GET /api/v1/adeudos
+# Respuesta: HTTP 200
+# Cuerpo de la respuesta: CA2-respuesta-adeudos-directiva.json

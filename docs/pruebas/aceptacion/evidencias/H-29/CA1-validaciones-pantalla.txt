@@ -1,0 +1,15 @@
+# CA-1 · Validaciones del modal «Nuevo cobro» (Tesorero, F-33)
+# Se cuentan los POST /api/v1/cobros que salen del navegador en cada intento.
+
+monto-cero: monto="0" inicio=2026-11-06 limite=2026-11-20
+  mensajes en pantalla: ["El monto debe ser mayor que cero."]
+  validación nativa: ["Monto en MXN*: El valor debe ser mayor o igual que 0.01."]
+  POST /cobros enviados: 0
+monto-tres-decimales: monto="350.505" inicio=2026-11-06 limite=2026-11-20
+  mensajes en pantalla: ["Escribe un monto mayor que cero, con hasta dos decimales."]
+  validación nativa: ["Monto en MXN*: Escribe un valor válido. Los dos valores válidos más cercanos son 350.5 y 350.51."]
+  POST /cobros enviados: 0
+fecha-limite-anterior: monto="350.50" inicio=2026-11-06 limite=2026-11-05
+  mensajes en pantalla: ["La fecha límite no puede ser anterior al inicio del periodo."]
+  validación nativa: ["Fecha límite*: El valor debe ser 06/11/2026 o posterior."]
+  POST /cobros enviados: 0

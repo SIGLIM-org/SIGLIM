@@ -1,0 +1,10 @@
+# CA-1 · Cobro 1 a Halcones A creado por API (el modal del Tesorero no ofrece equipos, ver Observaciones)
+# Cuenta: Tesorero (LIGA) · token de sesión firmado por el JWKS local (no se reproduce)
+# Petición: POST /api/v1/cobros
+# Cuerpo enviado:
+{"clubId":"e1000000-0000-4000-8000-000000000001","equipoId":"f1000000-0000-4000-8000-00000000000a","concepto":"Cuota de inscripción temporada 2026-27","monto":1500.00,"periodoInicio":"2026-11-06","fechaLimite":"2026-11-20"}
+# Respuesta: HTTP 201
+content-type: application/json
+location: /api/v1/cobros/c93d9917-49b2-4fba-bd4f-b8fcd01e54ef
+
+{"id":"c93d9917-49b2-4fba-bd4f-b8fcd01e54ef","tipo":"MANUAL","concepto":"Cuota de inscripción temporada 2026-27","monto":1500.00,"periodoInicio":"2026-11-06","fechaLimite":"2026-11-20","estado":"PENDIENTE","club":{"id":"e1000000-0000-4000-8000-000000000001","nombre":"Club Halcones Morelia"},"equipo":{"id":"f1000000-0000-4000-8000-00000000000a","nombre":"Halcones A"},"creadoEn":"2026-11-06T20:24:02.610634Z"}
