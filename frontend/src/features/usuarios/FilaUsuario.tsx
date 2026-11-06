@@ -2,6 +2,7 @@ import { Eye, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Insignia } from '@/components/ui/Insignia'
 import { ConPermiso } from '@/features/seguridad/ConPermiso'
+import { useSesionActual } from '@/features/seguridad/ProveedorSesionActual'
 import {
   describirAsignacion,
   formatearFechaAlta,
@@ -41,9 +42,22 @@ function ChipsRoles({ usuario }: { usuario: Usuario }) {
 /**
  * Fila de la tabla de usuarios (F-12, H-03.2, RF-094). Bajo `lg` se apila como tarjeta con sus
  * etiquetas visibles (RNF-007). El botón de gestionar abre el panel lateral; con solo consulta dice
- * «Ver detalle» y el panel se muestra sin acciones de escritura.
+ * «Ver detalle» y el panel se muestra sin acciones de escritura. La cuenta propia también dice
+ * «Ver detalle» aunque haya permiso de edición: no puede cambiarse a sí misma (VAL-022, DEF-04).
  */
 export function FilaUsuario({ usuario, onGestionar }: Props) {
+  const { yo } = useSesionActual()
+  const verDetalle = (
+    <Button
+      variante="secundario"
+      icono={Eye}
+      aria-label={`Ver detalle de ${usuario.nombreMostrado}`}
+      onClick={() => onGestionar(usuario)}
+    >
+      Ver detalle
+    </Button>
+  )
+
   return (
     <tr
       role="row"
@@ -94,28 +108,20 @@ export function FilaUsuario({ usuario, onGestionar }: Props) {
 
       <td role="cell" className="block pt-3 lg:table-cell lg:px-4 lg:py-3 lg:text-right">
         <span className={CLASE_ETIQUETA}>Acciones</span>
-        <ConPermiso
-          permiso="seguridad.usuario:EDITAR"
-          alternativa={
+        {usuario.id === yo.perfil.id ? (
+          verDetalle
+        ) : (
+          <ConPermiso permiso="seguridad.usuario:EDITAR" alternativa={verDetalle}>
             <Button
               variante="secundario"
-              icono={Eye}
-              aria-label={`Ver detalle de ${usuario.nombreMostrado}`}
+              icono={Settings2}
+              aria-label={`Gestionar a ${usuario.nombreMostrado}`}
               onClick={() => onGestionar(usuario)}
             >
-              Ver detalle
+              Gestionar
             </Button>
-          }
-        >
-          <Button
-            variante="secundario"
-            icono={Settings2}
-            aria-label={`Gestionar a ${usuario.nombreMostrado}`}
-            onClick={() => onGestionar(usuario)}
-          >
-            Gestionar
-          </Button>
-        </ConPermiso>
+          </ConPermiso>
+        )}
       </td>
     </tr>
   )

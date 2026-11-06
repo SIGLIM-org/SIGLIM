@@ -4,6 +4,7 @@ import {
   CalendarDays,
   CircleAlert,
   CircleCheck,
+  Info,
   Plus,
   ShieldCheck,
   UserRound,
@@ -15,6 +16,7 @@ import { EstadoCarga } from '@/components/ui/EstadoCarga'
 import { Insignia } from '@/components/ui/Insignia'
 import { useDialogoModal } from '@/components/ui/useDialogoModal'
 import { ConPermiso } from '@/features/seguridad/ConPermiso'
+import { useSesionActual } from '@/features/seguridad/ProveedorSesionActual'
 import { useActualizarUsuario, useUsuario } from '@/features/usuarios/api'
 import {
   describirAsignacion,
@@ -44,9 +46,14 @@ type Props = {
  * Panel lateral del usuario de F-12 (H-03.2, RF-094): datos de la cuenta, sus asignaciones con
  * vigencia, el alta o revocación de roles y la activación o desactivación con motivo. Usa `<dialog>`
  * con `showModal()` para la trampa de foco y Esc nativos (RNF-008).
+ *
+ * En la cuenta propia (separación de funciones, VAL-022, DEC-53; DEF-04) el panel es de solo
+ * consulta: oculta «Agregar asignación», «Revocar» y el interruptor «Cuenta activa» y explica por
+ * qué. Se compara `perfiles.id` con la sesión, nunca el rol; el backend responde 403 `VAL-022`.
  */
 export function PanelUsuario({ usuarioId, roles, clubes, onCerrar }: Props) {
   const dialogoRef = useDialogoModal()
+  const { yo } = useSesionActual()
   const consulta = useUsuario(usuarioId)
   const actualizar = useActualizarUsuario(usuarioId)
   const [revocando, setRevocando] = useState<AsignacionUsuario | null>(null)
@@ -60,6 +67,7 @@ export function PanelUsuario({ usuarioId, roles, clubes, onCerrar }: Props) {
 
   const usuario = consulta.data
   const ocupado = actualizar.isPending
+  const esCuentaPropia = usuario?.id === yo.perfil.id
 
   const activar = () => {
     if (!usuario) {
@@ -175,6 +183,14 @@ export function PanelUsuario({ usuarioId, roles, clubes, onCerrar }: Props) {
 
           {usuario && !consulta.isError && (
             <div className="flex flex-col gap-6">
+              {esCuentaPropia && (
+                <p className="flex items-start gap-2 rounded-md bg-info/8 p-3 text-body-sm text-info-strong">
+                  <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                  Esta es tu cuenta. Por separación de funciones (VAL-022) no puedes cambiar tus
+                  asignaciones ni el estado de tu cuenta.
+                </p>
+              )}
+
               <section aria-label="Datos de la cuenta" className="flex flex-col gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <span
@@ -221,40 +237,44 @@ export function PanelUsuario({ usuarioId, roles, clubes, onCerrar }: Props) {
                     </p>
                   )}
                 </div>
-                <ConPermiso
-                  permiso="seguridad.usuario:EDITAR"
-                  alternativa={
-                    <span className="text-body-sm text-text-muted">Solo consulta</span>
-                  }
-                >
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={usuario.activo}
-                    aria-label="Cuenta activa"
-                    disabled={ocupado}
-                    onClick={() => {
-                      if (usuario.activo) {
-                        setMensajePanel(null)
-                        setDesactivando(true)
-                      } else {
-                        activar()
-                      }
-                    }}
-                    className={[
-                      'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                      usuario.activo ? 'bg-primary' : 'bg-border',
-                    ].join(' ')}
+                {esCuentaPropia ? (
+                  <span className="text-body-sm text-text-muted">Tu cuenta</span>
+                ) : (
+                  <ConPermiso
+                    permiso="seguridad.usuario:EDITAR"
+                    alternativa={
+                      <span className="text-body-sm text-text-muted">Solo consulta</span>
+                    }
                   >
-                    <span
-                      aria-hidden="true"
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={usuario.activo}
+                      aria-label="Cuenta activa"
+                      disabled={ocupado}
+                      onClick={() => {
+                        if (usuario.activo) {
+                          setMensajePanel(null)
+                          setDesactivando(true)
+                        } else {
+                          activar()
+                        }
+                      }}
                       className={[
-                        'inline-block size-5 rounded-full bg-surface shadow-sm transition-transform',
-                        usuario.activo ? 'translate-x-5' : 'translate-x-0.5',
+                        'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                        usuario.activo ? 'bg-primary' : 'bg-border',
                       ].join(' ')}
-                    />
-                  </button>
-                </ConPermiso>
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={[
+                          'inline-block size-5 rounded-full bg-surface shadow-sm transition-transform',
+                          usuario.activo ? 'translate-x-5' : 'translate-x-0.5',
+                        ].join(' ')}
+                      />
+                    </button>
+                  </ConPermiso>
+                )}
               </section>
 
               <section aria-labelledby={idAsignaciones} className="flex flex-col gap-3">
@@ -267,19 +287,21 @@ export function PanelUsuario({ usuarioId, roles, clubes, onCerrar }: Props) {
                       Cada asignación define el ámbito con el que la cuenta puede operar.
                     </p>
                   </div>
-                  <ConPermiso permiso="seguridad.usuario:EDITAR">
-                    <Button
-                      variante="secundario"
-                      icono={Plus}
-                      className="shrink-0"
-                      onClick={() => {
-                        setMensajePanel(null)
-                        setAgregando(true)
-                      }}
-                    >
-                      Agregar asignación
-                    </Button>
-                  </ConPermiso>
+                  {!esCuentaPropia && (
+                    <ConPermiso permiso="seguridad.usuario:EDITAR">
+                      <Button
+                        variante="secundario"
+                        icono={Plus}
+                        className="shrink-0"
+                        onClick={() => {
+                          setMensajePanel(null)
+                          setAgregando(true)
+                        }}
+                      >
+                        Agregar asignación
+                      </Button>
+                    </ConPermiso>
+                  )}
                 </div>
 
                 {usuario.asignaciones.length === 0 ? (
@@ -304,7 +326,7 @@ export function PanelUsuario({ usuarioId, roles, clubes, onCerrar }: Props) {
                             <Insignia variante={asignacion.activa ? 'exito' : 'neutra'}>
                               {asignacion.activa ? 'Vigente' : 'Revocada'}
                             </Insignia>
-                            {asignacion.activa && (
+                            {asignacion.activa && !esCuentaPropia && (
                               <ConPermiso permiso="seguridad.usuario:EDITAR">
                                 <Button
                                   variante="destructivo"

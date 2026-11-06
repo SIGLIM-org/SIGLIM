@@ -5,7 +5,7 @@
 > actualicen contra una sola fuente.
 >
 > **Vigencia.** Las decisiones DEC-01 a DEC-44 están **integradas en el ERS Rev. 0.4**, y DEC-45 y
-> DEC-46 en la Rev. 0.4.1; DEC-47 y DEC-50 (planificación), DEC-48 (inicio de sesión) y DEC-49 (cambio de nombre de club) se integran en la siguiente revisión ([`../ERS.md`](../ERS.md)), que vuelve a ser la fuente principal. DEC-51 (flujo de ramas) y DEC-52 (aplicación de migraciones) son de proceso y no entran al ERS: sus reglas viven en [`CONTRIBUTING.md`](../../../CONTRIBUTING.md) y [`supabase/README.md`](../../../supabase/README.md). Este
+> DEC-46 en la Rev. 0.4.1; DEC-47 y DEC-50 (planificación), DEC-48 (inicio de sesión), DEC-49 (cambio de nombre de club) y DEC-53 (VAL-022 sobre la propia cuenta) se integran en la siguiente revisión ([`../ERS.md`](../ERS.md)), que vuelve a ser la fuente principal. DEC-51 (flujo de ramas) y DEC-52 (aplicación de migraciones) son de proceso y no entran al ERS: sus reglas viven en [`CONTRIBUTING.md`](../../../CONTRIBUTING.md) y [`supabase/README.md`](../../../supabase/README.md). Este
 > archivo queda como evidencia de origen de cada requisito.
 >
 > **Fecha de corte:** 25 de octubre de 2026.
@@ -32,6 +32,7 @@ Ninguna decisión de este registro se presenta como aprobada por la Liga.
 | DEC-06 | **No hay programación automática.** El programador arma la jornada manualmente. Siguen fuera RF-034, RF-035, RF-037, RF-038, RF-041 y RF-042, y se descarta DD-005. | EQ | Aprobada (equipo) | ERS 2.6, DD-005, P-03 |
 | DEC-07 | El sistema administra **una sola liga**, pero el diseño no debe impedir varias: identificador de liga en las entidades raíz y unicidad de nombres por liga. | R2, EQ | Aprobada (equipo) | Modelo de datos; RNF-005 |
 | DEC-08 | Calendario del proyecto: **8 semanas**, 4 Sprints de 2 semanas, equipo de 3 personas. | EQ | Aprobada (equipo) | ERS 2.4, Q-24, S-01; AGENTS.md; ADR-0001 |
+| DEC-53 | **VAL-022 sobre la propia cuenta** (5-nov-2026): ninguna cuenta puede agregarse ni revocarse asignaciones de rol ni cambiar el estado de su propia cuenta; el backend responde 403 `VAL-022` y F-12 no ofrece esas acciones en el panel propio. Razón: el criterio 4 de H-03 lo pide, y como hay un solo Administrador general, revocarse o desactivarse dejaría la liga sin administrador. La edición de permisos del propio rol sigue en H-20 (DEC-04). | EQ | Aprobada (equipo) | ERS VAL-022 (siguiente revisión); convenciones-api §6.1; `UsuarioService`; F-12 |
 
 ## 3. Personas, clubes y registro
 
