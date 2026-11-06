@@ -142,6 +142,39 @@ describe('router', () => {
     expect(screen.queryByRole('link', { name: /Canchas/ })).not.toBeInTheDocument()
   })
 
+  it('H-06.2: con organizacion.club:CONSULTAR, la URL de Clubes muestra la pantalla', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('organizacion.club:CONSULTAR', 'M-03')],
+    })
+    obtenerCatalogo.mockImplementation(async (ruta: string) =>
+      ruta.startsWith('clubes?')
+        ? { contenido: [], pagina: 0, tamano: 20, totalElementos: 0, totalPaginas: 0 }
+        : [],
+    )
+
+    montar('/app/organizacion/clubes')
+
+    expect(await screen.findByRole('heading', { name: 'Clubes' })).toBeInTheDocument()
+    expect(await screen.findByText('Aún no hay clubes registrados')).toBeInTheDocument()
+  })
+
+  it('H-06.2: la sección Organización enlaza a Clubes con su permiso', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('organizacion.club:CONSULTAR', 'M-03')],
+    })
+
+    montar('/app/organizacion')
+
+    expect(await screen.findByRole('link', { name: /Clubes/ })).toHaveAttribute(
+      'href',
+      '/app/organizacion/clubes',
+    )
+  })
+
   it('H-21.2: la sección Administración enlaza a Auditoría solo con su permiso', async () => {
     iniciarSesion()
     obtenerYo.mockResolvedValue({
