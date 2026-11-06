@@ -94,6 +94,20 @@ SELECT prueba.verifica(EXISTS (
    WHERE r.codigo = 'SECRETARIO' AND p.codigo = 'organizacion.equipo:EDITAR'),
   'RF-009: el SECRETARIO tiene organizacion.equipo:EDITAR');
 
+-- DEC-55: el Tesorero consulta equipos para dirigir cobros, sin editarlos (migración 20261106160000, DEF-06)
+SELECT prueba.verifica(EXISTS (
+  SELECT 1 FROM siglim.rol_permisos rp
+    JOIN siglim.roles r ON r.id = rp.rol_id
+    JOIN siglim.permisos p ON p.id = rp.permiso_id
+   WHERE r.codigo = 'TESORERO' AND p.codigo = 'organizacion.equipo:CONSULTAR'),
+  'RF-137, DEC-55: el TESORERO tiene organizacion.equipo:CONSULTAR');
+SELECT prueba.verifica(NOT EXISTS (
+  SELECT 1 FROM siglim.rol_permisos rp
+    JOIN siglim.roles r ON r.id = rp.rol_id
+    JOIN siglim.permisos p ON p.id = rp.permiso_id
+   WHERE r.codigo = 'TESORERO' AND p.codigo = 'organizacion.equipo:EDITAR'),
+  'RF-137, DEC-55: el TESORERO no tiene organizacion.equipo:EDITAR');
+
 -- Temporada, categorías con jerarquía, grupos y parámetros
 INSERT INTO siglim.categorias (id, liga_id, nombre, tipo, orden) VALUES
   ('40000000-0000-4000-8000-000000000001', :'liga', 'Primera Fuerza', 'LIBRE', 1);
