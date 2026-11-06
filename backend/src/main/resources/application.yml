@@ -42,6 +42,8 @@ siglim:
     clave-secreta: ${SUPABASE_SECRET_KEY}
     tiempo-conexion: 5s      # [PROPUESTA]
     tiempo-respuesta: 10s    # [PROPUESTA]
+    # Origen del frontend al que vuelve el enlace de la invitación (+ /restablecer-contrasena).
+    origen-frontend: ${SIGLIM_FRONTEND_ORIGEN}
   cors:
     origenes: ${SIGLIM_CORS_ORIGEN}
   # Documentos en AWS S3 (ADR-0013). Si las llaves quedan vacías, el SDK usa ~/.aws.

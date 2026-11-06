@@ -23,6 +23,7 @@ cp .env.example .env    # Windows: copy .env.example .env
 | `SUPABASE_URL` | `https://<ref>.supabase.co`, sin diagonal final; de aquí se derivan el JWKS y el emisor del JWT |
 | `SUPABASE_SECRET_KEY` | Clave secreta del proyecto para invitar cuentas desde el backend (H-03.1, ADR-0003). Es `sb_secret_…` o el JWT de `service_role`; **nunca** va al frontend |
 | `SIGLIM_CORS_ORIGEN` | Orígenes del frontend permitidos, separados por coma (convenciones de API §5) |
+| `SIGLIM_FRONTEND_ORIGEN` | Un solo origen del frontend, sin ruta ni diagonal final, al que vuelve el enlace de la invitación (DEF-03). El backend le agrega `/restablecer-contrasena`; esa URL completa debe estar en Supabase → Authentication → URL Configuration → *Redirect URLs*, o Supabase manda a la *Site URL* sin avisar |
 | `SIGLIM_LIGA_ID` | UUID de la liga activa (ADR-0011 §5); en `.env.example` está el de la semilla |
 
 El detalle y los valores de ejemplo están en [`.env.example`](.env.example). Si falta una variable o

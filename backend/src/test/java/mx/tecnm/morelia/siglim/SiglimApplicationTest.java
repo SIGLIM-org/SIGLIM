@@ -23,6 +23,7 @@ import org.springframework.boot.test.context.SpringBootTest;
         "DB_PASSWORD=prueba",
         "SUPABASE_URL=https://proyecto-prueba.supabase.co",
         "SUPABASE_SECRET_KEY=clave-secreta-de-prueba",
+        "SIGLIM_FRONTEND_ORIGEN=http://localhost:5173",
         "SIGLIM_LIGA_ID=a0000000-0000-4000-8000-000000000001",
         "SIGLIM_S3_BUCKET=siglim-documentos-prueba",
         "AWS_REGION=us-east-2",
