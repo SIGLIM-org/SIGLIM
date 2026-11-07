@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 3.6 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 3.7 · 6 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -35,6 +35,7 @@ Versión 3.6 · 5 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 3.4 | 5 de noviembre de 2026 | DEF-04 (SCRUM-399): §6.1 aplica VAL-022 a las asignaciones y al estado de la propia cuenta (DEC-53); §3 lo cita entre los 403. |
 | 3.5 | 5 de noviembre de 2026 | DEF-03 (SCRUM-398): §6.1 precisa que la invitación envía `redirect_to` a `/restablecer-contrasena` del frontend, que `409 DUPLICADO` también cubre un correo con cuenta en Supabase Auth (`email_exists`) y que cualquier otro rechazo de Supabase Auth responde `503`. |
 | 3.6 | 5 de noviembre de 2026 | H-29.1: §6.13 con el contrato de cobros manuales (`POST /cobros`) y de la consulta de cobros y adeudos (`GET /cobros`, `GET /adeudos`), sus filtros, montos `BigDecimal`, errores y acciones de auditoría. |
+| 3.7 | 6 de noviembre de 2026 | H-31.1: §6.13 con el contrato del pago externo con comprobante (`POST /cobros/{id}/pagos`, `multipart/form-data`) y de la consulta de pagos e intentos (`GET /cobros/{id}/pagos`), su orden de validación, errores y auditoría (DEC-56). |
 
 ## Índice
 
@@ -1071,6 +1072,67 @@ simplemente no aparece.
   equipo sobre `numeric`; el servicio acumula los totales generales.
 - La Directiva de club solo recibe su club; el Tesorero, toda la liga (ADR-0007).
 - Sin adeudos responde `200` con ceros y `clubes: []`.
+
+#### Pagos externos (H-31.1, RF-139)
+
+`POST /cobros/{id}/pagos` registra un pago recibido fuera del sistema, con su comprobante, en una
+sola petición `multipart/form-data` (DEC-56). El cobro pasa de `PENDIENTE` o `VENCIDO` a `PAGADO`.
+
+| Parte | Tipo | Descripción |
+| --- | --- | --- |
+| `archivo` | archivo | Comprobante; obligatorio. JPEG, PNG, WebP o PDF por firma binaria; hasta 5 MB **[PROPUESTA]** (§7). |
+| `medio` | enum `medio_pago` | `EFECTIVO`, `TRANSFERENCIA` u `OTRO`; obligatorio. `EN_LINEA_SIMULADO` se rechaza con `400`: solo lo produce el pago simulado. |
+| `monto` | decimal | Obligatorio; igual al monto del cobro, con hasta dos decimales (no hay pagos parciales). |
+| `fechaPago` | fecha | Opcional; no puede ser posterior a hoy en `America/Mexico_City`. Sin ella, `pagadoEn` es el momento del registro; con ella, el inicio de ese día en esa zona. |
+| `referencia` | texto | Opcional, hasta 60 caracteres; se recortan los espacios y una vacía se guarda nula. |
+
+Responde `201` con `Location: /api/v1/cobros/{id}/pagos` y el pago:
+
+```json
+{
+  "id": "…",
+  "cobroId": "…",
+  "medio": "TRANSFERENCIA",
+  "monto": 1500.00,
+  "referencia": "SPEI-123",
+  "pagadoEn": "2026-11-05T00:00:00-06:00",
+  "registradoPor": { "id": "…", "nombre": "Tesorería" },
+  "comprobante": { "documentoId": "…", "tipoMime": "application/pdf", "tamanoBytes": 48213 }
+}
+```
+
+`GET /cobros/{id}/pagos` (`tesoreria.cobro:CONSULTAR`, mismo ámbito) responde
+`{ "pagos": [ … ], "intentos": [ … ] }` en orden cronológico. Cada intento de pago simulado lleva
+`id`, `referencia`, `estado` (`PENDIENTE`, `APROBADO` o `RECHAZADO`), `iniciadoEn` y `resueltoEn`
+(se omite si sigue pendiente). `registradoPor.nombre` se omite cuando el perfil no es visible para
+quien consulta (la Directiva de club).
+
+- Las respuestas **nunca** incluyen `s3Bucket`, `s3Clave` ni `url` (§7). El enlace temporal para ver
+  el comprobante queda **pendiente** para el Sprint 3: `GET /documentos/{id}/enlace` exige
+  `registros.documento:CONSULTAR`, que el Tesorero no tiene (DEC-56).
+- Orden de validación: formato de la petición (`400`, en el controlador: partes obligatorias, tipos,
+  decimales y longitud) → cobro (`404`) → permiso (`403`) → reglas de los campos (`400`: medio, archivo
+  vacío, fecha futura) → estado (`409`) → monto (`422`) → subida a S3. El archivo se sube solo si
+  todo lo anterior pasa. El `400` de formato no revela si el cobro existe.
+- Errores:
+  - `400 VALIDACION`: falta el archivo o está vacío, falta el medio o el monto, monto con más de dos
+    decimales, medio `EN_LINEA_SIMULADO` o desconocido, fecha futura o referencia de más de 60
+    caracteres.
+  - `401 NO_AUTENTICADO` sin sesión; `403 VAL-015` sin `tesoreria.pago:REGISTRAR`.
+  - `404 NO_ENCONTRADO` si el cobro no existe o está fuera del ámbito (VAL-024).
+  - `409 VAL-028` si el cobro no está `PENDIENTE` ni `VENCIDO`; el mensaje indica su estado. Si dos
+    pagos llegan a la vez, el trigger `tg_pagos_validar` rechaza el segundo con el mismo código.
+  - `413 ARCHIVO_DEMASIADO_GRANDE` si el archivo supera el límite; la interfaz debe validar el tamaño
+    antes de enviar, porque con un archivo muy grande el servidor puede cerrar la conexión antes de
+    que el cliente lea la respuesta.
+  - `415 TIPO_ARCHIVO_NO_PERMITIDO` si la firma binaria no es de un tipo permitido, y
+    `415 FORMATO_NO_SOPORTADO` si la petición no es `multipart/form-data`.
+  - `422 RF-139` si el monto no es el del cobro: «El pago debe cubrir el monto total del cobro
+    (1500.00 MXN).».
+  - `503 SERVICIO_NO_DISPONIBLE` si S3 falla; no se escribe nada en la base.
+- Auditoría: `REGISTRAR_PAGO` en `M-13`, entidad `pagos`, con `cobroId`, `medio`, `monto`,
+  `pagadoEn`, `estadoAnterior`, `documentoId`, `tipoMime` y `tamanoBytes`; sin URL, bucket, clave,
+  nombre del archivo ni referencia.
 
 ### 6.14 M-14 Notificaciones
 
