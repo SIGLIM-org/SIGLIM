@@ -30,7 +30,11 @@ public record CobroDto(
         ReferenciaDto equipo,
         OffsetDateTime creadoEn) {
 
-    /** Identificador y nombre de una entidad relacionada. */
+    /**
+     * Identificador y nombre de una entidad relacionada. El nombre se omite si no es visible (el
+     * perfil que registró un pago, para la Directiva; H-31.1).
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ReferenciaDto(UUID id, String nombre) {
     }
 }
