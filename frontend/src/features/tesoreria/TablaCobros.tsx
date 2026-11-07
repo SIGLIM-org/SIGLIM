@@ -5,18 +5,21 @@ type Props = {
   cobros: readonly Cobro[]
   /** La lista se está actualizando; se atenúa sin ocultar los datos vigentes. */
   actualizando: boolean
-  /** La sesión tiene `tesoreria.pago:PAGAR`; sin él no se muestra la columna de acciones. */
+  /** La sesión tiene `tesoreria.pago:PAGAR`; habilita el pago simulado de H-30.2. */
   puedePagar: boolean
   onPagar: (cobro: Cobro) => void
+  /** Si viene (permiso `tesoreria.pago:REGISTRAR`), se ofrece «Registrar pago» de H-31.2. */
+  onRegistrarPago?: (cobro: Cobro) => void
 }
 
 const CLASE_ENCABEZADO = 'px-4 py-3 text-left text-label-sm text-text-muted'
 
 /**
- * Tabla de cobros de F-33 (H-29.2). Muestra el tipo, el destino, el monto, la fecha límite, el
- * estado y, cuando la sesión puede pagar, la acción de pago simulado de H-30.2.
+ * Tabla de cobros de F-33 (H-29.2). Muestra el tipo, el destino, el monto, la fecha límite y el
+ * estado; si la sesión puede pagar (H-30.2) o registrar pagos (H-31.2), agrega la columna de
+ * acciones. No incluye folios ni acciones que el contrato de la API no exponga.
  */
-export function TablaCobros({ cobros, actualizando, puedePagar, onPagar }: Props) {
+export function TablaCobros({ cobros, actualizando, puedePagar, onPagar, onRegistrarPago }: Props) {
   return (
     <div
       className={[
@@ -50,12 +53,8 @@ export function TablaCobros({ cobros, actualizando, puedePagar, onPagar }: Props
             <th role="columnheader" scope="col" className={CLASE_ENCABEZADO}>
               Estado
             </th>
-            {puedePagar && (
-              <th
-                role="columnheader"
-                scope="col"
-                className={`${CLASE_ENCABEZADO} text-right`}
-              >
+            {(puedePagar || onRegistrarPago) && (
+              <th role="columnheader" scope="col" className={`${CLASE_ENCABEZADO} text-right`}>
                 Acciones
               </th>
             )}
@@ -68,6 +67,7 @@ export function TablaCobros({ cobros, actualizando, puedePagar, onPagar }: Props
               cobro={cobro}
               puedePagar={puedePagar}
               onPagar={onPagar}
+              onRegistrarPago={onRegistrarPago}
             />
           ))}
         </tbody>

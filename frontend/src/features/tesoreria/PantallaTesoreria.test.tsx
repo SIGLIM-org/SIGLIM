@@ -3,12 +3,14 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { diaSiguiente, hoyEnZonaNegocio } from '@/features/tesoreria/fechas'
 import { PantallaTesoreria } from '@/features/tesoreria/PantallaTesoreria'
 import type {
   Adeudos,
   ClubResumen,
   Cobro,
   EquipoResumen,
+  Pago,
 } from '@/features/tesoreria/tipos'
 import type { Permiso } from '@/features/seguridad/tipos'
 import { ApiError } from '@/lib/api/ApiError'
@@ -34,6 +36,7 @@ const CONSULTAR = 'tesoreria.cobro:CONSULTAR'
 const CREAR = 'tesoreria.cobro:CREAR'
 const PAGAR = 'tesoreria.pago:PAGAR'
 const VER_EQUIPOS = 'organizacion.equipo:CONSULTAR'
+const REGISTRAR = 'tesoreria.pago:REGISTRAR'
 const RUTA = '/app/tesoreria'
 
 const CLUB: ClubResumen = { id: 'c-1', nombre: 'Club Halcones' }
@@ -84,6 +87,20 @@ const COBRO_PAGADO: Cobro = {
   id: 'cb-4',
   concepto: 'Cuota liquidada',
   estado: 'PAGADO',
+}
+
+const PAGO: Pago = {
+  id: 'pg-1',
+  cobroId: 'cb-1',
+  medio: 'TRANSFERENCIA',
+  monto: 1500,
+  pagadoEn: '2026-11-06T10:00:00-06:00',
+  registradoPor: { id: 'perfil-1', nombre: 'Ana Pérez' },
+  comprobante: { documentoId: 'doc-1', tipoMime: 'application/pdf', tamanoBytes: 2048 },
+}
+
+function comprobante(nombre = 'recibo.pdf', tipo = 'application/pdf', bytes = 2048) {
+  return new File([new Uint8Array(bytes)], nombre, { type: tipo })
 }
 
 const ADEUDOS: Adeudos = {
@@ -522,6 +539,276 @@ describe('PantallaTesoreria', () => {
 
     await waitFor(() => {
       expect(get).toHaveBeenCalledWith('cobros?pagina=1&tamano=20')
+    })
+  })
+
+  describe('registrar pago (H-31.2)', () => {
+    beforeEach(() => {
+      otorgar(CONSULTAR, REGISTRAR)
+    })
+
+    async function abrirPago(concepto = 'Cuota de afiliación') {
+      await userEvent.click(
+        await screen.findByRole('button', { name: `Registrar pago de «${concepto}»` }),
+      )
+      return screen.getByRole('dialog', { name: 'Registrar pago' })
+    }
+
+    function cuerpoEnviado(): FormData {
+      const [, cuerpo] = post.mock.calls[0] as [string, FormData]
+      expect(cuerpo).toBeInstanceOf(FormData)
+      return cuerpo
+    }
+
+    function llamadasACobros(): number {
+      return get.mock.calls.filter(([ruta]) => String(ruta).startsWith('cobros?')).length
+    }
+
+    async function llenarYEnviar(dialogo: HTMLElement) {
+      await userEvent.click(within(dialogo).getByRole('radio', { name: 'Efectivo' }))
+      await userEvent.upload(within(dialogo).getByLabelText(/^Comprobante/), comprobante())
+      await userEvent.click(within(dialogo).getByRole('button', { name: 'Registrar pago' }))
+    }
+
+    it('H-31.2: con REGISTRAR, solo los cobros PENDIENTE y VENCIDO ofrecen «Registrar pago»', async () => {
+      responder({ cobros: pagina([COBRO_CLUB, COBRO_EQUIPO, COBRO_PAGADO, COBRO_RECHAZADO]) })
+      montar()
+
+      await screen.findByText('Cuota liquidada')
+
+      expect(screen.getByRole('columnheader', { name: 'Acciones' })).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: 'Registrar pago de «Cuota de afiliación»' }),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: 'Registrar pago de «Arbitraje de jornada»' }),
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Registrar pago de «Cuota liquidada»' }),
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Registrar pago de «Multa disciplinaria»' }),
+      ).not.toBeInTheDocument()
+    })
+
+    it('H-30.2 y H-31.2: con PAGAR y REGISTRAR, cada cobro ofrece solo las acciones que admite', async () => {
+      otorgar(CONSULTAR, PAGAR, REGISTRAR)
+      responder({ cobros: pagina([COBRO_CLUB, COBRO_EQUIPO, COBRO_PAGADO, COBRO_RECHAZADO]) })
+      montar()
+
+      await screen.findByText('Cuota de afiliación')
+      expect(screen.getAllByRole('columnheader', { name: 'Acciones' })).toHaveLength(1)
+
+      const fila = (concepto: string) => screen.getByText(concepto).closest('tr') as HTMLElement
+      const botones = (concepto: string) =>
+        within(fila(concepto))
+          .queryAllByRole('button')
+          .map((boton) => boton.getAttribute('aria-label') ?? boton.textContent)
+
+      expect(botones('Cuota de afiliación')).toEqual([
+        'Pagar en línea (simulado)',
+        'Registrar pago de «Cuota de afiliación»',
+      ])
+      expect(botones('Arbitraje de jornada')).toEqual(['Registrar pago de «Arbitraje de jornada»'])
+      expect(botones('Multa disciplinaria')).toEqual(['Reintentar pago'])
+      expect(botones('Cuota liquidada')).toEqual([])
+    })
+
+    it('H-02.4: sin tesoreria.pago:REGISTRAR no hay columna «Acciones» ni botón', async () => {
+      otorgar(CONSULTAR, CREAR)
+      montar()
+
+      await screen.findByText('Cuota de afiliación')
+
+      expect(screen.queryByRole('columnheader', { name: 'Acciones' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^Registrar pago/ })).not.toBeInTheDocument()
+    })
+
+    it('H-31.2: registra el pago con el monto del cobro y confirma sin fecha ni referencia', async () => {
+      post.mockResolvedValue(PAGO)
+      montar()
+      const dialogo = await abrirPago()
+
+      expect(within(dialogo).getByText('Importe a liquidar')).toBeInTheDocument()
+      expect(within(dialogo).getByText('$1,500.00')).toBeInTheDocument()
+      expect(
+        within(dialogo).queryByText(/folio fiscal|póliza|observaciones/i),
+      ).not.toBeInTheDocument()
+
+      const archivo = comprobante()
+      await userEvent.click(within(dialogo).getByRole('radio', { name: 'Transferencia' }))
+      await userEvent.upload(within(dialogo).getByLabelText(/^Comprobante/), archivo)
+      expect(within(dialogo).getByText('recibo.pdf')).toBeInTheDocument()
+      expect(within(dialogo).getByText('2 KB')).toBeInTheDocument()
+
+      const antes = llamadasACobros()
+      await userEvent.click(within(dialogo).getByRole('button', { name: 'Registrar pago' }))
+
+      expect(post).toHaveBeenCalledTimes(1)
+      expect(post.mock.calls[0][0]).toBe('cobros/cb-1/pagos')
+      const cuerpo = cuerpoEnviado()
+      expect(cuerpo.get('medio')).toBe('TRANSFERENCIA')
+      expect(cuerpo.get('monto')).toBe('1500.00')
+      expect(cuerpo.get('archivo')).toBe(archivo)
+      expect(cuerpo.has('fechaPago')).toBe(false)
+      expect(cuerpo.has('referencia')).toBe(false)
+
+      expect(
+        await screen.findByText(
+          'Pago de $1,500.00 registrado para «Cuota de afiliación»; el cobro quedó pagado.',
+        ),
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('dialog', { name: 'Registrar pago' })).not.toBeInTheDocument()
+      await waitFor(() => expect(llamadasACobros()).toBeGreaterThan(antes))
+    })
+
+    it('H-31.2: envía la fecha del pago y la referencia recortada', async () => {
+      post.mockResolvedValue(PAGO)
+      montar()
+      const dialogo = await abrirPago()
+
+      await userEvent.click(within(dialogo).getByRole('radio', { name: 'Efectivo' }))
+      await userEvent.type(within(dialogo).getByLabelText('Fecha del pago'), '2026-11-02')
+      await userEvent.type(within(dialogo).getByLabelText('Referencia'), '  REC-1184  ')
+      await userEvent.upload(
+        within(dialogo).getByLabelText(/^Comprobante/),
+        comprobante('foto.jpg', 'image/jpeg'),
+      )
+      await userEvent.click(within(dialogo).getByRole('button', { name: 'Registrar pago' }))
+
+      const cuerpo = cuerpoEnviado()
+      expect(cuerpo.get('medio')).toBe('EFECTIVO')
+      expect(cuerpo.get('fechaPago')).toBe('2026-11-02')
+      expect(cuerpo.get('referencia')).toBe('REC-1184')
+    })
+
+    it('H-31.2: sin medio ni comprobante muestra ambos errores y no llama a la API', async () => {
+      montar()
+      const dialogo = await abrirPago()
+
+      await userEvent.click(within(dialogo).getByRole('button', { name: 'Registrar pago' }))
+
+      expect(within(dialogo).getByText('Elige el medio de pago.')).toBeInTheDocument()
+      expect(within(dialogo).getByText('Adjunta el comprobante del pago.')).toBeInTheDocument()
+      expect(post).not.toHaveBeenCalled()
+    })
+
+    it('H-31.2: rechaza un comprobante de más de 5 MB sin llamar a la API', async () => {
+      montar()
+      const dialogo = await abrirPago()
+
+      await userEvent.click(within(dialogo).getByRole('radio', { name: 'Efectivo' }))
+      await userEvent.upload(
+        within(dialogo).getByLabelText(/^Comprobante/),
+        comprobante('grande.pdf', 'application/pdf', 5 * 1024 * 1024 + 1),
+      )
+
+      expect(
+        within(dialogo).getByText('El comprobante pesa más de 5 MB; adjunta uno más ligero.'),
+      ).toBeInTheDocument()
+      await userEvent.click(within(dialogo).getByRole('button', { name: 'Registrar pago' }))
+      expect(post).not.toHaveBeenCalled()
+    })
+
+    it('H-31.2: rechaza un comprobante que no es JPEG, PNG, WebP ni PDF', async () => {
+      const usuario = userEvent.setup({ applyAccept: false })
+      montar()
+      await usuario.click(
+        await screen.findByRole('button', { name: 'Registrar pago de «Cuota de afiliación»' }),
+      )
+      const dialogo = screen.getByRole('dialog', { name: 'Registrar pago' })
+
+      await usuario.click(within(dialogo).getByRole('radio', { name: 'Otro' }))
+      await usuario.upload(
+        within(dialogo).getByLabelText(/^Comprobante/),
+        comprobante('notas.txt', 'text/plain'),
+      )
+
+      expect(
+        within(dialogo).getByText('El comprobante debe ser JPEG, PNG, WebP o PDF.'),
+      ).toBeInTheDocument()
+      expect(within(dialogo).getByLabelText(/^Comprobante/)).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      )
+      await usuario.click(within(dialogo).getByRole('button', { name: 'Registrar pago' }))
+      expect(post).not.toHaveBeenCalled()
+    })
+
+    it('H-31.2: rechaza una fecha de pago futura', async () => {
+      montar()
+      const dialogo = await abrirPago()
+
+      await userEvent.click(within(dialogo).getByRole('radio', { name: 'Efectivo' }))
+      await userEvent.type(
+        within(dialogo).getByLabelText('Fecha del pago'),
+        diaSiguiente(hoyEnZonaNegocio()),
+      )
+      await userEvent.upload(within(dialogo).getByLabelText(/^Comprobante/), comprobante())
+      await userEvent.click(within(dialogo).getByRole('button', { name: 'Registrar pago' }))
+
+      expect(within(dialogo).getByText('La fecha del pago no puede ser futura.')).toBeInTheDocument()
+      expect(post).not.toHaveBeenCalled()
+    })
+
+    it('VAL-028: un 409 muestra el detalle en el modal y refresca los cobros', async () => {
+      post.mockRejectedValue(
+        error(409, 'VAL-028', 'El cobro ya está PAGADO y no admite otro pago.'),
+      )
+      montar()
+      const dialogo = await abrirPago()
+      const antes = llamadasACobros()
+
+      await llenarYEnviar(dialogo)
+
+      expect(
+        await within(dialogo).findByText('El cobro ya está PAGADO y no admite otro pago.'),
+      ).toBeInTheDocument()
+      expect(screen.getByRole('dialog', { name: 'Registrar pago' })).toBeInTheDocument()
+      await waitFor(() => expect(llamadasACobros()).toBeGreaterThan(antes))
+    })
+
+    it('VAL-028: un 413 marca el campo «Comprobante»', async () => {
+      post.mockRejectedValue(
+        error(413, 'ARCHIVO_DEMASIADO_GRANDE', 'El archivo supera el tamaño permitido de 5 MB.'),
+      )
+      montar()
+      const dialogo = await abrirPago()
+
+      await llenarYEnviar(dialogo)
+
+      expect(
+        await within(dialogo).findByText('El archivo supera el tamaño permitido de 5 MB.'),
+      ).toBeInTheDocument()
+      expect(within(dialogo).getByLabelText(/^Comprobante/)).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      )
+    })
+
+    it('VAL-028: un 400 con errores marca los campos y deja los ajenos en el aviso', async () => {
+      post.mockRejectedValue(
+        new ApiError({
+          title: 'Datos inválidos',
+          status: 400,
+          codigo: 'VALIDACION',
+          detail: 'Revisa los datos del pago.',
+          errores: [
+            { campo: 'referencia', mensaje: 'La referencia es demasiado larga.' },
+            { campo: 'monto', mensaje: 'El monto admite dos decimales.' },
+          ],
+        }),
+      )
+      montar()
+      const dialogo = await abrirPago()
+
+      await llenarYEnviar(dialogo)
+
+      expect(await within(dialogo).findByText('La referencia es demasiado larga.')).toBeInTheDocument()
+      expect(within(dialogo).getByLabelText('Referencia')).toHaveAttribute('aria-invalid', 'true')
+      expect(
+        within(dialogo).getByText('Revisa los datos del pago. El monto admite dos decimales.'),
+      ).toBeInTheDocument()
     })
   })
 })

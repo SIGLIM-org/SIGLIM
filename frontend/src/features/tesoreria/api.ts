@@ -7,6 +7,8 @@ import type {
   EquipoResumen,
   FiltrosCobros,
   IntentoPago,
+  Pago,
+  RegistrarPagoPeticion,
   ResultadoPagoSimulado,
 } from '@/features/tesoreria/tipos'
 import { rangoDeCobros } from '@/features/tesoreria/fechas'
@@ -122,6 +124,35 @@ export function useCrearCobro() {
 
   return useMutation({
     mutationFn: (peticion: CrearCobroPeticion) => api.post<Cobro>('cobros', peticion),
+    onSuccess: () => {
+      void clienteConsultas.invalidateQueries({ queryKey: clavesTesoreria.todas })
+    },
+  })
+}
+
+/**
+ * Registra un pago externo con su comprobante en `multipart/form-data` (RF-139, VAL-028,
+ * convenciones §6.13). El monto viaja con dos decimales; `fechaPago` y `referencia` solo si se
+ * capturaron. Al terminar invalida cobros y adeudos, porque el cobro pasa a `PAGADO`.
+ */
+export function useRegistrarPago() {
+  const clienteConsultas = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ cobroId, medio, monto, fechaPago, referencia, archivo }: RegistrarPagoPeticion) => {
+      const formulario = new FormData()
+      formulario.append('medio', medio)
+      formulario.append('monto', monto.toFixed(2))
+      if (fechaPago) {
+        formulario.append('fechaPago', fechaPago)
+      }
+      if (referencia) {
+        formulario.append('referencia', referencia)
+      }
+      formulario.append('archivo', archivo)
+
+      return api.post<Pago>(`cobros/${encodeURIComponent(cobroId)}/pagos`, formulario)
+    },
     onSuccess: () => {
       void clienteConsultas.invalidateQueries({ queryKey: clavesTesoreria.todas })
     },

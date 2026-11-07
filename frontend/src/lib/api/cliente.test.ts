@@ -109,6 +109,20 @@ describe('api', () => {
     )
   })
 
+  it('RF-139: envía un FormData sin serializar ni fijar Content-Type', async () => {
+    const buscar = simularFetch(respuestaJson(201, { id: 'pago-1' }))
+    const formulario = new FormData()
+    formulario.append('medio', 'EFECTIVO')
+
+    await api.post('cobros/cb-1/pagos', formulario)
+
+    const [, opciones] = opcionesDe(buscar)
+    const cabeceras = new Headers(opciones.headers)
+    expect(opciones.body).toBe(formulario)
+    expect(cabeceras.has('Content-Type')).toBe(false)
+    expect(cabeceras.get('Authorization')).toBe('Bearer token-de-prueba')
+  })
+
   it('devuelve undefined en un 201 sin cuerpo', async () => {
     simularFetch(respuestaJson(201, undefined))
 
