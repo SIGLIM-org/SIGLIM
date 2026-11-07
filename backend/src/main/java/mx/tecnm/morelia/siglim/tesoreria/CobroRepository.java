@@ -21,7 +21,7 @@ import org.springframework.stereotype.Repository;
  * <p>Los listados filtran por ámbito en el {@code WHERE} y el {@code COUNT} usa la misma condición,
  * para que {@code totalElementos} no delate filas ajenas (ADR-0007).
  *
- * <p>Refs: H-29.1, RF-137, RF-140, ADR-0007
+ * <p>Refs: H-29.1, H-30.1, RF-137, RF-138, RF-140, VAL-028, ADR-0007
  */
 @Repository
 class CobroRepository {
@@ -57,6 +57,49 @@ class CobroRepository {
                 .param("ligaId", ligaId)
                 .query(CobroRepository::aDto)
                 .optional();
+    }
+
+    /**
+     * Lee el cobro con candado. El inicio y la confirmación del pago simulado lo toman antes que el
+     * intento, en ese mismo orden, para serializar las operaciones y evitar interbloqueos (H-30.1).
+     */
+    Optional<CobroDto> bloquear(UUID ligaId, UUID id) {
+        return jdbc.sql(SELECCION + " WHERE c.id = :id AND c.liga_id = :ligaId FOR UPDATE OF c")
+                .param("id", id)
+                .param("ligaId", ligaId)
+                .query(CobroRepository::aDto)
+                .optional();
+    }
+
+    /**
+     * Devuelve un cobro {@code RECHAZADO} a {@code PENDIENTE} para un nuevo intento (ERS §4.3.5).
+     *
+     * @return {@code true} si el cobro estaba {@code RECHAZADO} y se reactivó
+     */
+    boolean reactivar(UUID ligaId, UUID id) {
+        return jdbc.sql("""
+                        UPDATE cobros
+                           SET estado = 'PENDIENTE'
+                         WHERE id = :id AND liga_id = :ligaId AND estado = 'RECHAZADO'
+                        """)
+                .param("id", id)
+                .param("ligaId", ligaId)
+                .update() == 1;
+    }
+
+    /**
+     * Marca el cobro {@code RECHAZADO} solo si sigue {@code PENDIENTE}; es la contraparte atómica de
+     * la confirmación rechazada (H-30.1, VAL-028).
+     */
+    boolean marcarRechazado(UUID ligaId, UUID id) {
+        return jdbc.sql("""
+                        UPDATE cobros
+                           SET estado = 'RECHAZADO'
+                         WHERE id = :id AND liga_id = :ligaId AND estado = 'PENDIENTE'
+                        """)
+                .param("id", id)
+                .param("ligaId", ligaId)
+                .update() == 1;
     }
 
     List<CobroDto> listar(UUID ligaId, FiltroCobros filtro, AlcanceAutorizacion alcance) {

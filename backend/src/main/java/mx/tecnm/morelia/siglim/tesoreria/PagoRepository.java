@@ -21,7 +21,11 @@ import org.springframework.stereotype.Repository;
  * <p>Nunca se leen {@code s3_bucket}, {@code s3_clave} ni {@code url}: no salen en la API
  * (convenciones de API §7).
  *
- * <p>Refs: H-31.1, RF-139, RF-140, ADR-0013
+ * <p><b>Pago simulado (H-30.1).</b> Las lecturas con {@code FOR UPDATE} siguen el mismo orden que
+ * {@link CobroRepository}: primero el cobro y después el intento. Así el inicio y la confirmación
+ * concurrentes no se bloquean en cruz.
+ *
+ * <p>Refs: H-30.1, H-31.1, RF-138, RF-139, RF-140, VAL-028, ADR-0012, ADR-0013
  */
 @Repository
 class PagoRepository {
@@ -74,13 +78,118 @@ class PagoRepository {
                         """)
                 .param("ligaId", ligaId)
                 .param("cobroId", cobroId)
-                .query((fila, numero) -> new IntentoPagoDto(
-                        fila.getObject("id", UUID.class),
-                        fila.getString("referencia"),
-                        fila.getString("estado"),
-                        fila.getObject("iniciado_en", OffsetDateTime.class),
-                        fila.getObject("resuelto_en", OffsetDateTime.class)))
+                .query(PagoRepository::aIntento)
                 .list();
+    }
+
+    /** Intento con los datos del cobro que hacen falta para autorizar y confirmar (H-30.1). */
+    Optional<IntentoConCobro> buscarIntentoConCobro(UUID ligaId, UUID intentoId) {
+        return jdbc.sql("""
+                        SELECT i.id, i.cobro_id, c.club_id
+                          FROM intentos_pago i
+                          JOIN cobros c ON c.id = i.cobro_id
+                         WHERE i.id = :id AND c.liga_id = :ligaId
+                        """)
+                .param("id", intentoId)
+                .param("ligaId", ligaId)
+                .query((fila, numero) -> new IntentoConCobro(
+                        fila.getObject("id", UUID.class),
+                        fila.getObject("cobro_id", UUID.class),
+                        fila.getObject("club_id", UUID.class)))
+                .optional();
+    }
+
+    /**
+     * Intento {@code PENDIENTE} del cobro, con candado. {@code ux_intentos_pendiente} garantiza que
+     * haya a lo más uno; el candado del cobro serializa dos inicios simultáneos.
+     */
+    Optional<IntentoPagoDto> buscarIntentoPendiente(UUID ligaId, UUID cobroId) {
+        return jdbc.sql("""
+                        SELECT i.id, i.referencia, i.estado, i.iniciado_en, i.resuelto_en
+                          FROM intentos_pago i
+                          JOIN cobros c ON c.id = i.cobro_id
+                         WHERE c.liga_id = :ligaId AND i.cobro_id = :cobroId AND i.estado = 'PENDIENTE'
+                         FOR UPDATE OF i
+                        """)
+                .param("ligaId", ligaId)
+                .param("cobroId", cobroId)
+                .query(PagoRepository::aIntento)
+                .optional();
+    }
+
+    /** Intento con candado, para confirmarlo una sola vez (H-30.1). */
+    Optional<IntentoPagoDto> buscarIntentoParaActualizar(UUID ligaId, UUID intentoId) {
+        return jdbc.sql("""
+                        SELECT i.id, i.referencia, i.estado, i.iniciado_en, i.resuelto_en
+                          FROM intentos_pago i
+                          JOIN cobros c ON c.id = i.cobro_id
+                         WHERE i.id = :id AND c.liga_id = :ligaId
+                         FOR UPDATE OF i
+                        """)
+                .param("id", intentoId)
+                .param("ligaId", ligaId)
+                .query(PagoRepository::aIntento)
+                .optional();
+    }
+
+    /**
+     * Inserta el intento si la referencia aleatoria no existe todavía.
+     *
+     * @return {@code true} si se insertó; {@code false} si la referencia se repitió y hay que generar
+     *         otra
+     */
+    boolean insertarIntento(DatosIntentoPago datos) {
+        return jdbc.sql("""
+                        INSERT INTO intentos_pago (id, cobro_id, referencia, estado, iniciado_por, iniciado_en)
+                        VALUES (:id, :cobroId, :referencia, 'PENDIENTE', :iniciadoPor, :iniciadoEn)
+                        ON CONFLICT (referencia) DO NOTHING
+                        RETURNING id
+                        """)
+                .param("id", datos.id())
+                .param("cobroId", datos.cobroId())
+                .param("referencia", datos.referencia())
+                .param("iniciadoPor", datos.iniciadoPor())
+                .param("iniciadoEn", datos.iniciadoEn())
+                .query(UUID.class)
+                .optional()
+                .isPresent();
+    }
+
+    /**
+     * Resuelve el intento solo si sigue {@code PENDIENTE}. Es la actualización condicional que hace
+     * atómica la confirmación: si otra persona ya confirmó, devuelve {@code false} (RNF-004).
+     */
+    boolean resolverIntento(UUID intentoId, String estado, OffsetDateTime resueltoEn) {
+        return jdbc.sql("""
+                        UPDATE intentos_pago
+                           SET estado = CAST(:estado AS estado_intento_pago), resuelto_en = :resueltoEn
+                         WHERE id = :id AND estado = 'PENDIENTE'
+                        """)
+                .param("id", intentoId)
+                .param("estado", estado)
+                .param("resueltoEn", resueltoEn)
+                .update() == 1;
+    }
+
+    /**
+     * Inserta el pago simulado. El trigger {@code tg_pagos_validar} bloquea el cobro, valida que
+     * siga {@code PENDIENTE} (VAL-028) y el monto, y lo pasa a {@code PAGADO}.
+     */
+    void insertarPagoSimulado(DatosPagoSimulado datos) {
+        jdbc.sql("""
+                        INSERT INTO pagos (id, cobro_id, intento_id, medio, monto, referencia, pagado_en,
+                                           registrado_por)
+                        VALUES (:id, :cobroId, :intentoId, 'EN_LINEA_SIMULADO', :monto, :referencia, :pagadoEn,
+                                :registradoPor)
+                        """)
+                .param("id", datos.id())
+                .param("cobroId", datos.cobroId())
+                .param("intentoId", datos.intentoId())
+                .param("monto", datos.monto())
+                .param("referencia", datos.referencia())
+                .param("pagadoEn", datos.pagadoEn())
+                .param("registradoPor", datos.registradoPor())
+                .update();
     }
 
     /**
@@ -126,6 +235,29 @@ class PagoRepository {
     /** Valores que se escriben en un pago. */
     record DatosPago(UUID id, UUID cobroId, MedioPago medio, BigDecimal monto, String referencia,
                      OffsetDateTime pagadoEn, UUID registradoPor) {
+    }
+
+    /** Valores que se escriben en un intento de pago simulado. */
+    record DatosIntentoPago(UUID id, UUID cobroId, String referencia, UUID iniciadoPor,
+                            OffsetDateTime iniciadoEn) {
+    }
+
+    /** Valores que se escriben en un pago en línea simulado. */
+    record DatosPagoSimulado(UUID id, UUID cobroId, UUID intentoId, BigDecimal monto, String referencia,
+                             OffsetDateTime pagadoEn, UUID registradoPor) {
+    }
+
+    /** Intento y datos del cobro necesarios para autorizar y confirmar. */
+    record IntentoConCobro(UUID id, UUID cobroId, UUID clubId) {
+    }
+
+    private static IntentoPagoDto aIntento(ResultSet fila, int numero) throws SQLException {
+        return new IntentoPagoDto(
+                fila.getObject("id", UUID.class),
+                fila.getString("referencia"),
+                fila.getString("estado"),
+                fila.getObject("iniciado_en", OffsetDateTime.class),
+                fila.getObject("resuelto_en", OffsetDateTime.class));
     }
 
     private static PagoDto aDto(ResultSet fila, int numero) throws SQLException {
