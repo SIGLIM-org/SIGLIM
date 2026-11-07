@@ -73,6 +73,46 @@ export type CrearCobroPeticion = {
   fechaLimite: string
 }
 
+/** Medio de un pago recibido fuera del sistema (RF-139); `EN_LINEA_SIMULADO` no se captura. */
+export type MedioPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'OTRO'
+
+/** Datos del formulario para `POST /cobros/{id}/pagos` (multipart, convenciones §6.13). */
+export type RegistrarPagoPeticion = {
+  cobroId: string
+  medio: MedioPago
+  /** Debe ser igual al monto del cobro; se envía con dos decimales. */
+  monto: number
+  /** Día `AAAA-MM-DD`, no futuro en `America/Mexico_City`; sin él cuenta el momento del registro. */
+  fechaPago?: string
+  /** Hasta 60 caracteres, ya recortada. */
+  referencia?: string
+  /** Comprobante JPEG, PNG, WebP o PDF de hasta 5 MB. */
+  archivo: File
+}
+
+/** Metadatos del comprobante; la API nunca expone bucket, clave ni URL (§7). */
+export type ComprobantePago = {
+  documentoId: string
+  tipoMime: string
+  tamanoBytes: number
+}
+
+/** Pago registrado de un cobro (RF-139). */
+export type Pago = {
+  id: string
+  cobroId: string
+  medio: MedioPago
+  /** BigDecimal con dos decimales; JSON lo entrega como número. */
+  monto: number
+  /** Se omite si no se capturó. */
+  referencia?: string
+  /** Instante del pago con desfase, p. ej. `2026-11-05T00:00:00-06:00`. */
+  pagadoEn: string
+  /** `nombre` se omite si el perfil no es visible para quien consulta. */
+  registradoPor: { id: string; nombre?: string }
+  comprobante: ComprobantePago
+}
+
 /** Club disponible para filtrar o crear un cobro. */
 export type ClubResumen = {
   id: string

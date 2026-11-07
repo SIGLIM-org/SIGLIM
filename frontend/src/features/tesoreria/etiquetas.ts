@@ -1,5 +1,5 @@
 import type { VarianteInsignia } from '@/components/ui/Insignia'
-import type { EstadoCobro, TipoCobro } from '@/features/tesoreria/tipos'
+import type { EstadoCobro, MedioPago, TipoCobro } from '@/features/tesoreria/tipos'
 
 /** Textos de los tipos de cobro; la API no los traduce (convenciones §9.3). */
 export const etiquetaTipoCobro: Record<TipoCobro, string> = {
@@ -7,6 +7,13 @@ export const etiquetaTipoCobro: Record<TipoCobro, string> = {
   CANCHA: 'Cancha',
   MULTA: 'Multa',
   MANUAL: 'Manual',
+}
+
+/** Textos de los medios de un pago externo (RF-139). */
+export const etiquetaMedioPago: Record<MedioPago, string> = {
+  EFECTIVO: 'Efectivo',
+  TRANSFERENCIA: 'Transferencia',
+  OTRO: 'Otro',
 }
 
 /** Texto y variante visual de cada estado del cobro. */
