@@ -34,6 +34,7 @@ vi.mock('@/features/seguridad/ProveedorSesionActual', () => ({
 
 const CONSULTAR = 'tesoreria.cobro:CONSULTAR'
 const CREAR = 'tesoreria.cobro:CREAR'
+const PAGAR = 'tesoreria.pago:PAGAR'
 const VER_EQUIPOS = 'organizacion.equipo:CONSULTAR'
 const REGISTRAR = 'tesoreria.pago:REGISTRAR'
 const RUTA = '/app/tesoreria'
@@ -70,18 +71,22 @@ const COBRO_EQUIPO: Cobro = {
   creadoEn: '2026-11-02T10:00:00-06:00',
 }
 
-const COBRO_PAGADO: Cobro = {
-  ...COBRO_CLUB,
+const COBRO_RECHAZADO: Cobro = {
   id: 'cb-3',
-  concepto: 'Multa liquidada',
-  estado: 'PAGADO',
+  tipo: 'MULTA',
+  concepto: 'Multa disciplinaria',
+  monto: 500,
+  fechaLimite: '2026-11-10',
+  estado: 'RECHAZADO',
+  club: CLUB,
+  creadoEn: '2026-11-03T10:00:00-06:00',
 }
 
-const COBRO_RECHAZADO: Cobro = {
+const COBRO_PAGADO: Cobro = {
   ...COBRO_CLUB,
   id: 'cb-4',
-  concepto: 'Cancha rechazada',
-  estado: 'RECHAZADO',
+  concepto: 'Cuota liquidada',
+  estado: 'PAGADO',
 }
 
 const PAGO: Pago = {
@@ -216,7 +221,7 @@ describe('PantallaTesoreria', () => {
   beforeEach(() => {
     get.mockReset()
     post.mockReset()
-    otorgar(CONSULTAR, CREAR, VER_EQUIPOS)
+    otorgar(CONSULTAR, CREAR, VER_EQUIPOS, PAGAR)
     responder()
   })
 
@@ -242,6 +247,64 @@ describe('PantallaTesoreria', () => {
 
     expect(get).toHaveBeenCalledWith('cobros?pagina=0&tamano=20')
     expect(get).toHaveBeenCalledWith('adeudos')
+  })
+
+  it('H-30.2: ofrece pagar solo los cobros pendientes o rechazados', async () => {
+    responder({
+      cobros: pagina([COBRO_CLUB, COBRO_RECHAZADO, COBRO_EQUIPO, COBRO_PAGADO]),
+    })
+    montar()
+
+    await screen.findByText('Cuota de afiliación')
+
+    const filaPendiente = screen.getByText('Cuota de afiliación').closest('tr') as HTMLElement
+    expect(
+      within(filaPendiente).getByRole('button', { name: 'Pagar en línea (simulado)' }),
+    ).toBeInTheDocument()
+
+    const filaRechazada = screen.getByText('Multa disciplinaria').closest('tr') as HTMLElement
+    expect(
+      within(filaRechazada).getByRole('button', { name: 'Reintentar pago' }),
+    ).toBeInTheDocument()
+
+    const filaVencida = screen.getByText('Arbitraje de jornada').closest('tr') as HTMLElement
+    expect(within(filaVencida).queryByRole('button')).not.toBeInTheDocument()
+
+    const filaPagada = screen.getByText('Cuota liquidada').closest('tr') as HTMLElement
+    expect(within(filaPagada).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('H-30.2: abre el flujo de pago simulado desde un cobro pendiente', async () => {
+    montar()
+    await screen.findByText('Cuota de afiliación')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Pagar en línea (simulado)' }))
+
+    const dialogo = screen.getByRole('dialog', { name: 'Pago simulado' })
+    expect(
+      within(dialogo).getByText('Pago simulado: no se realiza ningún cargo'),
+    ).toBeInTheDocument()
+    expect(within(dialogo).getByRole('heading', { name: 'Cobro a pagar' })).toBeInTheDocument()
+    expect(within(dialogo).getByText('$1,500.00 MXN')).toBeInTheDocument()
+
+    await userEvent.click(
+      within(dialogo).getByRole('button', { name: 'Cerrar pago simulado' }),
+    )
+    expect(
+      screen.queryByRole('dialog', { name: 'Pago simulado' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('H-02.4: sin tesoreria.pago:PAGAR no ofrece la acción de pago', async () => {
+    otorgar(CONSULTAR, CREAR, VER_EQUIPOS)
+    montar()
+
+    await screen.findByText('Cuota de afiliación')
+
+    expect(
+      screen.queryByRole('button', { name: 'Pagar en línea (simulado)' }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reintentar pago' })).not.toBeInTheDocument()
   })
 
   it('H-29.2: aplica club, tipo, estado y rango de fecha límite', async () => {
@@ -511,7 +574,7 @@ describe('PantallaTesoreria', () => {
       responder({ cobros: pagina([COBRO_CLUB, COBRO_EQUIPO, COBRO_PAGADO, COBRO_RECHAZADO]) })
       montar()
 
-      await screen.findByText('Multa liquidada')
+      await screen.findByText('Cuota liquidada')
 
       expect(screen.getByRole('columnheader', { name: 'Acciones' })).toBeInTheDocument()
       expect(
@@ -521,11 +584,34 @@ describe('PantallaTesoreria', () => {
         screen.getByRole('button', { name: 'Registrar pago de «Arbitraje de jornada»' }),
       ).toBeInTheDocument()
       expect(
-        screen.queryByRole('button', { name: 'Registrar pago de «Multa liquidada»' }),
+        screen.queryByRole('button', { name: 'Registrar pago de «Cuota liquidada»' }),
       ).not.toBeInTheDocument()
       expect(
-        screen.queryByRole('button', { name: 'Registrar pago de «Cancha rechazada»' }),
+        screen.queryByRole('button', { name: 'Registrar pago de «Multa disciplinaria»' }),
       ).not.toBeInTheDocument()
+    })
+
+    it('H-30.2 y H-31.2: con PAGAR y REGISTRAR, cada cobro ofrece solo las acciones que admite', async () => {
+      otorgar(CONSULTAR, PAGAR, REGISTRAR)
+      responder({ cobros: pagina([COBRO_CLUB, COBRO_EQUIPO, COBRO_PAGADO, COBRO_RECHAZADO]) })
+      montar()
+
+      await screen.findByText('Cuota de afiliación')
+      expect(screen.getAllByRole('columnheader', { name: 'Acciones' })).toHaveLength(1)
+
+      const fila = (concepto: string) => screen.getByText(concepto).closest('tr') as HTMLElement
+      const botones = (concepto: string) =>
+        within(fila(concepto))
+          .queryAllByRole('button')
+          .map((boton) => boton.getAttribute('aria-label') ?? boton.textContent)
+
+      expect(botones('Cuota de afiliación')).toEqual([
+        'Pagar en línea (simulado)',
+        'Registrar pago de «Cuota de afiliación»',
+      ])
+      expect(botones('Arbitraje de jornada')).toEqual(['Registrar pago de «Arbitraje de jornada»'])
+      expect(botones('Multa disciplinaria')).toEqual(['Reintentar pago'])
+      expect(botones('Cuota liquidada')).toEqual([])
     })
 
     it('H-02.4: sin tesoreria.pago:REGISTRAR no hay columna «Acciones» ni botón', async () => {

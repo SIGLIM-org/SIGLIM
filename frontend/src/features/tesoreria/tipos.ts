@@ -31,6 +31,23 @@ export type Cobro = {
   creadoEn: string
 }
 
+/** Estado del intento de pago en línea simulado (RF-138, DEC-37). */
+export type EstadoIntentoPago = 'PENDIENTE' | 'APROBADO' | 'RECHAZADO'
+
+/** Intento de pago simulado de un cobro (convenciones de API §6.13). */
+export type IntentoPago = {
+  id: string
+  /** Referencia ficticia `SIM-AAAAMMDD-XXXXXX`; la genera el backend. */
+  referencia: string
+  estado: EstadoIntentoPago
+  iniciadoEn: string
+  /** Se omite mientras el intento está pendiente. */
+  resueltoEn?: string
+}
+
+/** Resultado que la persona elige al confirmar la simulación (RF-138). */
+export type ResultadoPagoSimulado = 'APROBADO' | 'RECHAZADO'
+
 /** Filtros de `GET /cobros` (convenciones de API §6.13). */
 export type FiltrosCobros = {
   clubId?: string

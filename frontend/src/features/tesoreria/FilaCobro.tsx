@@ -1,4 +1,4 @@
-import { ReceiptText } from 'lucide-react'
+import { CreditCard, ReceiptText, RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Insignia } from '@/components/ui/Insignia'
 import { estadoCobro, etiquetaTipoCobro } from '@/features/tesoreria/etiquetas'
@@ -7,24 +7,50 @@ import type { Cobro, EstadoCobro } from '@/features/tesoreria/tipos'
 
 type Props = {
   cobro: Cobro
-  /** Si viene, la fila agrega la celda de acciones (permiso `tesoreria.pago:REGISTRAR`). */
+  /** La sesión tiene `tesoreria.pago:PAGAR`; sin él no se ofrece el pago simulado (H-30.2). */
+  puedePagar: boolean
+  onPagar: (cobro: Cobro) => void
+  /** Si viene, se ofrece «Registrar pago» (permiso `tesoreria.pago:REGISTRAR`, H-31.2). */
   onRegistrarPago?: (cobro: Cobro) => void
 }
 
-/** Estados que admiten un pago (VAL-028, convenciones §6.13). */
+/** Estados que admiten registrar un pago externo (VAL-028, convenciones §6.13). */
 const ESTADOS_PAGABLES: ReadonlySet<EstadoCobro> = new Set(['PENDIENTE', 'VENCIDO'])
 
 const CLASE_ETIQUETA = 'block text-label-sm text-text-muted lg:hidden'
 
 /**
  * Fila de la tabla de cobros (F-33, H-29.2). Bajo `lg` se apila como tarjeta con sus etiquetas
- * visibles (RNF-007). Con `onRegistrarPago`, ofrece «Registrar pago» solo en los cobros
- * `PENDIENTE` o `VENCIDO` (H-31.2, RF-139, VAL-028); en los demás la celda queda vacía. El pago
- * simulado de la Directiva (H-30) no está aquí.
+ * visibles (RNF-007). La celda de acciones aparece si la sesión puede pagar o registrar pagos:
+ * «Pagar en línea (simulado)» en los cobros `PENDIENTE` o `RECHAZADO` (H-30.2, RF-138) y
+ * «Registrar pago» en los `PENDIENTE` o `VENCIDO` (H-31.2, RF-139); un cobro pagado no ofrece
+ * ninguna (VAL-028).
  */
-export function FilaCobro({ cobro, onRegistrarPago }: Props) {
+export function FilaCobro({ cobro, puedePagar, onPagar, onRegistrarPago }: Props) {
   const estado = estadoCobro(cobro.estado)
-  const admitePago = ESTADOS_PAGABLES.has(cobro.estado)
+  const admiteRegistro = onRegistrarPago !== undefined && ESTADOS_PAGABLES.has(cobro.estado)
+
+  const accionSimulada = !puedePagar
+    ? null
+    : cobro.estado === 'PENDIENTE' ? (
+      <Button
+        variante="secundario"
+        icono={CreditCard}
+        onClick={() => onPagar(cobro)}
+        className="w-full lg:w-auto"
+      >
+        Pagar en línea (simulado)
+      </Button>
+    ) : cobro.estado === 'RECHAZADO' ? (
+      <Button
+        variante="secundario"
+        icono={RotateCw}
+        onClick={() => onPagar(cobro)}
+        className="w-full lg:w-auto"
+      >
+        Reintentar pago
+      </Button>
+    ) : null
 
   return (
     <tr
@@ -76,24 +102,32 @@ export function FilaCobro({ cobro, onRegistrarPago }: Props) {
         <Insignia variante={estado.variante}>{estado.texto}</Insignia>
       </td>
 
-      {onRegistrarPago && (
+      {(puedePagar || onRegistrarPago) && (
         <td
           role="cell"
           className={[
             'block lg:table-cell lg:px-4 lg:py-3 lg:text-right',
-            admitePago ? 'pt-3' : 'hidden',
+            accionSimulada || admiteRegistro ? 'pt-3' : 'hidden',
           ].join(' ')}
         >
-          {admitePago && (
-            <Button
-              variante="secundario"
-              icono={ReceiptText}
-              aria-label={`Registrar pago de «${cobro.concepto}»`}
-              onClick={() => onRegistrarPago(cobro)}
-              className="w-full whitespace-nowrap lg:w-auto"
-            >
-              Registrar pago
-            </Button>
+          {(accionSimulada || admiteRegistro) && (
+            <>
+              <span className={CLASE_ETIQUETA}>Acciones</span>
+              <div className="flex flex-col gap-2 lg:flex-row lg:justify-end">
+                {accionSimulada}
+                {admiteRegistro && (
+                  <Button
+                    variante="secundario"
+                    icono={ReceiptText}
+                    aria-label={`Registrar pago de «${cobro.concepto}»`}
+                    onClick={() => onRegistrarPago(cobro)}
+                    className="w-full whitespace-nowrap lg:w-auto"
+                  >
+                    Registrar pago
+                  </Button>
+                )}
+              </div>
+            </>
           )}
         </td>
       )}

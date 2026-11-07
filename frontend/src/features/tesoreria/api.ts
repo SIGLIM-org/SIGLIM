@@ -6,8 +6,10 @@ import type {
   CrearCobroPeticion,
   EquipoResumen,
   FiltrosCobros,
+  IntentoPago,
   Pago,
   RegistrarPagoPeticion,
+  ResultadoPagoSimulado,
 } from '@/features/tesoreria/tipos'
 import { rangoDeCobros } from '@/features/tesoreria/fechas'
 import { api } from '@/lib/api/cliente'
@@ -151,6 +153,45 @@ export function useRegistrarPago() {
 
       return api.post<Pago>(`cobros/${encodeURIComponent(cobroId)}/pagos`, formulario)
     },
+    onSuccess: () => {
+      void clienteConsultas.invalidateQueries({ queryKey: clavesTesoreria.todas })
+    },
+  })
+}
+
+/**
+ * Inicia un intento de pago simulado para un cobro `PENDIENTE` o `RECHAZADO` (RF-138,
+ * convenciones §6.13). Si ya hay un intento pendiente, el backend devuelve ese mismo.
+ */
+export function useIniciarPagoSimulado() {
+  return useMutation({
+    mutationFn: (cobroId: string) =>
+      api.post<IntentoPago>(
+        `cobros/${encodeURIComponent(cobroId)}/intentos-pago`,
+        {},
+      ),
+  })
+}
+
+/**
+ * Confirma el resultado de una simulación (RF-138). Al aprobar, el cobro queda `PAGADO`;
+ * al rechazar, `RECHAZADO`. En ambos casos se refrescan los cobros y los adeudos.
+ */
+export function useConfirmarPagoSimulado() {
+  const clienteConsultas = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      intentoId,
+      resultado,
+    }: {
+      intentoId: string
+      resultado: ResultadoPagoSimulado
+    }) =>
+      api.post<IntentoPago>(
+        `intentos-pago/${encodeURIComponent(intentoId)}/confirmacion`,
+        { resultado },
+      ),
     onSuccess: () => {
       void clienteConsultas.invalidateQueries({ queryKey: clavesTesoreria.todas })
     },

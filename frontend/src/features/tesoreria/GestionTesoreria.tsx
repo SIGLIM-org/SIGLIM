@@ -16,6 +16,7 @@ import {
 } from '@/features/tesoreria/filtros'
 import { FormularioFiltrosCobros } from '@/features/tesoreria/FormularioFiltrosCobros'
 import { ModalNuevoCobro } from '@/features/tesoreria/ModalNuevoCobro'
+import { ModalPagoSimulado } from '@/features/tesoreria/ModalPagoSimulado'
 import { ModalRegistrarPago } from '@/features/tesoreria/ModalRegistrarPago'
 import { PaginacionCobros } from '@/features/tesoreria/PaginacionCobros'
 import { PestanaAdeudos } from '@/features/tesoreria/PestanaAdeudos'
@@ -40,17 +41,19 @@ function contar(total: number, singular: string, plural: string): string {
 
 /**
  * Pantalla de tesorería F-33 (H-29.2, RF-137, RF-140, UI-027): resumen de adeudos, cobros con
- * filtros y paginación, desglose por club y equipo, alta de un cobro manual y registro de un pago
- * externo con comprobante (H-31.2, RF-139). Las acciones de escritura se ocultan sin permiso; el
- * backend vuelve a autorizar cada una (VAL-015).
+ * filtros y paginación, desglose por club y equipo, alta de un cobro manual, pago simulado
+ * (H-30.2, RF-138) y registro de un pago externo con comprobante (H-31.2, RF-139). Las acciones
+ * de escritura se ocultan sin permiso; el backend vuelve a autorizar cada una (VAL-015).
  */
 export function GestionTesoreria() {
   const { yo } = useSesionActual()
+  const puedePagar = tienePermiso(yo.permisos, 'tesoreria.pago:PAGAR')
   const puedeRegistrarPago = tienePermiso(yo.permisos, 'tesoreria.pago:REGISTRAR')
   const [pestana, setPestana] = useState<Pestana>('COBROS')
   const [filtros, setFiltros] = useState<FiltrosCobros>(FILTROS_COBROS_INICIALES)
   const [creando, setCreando] = useState(false)
   const [cobroAPagar, setCobroAPagar] = useState<Cobro | null>(null)
+  const [cobroARegistrar, setCobroARegistrar] = useState<Cobro | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
   const id = useId()
   const cobros = useCobros(filtros)
@@ -90,15 +93,15 @@ export function GestionTesoreria() {
     )
   }
 
-  const abrirPago = (cobro: Cobro) => {
+  const abrirRegistroPago = (cobro: Cobro) => {
     setMensaje(null)
-    setCobroAPagar(cobro)
+    setCobroARegistrar(cobro)
   }
 
   /** Conserva filtros, pestaña y página: la tabla se refresca sola al invalidar la consulta. */
   const alRegistrarPago = (pago: Pago) => {
-    const concepto = cobroAPagar?.concepto ?? ''
-    setCobroAPagar(null)
+    const concepto = cobroARegistrar?.concepto ?? ''
+    setCobroARegistrar(null)
     setMensaje(
       `Pago de ${formatearMonto(pago.monto)} registrado para «${concepto}»; el cobro quedó pagado.`,
     )
@@ -316,7 +319,9 @@ export function GestionTesoreria() {
                 <TablaCobros
                   cobros={datos.contenido}
                   actualizando={cobros.isPlaceholderData}
-                  onRegistrarPago={puedeRegistrarPago ? abrirPago : undefined}
+                  puedePagar={puedePagar}
+                  onPagar={setCobroAPagar}
+                  onRegistrarPago={puedeRegistrarPago ? abrirRegistroPago : undefined}
                 />
                 {datos.totalPaginas > 1 && (
                   <PaginacionCobros
@@ -363,9 +368,16 @@ export function GestionTesoreria() {
       )}
 
       {cobroAPagar && (
-        <ModalRegistrarPago
+        <ModalPagoSimulado
           cobro={cobroAPagar}
           onCerrar={() => setCobroAPagar(null)}
+        />
+      )}
+
+      {cobroARegistrar && (
+        <ModalRegistrarPago
+          cobro={cobroARegistrar}
+          onCerrar={() => setCobroARegistrar(null)}
           onRegistrado={alRegistrarPago}
         />
       )}

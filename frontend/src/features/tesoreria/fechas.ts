@@ -11,6 +11,16 @@ const formatoFecha = new Intl.DateTimeFormat('es-MX', {
   year: 'numeric',
 })
 
+const formatoFechaHora = new Intl.DateTimeFormat('es-MX', {
+  timeZone: ZONA_NEGOCIO,
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
 const formatoMoneda = new Intl.NumberFormat('es-MX', {
   style: 'currency',
   currency: 'MXN',
@@ -28,6 +38,11 @@ export function formatearFecha(fecha: string): string {
 /** «$1,500.00» en pesos mexicanos. */
 export function formatearMonto(monto: number): string {
   return formatoMoneda.format(monto)
+}
+
+/** «6 nov 2026, 12:02» en la zona de negocio, para los instantes del pago simulado. */
+export function formatearFechaHora(instante: string): string {
+  return formatoFechaHora.format(new Date(instante)).replace(/\./g, '')
 }
 
 /**

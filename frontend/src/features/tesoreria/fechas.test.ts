@@ -3,6 +3,7 @@ import {
   contarCobros,
   diaSiguiente,
   formatearFecha,
+  formatearFechaHora,
   formatearMonto,
   hoyEnZonaNegocio,
   rangoDeCobros,
@@ -39,5 +40,9 @@ describe('fechas de tesorería', () => {
     expect(formatearMonto(1500)).toBe('$1,500.00')
     expect(contarCobros(1)).toBe('1 cobro')
     expect(contarCobros(3)).toBe('3 cobros')
+  })
+
+  it('H-30.2: formatea el instante de resolución en la zona de negocio', () => {
+    expect(formatearFechaHora('2026-11-06T12:02:00-06:00')).toBe('6 nov 2026, 12:02')
   })
 })
