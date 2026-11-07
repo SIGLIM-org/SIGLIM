@@ -1,13 +1,25 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   contarCobros,
   diaSiguiente,
   formatearFecha,
   formatearMonto,
+  hoyEnZonaNegocio,
   rangoDeCobros,
 } from '@/features/tesoreria/fechas'
 
 describe('fechas de tesorería', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('H-31.2: el día de hoy se toma en Ciudad de México, no en UTC', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-07T02:00:00Z'))
+
+    expect(hoyEnZonaNegocio()).toBe('2026-11-06')
+  })
+
   it('H-29.2: el último día del filtro se envía como el día siguiente, excluyente', () => {
     expect(rangoDeCobros('2026-11-01', '2026-11-30')).toEqual({
       desde: '2026-11-01',

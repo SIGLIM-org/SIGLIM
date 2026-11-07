@@ -1,20 +1,30 @@
+import { ReceiptText } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 import { Insignia } from '@/components/ui/Insignia'
 import { estadoCobro, etiquetaTipoCobro } from '@/features/tesoreria/etiquetas'
 import { formatearFecha, formatearMonto } from '@/features/tesoreria/fechas'
-import type { Cobro } from '@/features/tesoreria/tipos'
+import type { Cobro, EstadoCobro } from '@/features/tesoreria/tipos'
 
 type Props = {
   cobro: Cobro
+  /** Si viene, la fila agrega la celda de acciones (permiso `tesoreria.pago:REGISTRAR`). */
+  onRegistrarPago?: (cobro: Cobro) => void
 }
+
+/** Estados que admiten un pago (VAL-028, convenciones §6.13). */
+const ESTADOS_PAGABLES: ReadonlySet<EstadoCobro> = new Set(['PENDIENTE', 'VENCIDO'])
 
 const CLASE_ETIQUETA = 'block text-label-sm text-text-muted lg:hidden'
 
 /**
  * Fila de la tabla de cobros (F-33, H-29.2). Bajo `lg` se apila como tarjeta con sus etiquetas
- * visibles (RNF-007). No ofrece acciones de pago: esas historias son H-30 y H-31.
+ * visibles (RNF-007). Con `onRegistrarPago`, ofrece «Registrar pago» solo en los cobros
+ * `PENDIENTE` o `VENCIDO` (H-31.2, RF-139, VAL-028); en los demás la celda queda vacía. El pago
+ * simulado de la Directiva (H-30) no está aquí.
  */
-export function FilaCobro({ cobro }: Props) {
+export function FilaCobro({ cobro, onRegistrarPago }: Props) {
   const estado = estadoCobro(cobro.estado)
+  const admitePago = ESTADOS_PAGABLES.has(cobro.estado)
 
   return (
     <tr
@@ -65,6 +75,28 @@ export function FilaCobro({ cobro }: Props) {
         <span className={CLASE_ETIQUETA}>Estado</span>
         <Insignia variante={estado.variante}>{estado.texto}</Insignia>
       </td>
+
+      {onRegistrarPago && (
+        <td
+          role="cell"
+          className={[
+            'block lg:table-cell lg:px-4 lg:py-3 lg:text-right',
+            admitePago ? 'pt-3' : 'hidden',
+          ].join(' ')}
+        >
+          {admitePago && (
+            <Button
+              variante="secundario"
+              icono={ReceiptText}
+              aria-label={`Registrar pago de «${cobro.concepto}»`}
+              onClick={() => onRegistrarPago(cobro)}
+              className="w-full whitespace-nowrap lg:w-auto"
+            >
+              Registrar pago
+            </Button>
+          )}
+        </td>
+      )}
     </tr>
   )
 }
