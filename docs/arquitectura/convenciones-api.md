@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 3.7 · 6 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 3.8 · 6 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -1105,6 +1105,71 @@ simplemente no aparece.
   equipo sobre `numeric`; el servicio acumula los totales generales.
 - La Directiva de club solo recibe su club; el Tesorero, toda la liga (ADR-0007).
 - Sin adeudos responde `200` con ceros y `clubes: []`.
+
+#### Pago en línea simulado (H-30.1, RF-138)
+
+El pago es **simulado**: no hay cargo real, no interviene una pasarela externa y la API **no recibe
+ni guarda datos de tarjeta**. `POST /cobros/{id}/intentos-pago` inicia un intento y responde `201`
+con `Location: /api/v1/intentos-pago/{id}`:
+
+```json
+{
+  "id": "…",
+  "referencia": "SIM-20261106-4K7Q2M",
+  "estado": "PENDIENTE",
+  "iniciadoEn": "2026-11-06T12:00:00-06:00"
+}
+```
+
+- La `referencia` la genera el backend con el formato `SIM-AAAAMMDD-XXXXXX`: la fecha es el día de
+  negocio en `America/Mexico_City` y el sufijo son seis caracteres alfanuméricos aleatorios. Es
+  única; el cliente no la envía ni la elige.
+- Solo un cobro `PENDIENTE` inicia un intento. Un cobro `RECHAZADO` vuelve a `PENDIENTE` y permite
+  reintentar. Si ya existe un intento `PENDIENTE` para el cobro, se devuelve ese mismo sin crear
+  otro: un doble clic no duplica el intento. Un cobro `PAGADO` o `VENCIDO` responde
+  `409 VAL-028`.
+- El intento no cambia el estado del cobro: sigue `PENDIENTE` hasta la confirmación.
+
+`POST /intentos-pago/{id}/confirmacion` recibe el resultado que eligió la persona:
+
+```json
+{ "resultado": "APROBADO" }
+```
+
+`resultado` es obligatorio y solo admite `APROBADO` o `RECHAZADO`. Responde `200` con el intento
+resuelto:
+
+```json
+{
+  "id": "…",
+  "referencia": "SIM-20261106-4K7Q2M",
+  "estado": "APROBADO",
+  "iniciadoEn": "2026-11-06T12:00:00-06:00",
+  "resueltoEn": "2026-11-06T12:02:00-06:00"
+}
+```
+
+- `APROBADO` crea un pago con medio `EN_LINEA_SIMULADO`, el monto del cobro, la referencia del
+  intento y el usuario que confirma; el cobro queda `PAGADO`. `RECHAZADO` deja el intento y el cobro
+  en `RECHAZADO` y **no** crea pago.
+- La confirmación es **atómica** (RNF-004): bloquea primero el cobro y después el intento, y resuelve
+  el intento con `WHERE estado = 'PENDIENTE'`. Si otra persona confirmó antes, responde
+  `409 CONCURRENCIA` y no duplica el pago. Un intento ya resuelto o un cobro que dejó de estar
+  `PENDIENTE` responden `409 VAL-028`.
+- Errores:
+  - `400 VALIDACION` si falta `resultado` o no es un valor conocido.
+  - `401 NO_AUTENTICADO` sin sesión; `403 VAL-015` sin `tesoreria.pago:PAGAR`.
+  - `404 NO_ENCONTRADO` si el cobro o el intento no existe o está fuera del ámbito del club
+    (VAL-024).
+  - `409 VAL-028` si el cobro está `PAGADO` o `VENCIDO`, si el intento ya se resolvió o si el cobro
+    dejó de estar `PENDIENTE`; el mensaje indica el estado.
+  - `409 CONCURRENCIA` si otra confirmación ganó la carrera.
+- Auditoría: `INICIAR_PAGO_SIMULADO` y `CONFIRMAR_PAGO_SIMULADO` en `M-13`, entidad
+  `intentos_pago`, con `cobroId`, `referencia`, estado anterior y nuevo; la confirmación agrega
+  `resultado`, `estadoCobro`, `monto` y, al aprobar, `pagoId`. El detalle no lleva datos personales
+  ni de tarjeta.
+- Al aprobar se publica `CobroPagado` dentro de la misma transacción (ADR-0012); los oyentes ven el
+  cobro ya `PAGADO` y, si fallan, se revierte la confirmación completa.
 
 #### Pagos externos (H-31.1, RF-139)
 
