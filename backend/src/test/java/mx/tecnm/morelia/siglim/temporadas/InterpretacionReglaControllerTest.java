@@ -127,6 +127,19 @@ class InterpretacionReglaControllerTest {
     }
 
     @Test
+    @DisplayName("RF-007: una descripción de más de 2000 caracteres devuelve 400 VALIDACION [PROPUESTA]")
+    void registrarDescripcionMuyLarga() {
+        String descripcion = "x".repeat(2001);
+        MvcTestResult resultado = post(BASE,
+                "{\"temporadaId\":\"" + TEMPORADA + "\",\"descripcion\":\"" + descripcion + "\"}");
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.VALIDACION);
+        assertThat(resultado).bodyJson().extractingPath("$.errores[0].campo").isEqualTo("descripcion");
+        verifyNoInteractions(servicio);
+    }
+
+    @Test
     @DisplayName("RF-007: GET lista con paginación y filtros")
     void listar() {
         given(servicio.listar(TEMPORADA, EstadoInterpretacion.PENDIENTE, 1, 10))

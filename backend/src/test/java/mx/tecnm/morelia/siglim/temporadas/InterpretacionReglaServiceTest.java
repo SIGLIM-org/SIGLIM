@@ -235,7 +235,7 @@ class InterpretacionReglaServiceTest {
     }
 
     @Test
-    @DisplayName("RF-007 [PROPUESTA D2]: quien registró la interpretación no puede resolverla")
+    @DisplayName("RF-007 [DEC-57]: quien registró la interpretación no puede resolverla")
     void resolverQuienLaRegistro() {
         given(interpretaciones.buscarParaActualizar(LIGA, INTERPRETACION))
                 .willReturn(Optional.of(pendiente(SECRETARIA)));

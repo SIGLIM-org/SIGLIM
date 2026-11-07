@@ -17,9 +17,10 @@ import java.util.UUID;
  *
  * @param estado        {@code PENDIENTE} al registrarse; {@code AUTORIZADA} o {@code RECHAZADA}
  *                      cuando el Presidente la resuelve
- * @param registradaPor perfil que la registró: quien la registró no puede resolverla [PROPUESTA]
+ * @param registradaPor perfil que la registró: quien la registró no puede resolverla (DEC-57)
  * @param resueltaPor   perfil del Presidente que la resolvió; se omite mientras está pendiente
  * @param observaciones observaciones del registro o de la resolución; obligatorias al rechazar
+ *                      (DEC-58)
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record InterpretacionReglaDto(

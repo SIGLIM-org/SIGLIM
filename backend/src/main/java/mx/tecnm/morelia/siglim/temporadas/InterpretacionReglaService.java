@@ -33,7 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li><b>Solo el Presidente resuelve (D1).</b> Registrar exige
  *       {@code temporadas.interpretacion:REGISTRAR}; resolver, {@code …:APROBAR}. Los dos permisos
  *       son datos: el código no compara nombres de rol (ADR-0007).</li>
- *   <li><b>Quien la registra no la resuelve (D2, [PROPUESTA]).</b> Separación de funciones: aunque
+ *   <li><b>Quien la registra no la resuelve (D2, DEC-57).</b> Separación de funciones: aunque
  *       una cuenta tenga los dos permisos, no puede autorizar su propia interpretación. Se responde
  *       {@code 403 RF-007} y no se escribe ni se audita nada.</li>
  *   <li><b>Resolución definitiva (D3).</b> Solo se resuelve una interpretación {@code PENDIENTE}, y
@@ -42,9 +42,11 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li><b>Nunca toca las reglas versionadas (D4).</b> Esta tabla es un registro aparte: ni la
  *       resolución ni el alta escriben {@code parametros_temporada} (RF-006, RF-007). Autorizar una
  *       interpretación no cambia puntos, desempates ni ningún otro cálculo.</li>
- *   <li><b>Temporada cerrada (D5).</b> El histórico no se modifica (RF-003, RN-005): registrar una
- *       interpretación de una temporada {@code CERRADA} responde {@code 409 RF-003}. Las
- *       interpretaciones ya registradas se conservan y se pueden resolver.</li>
+ *   <li><b>Temporada cerrada (D5, DEC-59).</b> Por RN-005 el histórico de la temporada no se
+ *       modifica: registrar una interpretación de una temporada {@code CERRADA} responde
+ *       {@code 409 RF-003}. Pero lo ya registrado sigue vivo para poder resolverse en el mismo
+ *       {@code estado_interpretacion}, sin escribir nada en {@code temporadas} ni en los
+ *       parámetros versionados. La Liga debe confirmar que esta lectura no rompe RN-005.</li>
  *   <li><b>Consulta (D6).</b> La necesitan quien registra y quien resuelve, y el catálogo inicial no
  *       define un permiso de consulta para M-02: el listado acepta cualquiera de los dos, con ámbito
  *       de liga. Un ámbito de club no alcanza una interpretación de la liga (VAL-024) y su página
@@ -68,7 +70,7 @@ public class InterpretacionReglaService {
     private static final String MODULO = "M-02";
     private static final String ENTIDAD = "interpretaciones_regla";
 
-    /** [PROPUESTA] Mínimo de las observaciones de un rechazo, como en las demás devoluciones. */
+    /** Mínimo de las observaciones de un rechazo, igual que el motivo de RN-021 (DEC-58). */
     private static final int MINIMO_OBSERVACIONES = 10;
 
     private static final int TAMANO_MAXIMO = 100;
