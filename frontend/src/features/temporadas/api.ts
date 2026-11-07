@@ -8,11 +8,15 @@ import type {
   Convocatoria,
   CrearCategoriaPeticion,
   CrearGrupoPeticion,
+  CrearInterpretacionPeticion,
   CrearTemporadaPeticion,
+  EstadoInterpretacion,
   Grupo,
+  InterpretacionRegla,
   ParametrosTemporada,
   ReemplazarConvocatoriaPeticion,
   RegistrarParametrosPeticion,
+  ResolverInterpretacionPeticion,
   Temporada,
   VersionParametros,
 } from '@/features/temporadas/tipos'
@@ -235,5 +239,82 @@ export function useRegistrarParametros(temporadaId: string) {
     mutationFn: (peticion: RegistrarParametrosPeticion) =>
       api.post<VersionParametros>(`temporadas/${temporadaId}/parametros`, peticion),
     onSuccess: invalidar,
+  })
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Interpretaciones de regla (F-11, B-03.2, RF-007). Contrato: convenciones de API §6.2.
+ * ------------------------------------------------------------------------------------------- */
+
+export const clavesInterpretaciones = {
+  todas: ['interpretaciones-regla'] as const,
+  lista: (
+    temporadaId: string,
+    pagina: number,
+    tamano: number,
+    estado?: EstadoInterpretacion,
+  ) => ['interpretaciones-regla', 'lista', { temporadaId, pagina, tamano, estado }] as const,
+}
+
+function consultaDeInterpretaciones(
+  temporadaId: string,
+  pagina: number,
+  tamano: number,
+  estado?: EstadoInterpretacion,
+): string {
+  const parametros = new URLSearchParams({
+    temporadaId,
+    pagina: String(pagina),
+    tamano: String(tamano),
+  })
+
+  if (estado) {
+    parametros.set('estado', estado)
+  }
+
+  return `interpretaciones-regla?${parametros.toString()}`
+}
+
+/**
+ * Interpretaciones de la temporada, de la más reciente a la más antigua (RF-007). El `GET` acepta
+ * cualquiera de los dos permisos del recurso; el backend decide el ámbito.
+ */
+export function useInterpretaciones(
+  temporadaId: string,
+  pagina: number,
+  tamano: number,
+  estado?: EstadoInterpretacion,
+) {
+  return useQuery({
+    queryKey: clavesInterpretaciones.lista(temporadaId, pagina, tamano, estado),
+    queryFn: () =>
+      api.get<Pagina<InterpretacionRegla>>(
+        consultaDeInterpretaciones(temporadaId, pagina, tamano, estado),
+      ),
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** El alta nace PENDIENTE y toma la autoría de la sesión (RF-007). */
+export function useRegistrarInterpretacion() {
+  const clienteConsultas = useQueryClient()
+
+  return useMutation({
+    mutationFn: (peticion: CrearInterpretacionPeticion) =>
+      api.post<InterpretacionRegla>('interpretaciones-regla', peticion),
+    onSuccess: () =>
+      clienteConsultas.invalidateQueries({ queryKey: clavesInterpretaciones.todas }),
+  })
+}
+
+/** La resolución es definitiva: AUTORIZADA o RECHAZADA, sin reapertura (RF-007). */
+export function useResolverInterpretacion() {
+  const clienteConsultas = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, ...peticion }: ResolverInterpretacionPeticion & { id: string }) =>
+      api.post<InterpretacionRegla>(`interpretaciones-regla/${id}/resolucion`, peticion),
+    onSuccess: () =>
+      clienteConsultas.invalidateQueries({ queryKey: clavesInterpretaciones.todas }),
   })
 }

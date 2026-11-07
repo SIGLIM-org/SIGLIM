@@ -1,10 +1,14 @@
-/** Pestañas de F-11, en orden de prioridad (D0): Parámetros, Categorías, Grupos. */
-export type PestanaEstructura = 'parametros' | 'categorias' | 'grupos'
+/**
+ * Pestañas de F-11, en orden de prioridad (D0): Parámetros, Categorías, Grupos e Interpretaciones.
+ * La última solo se muestra con `temporadas.interpretacion:REGISTRAR` o `:APROBAR` (RF-007).
+ */
+export type PestanaEstructura = 'parametros' | 'categorias' | 'grupos' | 'interpretaciones'
 
 export const PESTANAS_ESTRUCTURA: readonly PestanaEstructura[] = [
   'parametros',
   'categorias',
   'grupos',
+  'interpretaciones',
 ]
 
 /** Pestaña de `?pestana=`; un valor ausente o inválido abre Parámetros (D1). */
