@@ -18,7 +18,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
  *
  * <p>Refs: T-02.3, ADR-0005, ADR-0014
  */
-public final class AutenticacionSiglim extends JwtAuthenticationToken {
+public final class AutenticacionSiglim extends JwtAuthenticationToken implements SesionSiglim {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -31,6 +31,7 @@ public final class AutenticacionSiglim extends JwtAuthenticationToken {
     }
 
     /** {@code perfiles.id} del usuario: el que registran la auditoría y los historiales. */
+    @Override
     public UUID perfilId() {
         return perfilId;
     }

@@ -21,7 +21,7 @@ import org.springframework.stereotype.Repository;
  * <p>Los listados filtran por ámbito en el {@code WHERE} y el {@code COUNT} usa la misma condición,
  * para que {@code totalElementos} no delate filas ajenas (ADR-0007).
  *
- * <p>Refs: H-29.1, H-30.1, RF-137, RF-138, RF-140, VAL-028, ADR-0007
+ * <p>Refs: H-29.1, H-30.1, B-31.1, RF-137, RF-138, RF-140, RF-141, VAL-028, ADR-0007, ADR-0009
  */
 @Repository
 class CobroRepository {
@@ -100,6 +100,34 @@ class CobroRepository {
                 .param("id", id)
                 .param("ligaId", ligaId)
                 .update() == 1;
+    }
+
+    /**
+     * Vence de una vez todos los cobros {@code PENDIENTE} de la liga cuya fecha límite ya pasó
+     * (RF-141, DEC-60). La condición sobre el estado hace la operación idempotente (ADR-0009 §2):
+     * una segunda ejecución, o una concurrente, no encuentra filas.
+     *
+     * @param hoy día de negocio en {@code America/Mexico_City}; el día límite aún se puede pagar
+     * @return solo los cobros que cambiaron en esta ejecución
+     */
+    List<CobroVencidoFila> vencerPendientes(UUID ligaId, LocalDate hoy) {
+        return jdbc.sql("""
+                        UPDATE cobros
+                           SET estado = 'VENCIDO', actualizado_en = now()
+                         WHERE liga_id = :ligaId AND estado = 'PENDIENTE' AND fecha_limite < :hoy
+                        RETURNING id, liga_id, club_id, equipo_id, tipo, monto, fecha_limite
+                        """)
+                .param("ligaId", ligaId)
+                .param("hoy", hoy)
+                .query((fila, numero) -> new CobroVencidoFila(
+                        fila.getObject("id", UUID.class),
+                        fila.getObject("liga_id", UUID.class),
+                        fila.getObject("club_id", UUID.class),
+                        fila.getObject("equipo_id", UUID.class),
+                        TipoCobro.valueOf(fila.getString("tipo")),
+                        fila.getBigDecimal("monto"),
+                        fila.getObject("fecha_limite", LocalDate.class)))
+                .list();
     }
 
     List<CobroDto> listar(UUID ligaId, FiltroCobros filtro, AlcanceAutorizacion alcance) {
@@ -198,6 +226,11 @@ class CobroRepository {
     /** Valores que se escriben en un cobro. */
     record DatosCobro(UUID clubId, UUID equipoId, TipoCobro tipo, String concepto, BigDecimal monto,
                       LocalDate periodoInicio, LocalDate fechaLimite) {
+    }
+
+    /** Cobro que la tarea de vencimiento pasó a {@code VENCIDO}; {@code equipoId} es nulo en los cobros al club. */
+    record CobroVencidoFila(UUID id, UUID ligaId, UUID clubId, UUID equipoId, TipoCobro tipo, BigDecimal monto,
+                            LocalDate fechaLimite) {
     }
 
     /** Equipo y club al que pertenece. */

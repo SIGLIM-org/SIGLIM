@@ -96,7 +96,7 @@ repositorio + prueba del servicio).
 - **Eventos:** efectos que forman parte de la operación crítica → oyente síncrono en la misma
   transacción; correo → bandeja de salida (ADR-0006, ADR-0010).
 - **Tareas programadas:** `@Scheduled` con actualización condicional idempotente y usuario Sistema
-  (ADR-0009). Usa el `Clock` inyectable, nunca `now()` directo en Java.
+  (ADR-0009; detalle en «Tareas programadas»). Usa el `Clock` inyectable, nunca `now()` directo en Java.
 - **Usuario actual:** `UsuarioActual.idRequerido()` (UUID = `perfiles.id`, que también va en el claim
   `perfil_id`). Llena `creado_por`, `validado_por`, etc. explícitamente; los historiales los llenan
   los triggers. En cambios de estado llama `motivoOperacion.fijar(motivo)` dentro de la transacción,
@@ -104,6 +104,33 @@ repositorio + prueba del servicio).
 - **Configuración:** variables nuevas en `application.yml` con `${VARIABLE}` y documentadas en
   `.env.example`. Propiedades propias bajo el prefijo `siglim.`.
 - **Sin** JPA, Lombok, `ddl-auto`, Flyway ni dependencias nuevas sin justificar.
+
+## Tareas programadas (ADR-0009)
+
+- **Dónde:** un método `@Scheduled` del servicio del módulo dueño (`@EnableScheduling` ya está en
+  `compartido.config.TareasConfig`), con `zone = "America/Mexico_City"` y el cron en
+  `application.yml` bajo `siglim.tareas.<tarea>.cron`. Ejemplo: `tesoreria.VencimientoCobrosService`.
+- **Como Sistema:** una tarea no tiene sesión. Envuelve el trabajo en
+  `EjecutorSistema#ejecutar(...)` y abre la transacción **dentro** (con `TransactionTemplate`): así
+  `GestorTransaccionesSiglim` fija `{"perfil_id":"<Sistema>"}` y `siglim_app`, y
+  `UsuarioActual.idRequerido()` y la auditoría devuelven el perfil Sistema. El ejecutor se niega
+  dentro de una petición HTTP, de una transacción abierta o con otra sesión en el hilo, y limpia el
+  contexto en `finally`. El UUID del perfil Sistema solo está en `EjecutorSistema.PERFIL_SISTEMA`.
+
+  ```java
+  ejecutorSistema.ejecutar(() -> transaccion.execute(estado -> vencerEnTransaccion(hoy)));
+  ```
+- **Idempotencia:** un `UPDATE ... WHERE <estado de origen> AND <ya pasó el momento> RETURNING`; solo
+  las filas devueltas se auditan (con el motivo fijo, también en `motivoOperacion.fijar`) y publican
+  eventos, en la misma transacción. «Hoy» se calcula con el `Clock` inyectado en la zona de México.
+- **Configuración:** `siglim.tareas.<tarea>.habilitada` (true por defecto) apaga el cron y la
+  ejecución al arrancar (`ApplicationReadyEvent`) si la tarea la tiene. Bitácora: un `INFO` por
+  ejecución con cantidad y duración, sin datos personales; un error se registra como `ERROR` y no
+  se propaga al planificador.
+- **Pruebas:** `src/test/resources/config/application.yml` deja **todas** las tareas en
+  `habilitada: false`, para que ningún contexto de prueba las dispare solo; agrega ahí cada tarea
+  nueva. Sus pruebas construyen el servicio con un `Clock.fixed(...)` y llaman al método
+  directamente (ver `VencimientoCobrosIT`).
 
 ## Pruebas
 
