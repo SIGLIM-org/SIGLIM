@@ -9,6 +9,7 @@ import { PantallaEstructuraTemporada } from '@/features/temporadas/PantallaEstru
 import type {
   Categoria,
   CategoriaTemporada,
+  InterpretacionRegla,
   ParametrosPredeterminados,
   ParametrosTemporada,
   ResumenVersion,
@@ -17,10 +18,13 @@ import type {
 } from '@/features/temporadas/tipos'
 import type { Permiso } from '@/features/seguridad/tipos'
 import { ApiError } from '@/lib/api/ApiError'
+import type { Pagina } from '@/lib/api/tipos'
 
 export const CONSULTAR = 'temporadas.temporada:CONSULTAR'
 export const EDITAR = 'temporadas.temporada:EDITAR'
 export const EDITAR_PARAMETROS = 'temporadas.parametros:EDITAR'
+export const REGISTRAR_INTERPRETACION = 'temporadas.interpretacion:REGISTRAR'
+export const APROBAR_INTERPRETACION = 'temporadas.interpretacion:APROBAR'
 export const MOTIVO = 'Ajuste acordado en la asamblea de la Liga'
 
 export const TEMPORADA: Temporada = {
@@ -145,6 +149,91 @@ export function permisos(...codigos: string[]): Permiso[] {
   return codigos.map((codigo) => ({ codigo, modulo: 'M-02', ambito: 'LIGA', clubId: null }))
 }
 
+/* ------------------------------------------------------------------------------------------- *
+ * Interpretaciones de regla (B-03.2, RF-007).
+ * ------------------------------------------------------------------------------------------- */
+
+/** Igual que el API: de la más reciente a la más antigua (RF-007). */
+export const INTERPRETACIONES: InterpretacionRegla[] = [
+  {
+    id: 'int-2',
+    temporadaId: 't-1',
+    descripcion:
+      'Cuando la cancha se inunda, el programador puede mover el partido a otra cancha de la misma jornada.',
+    estado: 'PENDIENTE',
+    registradaPor: 'perfil-1',
+    registradaEn: '2026-11-05T11:15:00-06:00',
+  },
+  {
+    id: 'int-1',
+    temporadaId: 't-1',
+    descripcion:
+      'Si un equipo no se presenta y avisa con 48 horas, se reprograma sin sanción; si no avisa, se le da el partido por perdido.',
+    estado: 'PENDIENTE',
+    registradaPor: 'perfil-2',
+    registradaEn: '2026-11-04T09:30:00-06:00',
+  },
+  {
+    id: 'int-3',
+    temporadaId: 't-1',
+    descripcion:
+      'Un jugador expulsado por doble amarilla cumple la suspensión en la siguiente jornada de su categoría.',
+    estado: 'AUTORIZADA',
+    registradaPor: 'perfil-2',
+    registradaEn: '2026-11-02T08:00:00-06:00',
+    resueltaPor: 'perfil-1',
+    resueltaEn: '2026-11-03T10:20:00-06:00',
+    observaciones: 'Se autoriza: coincide con el criterio de la Comisión de Disciplina.',
+  },
+  {
+    id: 'int-4',
+    temporadaId: 't-1',
+    descripcion:
+      'Los partidos de liguilla se definen por penales aunque exista ventaja deportiva en la tabla.',
+    estado: 'RECHAZADA',
+    registradaPor: 'perfil-2',
+    registradaEn: '2026-11-01T09:00:00-06:00',
+    resueltaPor: 'perfil-1',
+    resueltaEn: '2026-11-02T09:40:00-06:00',
+    observaciones:
+      'No procede: la ventaja deportiva ya está prevista en los parámetros de la temporada.',
+  },
+]
+
+/** Envoltura paginada con la forma real del API (convenciones §4). */
+export function paginaDe<T>(contenido: T[], cambios: Partial<Pagina<T>> = {}): Pagina<T> {
+  const totalElementos = cambios.totalElementos ?? contenido.length
+
+  return {
+    contenido,
+    pagina: 0,
+    tamano: 10,
+    totalElementos,
+    totalPaginas: totalElementos === 0 ? 0 : Math.ceil(totalElementos / 10),
+    ...cambios,
+  }
+}
+
+/** Respuestas del listado de interpretaciones para todos los filtros y la primera página. */
+export function respuestasInterpretaciones(
+  todas: readonly InterpretacionRegla[] = INTERPRETACIONES,
+): RespuestasGet {
+  const base = 'interpretaciones-regla?temporadaId=t-1&pagina=0&tamano=10'
+
+  return {
+    [base]: paginaDe([...todas]),
+    [`${base}&estado=PENDIENTE`]: paginaDe(
+      todas.filter((interpretacion) => interpretacion.estado === 'PENDIENTE'),
+    ),
+    [`${base}&estado=AUTORIZADA`]: paginaDe(
+      todas.filter((interpretacion) => interpretacion.estado === 'AUTORIZADA'),
+    ),
+    [`${base}&estado=RECHAZADA`]: paginaDe(
+      todas.filter((interpretacion) => interpretacion.estado === 'RECHAZADA'),
+    ),
+  }
+}
+
 export function errorApi(
   status: number,
   codigo: string,
@@ -164,6 +253,7 @@ export function respuestasPorDefecto(cambios: RespuestasGet = {}): RespuestasGet
     'temporadas/t-1/categorias': CATEGORIAS_TEMPORADA,
     'temporadas/t-1/parametros': CON_VERSION,
     'temporadas/t-1/parametros/1': version(1),
+    ...respuestasInterpretaciones(),
     ...cambios,
   }
 }
