@@ -34,8 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
  * consulta de los pagos e intentos de un cobro (RF-140).
  *
  * <p>Es una clase aparte de {@link CobroService} porque usa otros permisos
- * ({@code tesoreria.pago:*}) y el almacenamiento de documentos, que el alta de cobros no necesita; el
- * pago simulado (RF-138) se agregará aquí.
+ * ({@code tesoreria.pago:*}) y el almacenamiento de documentos, que el alta de cobros no necesita. El
+ * pago simulado (RF-138) vive en {@link PagoSimuladoService}.
  *
  * <ul>
  *   <li><b>Ámbito (ADR-0007).</b> El pago pertenece al club del cobro: se autoriza con
