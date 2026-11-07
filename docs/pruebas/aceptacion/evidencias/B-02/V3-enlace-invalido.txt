@@ -1,2 +1,2 @@
-{"detail":"La temporada «Temporada B-02 de aceptacion» está cerrada: su convocatoria es de solo lectura.","instance":"/api/v1/temporadas/7f5d9ef9-222c-4138-9474-6fbf21c25df5/convocatoria","status":409,"title":"Conflicto con el estado actual","type":"https://siglim.mx/errores/rf-003","codigo":"RF-003"}
-409
+{"detail":"El enlace de la convocatoria debe empezar por http:// o https://.","instance":"/api/v1/temporadas/27a1639c-573b-46ea-8413-7c00299d98b7/convocatoria","status":400,"title":"Solicitud inválida","type":"https://siglim.mx/errores/validacion","codigo":"VALIDACION"}
+400

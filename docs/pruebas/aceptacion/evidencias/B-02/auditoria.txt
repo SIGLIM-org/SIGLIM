@@ -1,8 +1,7 @@
-eventos de convocatorias: 7
-ASOCIAR_CONVOCATORIA {'version': '2.0', 'referencia': 'Convocatoria B-02 actualizada', 'temporadaId': '7f5d9ef9-222c-4138-9474-6fbf21c25df5', 'documentoUrl': None, 'versionAnterior': '1.0', 'referenciaAnterior': 'Convocatoria B-02', 'documentoUrlAnterior': 'https://liga.mx/convocatoria-b02.pdf'}
-ASOCIAR_CONVOCATORIA {'version': '1.0', 'referencia': 'Convocatoria B-02', 'temporadaId': '7f5d9ef9-222c-4138-9474-6fbf21c25df5', 'documentoUrl': 'https://liga.mx/convocatoria-b02.pdf', 'versionAnterior': None, 'referenciaAnterior': 'No deberia funcionar', 'documentoUrlAnterior': None}
-ASOCIAR_CONVOCATORIA {'version': None, 'referencia': 'No deberia funcionar', 'temporadaId': '7f5d9ef9-222c-4138-9474-6fbf21c25df5', 'documentoUrl': None, 'versionAnterior': '2.0', 'referenciaAnterior': 'Convocatoria B-02 actualizada', 'documentoUrlAnterior': None}
-ASOCIAR_CONVOCATORIA {'version': '2.0', 'referencia': 'Convocatoria B-02 actualizada', 'temporadaId': '7f5d9ef9-222c-4138-9474-6fbf21c25df5', 'documentoUrl': None, 'versionAnterior': '1.0', 'referenciaAnterior': 'Convocatoria B-02', 'documentoUrlAnterior': 'https://liga.mx/convocatoria-b02.pdf'}
-ASOCIAR_CONVOCATORIA {'version': '1.0', 'referencia': 'Convocatoria B-02', 'temporadaId': '7f5d9ef9-222c-4138-9474-6fbf21c25df5', 'documentoUrl': 'https://liga.mx/convocatoria-b02.pdf', 'versionAnterior': '2.0', 'referenciaAnterior': 'Convocatoria B-02 actualizada', 'documentoUrlAnterior': None}
-ASOCIAR_CONVOCATORIA {'version': '2.0', 'referencia': 'Convocatoria B-02 actualizada', 'temporadaId': '7f5d9ef9-222c-4138-9474-6fbf21c25df5', 'documentoUrl': None, 'versionAnterior': '1.0', 'referenciaAnterior': 'Convocatoria B-02', 'documentoUrlAnterior': 'https://liga.mx/convocatoria-b02.pdf'}
-ASOCIAR_CONVOCATORIA {'version': '1.0', 'referencia': 'Convocatoria B-02', 'temporadaId': '7f5d9ef9-222c-4138-9474-6fbf21c25df5', 'documentoUrl': 'https://liga.mx/convocatoria-b02.pdf'}
+eventos de convocatorias y cierre: 3
+2026-11-06 18:58:22 · M-02 · ASOCIAR_CONVOCATORIA sobre convocatorias · perfil 11111111-1111-4111-8111-000000000001
+  {"version":"1.0","referencia":"Convocatoria B-02","temporadaId":"27a1639c-573b-46ea-8413-7c00299d98b7","documentoUrl":"https://liga.mx/convocatoria-b02.pdf"}
+2026-11-06 18:58:23 · M-02 · ASOCIAR_CONVOCATORIA sobre convocatorias · perfil 11111111-1111-4111-8111-000000000001
+  {"version":"2.0","referencia":"Convocatoria B-02 actualizada","temporadaId":"27a1639c-573b-46ea-8413-7c00299d98b7","documentoUrl":null,"versionAnterior":"1.0","referenciaAnterior":"Convocatoria B-02","documentoUrlAnterior":"https://liga.mx/convocatoria-b02.pdf"}
+2026-11-06 18:58:29 · M-02 · CERRAR_TEMPORADA sobre temporadas · perfil 22222222-2222-4222-8222-000000000002
+  {"estado":"CERRADA","estadoAnterior":"ACTIVA"}
