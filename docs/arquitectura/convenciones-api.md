@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 3.9 · 7 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 4.0 · 7 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -38,6 +38,7 @@ Versión 3.9 · 7 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 3.7 | 6 de noviembre de 2026 | H-31.1: §6.13 con el contrato del pago externo con comprobante (`POST /cobros/{id}/pagos`, `multipart/form-data`) y de la consulta de pagos e intentos (`GET /cobros/{id}/pagos`), su orden de validación, errores y auditoría (DEC-56). |
 | 3.8 | 6 de noviembre de 2026 | H-30.1: §6.13 con el contrato del pago en línea simulado (`POST /cobros/{id}/intentos-pago` y `POST /intentos-pago/{id}/confirmacion`), la referencia ficticia, la confirmación atómica, sus errores, auditoría y evento `CobroPagado` (RF-138, VAL-028, RNF-004, ADR-0012). |
 | 3.9 | 7 de noviembre de 2026 | B-03.1: §6.2 con el contrato de las interpretaciones de regla (RF-007): alta en `PENDIENTE` con la autoría de la sesión, listado con paginación y filtros, resolución por sub-recurso como acción de estado, la separación de funciones de DEC-57, las observaciones del rechazo de DEC-58 y la temporada cerrada de DEC-59; auditoría `REGISTRAR_INTERPRETACION` y `RESOLVER_INTERPRETACION`. |
+| 4.0 | 7 de noviembre de 2026 | B-31.1: §6.13 aclara que el estado `VENCIDO` lo fija la tarea programada de vencimiento (RF-141, DEC-60) y ningún endpoint. |
 
 ## Índice
 
@@ -1018,6 +1019,11 @@ los módulos; los endpoints `/reportes` y la exportación son B.
 
 La pantalla de pago simulado muestra siempre «Pago simulado: no se realiza ningún cargo». La API
 **no acepta** datos de tarjeta en ningún campo.
+
+Ningún endpoint pone un cobro en `VENCIDO`: lo hace la tarea programada de vencimiento (B-31.1,
+RF-141, ADR-0009) como el perfil Sistema, para los cobros `PENDIENTE` con `fecha_limite` anterior al
+día de hoy en `America/Mexico_City` **[PROPUESTA, DEC-60]**, con la acción de auditoría
+`VENCER_COBRO`. Desde ahí el cobro solo admite el pago externo (`POST /cobros/{id}/pagos`).
 
 #### Cobros (H-29.1, RF-137, RF-140)
 
