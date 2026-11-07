@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -18,6 +20,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
@@ -106,6 +109,8 @@ public final class ArnesAutorizacionEndpoint {
         private String plantillaUri;
         private Object[] variablesUri = new Object[0];
         private String cuerpoJson;
+        private MockMultipartFile archivo;
+        private final Map<String, String> camposMultipart = new LinkedHashMap<>();
         private Object[] dobles = new Object[0];
         private Consumer<RuntimeException> simuladorDenegacion;
         private boolean soloSesion;
@@ -135,6 +140,17 @@ public final class ArnesAutorizacionEndpoint {
          */
         public Constructor cuerpoJson(String json) {
             this.cuerpoJson = Objects.requireNonNull(json, "json");
+            return this;
+        }
+
+        /**
+         * Cuerpo {@code multipart/form-data} <b>válido</b> (H-31.1): el archivo y los campos de texto.
+         * Como con {@link #cuerpoJson}, debe superar {@code @Valid} para que se ejercite el
+         * {@code 403}/{@code 404} del servicio.
+         */
+        public Constructor cuerpoMultipart(MockMultipartFile archivo, Map<String, String> campos) {
+            this.archivo = Objects.requireNonNull(archivo, "archivo");
+            this.camposMultipart.putAll(campos);
             return this;
         }
 
@@ -296,6 +312,11 @@ public final class ArnesAutorizacionEndpoint {
             }
             if (cuerpoJson != null) {
                 peticion.contentType(MediaType.APPLICATION_JSON).content(cuerpoJson);
+            }
+            if (archivo != null) {
+                var multipart = peticion.multipart().file(archivo);
+                camposMultipart.forEach(multipart::param);
+                return multipart.exchange();
             }
             return peticion.exchange();
         }

@@ -8,10 +8,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
+import mx.tecnm.morelia.siglim.compartido.almacenamiento.AlmacenamientoEnMemoriaPrueba;
 import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -34,6 +36,9 @@ import org.testcontainers.utility.MountableFile;
  * <p>El pool tiene una sola conexión para comprobar que el contexto no se filtra de una
  * transacción a la siguiente, como ocurriría en el pooler de Supabase.
  *
+ * <p>AWS S3 se reemplaza por {@link AlmacenamientoEnMemoriaPrueba} (DEC-56): ninguna prueba llama a
+ * AWS y, al importarse aquí, todas las {@code *IT} siguen compartiendo el mismo contexto.
+ *
  * <p>Requiere Docker; sin Docker las pruebas se omiten (decisión del equipo del 22 oct 2026).
  */
 @SpringBootTest(properties = {
@@ -46,6 +51,7 @@ import org.testcontainers.utility.MountableFile;
         "SIGLIM_CORS_ORIGEN=http://localhost:5173",
         "spring.datasource.hikari.maximum-pool-size=1"
 })
+@Import(AlmacenamientoEnMemoriaPrueba.class)
 @Testcontainers(disabledWithoutDocker = true)
 public abstract class BaseDatosPrueba {
 
