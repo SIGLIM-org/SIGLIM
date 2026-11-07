@@ -36,7 +36,7 @@ Versión 3.8 · 6 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 3.5 | 5 de noviembre de 2026 | DEF-03 (SCRUM-398): §6.1 precisa que la invitación envía `redirect_to` a `/restablecer-contrasena` del frontend, que `409 DUPLICADO` también cubre un correo con cuenta en Supabase Auth (`email_exists`) y que cualquier otro rechazo de Supabase Auth responde `503`. |
 | 3.6 | 5 de noviembre de 2026 | H-29.1: §6.13 con el contrato de cobros manuales (`POST /cobros`) y de la consulta de cobros y adeudos (`GET /cobros`, `GET /adeudos`), sus filtros, montos `BigDecimal`, errores y acciones de auditoría. |
 | 3.7 | 6 de noviembre de 2026 | H-31.1: §6.13 con el contrato del pago externo con comprobante (`POST /cobros/{id}/pagos`, `multipart/form-data`) y de la consulta de pagos e intentos (`GET /cobros/{id}/pagos`), su orden de validación, errores y auditoría (DEC-56). |
-| 3.8 | 6 de noviembre de 2026 | H-30.1: §6.13 con el contrato del pago en línea simulado (`POST /cobros/{id}/intentos-pago` y `POST /intentos-pago/{id}/confirmacion`), la referencia ficticia, la confirmación atómica, sus errores, auditoría y evento `CobroPagado` (RF-138, VAL-028, RNF-004, ADR-0012). |
+| 3.8 | 6 de noviembre de 2026 | B-03.1: §6.2 con el contrato de las interpretaciones de regla (RF-007): alta en `PENDIENTE` con la autoría de la sesión, listado con paginación y filtros, resolución por sub-recurso como acción de estado, la separación de funciones de DEC-57, las observaciones del rechazo de DEC-58 y la temporada cerrada de DEC-59; auditoría `REGISTRAR_INTERPRETACION` y `RESOLVER_INTERPRETACION`. |
 
 ## Índice
 
@@ -451,7 +451,7 @@ contrato; la denegación VAL-022 sobre las asignaciones y el estado de la propia
 | `GET /grupos?categoriaTemporadaId=` · `GET /grupos/{id}` · `POST /grupos` · `PATCH /grupos/{id}` | Grupos | `temporadas.temporada:CONSULTAR` en los `GET`; `temporadas.temporada:EDITAR` en `POST` y `PATCH` | RF-005 | N |
 | `GET /temporadas/{id}/parametros` · `GET /temporadas/{id}/parametros/{version}` · `POST /temporadas/{id}/parametros` | Versiones de parámetros; `POST` crea una versión nueva, nunca edita la vigente | `temporadas.temporada:CONSULTAR` en los `GET`; `temporadas.parametros:EDITAR` en `POST` | RF-006, RF-100 | N |
 | `PUT /temporadas/{id}/convocatoria` | Referencia de la convocatoria | `temporadas.convocatoria:EDITAR` | RF-002 | B |
-| `GET /interpretaciones-regla` · `POST` · `POST …/{id}/resolucion` | Reglas interpretadas | `temporadas.interpretacion:*` | RF-007 | B |
+| `GET /interpretaciones-regla` · `POST /interpretaciones-regla` · `POST /interpretaciones-regla/{id}/resolucion` | Reglas interpretadas | `temporadas.interpretacion:REGISTRAR` en el alta, `temporadas.interpretacion:APROBAR` en la resolución; el `GET` acepta cualquiera de las dos | RF-003, RF-006, RF-007 | B |
 
 **Temporada.** `GET /temporadas?pagina=&tamano=` responde la envoltura de paginación (§4) con
 `contenido` ordenado por `fechaInicio` descendente. Cada fila trae `id`, `nombre`, `fechaInicio`,
@@ -492,6 +492,38 @@ no empieza por `http://` o `https://`; `404` igual que una temporada inexistente
 fila y la tabla no guarda historial. `creadoEn` es la fecha de la primera asociación: el reemplazo
 no la modifica, así que la interfaz la muestra como «Asociada el…». La temporada puede quedar sin
 convocatoria mientras se configura (CU-001).
+
+**Reglas interpretadas (B-03.1, RF-007, RN-006, DEC-57 a DEC-59).** Cuando una regla no es
+explícita, se registra una interpretación administrativa que **no** es una regla permanente y
+**no** toca los parámetros versionados (RF-006): en ningún caso escribe `parametros_temporada` ni
+afecta la tabla de posiciones. Los tres verbos comparten `/api/v1/interpretaciones-regla`:
+
+- `POST /interpretaciones-regla` con `{ "temporadaId", "descripcion" }` nace siempre
+  `PENDIENTE`: el cuerpo no admite estado, resolución ni autoría, que sale de la sesión (403
+  `VAL-015` si falta `temporadas.interpretacion:REGISTRAR`). La descripción se guarda sin espacios
+  en los extremos; vacía, `400 VALIDACION`, y de más de 2000 caracteres **[PROPUESTA]**, `400
+  VALIDACION`. Temporada inexistente o de otra liga, `404`; temporada `CERRADA`, `409 RF-003`
+  (DEC-59). Se audita como `REGISTRAR_INTERPRETACION` sobre `interpretaciones_regla`, con
+  `temporadaId` y `estado`; sin el texto completo.
+- `GET /interpretaciones-regla?temporadaId=&estado=&pagina=&tamano=` responde la envoltura de
+  paginación (§4), ordenada por `registradaEn` descendente. Cada fila trae `id`, `temporadaId`,
+  `descripcion`, `estado`, `registradaPor`, `registradaEn` y, cuando ya está resuelta,
+  `resueltaPor`, `resueltaEn` y `observaciones`. El `GET` exige cualquiera de los dos permisos
+  del recurso con ámbito de liga; un ámbito de club no alcanza los datos de la liga y responde
+  `404` idéntico a un recurso inexistente (VAL-024), con el `COUNT` bajo la misma condición.
+- `POST /interpretaciones-regla/{id}/resolucion` lleva `{ "estado": "AUTORIZADA" | "RECHAZADA",
+  "observaciones"? }` y responde `200` con la fila ya resuelta. Es una resolución de acción de
+  estado (§2.1), no un `PATCH`. El bloqueo de la fila (`FOR UPDATE`) serializa dos resoluciones
+  simultáneas. Errores en su orden: interpretación inexistente o de otra liga, `404`; sin
+  `temporadas.interpretacion:APROBAR`, `403 VAL-015`; ya resuelta, `409 RF-007` (la máquina de
+  estados la considera definitiva: la tabla guarda una sola resolución y la anterior queda solo
+  en la auditoría); `estado` ausente o `PENDIENTE`, `400 VALIDACION`; quien la registró intenta
+  resolverla aunque tenga el permiso, `403 RF-007` (DEC-57); rechazar con observaciones de menos
+  de 10 caracteres, `400 RF-007` (DEC-58) — al autorizar, las observaciones son opcionales. Se
+  audita como `RESOLVER_INTERPRETACION` con `temporadaId`, `estadoAnterior` y `estado`; al
+  rechazar, las observaciones van como motivo.
+
+No existe `PATCH` ni `DELETE`: una interpretación no se edita ni se borra, se resuelve (RF-003).
 
 **Activación y cierre.** `POST /temporadas/{id}/activacion` no lleva cuerpo y pasa
 `CONFIGURACION → ACTIVA` si la lista de verificación está completa. Errores: `409 RN-058` si otra

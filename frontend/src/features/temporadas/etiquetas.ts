@@ -1,8 +1,10 @@
-import { CircleCheck, Lock, Settings, type LucideIcon } from 'lucide-react'
+import { CircleCheck, CircleX, Clock, Lock, Settings, type LucideIcon } from 'lucide-react'
 import type { VarianteInsignia } from '@/components/ui/Insignia'
 import type {
   CriterioDesempate,
+  EstadoInterpretacion,
   EstadoTemporada,
+  FiltroEstadoInterpretacion,
   FormatoLiguilla,
   TipoCategoria,
   ValoresParametros,
@@ -20,6 +22,24 @@ export const etiquetaEstadoTemporada: Record<EstadoTemporada, EstadoVisible> = {
   ACTIVA: { texto: 'Activa', variante: 'exito', icono: CircleCheck },
   CERRADA: { texto: 'Cerrada', variante: 'neutra', icono: Lock },
 }
+
+/** Textos e insignias de una interpretación de regla (RF-007). */
+export const etiquetaEstadoInterpretacion: Record<EstadoInterpretacion, EstadoVisible> = {
+  PENDIENTE: { texto: 'Pendiente', variante: 'advertencia', icono: Clock },
+  AUTORIZADA: { texto: 'Autorizada', variante: 'exito', icono: CircleCheck },
+  RECHAZADA: { texto: 'Rechazada', variante: 'error', icono: CircleX },
+}
+
+/** Filtros de la bandeja de interpretaciones; `TODOS` no se manda al API. */
+export const filtrosInterpretaciones: readonly {
+  valor: FiltroEstadoInterpretacion
+  texto: string
+}[] = [
+  { valor: 'TODOS', texto: 'Todas' },
+  { valor: 'PENDIENTE', texto: 'Pendientes' },
+  { valor: 'AUTORIZADA', texto: 'Autorizadas' },
+  { valor: 'RECHAZADA', texto: 'Rechazadas' },
+]
 
 /** Texto y descripción breve de cada criterio de desempate (RF-050). */
 export const etiquetaCriterio: Record<CriterioDesempate, { texto: string; descripcion: string }> = {
