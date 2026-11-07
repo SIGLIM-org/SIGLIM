@@ -811,4 +811,70 @@ describe('PantallaTesoreria', () => {
       ).toBeInTheDocument()
     })
   })
+
+  describe('estado vencido (B-31.2)', () => {
+    const AYUDA_VENCIDO = 'Vencido: comunícate con Tesorería'
+    const fila = (concepto: string) => screen.getByText(concepto).closest('tr') as HTMLElement
+
+    it('B-31.2: con PAGAR sin REGISTRAR, el cobro vencido no se paga en línea y remite a Tesorería', async () => {
+      otorgar(CONSULTAR, PAGAR)
+      montar()
+
+      await screen.findByText('Arbitraje de jornada')
+
+      const filaVencida = fila('Arbitraje de jornada')
+      expect(within(filaVencida).getByText('Vencido')).toBeInTheDocument()
+      expect(within(filaVencida).getByText(AYUDA_VENCIDO)).toBeVisible()
+      expect(
+        within(filaVencida).queryByRole('button', { name: 'Pagar en línea (simulado)' }),
+      ).not.toBeInTheDocument()
+      expect(
+        within(filaVencida).queryByRole('button', { name: 'Reintentar pago' }),
+      ).not.toBeInTheDocument()
+
+      expect(within(fila('Cuota de afiliación')).queryByText(AYUDA_VENCIDO)).not.toBeInTheDocument()
+    })
+
+    it('B-31.2: con REGISTRAR sin PAGAR, el cobro vencido ofrece «Registrar pago» sin el aviso', async () => {
+      otorgar(CONSULTAR, REGISTRAR)
+      montar()
+
+      await screen.findByText('Arbitraje de jornada')
+
+      const filaVencida = fila('Arbitraje de jornada')
+      expect(
+        within(filaVencida).getByRole('button', {
+          name: 'Registrar pago de «Arbitraje de jornada»',
+        }),
+      ).toBeInTheDocument()
+      expect(screen.queryByText(AYUDA_VENCIDO)).not.toBeInTheDocument()
+    })
+
+    it('B-31.2: con PAGAR y REGISTRAR, el cobro vencido ofrece «Registrar pago» sin el aviso', async () => {
+      otorgar(CONSULTAR, PAGAR, REGISTRAR)
+      montar()
+
+      await screen.findByText('Arbitraje de jornada')
+
+      const filaVencida = fila('Arbitraje de jornada')
+      expect(
+        within(filaVencida).getByRole('button', {
+          name: 'Registrar pago de «Arbitraje de jornada»',
+        }),
+      ).toBeInTheDocument()
+      expect(screen.queryByText(AYUDA_VENCIDO)).not.toBeInTheDocument()
+    })
+
+    it('B-31.2: el filtro «Vencido» consulta solo los cobros vencidos', async () => {
+      montar()
+      await screen.findByText('Cuota de afiliación')
+
+      await userEvent.selectOptions(screen.getByLabelText('Estado'), 'Vencido')
+      await userEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }))
+
+      await waitFor(() => {
+        expect(get).toHaveBeenCalledWith('cobros?pagina=0&tamano=20&estado=VENCIDO')
+      })
+    })
+  })
 })

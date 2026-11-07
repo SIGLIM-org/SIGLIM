@@ -1,4 +1,4 @@
-import { CreditCard, ReceiptText, RotateCw } from 'lucide-react'
+import { CircleAlert, CreditCard, ReceiptText, RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Insignia } from '@/components/ui/Insignia'
 import { estadoCobro, etiquetaTipoCobro } from '@/features/tesoreria/etiquetas'
@@ -24,7 +24,9 @@ const CLASE_ETIQUETA = 'block text-label-sm text-text-muted lg:hidden'
  * visibles (RNF-007). La celda de acciones aparece si la sesión puede pagar o registrar pagos:
  * «Pagar en línea (simulado)» en los cobros `PENDIENTE` o `RECHAZADO` (H-30.2, RF-138) y
  * «Registrar pago» en los `PENDIENTE` o `VENCIDO` (H-31.2, RF-139); un cobro pagado no ofrece
- * ninguna (VAL-028).
+ * ninguna (VAL-028). Un cobro `VENCIDO` solo admite el pago externo (§6.13, DEC-60): si la sesión
+ * puede pagar en línea pero no registrar pagos (Directiva de club, F-34), la celda lo explica con
+ * el texto visible «Vencido: comunícate con Tesorería», sin plazos ni reglas añadidas (B-31.2, D-07).
  */
 export function FilaCobro({ cobro, puedePagar, onPagar, onRegistrarPago }: Props) {
   const estado = estadoCobro(cobro.estado)
@@ -51,6 +53,9 @@ export function FilaCobro({ cobro, puedePagar, onPagar, onRegistrarPago }: Props
         Reintentar pago
       </Button>
     ) : null
+
+  const avisoVencido = puedePagar && cobro.estado === 'VENCIDO' && !admiteRegistro
+  const conAcciones = accionSimulada !== null || admiteRegistro || avisoVencido
 
   return (
     <tr
@@ -107,10 +112,10 @@ export function FilaCobro({ cobro, puedePagar, onPagar, onRegistrarPago }: Props
           role="cell"
           className={[
             'block lg:table-cell lg:px-4 lg:py-3 lg:text-right',
-            accionSimulada || admiteRegistro ? 'pt-3' : 'hidden',
+            conAcciones ? 'pt-3' : 'hidden',
           ].join(' ')}
         >
-          {(accionSimulada || admiteRegistro) && (
+          {conAcciones && (
             <>
               <span className={CLASE_ETIQUETA}>Acciones</span>
               <div className="flex flex-col gap-2 lg:flex-row lg:justify-end">
@@ -125,6 +130,12 @@ export function FilaCobro({ cobro, puedePagar, onPagar, onRegistrarPago }: Props
                   >
                     Registrar pago
                   </Button>
+                )}
+                {avisoVencido && (
+                  <p className="flex items-start gap-1.5 text-left text-body-sm text-error-strong lg:justify-end">
+                    <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                    Vencido: comunícate con Tesorería
+                  </p>
                 )}
               </div>
             </>

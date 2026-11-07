@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   Check,
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/Button'
 import { Insignia } from '@/components/ui/Insignia'
 import { useDialogoModal } from '@/components/ui/useDialogoModal'
 import {
+  clavesTesoreria,
   useConfirmarPagoSimulado,
   useIniciarPagoSimulado,
 } from '@/features/tesoreria/api'
@@ -45,6 +47,11 @@ const PASOS = [
 
 function detalleDe(error: unknown, respaldo: string): string {
   return error instanceof ApiError ? error.problema.detail : respaldo
+}
+
+/** Código del problema RFC 9457 o `null` si el fallo no vino de la API. */
+function codigoDe(error: unknown): string | null {
+  return error instanceof ApiError ? error.problema.codigo : null
 }
 
 function FilaDato({
@@ -99,10 +106,15 @@ function AvisoSimulado() {
 /**
  * Flujo móvil de pago simulado de F-34 (H-30.2, RF-138, DEC-37): resumen del cobro,
  * simulación con referencia ficticia y comprobante. Solo usa los datos que expone la API;
- * no muestra folios, descargas ni cargos que el backend no genere.
+ * no muestra folios, descargas ni cargos que el backend no genere. Si el cobro ya no admite el
+ * pago en línea (`VAL-028`, p. ej. porque venció, DEC-60) o lo resolvió otra sesión
+ * (`CONCURRENCIA`), refresca los cobros y adeudos. Tras un `VAL-028` el modal ya no ofrece
+ * ninguna acción de pago en ningún paso: sin iniciar ni reintentar en el cobro y sin aprobar ni
+ * rechazar en la simulación; solo muestra el `detail` y deja cancelar, volver o cerrar (B-31.2).
  */
 export function ModalPagoSimulado({ cobro, onCerrar }: Props) {
   const dialogoRef = useDialogoModal()
+  const clienteConsultas = useQueryClient()
   const iniciar = useIniciarPagoSimulado()
   const confirmar = useConfirmarPagoSimulado()
   const [paso, setPaso] = useState<Paso>(1)
@@ -110,6 +122,7 @@ export function ModalPagoSimulado({ cobro, onCerrar }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [resultadoEnCurso, setResultadoEnCurso] =
     useState<ResultadoPagoSimulado | null>(null)
+  const [cobroNoPagable, setCobroNoPagable] = useState(false)
   const refTituloPaso = useRef<HTMLHeadingElement>(null)
   const id = useId()
   const idTitulo = `${id}-titulo`
@@ -138,9 +151,7 @@ export function ModalPagoSimulado({ cobro, onCerrar }: Props) {
         setPaso(2)
       },
       onError: (fallo) =>
-        setError(
-          detalleDe(fallo, 'No se pudo iniciar el pago simulado. Intenta de nuevo.'),
-        ),
+        alFallar(fallo, 'No se pudo iniciar el pago simulado. Intenta de nuevo.'),
     })
   }
 
@@ -159,16 +170,36 @@ export function ModalPagoSimulado({ cobro, onCerrar }: Props) {
           setPaso(3)
         },
         onError: (fallo) =>
-          setError(
-            detalleDe(fallo, 'No se pudo confirmar el pago simulado. Intenta de nuevo.'),
-          ),
+          alFallar(fallo, 'No se pudo confirmar el pago simulado. Intenta de nuevo.'),
         onSettled: () => setResultadoEnCurso(null),
       },
     )
   }
 
+  /**
+   * Trata el fallo de iniciar o confirmar por su `codigo` (nunca por el texto) y muestra siempre
+   * el `detail` de la API.
+   */
+  const alFallar = (fallo: unknown, respaldo: string) => {
+    switch (codigoDe(fallo)) {
+      case 'VAL-028':
+        // El cobro cambió de estado (pagado o vencido): ya no admite el pago simulado.
+        setCobroNoPagable(true)
+        void clienteConsultas.invalidateQueries({ queryKey: clavesTesoreria.todas })
+        break
+      case 'CONCURRENCIA':
+        // Otra sesión resolvió el intento: se refresca la tabla para ver el estado real.
+        void clienteConsultas.invalidateQueries({ queryKey: clavesTesoreria.todas })
+        break
+    }
+    setError(detalleDe(fallo, respaldo))
+  }
+
   const volverAlCobro = () => {
-    setError(null)
+    // Tras un VAL-028 se conserva el detalle: el paso 1 ya no ofrece pagar y lo explica.
+    if (!cobroNoPagable) {
+      setError(null)
+    }
     setPaso(1)
   }
 
@@ -301,15 +332,17 @@ export function ModalPagoSimulado({ cobro, onCerrar }: Props) {
               <Button variante="secundario" onClick={onCerrar} disabled={procesando}>
                 Cancelar
               </Button>
-              <Button
-                icono={CreditCard}
-                onClick={iniciarIntento}
-                cargando={iniciar.isPending}
-              >
-                {cobro.estado === 'RECHAZADO'
-                  ? 'Reintentar pago simulado'
-                  : 'Iniciar pago simulado'}
-              </Button>
+              {!cobroNoPagable && (
+                <Button
+                  icono={CreditCard}
+                  onClick={iniciarIntento}
+                  cargando={iniciar.isPending}
+                >
+                  {cobro.estado === 'RECHAZADO'
+                    ? 'Reintentar pago simulado'
+                    : 'Iniciar pago simulado'}
+                </Button>
+              )}
             </div>
           </>
         )}
@@ -358,23 +391,27 @@ export function ModalPagoSimulado({ cobro, onCerrar }: Props) {
             {error && <MensajeError>{error}</MensajeError>}
 
             <div className="flex flex-col gap-2">
-              <Button
-                icono={CircleCheck}
-                onClick={() => confirmarResultado('APROBADO')}
-                cargando={resultadoEnCurso === 'APROBADO'}
-                disabled={confirmar.isPending}
-              >
-                Aprobar pago simulado
-              </Button>
-              <Button
-                variante="secundario"
-                icono={CircleX}
-                onClick={() => confirmarResultado('RECHAZADO')}
-                cargando={resultadoEnCurso === 'RECHAZADO'}
-                disabled={confirmar.isPending}
-              >
-                Rechazar pago simulado
-              </Button>
+              {!cobroNoPagable && (
+                <>
+                  <Button
+                    icono={CircleCheck}
+                    onClick={() => confirmarResultado('APROBADO')}
+                    cargando={resultadoEnCurso === 'APROBADO'}
+                    disabled={confirmar.isPending}
+                  >
+                    Aprobar pago simulado
+                  </Button>
+                  <Button
+                    variante="secundario"
+                    icono={CircleX}
+                    onClick={() => confirmarResultado('RECHAZADO')}
+                    cargando={resultadoEnCurso === 'RECHAZADO'}
+                    disabled={confirmar.isPending}
+                  >
+                    Rechazar pago simulado
+                  </Button>
+                </>
+              )}
               <Button
                 variante="secundario"
                 icono={ArrowLeft}
