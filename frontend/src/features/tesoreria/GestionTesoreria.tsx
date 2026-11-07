@@ -5,6 +5,8 @@ import { ErrorConsulta } from '@/components/ui/ErrorConsulta'
 import { EstadoCarga } from '@/components/ui/EstadoCarga'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { ConPermiso } from '@/features/seguridad/ConPermiso'
+import { useSesionActual } from '@/features/seguridad/ProveedorSesionActual'
+import { tienePermiso } from '@/features/seguridad/permisos'
 import { useAdeudos, useClubesTesoreria, useCobros } from '@/features/tesoreria/api'
 import { formatearMonto } from '@/features/tesoreria/fechas'
 import {
@@ -14,6 +16,7 @@ import {
 } from '@/features/tesoreria/filtros'
 import { FormularioFiltrosCobros } from '@/features/tesoreria/FormularioFiltrosCobros'
 import { ModalNuevoCobro } from '@/features/tesoreria/ModalNuevoCobro'
+import { ModalPagoSimulado } from '@/features/tesoreria/ModalPagoSimulado'
 import { PaginacionCobros } from '@/features/tesoreria/PaginacionCobros'
 import { PestanaAdeudos } from '@/features/tesoreria/PestanaAdeudos'
 import { ResumenAdeudos } from '@/features/tesoreria/ResumenAdeudos'
@@ -37,13 +40,17 @@ function contar(total: number, singular: string, plural: string): string {
 
 /**
  * Pantalla de tesorería F-33 (H-29.2, RF-137, RF-140, UI-027): resumen de adeudos, cobros con
- * filtros y paginación, desglose por club y equipo, y alta de un cobro manual. Las acciones de
- * escritura se ocultan sin permiso; el backend vuelve a autorizar cada una (VAL-015).
+ * filtros y paginación, desglose por club y equipo, alta de un cobro manual y pago simulado
+ * (H-30.2, RF-138). Las acciones de escritura se ocultan sin permiso; el backend vuelve a
+ * autorizar cada una (VAL-015).
  */
 export function GestionTesoreria() {
+  const { yo } = useSesionActual()
+  const puedePagar = tienePermiso(yo.permisos, 'tesoreria.pago:PAGAR')
   const [pestana, setPestana] = useState<Pestana>('COBROS')
   const [filtros, setFiltros] = useState<FiltrosCobros>(FILTROS_COBROS_INICIALES)
   const [creando, setCreando] = useState(false)
+  const [cobroAPagar, setCobroAPagar] = useState<Cobro | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
   const id = useId()
   const cobros = useCobros(filtros)
@@ -295,6 +302,8 @@ export function GestionTesoreria() {
                 <TablaCobros
                   cobros={datos.contenido}
                   actualizando={cobros.isPlaceholderData}
+                  puedePagar={puedePagar}
+                  onPagar={setCobroAPagar}
                 />
                 {datos.totalPaginas > 1 && (
                   <PaginacionCobros
@@ -337,6 +346,13 @@ export function GestionTesoreria() {
           onReintentarClubes={() => void clubes.refetch()}
           onCerrar={() => setCreando(false)}
           onCreado={alCrear}
+        />
+      )}
+
+      {cobroAPagar && (
+        <ModalPagoSimulado
+          cobro={cobroAPagar}
+          onCerrar={() => setCobroAPagar(null)}
         />
       )}
     </div>
