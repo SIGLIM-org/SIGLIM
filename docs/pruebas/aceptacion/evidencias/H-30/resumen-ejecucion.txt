@@ -1,0 +1,41 @@
+# H-30.3 · Prueba de aceptación del pago simulado · resumen de la ejecución
+# Ejecutada: 2026-11-08T02:41:39.108Z
+# Navegador: Microsoft Edge headless, viewport 390x844 (móvil), es-MX, America/Mexico_City.
+# Base: PostgreSQL 17.11 local efímera (contenedor siglim-h303, puerto 5433).
+
+01. [OK] Sesión iniciada como directiva de club — http://localhost:5173/app
+02. [OK] CA-1 · la lista carga los cobros del club
+03. [OK] CA-1 · el cobro de otro club no aparece en la lista
+04. [OK] CA-1 · el cobro PENDIENTE ofrece pagar en línea
+05. [OK] CA-4 · aviso de simulación en CA-1 paso 1
+06. [OK] CA-1 · paso 1 muestra el cobro
+07. [OK] CA-1 · paso 1 muestra el monto del cobro
+08. [OK] CA-4 · aviso de simulación en CA-1 paso 2
+09. [OK] CA-1 · la referencia simulada tiene el formato SIM-AAAAMMDD-XXXXXX — SIM-20261107-77D25V
+10. [OK] CA-4 · aviso de simulación en CA-1 paso 3
+11. [OK] CA-1 · el comprobante indica aprobado
+12. [OK] CA-1 · el comprobante conserva la referencia
+13. [OK] CA-1 · tras aprobar, el cobro queda PAGADO y sin acción de pago
+14. [OK] CA-2 · el segundo cobro PENDIENTE ofrece pagar en línea
+15. [OK] CA-4 · aviso de simulación en CA-2 paso 1
+16. [OK] CA-4 · aviso de simulación en CA-2 paso 2
+17. [OK] CA-2 · la referencia del rechazo es válida — SIM-20261107-D7HKYS
+18. [OK] CA-4 · aviso de simulación en CA-2 paso 3 (rechazo)
+19. [OK] CA-2 · el comprobante explica que no hubo cargo y se puede reintentar
+20. [OK] CA-2 · tras rechazar, el cobro queda RECHAZADO y ofrece reintentar
+21. [OK] CA-4 · aviso de simulación en CA-2 reintento paso 1
+22. [OK] CA-2 · el reintento vuelve al paso 1 con la acción de reintentar
+23. [OK] CA-4 · aviso de simulación en CA-2 reintento paso 2
+24. [OK] CA-2 · el reintento genera una referencia nueva — SIM-20261107-D7HKYS → SIM-20261107-0GBPAJ
+25. [OK] CA-4 · aviso de simulación en CA-2 reintento paso 3
+26. [OK] CA-2 · tras el reintento aprobado, el cobro queda PAGADO
+27. [OK] CA-3 · el cobro PAGADO no ofrece acción de pago en la interfaz
+28. [OK] CA-3 · el cobro VENCIDO no ofrece acción de pago en la interfaz
+29. [OK] CA-3 · la API rechaza pagar un cobro PAGADO con 409 VAL-028 — HTTP 409 · VAL-028
+30. [OK] CA-3 · la API rechaza pagar un cobro VENCIDO con 409 VAL-028 — HTTP 409 · VAL-028
+31. [OK] CA-4 · el aviso aparece en todos los pasos recorridos — 9 pasos
+
+Comprobaciones: 31 · OK: 31 · Fallos: 0
+Errores de consola del navegador: 0
+- ninguno
+Recursos 404 no versionados (favicon del index.html): 1

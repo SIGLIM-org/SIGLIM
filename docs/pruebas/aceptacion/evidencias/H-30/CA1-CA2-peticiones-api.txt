@@ -1,0 +1,434 @@
+#1 · 2026-11-08T02:41:34.524Z
+GET http://localhost:5173/api/v1/cobros?pagina=0&tamano=20
+Petición: (sin cuerpo)
+HTTP 200
+Respuesta: {
+  "contenido": [
+    {
+      "id": "c0b00000-0000-4000-8000-000000000032",
+      "tipo": "MANUAL",
+      "concepto": "Cuota de arbitraje · rechazo y reintento",
+      "monto": 275.25,
+      "periodoInicio": "2026-11-01",
+      "fechaLimite": "2026-12-15",
+      "estado": "PENDIENTE",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000b",
+        "nombre": "Halcones B"
+      },
+      "creadoEn": "2026-11-07T16:01:00Z"
+    },
+    {
+      "id": "c0b00000-0000-4000-8000-000000000031",
+      "tipo": "MANUAL",
+      "concepto": "Cuota de inscripción · pago aprobado",
+      "monto": 1500,
+      "periodoInicio": "2026-11-01",
+      "fechaLimite": "2026-12-15",
+      "estado": "PENDIENTE",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000a",
+        "nombre": "Halcones A"
+      },
+      "creadoEn": "2026-11-07T16:00:00Z"
+    },
+    {
+      "id": "c0b00000-0000-4000-8000-000000000034",
+      "tipo": "MANUAL",
+      "concepto": "Arbitraje jornada 2 · vencido",
+      "monto": 200,
+      "periodoInicio": "2026-10-01",
+      "fechaLimite": "2026-10-31",
+      "estado": "VENCIDO",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000a",
+        "nombre": "Halcones A"
+      },
+      "creadoEn": "2026-11-07T15:59:00Z"
+    },
+    {
+      "id": "c0b00000-0000-4000-8000-000000000033",
+      "tipo": "MANUAL",
+      "concepto": "Arbitraje jornada 1 · ya pagado",
+      "monto": 400,
+      "periodoInicio": "2026-10-01",
+      "fechaLimite": "2026-11-15",
+      "estado": "PAGADO",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000a",
+        "nombre": "Halcones A"
+      },
+      "creadoEn": "2026-11-07T15:58:00Z"
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 4,
+  "totalPaginas": 1
+}
+
+#2 · 2026-11-08T02:41:35.744Z
+POST http://localhost:5173/api/v1/cobros/c0b00000-0000-4000-8000-000000000031/intentos-pago
+Petición: {}
+HTTP 201
+Respuesta: {
+  "id": "21433508-ba1e-4a73-a53e-b4e116aa934e",
+  "referencia": "SIM-20261107-77D25V",
+  "estado": "PENDIENTE",
+  "iniciadoEn": "2026-11-08T02:41:35.6836857Z"
+}
+
+#3 · 2026-11-08T02:41:36.189Z
+POST http://localhost:5173/api/v1/intentos-pago/21433508-ba1e-4a73-a53e-b4e116aa934e/confirmacion
+Petición: {"resultado":"APROBADO"}
+HTTP 200
+Respuesta: {
+  "id": "21433508-ba1e-4a73-a53e-b4e116aa934e",
+  "referencia": "SIM-20261107-77D25V",
+  "estado": "APROBADO",
+  "iniciadoEn": "2026-11-08T02:41:35.683686Z",
+  "resueltoEn": "2026-11-08T02:41:36.1291707Z"
+}
+
+#4 · 2026-11-08T02:41:36.292Z
+GET http://localhost:5173/api/v1/cobros?pagina=0&tamano=20
+Petición: (sin cuerpo)
+HTTP 200
+Respuesta: {
+  "contenido": [
+    {
+      "id": "c0b00000-0000-4000-8000-000000000032",
+      "tipo": "MANUAL",
+      "concepto": "Cuota de arbitraje · rechazo y reintento",
+      "monto": 275.25,
+      "periodoInicio": "2026-11-01",
+      "fechaLimite": "2026-12-15",
+      "estado": "PENDIENTE",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000b",
+        "nombre": "Halcones B"
+      },
+      "creadoEn": "2026-11-07T16:01:00Z"
+    },
+    {
+      "id": "c0b00000-0000-4000-8000-000000000031",
+      "tipo": "MANUAL",
+      "concepto": "Cuota de inscripción · pago aprobado",
+      "monto": 1500,
+      "periodoInicio": "2026-11-01",
+      "fechaLimite": "2026-12-15",
+      "estado": "PAGADO",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000a",
+        "nombre": "Halcones A"
+      },
+      "creadoEn": "2026-11-07T16:00:00Z"
+    },
+    {
+      "id": "c0b00000-0000-4000-8000-000000000034",
+      "tipo": "MANUAL",
+      "concepto": "Arbitraje jornada 2 · vencido",
+      "monto": 200,
+      "periodoInicio": "2026-10-01",
+      "fechaLimite": "2026-10-31",
+      "estado": "VENCIDO",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000a",
+        "nombre": "Halcones A"
+      },
+      "creadoEn": "2026-11-07T15:59:00Z"
+    },
+    {
+      "id": "c0b00000-0000-4000-8000-000000000033",
+      "tipo": "MANUAL",
+      "concepto": "Arbitraje jornada 1 · ya pagado",
+      "monto": 400,
+      "periodoInicio": "2026-10-01",
+      "fechaLimite": "2026-11-15",
+      "estado": "PAGADO",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000a",
+        "nombre": "Halcones A"
+      },
+      "creadoEn": "2026-11-07T15:58:00Z"
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 4,
+  "totalPaginas": 1
+}
+
+#5 · 2026-11-08T02:41:36.929Z
+POST http://localhost:5173/api/v1/cobros/c0b00000-0000-4000-8000-000000000032/intentos-pago
+Petición: {}
+HTTP 201
+Respuesta: {
+  "id": "f92bb086-9b1c-4084-97ba-0c3e79857005",
+  "referencia": "SIM-20261107-D7HKYS",
+  "estado": "PENDIENTE",
+  "iniciadoEn": "2026-11-08T02:41:36.8898875Z"
+}
+
+#6 · 2026-11-08T02:41:37.132Z
+POST http://localhost:5173/api/v1/intentos-pago/f92bb086-9b1c-4084-97ba-0c3e79857005/confirmacion
+Petición: {"resultado":"RECHAZADO"}
+HTTP 200
+Respuesta: {
+  "id": "f92bb086-9b1c-4084-97ba-0c3e79857005",
+  "referencia": "SIM-20261107-D7HKYS",
+  "estado": "RECHAZADO",
+  "iniciadoEn": "2026-11-08T02:41:36.889888Z",
+  "resueltoEn": "2026-11-08T02:41:37.0842761Z"
+}
+
+#7 · 2026-11-08T02:41:37.225Z
+GET http://localhost:5173/api/v1/cobros?pagina=0&tamano=20
+Petición: (sin cuerpo)
+HTTP 200
+Respuesta: {
+  "contenido": [
+    {
+      "id": "c0b00000-0000-4000-8000-000000000032",
+      "tipo": "MANUAL",
+      "concepto": "Cuota de arbitraje · rechazo y reintento",
+      "monto": 275.25,
+      "periodoInicio": "2026-11-01",
+      "fechaLimite": "2026-12-15",
+      "estado": "RECHAZADO",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000b",
+        "nombre": "Halcones B"
+      },
+      "creadoEn": "2026-11-07T16:01:00Z"
+    },
+    {
+      "id": "c0b00000-0000-4000-8000-000000000031",
+      "tipo": "MANUAL",
+      "concepto": "Cuota de inscripción · pago aprobado",
+      "monto": 1500,
+      "periodoInicio": "2026-11-01",
+      "fechaLimite": "2026-12-15",
+      "estado": "PAGADO",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000a",
+        "nombre": "Halcones A"
+      },
+      "creadoEn": "2026-11-07T16:00:00Z"
+    },
+    {
+      "id": "c0b00000-0000-4000-8000-000000000034",
+      "tipo": "MANUAL",
+      "concepto": "Arbitraje jornada 2 · vencido",
+      "monto": 200,
+      "periodoInicio": "2026-10-01",
+      "fechaLimite": "2026-10-31",
+      "estado": "VENCIDO",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000a",
+        "nombre": "Halcones A"
+      },
+      "creadoEn": "2026-11-07T15:59:00Z"
+    },
+    {
+      "id": "c0b00000-0000-4000-8000-000000000033",
+      "tipo": "MANUAL",
+      "concepto": "Arbitraje jornada 1 · ya pagado",
+      "monto": 400,
+      "periodoInicio": "2026-10-01",
+      "fechaLimite": "2026-11-15",
+      "estado": "PAGADO",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000a",
+        "nombre": "Halcones A"
+      },
+      "creadoEn": "2026-11-07T15:58:00Z"
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 4,
+  "totalPaginas": 1
+}
+
+#8 · 2026-11-08T02:41:37.787Z
+POST http://localhost:5173/api/v1/cobros/c0b00000-0000-4000-8000-000000000032/intentos-pago
+Petición: {}
+HTTP 201
+Respuesta: {
+  "id": "ef2e115d-d614-4daf-b50e-243f266ddb8a",
+  "referencia": "SIM-20261107-0GBPAJ",
+  "estado": "PENDIENTE",
+  "iniciadoEn": "2026-11-08T02:41:37.7488236Z"
+}
+
+#9 · 2026-11-08T02:41:38.160Z
+POST http://localhost:5173/api/v1/intentos-pago/ef2e115d-d614-4daf-b50e-243f266ddb8a/confirmacion
+Petición: {"resultado":"APROBADO"}
+HTTP 200
+Respuesta: {
+  "id": "ef2e115d-d614-4daf-b50e-243f266ddb8a",
+  "referencia": "SIM-20261107-0GBPAJ",
+  "estado": "APROBADO",
+  "iniciadoEn": "2026-11-08T02:41:37.748824Z",
+  "resueltoEn": "2026-11-08T02:41:38.1219028Z"
+}
+
+#10 · 2026-11-08T02:41:38.257Z
+GET http://localhost:5173/api/v1/cobros?pagina=0&tamano=20
+Petición: (sin cuerpo)
+HTTP 200
+Respuesta: {
+  "contenido": [
+    {
+      "id": "c0b00000-0000-4000-8000-000000000032",
+      "tipo": "MANUAL",
+      "concepto": "Cuota de arbitraje · rechazo y reintento",
+      "monto": 275.25,
+      "periodoInicio": "2026-11-01",
+      "fechaLimite": "2026-12-15",
+      "estado": "PAGADO",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000b",
+        "nombre": "Halcones B"
+      },
+      "creadoEn": "2026-11-07T16:01:00Z"
+    },
+    {
+      "id": "c0b00000-0000-4000-8000-000000000031",
+      "tipo": "MANUAL",
+      "concepto": "Cuota de inscripción · pago aprobado",
+      "monto": 1500,
+      "periodoInicio": "2026-11-01",
+      "fechaLimite": "2026-12-15",
+      "estado": "PAGADO",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000a",
+        "nombre": "Halcones A"
+      },
+      "creadoEn": "2026-11-07T16:00:00Z"
+    },
+    {
+      "id": "c0b00000-0000-4000-8000-000000000034",
+      "tipo": "MANUAL",
+      "concepto": "Arbitraje jornada 2 · vencido",
+      "monto": 200,
+      "periodoInicio": "2026-10-01",
+      "fechaLimite": "2026-10-31",
+      "estado": "VENCIDO",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000a",
+        "nombre": "Halcones A"
+      },
+      "creadoEn": "2026-11-07T15:59:00Z"
+    },
+    {
+      "id": "c0b00000-0000-4000-8000-000000000033",
+      "tipo": "MANUAL",
+      "concepto": "Arbitraje jornada 1 · ya pagado",
+      "monto": 400,
+      "periodoInicio": "2026-10-01",
+      "fechaLimite": "2026-11-15",
+      "estado": "PAGADO",
+      "club": {
+        "id": "e1000000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones Morelia"
+      },
+      "equipo": {
+        "id": "f1000000-0000-4000-8000-00000000000a",
+        "nombre": "Halcones A"
+      },
+      "creadoEn": "2026-11-07T15:58:00Z"
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 4,
+  "totalPaginas": 1
+}
+
+#11 · 2026-11-08T02:41:39.057Z
+POST http://localhost:8080/api/v1/cobros/c0b00000-0000-4000-8000-000000000033/intentos-pago
+Petición: {}
+HTTP 409
+Respuesta: {
+  "detail": "El cobro está PAGADO; no se puede pagar en línea.",
+  "instance": "/api/v1/cobros/c0b00000-0000-4000-8000-000000000033/intentos-pago",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/val-028",
+  "codigo": "VAL-028"
+}
+
+#12 · 2026-11-08T02:41:39.105Z
+POST http://localhost:8080/api/v1/cobros/c0b00000-0000-4000-8000-000000000034/intentos-pago
+Petición: {}
+HTTP 409
+Respuesta: {
+  "detail": "El cobro está VENCIDO; no se puede pagar en línea. Comunícate con Tesorería.",
+  "instance": "/api/v1/cobros/c0b00000-0000-4000-8000-000000000034/intentos-pago",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/val-028",
+  "codigo": "VAL-028"
+}

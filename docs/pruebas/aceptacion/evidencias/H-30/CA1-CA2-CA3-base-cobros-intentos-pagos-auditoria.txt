@@ -1,0 +1,116 @@
+\pset pager off
+El paginador no se usar�.
+\pset border 2
+El estilo de borde es 2.
+\echo '===== 1. Estado final de los cobros de la prueba ====='
+===== 1. Estado final de los cobros de la prueba =====
+SELECT c.id, cl.nombre AS club, coalesce(e.nombre, '(al club)') AS equipo, c.concepto,
+       c.monto, c.fecha_limite, c.estado
+  FROM siglim.cobros c
+  JOIN siglim.clubes cl ON cl.id = c.club_id
+  LEFT JOIN siglim.equipos e ON e.id = c.equipo_id
+ ORDER BY c.creado_en DESC, c.id;
++--------------------------------------+-----------------------+--------------+------------------------------------------+---------+--------------+-----------+
+|                  id                  |         club          |    equipo    |                 concepto                 |  monto  | fecha_limite |  estado   |
++--------------------------------------+-----------------------+--------------+------------------------------------------+---------+--------------+-----------+
+| c0b00000-0000-4000-8000-000000000032 | Club Halcones Morelia | Halcones B   | Cuota de arbitraje · rechazo y reintento |  275.25 | 2026-12-15   | PAGADO    |
+| c0b00000-0000-4000-8000-000000000031 | Club Halcones Morelia | Halcones A   | Cuota de inscripción · pago aprobado     | 1500.00 | 2026-12-15   | PAGADO    |
+| c0b00000-0000-4000-8000-000000000034 | Club Halcones Morelia | Halcones A   | Arbitraje jornada 2 · vencido            |  200.00 | 2026-10-31   | VENCIDO   |
+| c0b00000-0000-4000-8000-000000000033 | Club Halcones Morelia | Halcones A   | Arbitraje jornada 1 · ya pagado          |  400.00 | 2026-11-15   | PAGADO    |
+| c0b00000-0000-4000-8000-000000000035 | Club Riviera Morelia  | Riviera F.C. | Cuota de inscripción · club ajeno        |  125.00 | 2026-12-15   | PENDIENTE |
++--------------------------------------+-----------------------+--------------+------------------------------------------+---------+--------------+-----------+
+(5 filas)
+
+\echo ''
+
+\echo '===== 2. Intentos de pago simulados (CA-1, CA-2 y su reintento) ====='
+===== 2. Intentos de pago simulados (CA-1, CA-2 y su reintento) =====
+SELECT i.id, c.concepto, i.referencia, i.estado, i.iniciado_en, i.resuelto_en,
+       p.nombre_mostrado AS iniciado_por
+  FROM siglim.intentos_pago i
+  JOIN siglim.cobros c ON c.id = i.cobro_id
+  JOIN siglim.perfiles p ON p.id = i.iniciado_por
+ ORDER BY i.iniciado_en;
++--------------------------------------+------------------------------------------+---------------------+-----------+-------------------------------+-------------------------------+----------------------------------+
+|                  id                  |                 concepto                 |     referencia      |  estado   |          iniciado_en          |          resuelto_en          |           iniciado_por           |
++--------------------------------------+------------------------------------------+---------------------+-----------+-------------------------------+-------------------------------+----------------------------------+
+| 21433508-ba1e-4a73-a53e-b4e116aa934e | Cuota de inscripción · pago aprobado     | SIM-20261107-77D25V | APROBADO  | 2026-11-08 02:41:35.683686+00 | 2026-11-08 02:41:36.129171+00 | Directiva Halcones de aceptación |
+| f92bb086-9b1c-4084-97ba-0c3e79857005 | Cuota de arbitraje · rechazo y reintento | SIM-20261107-D7HKYS | RECHAZADO | 2026-11-08 02:41:36.889888+00 | 2026-11-08 02:41:37.084276+00 | Directiva Halcones de aceptación |
+| ef2e115d-d614-4daf-b50e-243f266ddb8a | Cuota de arbitraje · rechazo y reintento | SIM-20261107-0GBPAJ | APROBADO  | 2026-11-08 02:41:37.748824+00 | 2026-11-08 02:41:38.121903+00 | Directiva Halcones de aceptación |
++--------------------------------------+------------------------------------------+---------------------+-----------+-------------------------------+-------------------------------+----------------------------------+
+(3 filas)
+
+\echo ''
+
+\echo '===== 3. Pagos registrados (el simulado usa EN_LINEA_SIMULADO) ====='
+===== 3. Pagos registrados (el simulado usa EN_LINEA_SIMULADO) =====
+SELECT p.id, c.concepto, p.medio, p.monto, p.referencia, p.pagado_en,
+       p.registrado_por
+  FROM siglim.pagos p
+  JOIN siglim.cobros c ON c.id = p.cobro_id
+ ORDER BY p.pagado_en;
++--------------------------------------+------------------------------------------+-------------------+---------+---------------------+-------------------------------+--------------------------------------+
+|                  id                  |                 concepto                 |       medio       |  monto  |     referencia      |           pagado_en           |            registrado_por            |
++--------------------------------------+------------------------------------------+-------------------+---------+---------------------+-------------------------------+--------------------------------------+
+| d0b00000-0000-4000-8000-000000000033 | Arbitraje jornada 1 · ya pagado          | EFECTIVO          |  400.00 | SEED-EFECTIVO-001   | 2026-11-06 18:00:00+00        | a1111111-1111-4111-8111-111111111111 |
+| 07188799-e55a-4890-890a-0db6f3c30dca | Cuota de inscripción · pago aprobado     | EN_LINEA_SIMULADO | 1500.00 | SIM-20261107-77D25V | 2026-11-08 02:41:36.129171+00 | a2222222-2222-4222-8222-222222222222 |
+| 246913e6-75fd-4f8d-ac50-cec24e2c5eb6 | Cuota de arbitraje · rechazo y reintento | EN_LINEA_SIMULADO |  275.25 | SIM-20261107-0GBPAJ | 2026-11-08 02:41:38.121903+00 | a2222222-2222-4222-8222-222222222222 |
++--------------------------------------+------------------------------------------+-------------------+---------+---------------------+-------------------------------+--------------------------------------+
+(3 filas)
+
+\echo ''
+
+\echo '===== 4. Auditoría M-13 de la prueba (RF-093, VAL-016) ====='
+===== 4. Auditoría M-13 de la prueba (RF-093, VAL-016) =====
+SELECT a.accion, a.entidad, a.entidad_id, a.perfil_id, a.ocurrido_en, a.detalle
+  FROM siglim.auditoria a
+ WHERE a.modulo = 'M-13'
+ ORDER BY a.ocurrido_en;
++-------------------------+---------------+--------------------------------------+--------------------------------------+-------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|         accion          |    entidad    |              entidad_id              |              perfil_id               |          ocurrido_en          |                                                                                                    detalle                                                                                                     |
++-------------------------+---------------+--------------------------------------+--------------------------------------+-------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| INICIAR_PAGO_SIMULADO   | intentos_pago | 21433508-ba1e-4a73-a53e-b4e116aa934e | a2222222-2222-4222-8222-222222222222 | 2026-11-08 02:41:35.654323+00 | {"estado": "PENDIENTE", "cobroId": "c0b00000-0000-4000-8000-000000000031", "referencia": "SIM-20261107-77D25V", "estadoAnterior": "PENDIENTE"}                                                                 |
+| CONFIRMAR_PAGO_SIMULADO | intentos_pago | 21433508-ba1e-4a73-a53e-b4e116aa934e | a2222222-2222-4222-8222-222222222222 | 2026-11-08 02:41:36.096248+00 | {"monto": 1500.00, "pagoId": "07188799-e55a-4890-890a-0db6f3c30dca", "cobroId": "c0b00000-0000-4000-8000-000000000031", "resultado": "APROBADO", "referencia": "SIM-20261107-77D25V", "estadoCobro": "PAGADO"} |
+| INICIAR_PAGO_SIMULADO   | intentos_pago | f92bb086-9b1c-4084-97ba-0c3e79857005 | a2222222-2222-4222-8222-222222222222 | 2026-11-08 02:41:36.862122+00 | {"estado": "PENDIENTE", "cobroId": "c0b00000-0000-4000-8000-000000000032", "referencia": "SIM-20261107-D7HKYS", "estadoAnterior": "PENDIENTE"}                                                                 |
+| CONFIRMAR_PAGO_SIMULADO | intentos_pago | f92bb086-9b1c-4084-97ba-0c3e79857005 | a2222222-2222-4222-8222-222222222222 | 2026-11-08 02:41:37.060322+00 | {"cobroId": "c0b00000-0000-4000-8000-000000000032", "resultado": "RECHAZADO", "referencia": "SIM-20261107-D7HKYS", "estadoCobro": "RECHAZADO"}                                                                 |
+| INICIAR_PAGO_SIMULADO   | intentos_pago | ef2e115d-d614-4daf-b50e-243f266ddb8a | a2222222-2222-4222-8222-222222222222 | 2026-11-08 02:41:37.71938+00  | {"estado": "PENDIENTE", "cobroId": "c0b00000-0000-4000-8000-000000000032", "referencia": "SIM-20261107-0GBPAJ", "estadoAnterior": "RECHAZADO"}                                                                 |
+| CONFIRMAR_PAGO_SIMULADO | intentos_pago | ef2e115d-d614-4daf-b50e-243f266ddb8a | a2222222-2222-4222-8222-222222222222 | 2026-11-08 02:41:38.080274+00 | {"monto": 275.25, "pagoId": "246913e6-75fd-4f8d-ac50-cec24e2c5eb6", "cobroId": "c0b00000-0000-4000-8000-000000000032", "resultado": "APROBADO", "referencia": "SIM-20261107-0GBPAJ", "estadoCobro": "PAGADO"}  |
++-------------------------+---------------+--------------------------------------+--------------------------------------+-------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+(6 filas)
+
+\echo ''
+
+\echo '===== 5. CA-3: los cobros PAGADO y VENCIDO no tienen intentos de pago ====='
+===== 5. CA-3: los cobros PAGADO y VENCIDO no tienen intentos de pago =====
+SELECT c.id, c.concepto, c.estado, count(i.id) AS intentos_pago
+  FROM siglim.cobros c
+  LEFT JOIN siglim.intentos_pago i ON i.cobro_id = c.id
+ WHERE c.id IN ('c0b00000-0000-4000-8000-000000000033',
+                'c0b00000-0000-4000-8000-000000000034')
+ GROUP BY c.id, c.concepto, c.estado
+ ORDER BY c.id;
++--------------------------------------+---------------------------------+---------+---------------+
+|                  id                  |            concepto             | estado  | intentos_pago |
++--------------------------------------+---------------------------------+---------+---------------+
+| c0b00000-0000-4000-8000-000000000033 | Arbitraje jornada 1 · ya pagado | PAGADO  |             0 |
+| c0b00000-0000-4000-8000-000000000034 | Arbitraje jornada 2 · vencido   | VENCIDO |             0 |
++--------------------------------------+---------------------------------+---------+---------------+
+(2 filas)
+
+\echo ''
+
+\echo '===== 6. El cobro de otro club sigue PENDIENTE y sin pagos ====='
+===== 6. El cobro de otro club sigue PENDIENTE y sin pagos =====
+SELECT c.id, cl.nombre AS club, c.concepto, c.estado, count(p.id) AS pagos
+  FROM siglim.cobros c
+  JOIN siglim.clubes cl ON cl.id = c.club_id
+  LEFT JOIN siglim.pagos p ON p.cobro_id = c.id
+ WHERE c.id = 'c0b00000-0000-4000-8000-000000000035'
+ GROUP BY c.id, cl.nombre, c.concepto, c.estado;
++--------------------------------------+----------------------+-----------------------------------+-----------+-------+
+|                  id                  |         club         |             concepto              |  estado   | pagos |
++--------------------------------------+----------------------+-----------------------------------+-----------+-------+
+| c0b00000-0000-4000-8000-000000000035 | Club Riviera Morelia | Cuota de inscripción · club ajeno | PENDIENTE |     0 |
++--------------------------------------+----------------------+-----------------------------------+-----------+-------+
+(1 fila)
+

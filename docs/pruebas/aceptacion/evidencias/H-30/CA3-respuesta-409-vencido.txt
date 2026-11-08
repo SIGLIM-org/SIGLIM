@@ -1,0 +1,20 @@
+# H-30.3 · CA-3 · Intento de pago en línea sobre un cobro VENCIDO
+# Petición y respuesta crudas contra el backend local (base efímera).
+
+--- Petición ---
+POST http://localhost:8080/api/v1/cobros/c0b00000-0000-4000-8000-000000000034/intentos-pago
+Authorization: Bearer <token de la sesión>
+Content-Type: application/json
+
+--- Respuesta ---
+HTTP 409 
+Content-Type: application/problem+json
+
+{
+  "detail": "El cobro está VENCIDO; no se puede pagar en línea. Comunícate con Tesorería.",
+  "instance": "/api/v1/cobros/c0b00000-0000-4000-8000-000000000034/intentos-pago",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/val-028",
+  "codigo": "VAL-028"
+}
