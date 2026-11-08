@@ -14,11 +14,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Clubes (convenciones de API §6.3). Sin reglas de negocio. No hay {@code PATCH}: el único dato
- * editable es el nombre y su cambio es la acción {@code POST /clubes/{id}/cambio-nombre} de B-04
- * (RN-041, DEC-49).
+ * Clubes (convenciones de API §6.3). Sin reglas de negocio. No hay {@code PATCH}: el único dato que
+ * cambia es el nombre, con la acción {@code POST /clubes/{id}/cambio-nombre}, que cierra el club y
+ * responde {@code 201} con el club nuevo (RF-105, RN-041, DEC-15, DEC-49, DEC-61).
  *
- * <p>Refs: H-06.1, RF-008
+ * <p>Refs: H-06.1, B-04, RF-008, RF-105
  */
 @RestController
 @RequestMapping("/api/v1/clubes")
@@ -46,6 +46,14 @@ class ClubController {
     @PostMapping
     ResponseEntity<ClubDto> crear(@Valid @RequestBody CrearClubRequest peticion) {
         ClubDto club = servicio.crear(peticion);
+        return ResponseEntity.created(URI.create("/api/v1/clubes/" + club.id())).body(club);
+    }
+
+    /** Cierra el club y crea uno nuevo con el nombre pedido; {@code Location} apunta al nuevo. */
+    @PostMapping("/{id}/cambio-nombre")
+    ResponseEntity<ClubDto> cambiarNombre(@PathVariable UUID id,
+            @Valid @RequestBody CambioNombreClubRequest peticion) {
+        ClubDto club = servicio.cambiarNombre(id, peticion);
         return ResponseEntity.created(URI.create("/api/v1/clubes/" + club.id())).body(club);
     }
 }

@@ -39,6 +39,7 @@ Versión 4.0 · 7 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 3.8 | 6 de noviembre de 2026 | H-30.1: §6.13 con el contrato del pago en línea simulado (`POST /cobros/{id}/intentos-pago` y `POST /intentos-pago/{id}/confirmacion`), la referencia ficticia, la confirmación atómica, sus errores, auditoría y evento `CobroPagado` (RF-138, VAL-028, RNF-004, ADR-0012). |
 | 3.9 | 7 de noviembre de 2026 | B-03.1: §6.2 con el contrato de las interpretaciones de regla (RF-007): alta en `PENDIENTE` con la autoría de la sesión, listado con paginación y filtros, resolución por sub-recurso como acción de estado, la separación de funciones de DEC-57, las observaciones del rechazo de DEC-58 y la temporada cerrada de DEC-59; auditoría `REGISTRAR_INTERPRETACION` y `RESOLVER_INTERPRETACION`. |
 | 4.0 | 7 de noviembre de 2026 | B-31.1: §6.13 aclara que el estado `VENCIDO` lo fija la tarea programada de vencimiento (RF-141, DEC-60) y ningún endpoint. |
+| 4.1 | 7 de noviembre de 2026 | B-04.1: §6.3 con el contrato del cambio de nombre de club (`POST /clubes/{id}/cambio-nombre`), su orden de errores, el traslado de asignaciones de rol, los cobros que se quedan en el club anterior y la auditoría `CERRAR_CLUB` + `REGISTRAR_CLUB` (DEC-49, DEC-61); el club incluye `clubAnterior` cuando existe. |
 
 ## Índice
 
@@ -758,8 +759,8 @@ la misma forma que `GET /temporadas/{id}/parametros/{version}`:
 
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
-| `GET /clubes` · `GET /clubes/{id}` · `POST /clubes` | Clubes. Sin `PATCH`: el nombre solo cambia con la acción de B-04 | `organizacion.club:CONSULTAR` en los `GET`; `organizacion.club:EDITAR` en `POST` | RF-008 | N |
-| `POST /clubes/{id}/cambio-nombre` | Cierra el club y crea uno nuevo | `organizacion.club:EDITAR` | RF-105 | B |
+| `GET /clubes` · `GET /clubes/{id}` · `POST /clubes` | Clubes. Sin `PATCH`: el nombre solo cambia con `POST /clubes/{id}/cambio-nombre` | `organizacion.club:CONSULTAR` en los `GET`; `organizacion.club:EDITAR` en `POST` | RF-008 | N |
+| `POST /clubes/{id}/cambio-nombre` | Cierra el club y crea uno nuevo | `organizacion.club:EDITAR` con ámbito de liga | RF-105 | B |
 | `GET /afiliaciones?temporadaId=&estado=` · `POST /afiliaciones` · `PATCH /afiliaciones/{id}` | Tarjetón por temporada (folio lo asigna el sistema) | `organizacion.afiliacion:CAPTURAR` | RF-101 | N |
 | `POST /afiliaciones/{id}/resolucion` | Aprobar o rechazar | `organizacion.afiliacion:APROBAR` | RF-101 | N |
 | `GET /clubes/{id}/directiva` · `POST /clubes/{id}/directiva` · `POST /cargos-directiva/{id}/autorizacion` | Cargos con vigencia | `organizacion.directiva:*` | RF-102 | N |
@@ -776,13 +777,48 @@ listados filtran por ámbito en el `WHERE` y en el `COUNT`; un `clubId` ajeno en
 
 **Club.** `GET /clubes?q=&estado=&pagina=&tamano=` responde la envoltura de paginación (§4) ordenada
 por nombre; `q` busca dentro del nombre y `estado` es `ACTIVO` o `CERRADO`. Cada club trae `id`,
-`nombre`, `estado`, `creadoEn` y, solo si está cerrado, `cerradoEn` y `motivoCierre`.
+`nombre`, `estado`, `creadoEn`; solo si está cerrado, `cerradoEn` y `motivoCierre`; y solo si
+proviene de un cambio de nombre, la referencia anidada `clubAnterior: { "id", "nombre" }` (§9.1).
 `GET /clubes/{id}` responde ese detalle. `POST /clubes` lleva `{ "nombre" }` y responde `201` con
 `Location`; el club nace `ACTIVO` y la liga sale de la configuración del backend, no del cuerpo.
 Errores: sin nombre, `400 VALIDACION`; nombre ya usado en la liga, `409 DUPLICADO` con un mensaje que
-nombra el club. **No existe `PATCH /clubes/{id}`:** el único dato editable es el nombre y su cambio
-crea un club nuevo y cierra el anterior con `POST /clubes/{id}/cambio-nombre` (B-04, RN-041,
-DEC-49). Tampoco hay `DELETE`. Se audita como `REGISTRAR_CLUB`.
+nombra el club (también si otra petición lo registró al mismo tiempo y lo rechaza el índice único).
+**No existe `PATCH /clubes/{id}`:** el único dato que cambia es el nombre y su cambio crea un club
+nuevo y cierra el anterior con `POST /clubes/{id}/cambio-nombre` (B-04, RN-041, DEC-49). Tampoco hay
+`DELETE`. El alta se audita en `M-03` como `REGISTRAR_CLUB` con `{ "estado": "ACTIVO" }`.
+
+**Cambio de nombre (B-04, RF-105, DEC-15, DEC-49, DEC-61).** `POST /clubes/{id}/cambio-nombre`
+lleva `{ "nombre", "motivo" }` y responde `201` con `Location: /api/v1/clubes/{nuevoId}` y el club
+**nuevo** en el cuerpo (con `clubAnterior`). Es una operación de toda la liga
+(`organizacion.club:EDITAR` con ámbito de liga) y se registra entre temporadas. Un nombre de más de
+150 caracteres o un motivo de más de 500 responden `400 VALIDACION` antes de llegar al servicio; el
+resto se valida en este orden:
+
+1. Sin el permiso con ámbito de liga, `403 VAL-015`, antes de buscar el club (no revela si existe).
+2. Club inexistente en la liga, `404`.
+3. Club `CERRADO`, `409 RN-041`.
+4. Motivo ausente o de menos de 10 caracteres sin contar espacios a los extremos, `400 RN-021`.
+5. Nombre vacío, `400 VALIDACION`.
+6. El club tiene equipos no dados de baja en una temporada de la liga `ACTIVA` o en
+   `CONFIGURACION`, `409 RN-041`; el mensaje explica que el cambio se registra entre temporadas y
+   cuántos equipos tiene inscritos.
+7. El club tiene cobros `PENDIENTE` o `VENCIDO`, `409 RN-041`: deben liquidarse antes.
+8. El nombre es el actual, `409 DUPLICADO`; el nombre ya lo usa otro club de la liga, aunque esté
+   `CERRADO` (comparación exacta tras recortar espacios), `409 DUPLICADO` con el mismo mensaje del
+   alta.
+
+Efectos, en una sola transacción con el club anterior bloqueado (`FOR UPDATE`; el alta de equipos
+lo lee con `FOR SHARE` para no colarse): se inserta el club nuevo `ACTIVO` con `club_anterior_id`;
+el anterior pasa a `CERRADO` con `cerradoEn` (fecha del día en `America/Mexico_City`) y
+`motivoCierre`, y conserva su nombre e historial (RN-005). Cada asignación de rol activa con ámbito
+`CLUB` del club anterior se revoca y se crea una igual (mismo perfil y rol) en el club nuevo; nunca
+se cambia el `club_id` de una asignación. La directiva (`cargos_directiva`) no se traslada: es
+historial y la del club nuevo se registra con RF-102. Los cobros pagados, rechazados y el resto del
+historial se quedan en el club anterior. Se audita en `M-03` `CERRAR_CLUB` sobre el club anterior
+(con el motivo y `{ "estado": "CERRADO", "clubNuevoId", "causa": "CAMBIO_NOMBRE" }`) y
+`REGISTRAR_CLUB` sobre el nuevo (`{ "estado": "ACTIVO", "clubAnteriorId" }`); por cada asignación
+trasladada, en `M-01`, `REVOCAR_ASIGNACION` (motivo «Cambio de nombre del club») y `ASIGNAR_ROL`, con
+el mismo detalle que en §6.1. Si cualquier paso falla, no queda nada de lo anterior.
 
 **Equipo.** `GET /equipos?temporadaId=&grupoId=&clubId=&estado=&pagina=&tamano=` responde la envoltura
 de paginación ordenada por el orden de la categoría, el nombre del grupo y el nombre del equipo.

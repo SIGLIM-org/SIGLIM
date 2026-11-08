@@ -146,6 +146,20 @@ class CobroRepository {
                 .single();
     }
 
+    /** Verdadero si el club tiene algún cobro {@code PENDIENTE} o {@code VENCIDO} (DEC-61). */
+    boolean existenPendientesOVencidos(UUID ligaId, UUID clubId) {
+        return jdbc.sql("""
+                        SELECT EXISTS (
+                          SELECT 1 FROM cobros
+                           WHERE liga_id = :ligaId AND club_id = :clubId
+                             AND estado IN ('PENDIENTE', 'VENCIDO'))
+                        """)
+                .param("ligaId", ligaId)
+                .param("clubId", clubId)
+                .query(Boolean.class)
+                .single();
+    }
+
     /** Club de la liga al que se puede cargar un cobro; uno de otra liga no existe para este módulo. */
     Optional<CobroDto.ReferenciaDto> buscarClub(UUID ligaId, UUID clubId) {
         return jdbc.sql("SELECT id, nombre FROM clubes WHERE id = :id AND liga_id = :ligaId")

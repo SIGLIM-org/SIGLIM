@@ -4,12 +4,16 @@
  * <p>Clubes, afiliación por temporada, directiva, equipos, venta de equipo y plaza, personas y
  * tutores.
  *
- * <p>Implementado hasta ahora (H-06.1):
+ * <p>Implementado hasta ahora (H-06.1, B-04):
  *
  * <ul>
- *   <li><b>Clubes (RF-008).</b> {@code ClubController}, {@link mx.tecnm.morelia.siglim.organizacion.ClubService}
- *       y {@code ClubRepository}: listado, detalle y alta. Sin edición: el cambio de nombre es B-04
- *       (RN-041, DEC-49).</li>
+ *   <li><b>Clubes (RF-008, RF-105).</b> {@code ClubController},
+ *       {@link mx.tecnm.morelia.siglim.organizacion.ClubService} y {@code ClubRepository}: listado,
+ *       detalle, alta y cambio de nombre. Sin edición: el cambio de nombre crea un club nuevo y cierra
+ *       el anterior, solo entre temporadas y sin cobros pendientes; las asignaciones de rol del club
+ *       se trasladan con {@code seguridad.TrasladoAsignacionesClub} y los adeudos se consultan con
+ *       {@link mx.tecnm.morelia.siglim.organizacion.ConsultaAdeudosClub}, que implementa
+ *       {@code tesoreria} (RN-041, DEC-15, DEC-49, DEC-61).</li>
  *   <li><b>Equipos (RF-009).</b> {@code EquipoController},
  *       {@link mx.tecnm.morelia.siglim.organizacion.EquipoService} y {@code EquipoRepository}:
  *       listado, detalle, alta, edición de nombre y grupo, y baja con motivo. El repositorio lee el

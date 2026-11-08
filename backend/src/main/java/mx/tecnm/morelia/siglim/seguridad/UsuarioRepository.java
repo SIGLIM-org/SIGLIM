@@ -115,6 +115,21 @@ class UsuarioRepository {
         return listarAsignaciones(List.of(perfilId), soloActivas);
     }
 
+    /**
+     * Asignaciones activas con ámbito {@code CLUB} de un club, con candado de fila para el traslado
+     * por cambio de nombre (DEC-61).
+     */
+    List<FilaAsignacion> listarAsignacionesActivasDeClub(UUID clubId) {
+        return jdbc.sql(SELECCION_ASIGNACION + """
+                         WHERE a.club_id = :clubId AND a.ambito = 'CLUB' AND a.activa
+                         ORDER BY a.creado_en, a.id
+                           FOR UPDATE OF a
+                        """)
+                .param("clubId", clubId)
+                .query(FilaAsignacion.class)
+                .list();
+    }
+
     Optional<FilaAsignacion> buscarAsignacion(UUID id) {
         return jdbc.sql(SELECCION_ASIGNACION + " WHERE a.id = :id")
                 .param("id", id)
