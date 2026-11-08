@@ -39,6 +39,7 @@ Versión 4.0 · 7 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 3.8 | 6 de noviembre de 2026 | H-30.1: §6.13 con el contrato del pago en línea simulado (`POST /cobros/{id}/intentos-pago` y `POST /intentos-pago/{id}/confirmacion`), la referencia ficticia, la confirmación atómica, sus errores, auditoría y evento `CobroPagado` (RF-138, VAL-028, RNF-004, ADR-0012). |
 | 3.9 | 7 de noviembre de 2026 | B-03.1: §6.2 con el contrato de las interpretaciones de regla (RF-007): alta en `PENDIENTE` con la autoría de la sesión, listado con paginación y filtros, resolución por sub-recurso como acción de estado, la separación de funciones de DEC-57, las observaciones del rechazo de DEC-58 y la temporada cerrada de DEC-59; auditoría `REGISTRAR_INTERPRETACION` y `RESOLVER_INTERPRETACION`. |
 | 4.0 | 7 de noviembre de 2026 | B-31.1: §6.13 aclara que el estado `VENCIDO` lo fija la tarea programada de vencimiento (RF-141, DEC-60) y ningún endpoint. |
+| 4.1 | 7 de noviembre de 2026 | H-20.1: §6.1 con el contrato de la matriz de permisos (`GET /roles/{id}`, `GET /permisos` y `PATCH /roles/{id}/permisos` con `200`/`202`), el listado de solicitudes y su dictamen, los errores de VAL-022, VAL-023 y RF-096 y las acciones de auditoría `CAMBIAR_PERMISOS_ROL`, `SOLICITAR_CAMBIO_PERMISOS`, `APROBAR_CAMBIO_PERMISOS` y `RECHAZAR_CAMBIO_PERMISOS`. |
 
 ## Índice
 
@@ -437,10 +438,96 @@ desactivar sin motivo); con el `403` no se escribe ni se audita nada. Consultar 
 
 `GET /roles` devuelve un arreglo sin paginación con `id`, `codigo`, `nombre`, `descripcion`,
 `ambitoPredeterminado` y `asignable`; los roles `asignable = false` (`SISTEMA`, `USUARIO_PUBLICO`) se
-listan, pero no se pueden asignar. El detalle `GET /roles/{id}`, `GET /permisos`, la edición de la
-matriz de permisos y la denegación VAL-022 sobre los permisos del propio rol son H-20, no de este
-contrato; la denegación VAL-022 sobre las asignaciones y el estado de la propia cuenta es de H-03
-(arriba).
+listan, pero no se pueden asignar. El detalle del rol, el catálogo de permisos, la edición de la
+matriz y el control dual se describen en **Permisos y control dual (H-20.1)**; la denegación
+VAL-022 sobre las asignaciones y el estado de la propia cuenta es de H-03 (arriba).
+
+**Permisos y control dual (H-20.1, RF-095, RF-096, VAL-022, VAL-023).** Los roles y sus solicitudes
+son datos de la liga, así que las cinco rutas se exigen con ámbito de liga; con un ámbito de club
+responden `404` como un recurso fuera de ámbito (VAL-024). Los permisos se identifican por su
+`codigo`, nunca por el identificador numérico de la base (§1).
+
+`GET /roles/{id}` exige `seguridad.rol:CONSULTAR` y responde el rol con sus permisos efectivos:
+
+```json
+{
+  "id": "…",
+  "codigo": "PROGRAMADOR",
+  "nombre": "Programador de partidos",
+  "descripcion": "Programa las jornadas",
+  "ambitoPredeterminado": "LIGA",
+  "asignable": true,
+  "permisos": [
+    { "codigo": "programacion.jornada:EDITAR", "modulo": "M-07",
+      "descripcion": "Registrar y ajustar jornadas" }
+  ]
+}
+```
+
+`GET /permisos` exige el mismo permiso y responde un objeto sin paginación con el catálogo completo y
+los pares declarados incompatibles, que es lo que F-13 necesita para pintar la matriz y avisar antes
+de guardar:
+
+```json
+{
+  "permisos": [
+    { "codigo": "seguridad.rol:EDITAR", "modulo": "M-01", "descripcion": "Modificar la matriz de permisos" }
+  ],
+  "paresIncompatibles": [
+    { "permisoA": "programacion.jornada:EDITAR", "permisoB": "programacion.jornada:APROBAR",
+      "motivo": "Programar y aprobar la programación" }
+  ]
+}
+```
+
+`PATCH /roles/{id}/permisos` exige `seguridad.rol:EDITAR` y lleva el **conjunto final** del rol, no
+una lista de altas, para que la matriz no dependa del orden de las casillas:
+`{ "permisos": ["programacion.jornada:CONSULTAR", …], "motivo": "…" }`. `permisos` puede quedar
+vacío; el `motivo` es obligatorio, de 10 a 500 caracteres (RF-093).
+
+- Si el cambio no crea ningún par incompatible, se aplica y responde `200` con el detalle del rol.
+  Repetir el conjunto actual responde `200` sin escribir ni auditar.
+- Si agrega un par incompatible que el rol no tenía, **no se aplica**: se registra una solicitud
+  `SOLICITADO` y responde `202` con el trámite (VAL-023); el rol conserva su matriz anterior. Un par
+  que ya estaba en el rol no vuelve a bloquear la edición.
+- Errores, en orden: sin `seguridad.rol:EDITAR`, `403 VAL-015`; rol inexistente o de otra liga,
+  `404`; editar un rol que la propia cuenta tiene asignado, `403 VAL-022` (aunque el conjunto no
+  cambie); sin motivo suficiente, `400`; un código fuera del catálogo, `400 VALIDACION`. Con el
+  `403`/`400` no se escribe ni se audita nada.
+
+```json
+{
+  "id": "…",
+  "rol": { "id": "…", "codigo": "PROGRAMADOR", "nombre": "Programador de partidos",
+           "ambitoPredeterminado": "LIGA", "asignable": true },
+  "permisosAgregados": ["programacion.jornada:APROBAR"],
+  "permisosQuitados": [],
+  "motivo": "La Liga pidió concentrar la programación en una sola cuenta",
+  "estado": "SOLICITADO",
+  "solicitadoPor": { "id": "…", "nombreMostrado": "Ana López" },
+  "solicitadoEn": "2026-11-07T10:00:00-06:00"
+}
+```
+
+`GET /solicitudes-cambio-permisos?estado=&rolId=&pagina=&tamano=` exige
+`seguridad.permisos:APROBAR_INCOMPATIBLE` y responde la envoltura de paginación (§4), de la más
+reciente a la más antigua. Cada fila es el objeto anterior ya resuelto, con `resueltoPor`,
+`resueltoEn` y `observaciones` cuando corresponde. `tamano` es 20 por defecto y 100 como máximo.
+
+`POST /solicitudes-cambio-permisos/{id}/resolucion` es la acción de estado (§2.1) y lleva
+`{ "decision": "APROBADO" | "RECHAZADO", "motivo": "…" }`, con el motivo de 10 a 500 caracteres en
+los dos dictámenes (F-13). Responde `200` con la solicitud resuelta. `APROBADO` aplica a la matriz el
+cambio guardado; `RECHAZADO` lo descarta. Errores, en orden: sin el permiso, `403 VAL-015`;
+solicitud inexistente o de otra liga, `404`; ya resuelta, `409 RF-096` (una resolución no se reabre);
+quien la solicitó intenta dictaminarla, `403 RF-096` (DEC-04, aunque su cuenta tenga los dos
+permisos); sin decisión o sin motivo suficiente, `400`. No hay `DELETE`: el histórico de solicitudes
+se conserva (RF-003).
+
+Las respuestas de las solicitudes llevan `Cache-Control: no-store` porque nombran a quien solicita y
+a quien resuelve (RNF-012). En el módulo `M-01` se auditan `CAMBIAR_PERMISOS_ROL` sobre `roles` al
+aplicar un cambio directo, `SOLICITAR_CAMBIO_PERMISOS`, `APROBAR_CAMBIO_PERMISOS` y
+`RECHAZAR_CAMBIO_PERMISOS` sobre `solicitudes_cambio_permisos`; el detalle guarda el `rol`, los
+permisos agregados y quitados y, en el dictamen, el motivo; nunca datos personales.
 
 ### 6.2 M-02 Temporadas y normativa
 
