@@ -44,7 +44,9 @@ import org.springframework.transaction.annotation.Transactional;
  *       auditoría. La fila nunca se borra; una baja repetida o un {@code PATCH} sobre un equipo dado
  *       de baja responde {@code 409 RF-009}. Los efectos sobre sus partidos (RN-056, RF-130, RF-132)
  *       son B y no se aplican aquí.</li>
- *   <li><b>Candado.</b> La edición y la baja leen el equipo con {@code FOR UPDATE} para no cruzarse.</li>
+ *   <li><b>Candado.</b> La edición y la baja leen el equipo con {@code FOR UPDATE} para no cruzarse. El
+ *       alta lee el club con {@code FOR SHARE} para no colarse en un club que se está cerrando por
+ *       cambio de nombre (B-04).</li>
  * </ul>
  *
  * <p>Refs: H-06.1, RF-003, RF-009, RN-005, RN-007, RN-021, RN-041, VAL-024, ADR-0007
@@ -57,9 +59,6 @@ public class EquipoService {
     private static final String MODULO = "M-03";
     private static final String ENTIDAD = "equipos";
     private static final ZoneId ZONA_DE_NEGOCIO = ZoneId.of("America/Mexico_City");
-
-    /** [PROPUESTA] Convenciones de API §5: mínimo del motivo de una transición (RN-021). */
-    private static final int MINIMO_MOTIVO = 10;
 
     private final EquipoRepository equipos;
     private final ClubRepository clubes;
@@ -106,7 +105,8 @@ public class EquipoService {
      */
     @Transactional
     public EquipoDto crear(CrearEquipoRequest peticion) {
-        ClubDto club = clubes.buscar(ligaId, peticion.clubId())
+        // FOR SHARE: un cambio de nombre concurrente (B-04) no cierra el club mientras se registra.
+        ClubDto club = clubes.buscarParaCompartir(ligaId, peticion.clubId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Club " + peticion.clubId()));
         autorizacion.exigir(EDITAR, ObjetivoAutorizacion.deClubes(club.id()));
         if (club.estado() == EstadoClub.CERRADO) {
@@ -278,12 +278,7 @@ public class EquipoService {
     }
 
     private static String motivoValido(String motivo) {
-        String texto = motivo == null ? "" : motivo.strip();
-        if (texto.length() < MINIMO_MOTIVO) {
-            throw ReglaNegocioException.invalida("RN-021",
-                    "Escribe un motivo de al menos " + MINIMO_MOTIVO + " caracteres para dar de baja el equipo.");
-        }
-        return texto;
+        return MotivoTransicion.exigir(motivo, "dar de baja el equipo");
     }
 
     // ── Auditoría (RF-093): solo identificadores y estados, nunca datos personales ──────────────

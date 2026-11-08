@@ -73,7 +73,7 @@ class EquipoServiceTest {
     private static ClubDto club(EstadoClub estado) {
         return new ClubDto(CLUB, "Club Halcones", estado, OffsetDateTime.parse("2030-03-01T06:00:00-06:00"),
                 estado == EstadoClub.CERRADO ? LocalDate.parse("2030-06-01") : null,
-                estado == EstadoClub.CERRADO ? "Cambio de nombre" : null);
+                estado == EstadoClub.CERRADO ? "Cambio de nombre" : null, null);
     }
 
     private static GrupoTemporada grupo(UUID id, UUID temporada, EstadoTemporada estado) {
@@ -165,7 +165,7 @@ class EquipoServiceTest {
     @Test
     @DisplayName("RF-009: registra el equipo en el grupo, exige el ámbito del club y audita REGISTRAR_EQUIPO")
     void crearRegistraYAudita() {
-        given(clubes.buscar(LIGA, CLUB)).willReturn(Optional.of(club(EstadoClub.ACTIVO)));
+        given(clubes.buscarParaCompartir(LIGA, CLUB)).willReturn(Optional.of(club(EstadoClub.ACTIVO)));
         given(equipos.buscarGrupo(LIGA, GRUPO)).willReturn(Optional.of(grupo(GRUPO, TEMPORADA,
                 EstadoTemporada.ACTIVA)));
         given(equipos.insertar(CLUB, GRUPO, "Halcones")).willReturn(ID);
@@ -190,7 +190,7 @@ class EquipoServiceTest {
     @Test
     @DisplayName("RF-009: también se registra con la temporada en configuración")
     void crearEnConfiguracion() {
-        given(clubes.buscar(LIGA, CLUB)).willReturn(Optional.of(club(EstadoClub.ACTIVO)));
+        given(clubes.buscarParaCompartir(LIGA, CLUB)).willReturn(Optional.of(club(EstadoClub.ACTIVO)));
         given(equipos.buscarGrupo(LIGA, GRUPO)).willReturn(Optional.of(grupo(GRUPO, TEMPORADA,
                 EstadoTemporada.CONFIGURACION)));
         given(equipos.insertar(CLUB, GRUPO, "Halcones")).willReturn(ID);
@@ -203,7 +203,7 @@ class EquipoServiceTest {
     @Test
     @DisplayName("VAL-024: un club inexistente responde 404 antes de autorizar")
     void crearClubInexistente() {
-        given(clubes.buscar(LIGA, CLUB)).willReturn(Optional.empty());
+        given(clubes.buscarParaCompartir(LIGA, CLUB)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> servicio.crear(crear())).isInstanceOf(RecursoNoEncontradoException.class);
         verifyNoInteractions(autorizacion, auditoria);
@@ -212,7 +212,7 @@ class EquipoServiceTest {
     @Test
     @DisplayName("VAL-024: un club fuera de ámbito responde 404 y no consulta el grupo")
     void crearClubFueraDeAmbito() {
-        given(clubes.buscar(LIGA, CLUB)).willReturn(Optional.of(club(EstadoClub.ACTIVO)));
+        given(clubes.buscarParaCompartir(LIGA, CLUB)).willReturn(Optional.of(club(EstadoClub.ACTIVO)));
         willThrow(Autorizacion.fueraDeAmbito(EDITAR)).given(autorizacion)
                 .exigir(EDITAR, ObjetivoAutorizacion.deClubes(CLUB));
 
@@ -224,7 +224,7 @@ class EquipoServiceTest {
     @Test
     @DisplayName("RN-041: un club cerrado no recibe equipos nuevos (409)")
     void crearEnClubCerrado() {
-        given(clubes.buscar(LIGA, CLUB)).willReturn(Optional.of(club(EstadoClub.CERRADO)));
+        given(clubes.buscarParaCompartir(LIGA, CLUB)).willReturn(Optional.of(club(EstadoClub.CERRADO)));
 
         assertThatThrownBy(() -> servicio.crear(crear()))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
@@ -237,7 +237,7 @@ class EquipoServiceTest {
     @Test
     @DisplayName("RF-009: un grupo inexistente responde 422 REFERENCIA_INVALIDA")
     void crearGrupoInexistente() {
-        given(clubes.buscar(LIGA, CLUB)).willReturn(Optional.of(club(EstadoClub.ACTIVO)));
+        given(clubes.buscarParaCompartir(LIGA, CLUB)).willReturn(Optional.of(club(EstadoClub.ACTIVO)));
         given(equipos.buscarGrupo(LIGA, GRUPO)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> servicio.crear(crear()))
@@ -248,7 +248,7 @@ class EquipoServiceTest {
     @Test
     @DisplayName("RF-003: no se registran equipos en una temporada cerrada (409)")
     void crearEnTemporadaCerrada() {
-        given(clubes.buscar(LIGA, CLUB)).willReturn(Optional.of(club(EstadoClub.ACTIVO)));
+        given(clubes.buscarParaCompartir(LIGA, CLUB)).willReturn(Optional.of(club(EstadoClub.ACTIVO)));
         given(equipos.buscarGrupo(LIGA, GRUPO)).willReturn(Optional.of(grupo(GRUPO, TEMPORADA,
                 EstadoTemporada.CERRADA)));
 
@@ -261,7 +261,7 @@ class EquipoServiceTest {
     @Test
     @DisplayName("RF-009: un nombre repetido en el grupo responde 409 DUPLICADO")
     void crearDuplicado() {
-        given(clubes.buscar(LIGA, CLUB)).willReturn(Optional.of(club(EstadoClub.ACTIVO)));
+        given(clubes.buscarParaCompartir(LIGA, CLUB)).willReturn(Optional.of(club(EstadoClub.ACTIVO)));
         given(equipos.buscarGrupo(LIGA, GRUPO)).willReturn(Optional.of(grupo(GRUPO, TEMPORADA,
                 EstadoTemporada.ACTIVA)));
         given(equipos.existeNombre(GRUPO, "Halcones", null)).willReturn(true);
