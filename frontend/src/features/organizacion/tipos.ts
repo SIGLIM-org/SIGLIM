@@ -13,6 +13,8 @@ export type Club = {
   /** Día `AAAA-MM-DD` del cierre (RN-041). */
   cerradoEn?: string
   motivoCierre?: string
+  /** Club cerrado del que proviene por un cambio de nombre; solo viene si existe (DEC-15). */
+  clubAnterior?: Referencia
 }
 
 export type EstadoEquipo = 'ACTIVO' | 'BAJA'
@@ -49,6 +51,12 @@ export type FiltrosClubes = {
 export type FiltrosEquipos = {
   clubId: string
   estado?: EstadoEquipo
+}
+
+/** `POST /clubes/{id}/cambio-nombre`: registra un club nuevo y cierra el actual (RF-105, DEC-15). */
+export type CambiarNombreClubPeticion = {
+  nombre: string
+  motivo: string
 }
 
 /** `POST /clubes` (RF-008). */
