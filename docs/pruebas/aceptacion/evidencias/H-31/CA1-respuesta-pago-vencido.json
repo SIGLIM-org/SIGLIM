@@ -1,0 +1,35 @@
+{
+  "peticion": {
+    "metodo": "POST",
+    "url": "http://localhost:8080/api/v1/cobros/c0000000-0000-4000-8000-000000000002/pagos",
+    "tipoContenido": "multipart/form-data",
+    "campos": {
+      "medio": "TRANSFERENCIA",
+      "monto": "350.50",
+      "fechaPago": "2026-11-06",
+      "referencia": "SPEI-98432170",
+      "archivo": "comprobante-aceptacion-H31.pdf (application/pdf, 218 bytes)"
+    }
+  },
+  "respuesta": {
+    "estado": 201,
+    "location": "/api/v1/cobros/c0000000-0000-4000-8000-000000000002/pagos",
+    "cuerpo": {
+      "id": "7a84b4e7-24a2-4ec3-a368-238fe9de2cf3",
+      "cobroId": "c0000000-0000-4000-8000-000000000002",
+      "medio": "TRANSFERENCIA",
+      "monto": 350.5,
+      "referencia": "SPEI-98432170",
+      "pagadoEn": "2026-11-06T06:00:00Z",
+      "registradoPor": {
+        "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "nombre": "Tesorero de aceptación"
+      },
+      "comprobante": {
+        "documentoId": "20ea25f9-21eb-4f06-aae8-917b1528e0e7",
+        "tipoMime": "application/pdf",
+        "tamanoBytes": 218
+      }
+    }
+  }
+}

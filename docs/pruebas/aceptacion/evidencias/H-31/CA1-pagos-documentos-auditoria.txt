@@ -1,0 +1,30 @@
+Consulta ejecutada como postgres sobre la base local efímera (esquema siglim).
+
+-- Cobros: estado y número de pagos/comprobantes
+                  id                  |                concepto                |  monto  |  estado   | pagos | comprobantes 
+--------------------------------------+----------------------------------------+---------+-----------+-------+--------------
+ c0000000-0000-4000-8000-000000000001 | Cuota de inscripción temporada 2026-27 | 1500.00 | PAGADO    |     1 |            1
+ c0000000-0000-4000-8000-000000000002 | Uso de cancha para entrenamiento       |  350.50 | PAGADO    |     1 |            1
+ c0000000-0000-4000-8000-000000000003 | Arbitraje jornada 1                    |  725.00 | PENDIENTE |     0 |            0
+(3 rows)
+
+-- Pagos con su comprobante
+                 pago                 |               cobro_id               |     medio     |  monto  |  referencia   |          pagado_en           |     registrado_por     |              documento               |  tipo_documento  |    tipo_mime    | tamano_bytes |                              sha256                              |          s3_bucket           |                                                               s3_clave                                                               
+--------------------------------------+--------------------------------------+---------------+---------+---------------+------------------------------+------------------------+--------------------------------------+------------------+-----------------+--------------+------------------------------------------------------------------+------------------------------+--------------------------------------------------------------------------------------------------------------------------------------
+ 7a84b4e7-24a2-4ec3-a368-238fe9de2cf3 | c0000000-0000-4000-8000-000000000002 | TRANSFERENCIA |  350.50 | SPEI-98432170 | 2026-11-06 06:00:00+00       | Tesorero de aceptación | 20ea25f9-21eb-4f06-aae8-917b1528e0e7 | COMPROBANTE_PAGO | application/pdf |          218 | d1b879b42e48c83bc8a31e0f0d89c9249156ad3fcda555b5b51cf2f973fbcb2e | siglim-documentos-aceptacion | liga/a0000000-0000-4000-8000-000000000001/comprobantes/7a84b4e7-24a2-4ec3-a368-238fe9de2cf3/20ea25f9-21eb-4f06-aae8-917b1528e0e7.pdf
+ 81139f0f-4582-4da7-aa66-8dca4f657c66 | c0000000-0000-4000-8000-000000000001 | EFECTIVO      | 1500.00 |               | 2026-11-08 02:41:25.20042+00 | Tesorero de aceptación | 67c8efbc-767f-41f2-8ad6-0e22231d3164 | COMPROBANTE_PAGO | application/pdf |          218 | d1b879b42e48c83bc8a31e0f0d89c9249156ad3fcda555b5b51cf2f973fbcb2e | siglim-documentos-aceptacion | liga/a0000000-0000-4000-8000-000000000001/comprobantes/81139f0f-4582-4da7-aa66-8dca4f657c66/67c8efbc-767f-41f2-8ad6-0e22231d3164.pdf
+(2 rows)
+
+-- Auditoría de los pagos
+          ocurrido_en          | modulo |     accion     | entidad |              entidad_id              |              perfil_id               | motivo |                                                                                                                                      detalle                                                                                                                                      
+-------------------------------+--------+----------------+---------+--------------------------------------+--------------------------------------+--------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 2026-11-08 02:41:24.165031+00 | M-13   | REGISTRAR_PAGO | pagos   | 7a84b4e7-24a2-4ec3-a368-238fe9de2cf3 | aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa |        | {"medio": "TRANSFERENCIA", "monto": 350.50, "cobroId": "c0000000-0000-4000-8000-000000000002", "pagadoEn": "2026-11-06T00:00-06:00", "tipoMime": "application/pdf", "documentoId": "20ea25f9-21eb-4f06-aae8-917b1528e0e7", "tamanoBytes": 218, "estadoAnterior": "VENCIDO"}
+ 2026-11-08 02:41:25.189829+00 | M-13   | REGISTRAR_PAGO | pagos   | 81139f0f-4582-4da7-aa66-8dca4f657c66 | aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa |        | {"medio": "EFECTIVO", "monto": 1500.00, "cobroId": "c0000000-0000-4000-8000-000000000001", "pagadoEn": "2026-11-08T02:41:25.200420372Z", "tipoMime": "application/pdf", "documentoId": "67c8efbc-767f-41f2-8ad6-0e22231d3164", "tamanoBytes": 218, "estadoAnterior": "PENDIENTE"}
+(2 rows)
+
+-- Auditoría del vencimiento automático (B-31.1), que dejó el cobro 2 en VENCIDO
+          ocurrido_en          |    accion    |              entidad_id              |                 motivo                  |                                                 detalle                                                 
+-------------------------------+--------------+--------------------------------------+-----------------------------------------+---------------------------------------------------------------------------------------------------------
+ 2026-11-08 02:38:52.500236+00 | VENCER_COBRO | c0000000-0000-4000-8000-000000000002 | vencimiento automático por fecha límite | {"monto": 350.50, "estadoNuevo": "VENCIDO", "fechaLimite": "2026-11-05", "estadoAnterior": "PENDIENTE"}
+(1 row)
+
