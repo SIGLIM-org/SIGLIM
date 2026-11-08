@@ -47,20 +47,25 @@ const INTENTO_REINTENTO: IntentoPago = {
   referencia: 'SIM-20261106-9X2P1A',
 }
 
+const DETALLE_VENCIDO =
+  'El cobro está VENCIDO; no se puede pagar en línea. Comunícate con Tesorería.'
+
 function error(status: number, codigo: string, detail: string) {
   return new ApiError({ title: 'Error', status, detail, codigo })
 }
 
 function montar(cobro: Cobro = COBRO) {
   const onCerrar = vi.fn()
+  const clienteConsultas = new QueryClient()
+  const invalidar = vi.spyOn(clienteConsultas, 'invalidateQueries')
 
   render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={clienteConsultas}>
       <ModalPagoSimulado cobro={cobro} onCerrar={onCerrar} />
     </QueryClientProvider>,
   )
 
-  return { onCerrar }
+  return { onCerrar, invalidar }
 }
 
 describe('ModalPagoSimulado', () => {
@@ -170,5 +175,69 @@ describe('ModalPagoSimulado', () => {
       'Otra persona confirmó el pago antes que tú.',
     )
     expect(screen.getByRole('heading', { name: 'Simulación de pago' })).toBeInTheDocument()
+  })
+
+  it('B-31.2: un 409 VAL-028 al iniciar muestra el detalle y refresca la tesorería', async () => {
+    post.mockRejectedValueOnce(
+      error(409, 'VAL-028', DETALLE_VENCIDO),
+    )
+    const { invalidar } = montar()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Iniciar pago simulado' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      DETALLE_VENCIDO,
+    )
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ['tesoreria'] })
+    expect(screen.getByRole('heading', { name: 'Cobro a pagar' })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Iniciar pago simulado' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeEnabled()
+  })
+
+  it('B-31.2: un 409 VAL-028 al confirmar muestra el detalle, refresca y ya no ofrece aprobar ni rechazar', async () => {
+    post
+      .mockResolvedValueOnce(INTENTO_PENDIENTE)
+      .mockRejectedValueOnce(
+        error(409, 'VAL-028', DETALLE_VENCIDO),
+      )
+    const { invalidar } = montar()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Iniciar pago simulado' }))
+    await screen.findByText('SIM-20261106-4K7Q2M')
+    await userEvent.click(screen.getByRole('button', { name: 'Aprobar pago simulado' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      DETALLE_VENCIDO,
+    )
+    expect(invalidar).toHaveBeenCalledWith({ queryKey: ['tesoreria'] })
+    expect(
+      screen.queryByRole('button', { name: 'Aprobar pago simulado' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Rechazar pago simulado' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Volver al cobro' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Cerrar pago simulado' })).toBeEnabled()
+  })
+
+  it('B-31.2: tras un VAL-028 al confirmar, volver al cobro ya no ofrece iniciar el pago', async () => {
+    post
+      .mockResolvedValueOnce(INTENTO_PENDIENTE)
+      .mockRejectedValueOnce(error(409, 'VAL-028', DETALLE_VENCIDO))
+    montar()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Iniciar pago simulado' }))
+    await screen.findByText('SIM-20261106-4K7Q2M')
+    await userEvent.click(screen.getByRole('button', { name: 'Aprobar pago simulado' }))
+    await screen.findByRole('alert')
+    await userEvent.click(screen.getByRole('button', { name: 'Volver al cobro' }))
+
+    expect(screen.getByRole('heading', { name: 'Cobro a pagar' })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Iniciar pago simulado' }),
+    ).not.toBeInTheDocument()
+    expect(post).toHaveBeenCalledTimes(2)
   })
 })

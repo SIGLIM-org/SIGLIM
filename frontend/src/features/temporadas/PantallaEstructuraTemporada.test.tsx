@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  APROBAR_INTERPRETACION,
   CONSULTAR,
   EDITAR,
   EDITAR_PARAMETROS,
@@ -33,10 +34,14 @@ vi.mock('@/features/seguridad/ProveedorSesionActual', () => ({
 }))
 
 function pestanaSeleccionada(): string | null {
-  return screen
-    .getAllByRole('tab')
-    .find((pestana) => pestana.getAttribute('aria-selected') === 'true')
-    ?.textContent ?? null
+  const estructura = screen.getByRole('tablist', { name: 'Estructura de la temporada' })
+
+  return (
+    within(estructura)
+      .getAllByRole('tab')
+      .find((pestana) => pestana.getAttribute('aria-selected') === 'true')
+      ?.textContent ?? null
+  )
 }
 
 describe('PantallaEstructuraTemporada', () => {
@@ -174,5 +179,30 @@ describe('PantallaEstructuraTemporada', () => {
 
     expect(await screen.findByText('Solo consulta')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Renombrar/ })).not.toBeInTheDocument()
+  })
+
+  it('B-03.2: sin permiso de interpretación la pestaña no existe y la URL abre Parámetros', async () => {
+    montarEstructura('?pestana=interpretaciones')
+
+    await screen.findByRole('tab', { name: /Parámetros/ })
+    expect(screen.queryByRole('tab', { name: /Interpretaciones/ })).not.toBeInTheDocument()
+    expect(pestanaSeleccionada()).toMatch(/^Parámetros/)
+    expect(get).not.toHaveBeenCalledWith(
+      expect.stringContaining('interpretaciones-regla'),
+    )
+  })
+
+  it('B-03.2: con APROBAR la pestaña aparece al final y la URL la abre', async () => {
+    sesion.yo.permisos = permisos(CONSULTAR, APROBAR_INTERPRETACION)
+    montarEstructura('?pestana=interpretaciones')
+
+    expect(await screen.findByRole('tab', { name: /Interpretaciones/ })).toBeInTheDocument()
+    expect(pestanaSeleccionada()).toMatch(/^Interpretaciones/)
+    expect(
+      await screen.findByRole('heading', { name: 'Interpretaciones de regla' }),
+    ).toBeInTheDocument()
+    expect(get).toHaveBeenCalledWith(
+      'interpretaciones-regla?temporadaId=t-1&pagina=0&tamano=10&estado=PENDIENTE',
+    )
   })
 })

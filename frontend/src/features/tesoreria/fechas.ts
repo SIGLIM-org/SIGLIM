@@ -67,6 +67,22 @@ export function diaSiguiente(dia: string): string {
   return new Date(Date.UTC(anio, mes - 1, numero + 1)).toISOString().slice(0, 10)
 }
 
+/* `en-CA` formatea como `AAAA-MM-DD`, el mismo formato de un `<input type="date">`. */
+const formatoDiaNegocio = new Intl.DateTimeFormat('en-CA', {
+  timeZone: ZONA_NEGOCIO,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+/**
+ * Día de hoy `AAAA-MM-DD` en la zona de negocio (convenciones §1). No usa `toISOString()`, que
+ * daría el día UTC: de 18:00 a 24:00 en Ciudad de México ya sería mañana.
+ */
+export function hoyEnZonaNegocio(): string {
+  return formatoDiaNegocio.format(new Date())
+}
+
 /** «1 cobro» / «3 cobros». */
 export function contarCobros(total: number): string {
   return `${total} ${total === 1 ? 'cobro' : 'cobros'}`

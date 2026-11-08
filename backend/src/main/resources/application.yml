@@ -54,6 +54,14 @@ siglim:
     secret-access-key: ${AWS_SECRET_ACCESS_KEY:}
     vigencia-enlace: 60s     # [PROPUESTA] ADR-0013 punto 6
     tamano-maximo: 5MB       # [PROPUESTA] ADR-0013 punto 4; no puede superar el CHECK de BD (5242880)
+  # Tareas programadas (ADR-0009): corren como el perfil Sistema con EjecutorSistema. Las pruebas
+  # las apagan en src/test/resources/config/application.yml y las invocan directamente.
+  tareas:
+    vencimiento-cobros:
+      habilitada: true
+      # [PROPUESTA] ADR-0009 §5: diaria a las 00:05 en America/Mexico_City (la zona va en el código).
+      # Formato de Spring: segundo minuto hora día mes día-de-la-semana. También corre al arrancar (DEC-60).
+      cron: "0 5 0 * * *"
 
 # Monitoreo (RNF-001, RNF-011): solo /actuator/health, sin detalles internos hacia afuera.
 management:

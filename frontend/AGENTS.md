@@ -23,7 +23,7 @@ src/
 ├── app/            App.tsx (providers) y router.tsx (todas las rutas)
 ├── config/env.ts   variables de entorno tipadas
 ├── lib/
-│   ├── api/        cliente HTTP único (cliente.ts), ApiError (RFC 9457), tipos de paginación
+│   ├── api/        cliente HTTP único (cliente.ts, cuerpo JSON o FormData), ApiError (RFC 9457), tipos de paginación
 │   └── supabase.ts cliente de Supabase SOLO para auth
 ├── components/ui/  componentes base del sistema de diseño (Button, …)
 ├── layouts/        PublicLayout (portal) e InternalLayout (aplicación interna)

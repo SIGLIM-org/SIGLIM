@@ -19,6 +19,10 @@ import org.springframework.transaction.TransactionDefinition;
  * SET LOCAL search_path TO siglim;
  * SET LOCAL ROLE siglim_app;          -- sujeto a RLS por ámbito
  * }</pre>
+ * Con el perfil Sistema ({@link AutenticacionSistema}, solo dentro de {@link EjecutorSistema}) es
+ * igual, pero los claims llevan únicamente {@code {"perfil_id":"<uuid Sistema>"}}: el perfil no tiene
+ * usuario de Auth y nada en el esquema lee {@code sub} (lo que cuenta es
+ * {@code siglim.usuario_actual()}).
  * Sin sesión (portal público, o cualquier transacción sin usuario) se adopta
  * {@code siglim_publico}, que solo lee las vistas {@code v_publica_*}: si un código olvida exigir
  * sesión, la base de datos niega en lugar de exponer datos.
@@ -31,7 +35,7 @@ import org.springframework.transaction.TransactionDefinition;
  * <p>Las transacciones de solo lectura ({@code readOnly = true}) también se fuerzan en la base de
  * datos con {@code SET TRANSACTION READ ONLY}.
  *
- * <p>Refs: T-02.3, RNF-003, RN-021, ADR-0005, ADR-0014
+ * <p>Refs: T-02.3, B-31.1, RNF-003, RN-021, ADR-0005, ADR-0009, ADR-0014
  */
 public class GestorTransaccionesSiglim extends JdbcTransactionManager {
 
@@ -49,7 +53,7 @@ public class GestorTransaccionesSiglim extends JdbcTransactionManager {
         // Primero SET TRANSACTION READ ONLY, que debe ir antes de cualquier consulta.
         super.prepareTransactionalConnection(conexion, definicion);
 
-        Optional<AutenticacionSiglim> sesion = UsuarioActual.autenticacion();
+        Optional<SesionSiglim> sesion = UsuarioActual.sesion();
         fijarClaims(conexion, sesion.map(GestorTransaccionesSiglim::claims).orElse(""));
         try (Statement sentencia = conexion.createStatement()) {
             sentencia.execute("SET LOCAL search_path TO siglim");
@@ -62,8 +66,12 @@ public class GestorTransaccionesSiglim extends JdbcTransactionManager {
      * Claims que leen {@code siglim.usuario_actual()} y las políticas RLS. Solo contienen UUID ya
      * validados, así que el JSON se arma sin riesgo de inyección.
      */
-    static String claims(AutenticacionSiglim sesion) {
-        return "{\"sub\":\"" + sesion.usuarioAuthId() + "\",\"perfil_id\":\"" + sesion.perfilId() + "\"}";
+    static String claims(SesionSiglim sesion) {
+        return switch (sesion) {
+            case AutenticacionSiglim persona ->
+                    "{\"sub\":\"" + persona.usuarioAuthId() + "\",\"perfil_id\":\"" + persona.perfilId() + "\"}";
+            case AutenticacionSistema sistema -> "{\"perfil_id\":\"" + sistema.perfilId() + "\"}";
+        };
     }
 
     private static void fijarClaims(Connection conexion, String claims) throws SQLException {

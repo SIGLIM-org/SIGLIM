@@ -1,0 +1,26 @@
+Bucket: siglim-documentos-aceptacion (S3Mock local en http://localhost:9090)
+
+-- Listado del bucket (respuesta cruda)
+<?xml version="1.0" encoding="UTF-8"?><ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Contents><ChecksumAlgorithm>SHA256</ChecksumAlgorithm><ChecksumType>FULL_OBJECT</ChecksumType><ETag>"543dd2ba34f4f9301ed23fd764cdcfd3"</ETag><Key>liga/a0000000-0000-4000-8000-000000000001/comprobantes/7a84b4e7-24a2-4ec3-a368-238fe9de2cf3/20ea25f9-21eb-4f06-aae8-917b1528e0e7.pdf</Key><LastModified>2026-11-08T02:41:24.466Z</LastModified><Size>218</Size></Contents><Contents><ChecksumAlgorithm>SHA256</ChecksumAlgorithm><ChecksumType>FULL_OBJECT</ChecksumType><ETag>"543dd2ba34f4f9301ed23fd764cdcfd3"</ETag><Key>liga/a0000000-0000-4000-8000-000000000001/comprobantes/81139f0f-4582-4da7-aa66-8dca4f657c66/67c8efbc-767f-41f2-8ad6-0e22231d3164.pdf</Key><LastModified>2026-11-08T02:41:25.214Z</LastModified><Size>218</Size></Contents><IsTruncated>false</IsTruncated><KeyCount>2</KeyCount><MaxKeys>1000</MaxKeys><Name>siglim-documentos-aceptacion</Name></ListBucketResult>
+
+-- Objetos y su cabecera HEAD
+Clave: liga/a0000000-0000-4000-8000-000000000001/comprobantes/7a84b4e7-24a2-4ec3-a368-238fe9de2cf3/20ea25f9-21eb-4f06-aae8-917b1528e0e7.pdf
+HTTP/1.1 200 
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers
+ETag: "543dd2ba34f4f9301ed23fd764cdcfd3"
+Accept-Ranges: bytes
+Last-Modified: Sun, 08 Nov 2026 02:41:24 GMT
+Content-Type: application/pdf
+
+Clave: liga/a0000000-0000-4000-8000-000000000001/comprobantes/81139f0f-4582-4da7-aa66-8dca4f657c66/67c8efbc-767f-41f2-8ad6-0e22231d3164.pdf
+HTTP/1.1 200 
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers
+ETag: "543dd2ba34f4f9301ed23fd764cdcfd3"
+Accept-Ranges: bytes
+Last-Modified: Sun, 08 Nov 2026 02:41:25 GMT
+Content-Type: application/pdf
+

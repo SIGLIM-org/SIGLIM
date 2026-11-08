@@ -1,0 +1,17 @@
+{
+  "peticion": {
+    "metodo": "POST",
+    "url": "http://localhost:8080/api/v1/cobros/c0000000-0000-4000-8000-000000000003/pagos",
+    "tipoContenido": "multipart/form-data",
+    "campos": {
+      "medio": "EFECTIVO",
+      "monto": "100.00 (el cobro es de 725.00)",
+      "archivo": "comprobante-monto-distinto.pdf (application/pdf, 218 bytes)"
+    }
+  },
+  "respuesta": {
+    "estado": 422,
+    "location": null,
+    "cuerpo": "{\"detail\":\"El pago debe cubrir el monto total del cobro (725.00 MXN).\",\"instance\":\"/api/v1/cobros/c0000000-0000-4000-8000-000000000003/pagos\",\"status\":422,\"title\":\"No se puede procesar\",\"type\":\"https://siglim.mx/errores/rf-139\",\"codigo\":\"RF-139\"}"
+  }
+}

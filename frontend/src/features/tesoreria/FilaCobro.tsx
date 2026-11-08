@@ -1,29 +1,40 @@
-import { CreditCard, RotateCw } from 'lucide-react'
+import { CircleAlert, CreditCard, ReceiptText, RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Insignia } from '@/components/ui/Insignia'
 import { estadoCobro, etiquetaTipoCobro } from '@/features/tesoreria/etiquetas'
 import { formatearFecha, formatearMonto } from '@/features/tesoreria/fechas'
-import type { Cobro } from '@/features/tesoreria/tipos'
+import type { Cobro, EstadoCobro } from '@/features/tesoreria/tipos'
 
 type Props = {
   cobro: Cobro
-  /** La sesión tiene `tesoreria.pago:PAGAR`; sin él no se ofrece la acción. */
+  /** La sesión tiene `tesoreria.pago:PAGAR`; sin él no se ofrece el pago simulado (H-30.2). */
   puedePagar: boolean
   onPagar: (cobro: Cobro) => void
+  /** Si viene, se ofrece «Registrar pago» (permiso `tesoreria.pago:REGISTRAR`, H-31.2). */
+  onRegistrarPago?: (cobro: Cobro) => void
 }
+
+/** Estados que admiten registrar un pago externo (VAL-028, convenciones §6.13). */
+const ESTADOS_PAGABLES: ReadonlySet<EstadoCobro> = new Set(['PENDIENTE', 'VENCIDO'])
 
 const CLASE_ETIQUETA = 'block text-label-sm text-text-muted lg:hidden'
 
 /**
  * Fila de la tabla de cobros (F-33, H-29.2). Bajo `lg` se apila como tarjeta con sus etiquetas
- * visibles (RNF-007). Solo los cobros `PENDIENTE` o `RECHAZADO` ofrecen el pago simulado de
- * H-30.2; un cobro pagado o vencido no se paga en línea (VAL-028).
+ * visibles (RNF-007). La celda de acciones aparece si la sesión puede pagar o registrar pagos:
+ * «Pagar en línea (simulado)» en los cobros `PENDIENTE` o `RECHAZADO` (H-30.2, RF-138) y
+ * «Registrar pago» en los `PENDIENTE` o `VENCIDO` (H-31.2, RF-139); un cobro pagado no ofrece
+ * ninguna (VAL-028). Un cobro `VENCIDO` solo admite el pago externo (§6.13, DEC-60): si la sesión
+ * puede pagar en línea pero no registrar pagos (Directiva de club, F-34), la celda lo explica con
+ * el texto visible «Vencido: comunícate con Tesorería», sin plazos ni reglas añadidas (B-31.2, D-07).
  */
-export function FilaCobro({ cobro, puedePagar, onPagar }: Props) {
+export function FilaCobro({ cobro, puedePagar, onPagar, onRegistrarPago }: Props) {
   const estado = estadoCobro(cobro.estado)
+  const admiteRegistro = onRegistrarPago !== undefined && ESTADOS_PAGABLES.has(cobro.estado)
 
-  const accion =
-    cobro.estado === 'PENDIENTE' ? (
+  const accionSimulada = !puedePagar
+    ? null
+    : cobro.estado === 'PENDIENTE' ? (
       <Button
         variante="secundario"
         icono={CreditCard}
@@ -42,6 +53,9 @@ export function FilaCobro({ cobro, puedePagar, onPagar }: Props) {
         Reintentar pago
       </Button>
     ) : null
+
+  const avisoVencido = puedePagar && cobro.estado === 'VENCIDO' && !admiteRegistro
+  const conAcciones = accionSimulada !== null || admiteRegistro || avisoVencido
 
   return (
     <tr
@@ -93,12 +107,37 @@ export function FilaCobro({ cobro, puedePagar, onPagar }: Props) {
         <Insignia variante={estado.variante}>{estado.texto}</Insignia>
       </td>
 
-      {puedePagar && (
-        <td role="cell" className="block pt-2 lg:table-cell lg:px-4 lg:py-3 lg:text-right">
-          {accion && (
+      {(puedePagar || onRegistrarPago) && (
+        <td
+          role="cell"
+          className={[
+            'block lg:table-cell lg:px-4 lg:py-3 lg:text-right',
+            conAcciones ? 'pt-3' : 'hidden',
+          ].join(' ')}
+        >
+          {conAcciones && (
             <>
               <span className={CLASE_ETIQUETA}>Acciones</span>
-              {accion}
+              <div className="flex flex-col gap-2 lg:flex-row lg:justify-end">
+                {accionSimulada}
+                {admiteRegistro && (
+                  <Button
+                    variante="secundario"
+                    icono={ReceiptText}
+                    aria-label={`Registrar pago de «${cobro.concepto}»`}
+                    onClick={() => onRegistrarPago(cobro)}
+                    className="w-full whitespace-nowrap lg:w-auto"
+                  >
+                    Registrar pago
+                  </Button>
+                )}
+                {avisoVencido && (
+                  <p className="flex items-start gap-1.5 text-left text-body-sm text-error-strong lg:justify-end">
+                    <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                    Vencido: comunícate con Tesorería
+                  </p>
+                )}
+              </div>
             </>
           )}
         </td>

@@ -230,3 +230,46 @@ export type RegistrarParametrosPeticion = ValoresParametros & {
   categorias: ParametrosCategoriaPeticion[]
   motivo: string
 }
+
+/* ---------------------------------------------------------------------------------------------
+ * Interpretaciones de regla (F-11, B-03.2, RF-007, DEC-57 a DEC-59). Contrato de convenciones de
+ * API §6.2.
+ * ------------------------------------------------------------------------------------------- */
+
+/** Nace PENDIENTE y solo el Presidente la deja AUTORIZADA o RECHAZADA (RF-007). */
+export type EstadoInterpretacion = 'PENDIENTE' | 'AUTORIZADA' | 'RECHAZADA'
+
+/** Filtro de la bandeja; `TODOS` no se manda al API. */
+export type FiltroEstadoInterpretacion = 'TODOS' | EstadoInterpretacion
+
+/**
+ * Interpretación administrativa de una regla (RF-007, RN-006). No es una regla permanente ni toca
+ * los parámetros versionados. El API solo expone `perfiles.id`, no nombres ni correos.
+ */
+export type InterpretacionRegla = {
+  id: string
+  temporadaId: string
+  descripcion: string
+  estado: EstadoInterpretacion
+  registradaPor: string
+  registradaEn: string
+  /** Solo cuando ya está resuelta. */
+  resueltaPor?: string
+  resueltaEn?: string
+  /** Observaciones del registro o de la resolución; el rechazo las exige (DEC-58). */
+  observaciones?: string
+}
+
+/** `POST /interpretaciones-regla`: el alta siempre nace PENDIENTE (RF-007). */
+export type CrearInterpretacionPeticion = {
+  temporadaId: string
+  /** Hasta 2000 caracteres [PROPUESTA]. */
+  descripcion: string
+}
+
+/** `POST /interpretaciones-regla/{id}/resolucion`: resolución definitiva (RF-007). */
+export type ResolverInterpretacionPeticion = {
+  estado: Exclude<EstadoInterpretacion, 'PENDIENTE'>
+  /** Obligatorias al rechazar (mínimo 10 caracteres, DEC-58); opcionales al autorizar. */
+  observaciones?: string
+}

@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   Layers,
   Lock,
+  Scale,
   SlidersHorizontal,
   Users,
   type LucideIcon,
@@ -23,6 +24,7 @@ import {
 } from '@/features/temporadas/pestanas'
 import { PestanaCategorias } from '@/features/temporadas/PestanaCategorias'
 import { PestanaGrupos } from '@/features/temporadas/PestanaGrupos'
+import { PestanaInterpretaciones } from '@/features/temporadas/PestanaInterpretaciones'
 import { PestanaParametros } from '@/features/temporadas/PestanaParametros'
 import type { Temporada } from '@/features/temporadas/tipos'
 import { esSinPermiso, reintentarConsulta } from '@/lib/api/errores'
@@ -34,10 +36,18 @@ const DATOS_PESTANA: Record<PestanaEstructura, { texto: string; icono: LucideIco
   parametros: { texto: 'Parámetros', icono: SlidersHorizontal },
   categorias: { texto: 'Categorías', icono: Layers },
   grupos: { texto: 'Grupos', icono: Users },
+  interpretaciones: { texto: 'Interpretaciones', icono: Scale },
 }
 
-/** Contador de cada pestaña, con los datos reales de la temporada (D5). */
-function contadorDe(pestana: PestanaEstructura, temporada: Temporada): string {
+/**
+ * Contador de cada pestaña, con los datos reales de la temporada (D5). Interpretaciones no tiene
+ * un contador en `Temporada`, así que no muestra insignia en vez de inventar un número.
+ */
+function contadorDe(pestana: PestanaEstructura, temporada: Temporada): string | null {
+  if (pestana === 'interpretaciones') {
+    return null
+  }
+
   if (pestana === 'parametros') {
     return temporada.versionParametros !== undefined ? `v${temporada.versionParametros}` : '—'
   }
@@ -56,7 +66,22 @@ export function EstructuraTemporada() {
   const [parametros, setParametros] = useSearchParams()
   const { yo } = useSesionActual()
   const consulta = useTemporada(temporadaId)
-  const pestana = pestanaDeParametro(parametros.get('pestana'))
+  const puedeRegistrarInterpretacion = tienePermiso(
+    yo.permisos,
+    'temporadas.interpretacion:REGISTRAR',
+  )
+  const puedeResolverInterpretacion = tienePermiso(
+    yo.permisos,
+    'temporadas.interpretacion:APROBAR',
+  )
+  const puedeVerInterpretaciones =
+    puedeRegistrarInterpretacion || puedeResolverInterpretacion
+  // Sin ninguno de los dos permisos la pestaña no existe; si se pide por URL, abre Parámetros.
+  const pestanas = puedeVerInterpretaciones
+    ? PESTANAS_ESTRUCTURA
+    : PESTANAS_ESTRUCTURA.filter((valor) => valor !== 'interpretaciones')
+  const solicitada = pestanaDeParametro(parametros.get('pestana'))
+  const pestana = pestanas.includes(solicitada) ? solicitada : 'parametros'
   const [visitadas, setVisitadas] = useState<PestanaEstructura[]>([pestana])
 
   // La pestaña también cambia por enlaces (p. ej. desde un estado vacío): se registra al pintar.
@@ -80,8 +105,8 @@ export function EstructuraTemporada() {
   }
 
   const navegarPestanas = (evento: KeyboardEvent<HTMLDivElement>) => {
-    const actual = PESTANAS_ESTRUCTURA.indexOf(pestana)
-    const total = PESTANAS_ESTRUCTURA.length
+    const actual = pestanas.indexOf(pestana)
+    const total = pestanas.length
     let siguiente: number | null = null
 
     if (evento.key === 'ArrowRight') {
@@ -99,7 +124,7 @@ export function EstructuraTemporada() {
     }
 
     evento.preventDefault()
-    const valor = PESTANAS_ESTRUCTURA[siguiente]
+    const valor = pestanas[siguiente]
     cambiarPestana(valor)
     document.getElementById(`pestana-${valor}`)?.focus()
   }
@@ -207,9 +232,10 @@ export function EstructuraTemporada() {
         // pestañas, y la línea activa se encima sin desbordar (sin barra vertical en Windows).
         className="flex min-w-0 overflow-x-auto overflow-y-hidden shadow-[inset_0_-2px_0_var(--color-border)]"
       >
-        {PESTANAS_ESTRUCTURA.map((valor) => {
+        {pestanas.map((valor) => {
           const { texto, icono: Icono } = DATOS_PESTANA[valor]
           const activa = pestana === valor
+          const contador = contadorDe(valor, temporada)
 
           return (
             <button
@@ -230,21 +256,23 @@ export function EstructuraTemporada() {
             >
               <Icono aria-hidden="true" className="hidden size-4 shrink-0 sm:block" />
               {texto}
-              <span
-                aria-hidden="true"
-                className={[
-                  'rounded-sm px-1.5 py-0.5 font-mono text-mono-data',
-                  activa ? 'bg-primary/10 text-primary' : 'bg-border/40 text-text-muted',
-                ].join(' ')}
-              >
-                {contadorDe(valor, temporada)}
-              </span>
+              {contador !== null && (
+                <span
+                  aria-hidden="true"
+                  className={[
+                    'rounded-sm px-1.5 py-0.5 font-mono text-mono-data',
+                    activa ? 'bg-primary/10 text-primary' : 'bg-border/40 text-text-muted',
+                  ].join(' ')}
+                >
+                  {contador}
+                </span>
+              )}
             </button>
           )
         })}
       </div>
 
-      {PESTANAS_ESTRUCTURA.map((valor) => (
+      {pestanas.map((valor) => (
         <div
           key={valor}
           role="tabpanel"
@@ -261,6 +289,13 @@ export function EstructuraTemporada() {
           )}
           {visitadas.includes(valor) && valor === 'grupos' && (
             <PestanaGrupos temporada={temporada} puedeEditar={puedeEditar} />
+          )}
+          {visitadas.includes(valor) && valor === 'interpretaciones' && (
+            <PestanaInterpretaciones
+              temporada={temporada}
+              puedeRegistrar={puedeRegistrarInterpretacion}
+              puedeResolver={puedeResolverInterpretacion}
+            />
           )}
         </div>
       ))}

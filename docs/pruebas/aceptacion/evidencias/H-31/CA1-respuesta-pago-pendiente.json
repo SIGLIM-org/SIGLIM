@@ -1,0 +1,32 @@
+{
+  "peticion": {
+    "metodo": "POST",
+    "url": "http://localhost:8080/api/v1/cobros/c0000000-0000-4000-8000-000000000001/pagos",
+    "tipoContenido": "multipart/form-data",
+    "campos": {
+      "medio": "EFECTIVO",
+      "monto": "1500.00",
+      "archivo": "comprobante-aceptacion-H31.pdf (application/pdf, 218 bytes)"
+    }
+  },
+  "respuesta": {
+    "estado": 201,
+    "location": "/api/v1/cobros/c0000000-0000-4000-8000-000000000001/pagos",
+    "cuerpo": {
+      "id": "81139f0f-4582-4da7-aa66-8dca4f657c66",
+      "cobroId": "c0000000-0000-4000-8000-000000000001",
+      "medio": "EFECTIVO",
+      "monto": 1500,
+      "pagadoEn": "2026-11-08T02:41:25.20042Z",
+      "registradoPor": {
+        "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "nombre": "Tesorero de aceptación"
+      },
+      "comprobante": {
+        "documentoId": "67c8efbc-767f-41f2-8ad6-0e22231d3164",
+        "tipoMime": "application/pdf",
+        "tamanoBytes": 218
+      }
+    }
+  }
+}
