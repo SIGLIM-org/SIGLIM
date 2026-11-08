@@ -1,0 +1,50 @@
+{
+  "contenido": [
+    {
+      "id": "c1000000-0000-4000-8000-000000000001",
+      "tipo": "MANUAL",
+      "concepto": "Cuota de inscripción temporada 2026-27",
+      "monto": 1500,
+      "periodoInicio": "2026-10-07",
+      "fechaLimite": "2026-11-06",
+      "estado": "VENCIDO",
+      "club": {
+        "id": "c0000000-0000-4000-8000-000000000031",
+        "nombre": "Club Halcones B-31"
+      },
+      "creadoEn": "2026-11-08T03:21:52.650235Z"
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000004",
+      "tipo": "MANUAL",
+      "concepto": "Cuota atrasada desde octubre",
+      "monto": 900,
+      "periodoInicio": "2026-09-28",
+      "fechaLimite": "2026-10-28",
+      "estado": "VENCIDO",
+      "club": {
+        "id": "c0000000-0000-4000-8000-000000000031",
+        "nombre": "Club Halcones B-31"
+      },
+      "creadoEn": "2026-11-08T03:21:52.650235Z"
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000007",
+      "tipo": "MANUAL",
+      "concepto": "Cobro vencido de una corrida anterior",
+      "monto": 300,
+      "periodoInicio": "2026-10-02",
+      "fechaLimite": "2026-11-01",
+      "estado": "VENCIDO",
+      "club": {
+        "id": "c0000000-0000-4000-8000-000000000031",
+        "nombre": "Club Halcones B-31"
+      },
+      "creadoEn": "2026-11-08T03:21:52.650235Z"
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 3,
+  "totalPaginas": 1
+}

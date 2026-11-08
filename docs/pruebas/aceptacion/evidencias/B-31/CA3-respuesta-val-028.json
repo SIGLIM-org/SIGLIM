@@ -1,0 +1,11 @@
+{
+  "estado": 409,
+  "cuerpo": {
+    "detail": "El cobro está VENCIDO; no se puede pagar en línea. Comunícate con Tesorería.",
+    "instance": "/api/v1/cobros/c1000000-0000-4000-8000-000000000001/intentos-pago",
+    "status": 409,
+    "title": "Conflicto con el estado actual",
+    "type": "https://siglim.mx/errores/val-028",
+    "codigo": "VAL-028"
+  }
+}

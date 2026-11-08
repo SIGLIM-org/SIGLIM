@@ -1,0 +1,22 @@
+{
+  "estado": 200,
+  "cuerpo": {
+    "total": 3775.5,
+    "pendiente": 1075.5,
+    "vencido": 2700,
+    "cobros": 5,
+    "clubes": [
+      {
+        "club": {
+          "id": "c0000000-0000-4000-8000-000000000031",
+          "nombre": "Club Halcones B-31"
+        },
+        "total": 3775.5,
+        "pendiente": 1075.5,
+        "vencido": 2700,
+        "cobros": 5,
+        "equipos": []
+      }
+    ]
+  }
+}
