@@ -1,7 +1,7 @@
 # Diccionario de datos
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.4 · 6 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
+Versión 2.5 · 8 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
 
 > [!NOTE]
 > Este diccionario describe la migración
@@ -21,6 +21,7 @@ Versión 2.4 · 6 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado
 | 2.2 | 27 de octubre de 2026 | Migración `20261027140000_proteger_inmutables_truncate.sql` (SCRUM-397): `auditoria`, `resoluciones` y `parametros_temporada` agregan un trigger `BEFORE TRUNCATE ... FOR EACH STATEMENT` que reutiliza `tg_inmutable()`, porque los triggers por fila no se disparan con `TRUNCATE`. Rechaza el vaciado directo y por cascada con `P0001` y HINT `RNF-015`. Sin cambios en columnas. |
 | 2.3 | 3 de noviembre de 2026 | Migración `20261103100000_secretario_registra_equipos.sql` (H-06.1, SCRUM-270): el rol `SECRETARIO` recibe `organizacion.equipo:EDITAR`, que el Apéndice E del ERS le da (M-03 C L E, RF-009) y la semilla inicial omitió. Solo agrega una fila a `rol_permisos`; sin cambios en tablas ni funciones. |
 | 2.4 | 6 de noviembre de 2026 | Migración `20261106160000_tesorero_consulta_equipos.sql` (DEF-06, SCRUM-404): el rol `TESORERO` recibe `organizacion.equipo:CONSULTAR`, que DEC-55 agrega al Apéndice E del ERS (M-03 L, RF-137) para dirigir cobros a un equipo; no recibe `organizacion.equipo:EDITAR`. Solo agrega una fila a `rol_permisos`; sin cambios en tablas ni funciones. |
+| 2.5 | 8 de noviembre de 2026 | Migración `20261108100000_cargo_directiva_pendiente.sql` (H-22.1): `ux_cargos_vigentes` solo considera cargos autorizados (`autorizado_por IS NOT NULL`), para que un cambio pendiente no impida mantener vigente el cargo anterior (RF-102). Sin cambios en columnas ni datos. |
 
 ## 1. Propósito y alcance
 
@@ -647,7 +648,7 @@ Directiva del club (presidente, secretario, tesorero, delegado) con vigencia (RF
 Restricciones, índices y triggers:
 
 - `ck_cargos_vigencia`: `CHECK (((hasta IS NULL) OR (hasta >= desde)))`
-- Índice único `ux_cargos_vigentes`: `USING btree (club_id, cargo) WHERE (hasta IS NULL)`
+- Índice único `ux_cargos_vigentes`: `USING btree (club_id, cargo) WHERE ((hasta IS NULL) AND (autorizado_por IS NOT NULL))`; los cambios pendientes no ocupan el cargo vigente.
 
 #### `clubes`
 

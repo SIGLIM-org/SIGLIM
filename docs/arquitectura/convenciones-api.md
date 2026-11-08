@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 4.2 · 7 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 4.3 · 8 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -41,6 +41,7 @@ Versión 4.2 · 7 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 4.0 | 7 de noviembre de 2026 | B-31.1: §6.13 aclara que el estado `VENCIDO` lo fija la tarea programada de vencimiento (RF-141, DEC-60) y ningún endpoint. |
 | 4.1 | 7 de noviembre de 2026 | B-04.1: §6.3 con el contrato del cambio de nombre de club (`POST /clubes/{id}/cambio-nombre`), su orden de errores, el traslado de asignaciones de rol, los cobros que se quedan en el club anterior y la auditoría `CERRAR_CLUB` + `REGISTRAR_CLUB` (DEC-49, DEC-61); el club incluye `clubAnterior` cuando existe. |
 | 4.2 | 7 de noviembre de 2026 | H-20.1: §6.1 con el contrato de la matriz de permisos (`GET /roles/{id}`, `GET /permisos` y `PATCH /roles/{id}/permisos` con `200`/`202`), el listado de solicitudes y su dictamen, los errores de VAL-022, VAL-023 y RF-096 y las acciones de auditoría `CAMBIAR_PERMISOS_ROL`, `SOLICITAR_CAMBIO_PERMISOS`, `APROBAR_CAMBIO_PERMISOS` y `RECHAZAR_CAMBIO_PERMISOS`. |
+| 4.3 | 8 de noviembre de 2026 | H-22.1: §6.3 documenta la consulta, registro pendiente y autorización de cargos de directiva con vigencias consecutivas (RF-102). |
 
 ## Índice
 
@@ -853,7 +854,9 @@ la misma forma que `GET /temporadas/{id}/parametros/{version}`:
 | `POST /clubes/{id}/cambio-nombre` | Cierra el club y crea uno nuevo | `organizacion.club:EDITAR` con ámbito de liga | RF-105 | B |
 | `GET /afiliaciones?temporadaId=&estado=` · `POST /afiliaciones` · `PATCH /afiliaciones/{id}` | Tarjetón por temporada (folio lo asigna el sistema) | `organizacion.afiliacion:CAPTURAR` | RF-101 | N |
 | `POST /afiliaciones/{id}/resolucion` | Aprobar o rechazar | `organizacion.afiliacion:APROBAR` | RF-101 | N |
-| `GET /clubes/{id}/directiva` · `POST /clubes/{id}/directiva` · `POST /cargos-directiva/{id}/autorizacion` | Cargos con vigencia | `organizacion.directiva:*` | RF-102 | N |
+| `GET /clubes/{id}/directiva` | Cargos e historial | `organizacion.club:CONSULTAR` con ámbito del club | RF-102 | N |
+| `POST /clubes/{id}/directiva` | Registrar un cambio pendiente | `organizacion.directiva:EDITAR` con ámbito del club | RF-102 | N |
+| `POST /cargos-directiva/{id}/autorizacion` | Autorizar un cambio | `organizacion.directiva:APROBAR` con ámbito del club | RF-102 | N |
 | `GET /equipos?temporadaId=&grupoId=&clubId=&estado=` · `GET /equipos/{id}` · `POST` · `PATCH /equipos/{id}` · `POST /equipos/{id}/baja` | Equipos | `organizacion.equipo:CONSULTAR` en los `GET`; `organizacion.equipo:EDITAR` en `POST`, `PATCH` y la baja | RF-009 | N |
 | `POST /operaciones-equipo` · `POST …/{id}/resolucion` | Venta y conservación de plaza | `organizacion.venta:*` | RF-103, RF-104 | B |
 | `GET /personas?curp=` · `POST /personas` · `PATCH /personas/{id}` | Identidad única por CURP; `POST` con una CURP existente responde `409` con el `id` para reutilizarla | `organizacion.persona:*` | RF-010, RF-011 | N |
@@ -909,6 +912,26 @@ historial se quedan en el club anterior. Se audita en `M-03` `CERRAR_CLUB` sobre
 `REGISTRAR_CLUB` sobre el nuevo (`{ "estado": "ACTIVO", "clubAnteriorId" }`); por cada asignación
 trasladada, en `M-01`, `REVOCAR_ASIGNACION` (motivo «Cambio de nombre del club») y `ASIGNAR_ROL`, con
 el mismo detalle que en §6.1. Si cualquier paso falla, no queda nada de lo anterior.
+
+**Directiva del club (H-22.1, RF-102, DEC-03).** `GET /clubes/{id}/directiva` devuelve un arreglo con
+los cargos actuales, pendientes y anteriores del club, ordenados por cargo, pendientes primero y
+fecha `desde` descendente. Cada elemento contiene `id`, `clubId`, `personaId`, `nombrePersona`,
+`cargo`, `desde`, `hasta`, `estado` (`PENDIENTE` o `AUTORIZADO`) y `autorizadoPor`; los campos sin
+valor se omiten. Consulta con `organizacion.club:CONSULTAR` y ámbito del club.
+
+`POST /clubes/{id}/directiva` lleva `{ "personaId", "cargo", "desde" }`, donde `cargo` es
+`PRESIDENTE`, `SECRETARIO`, `TESORERO` o `DELEGADO`. Responde `201` con `Location` y el cargo en
+estado `PENDIENTE`; `autorizadoPor` y `hasta` se omiten. Requiere `organizacion.directiva:EDITAR`
+con ámbito del club. Un club fuera de ámbito o inexistente responde `404`; una persona inexistente
+responde `422 REFERENCIA_INVALIDA`.
+
+`POST /cargos-directiva/{id}/autorizacion` no lleva cuerpo y responde `200` con el cargo autorizado.
+Requiere `organizacion.directiva:APROBAR` con ámbito del club; el perfil de la sesión se guarda en
+`autorizadoPor`. En la misma transacción termina el cargo autorizado vigente de igual tipo en ese
+club el día anterior al `desde` nuevo, y autoriza el cambio. El inicio nuevo debe ser posterior al
+del cargo anterior; volver a autorizar un cambio ya autorizado o una vigencia que se traslapa
+responde `409 VAL-003`. Ambas operaciones se auditan en `M-03` como `REGISTRAR_CARGO_DIRECTIVA` y
+`AUTORIZAR_CARGO_DIRECTIVA`, sin nombres ni otros datos personales en la auditoría.
 
 **Equipo.** `GET /equipos?temporadaId=&grupoId=&clubId=&estado=&pagina=&tamano=` responde la envoltura
 de paginación ordenada por el orden de la categoría, el nombre del grupo y el nombre del equipo.
