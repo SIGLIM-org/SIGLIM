@@ -364,8 +364,11 @@ public class UsuarioService {
                 detalleAsignacion(asignacion.rolCodigo(), asignacion.ambito(), asignacion.clubId())));
     }
 
-    /** Detalle de una asignación sin datos personales: solo rol, ámbito y club (RNF-012). */
-    private static Map<String, Object> detalleAsignacion(String rol, String ambito, UUID clubId) {
+    /**
+     * Detalle de una asignación sin datos personales: solo rol, ámbito y club (RNF-012). Lo reutiliza
+     * {@link TrasladoAsignacionesClub} para que la auditoría tenga el mismo formato.
+     */
+    static Map<String, Object> detalleAsignacion(String rol, String ambito, UUID clubId) {
         Map<String, Object> detalle = new LinkedHashMap<>();
         detalle.put("rol", rol);
         detalle.put("ambito", ambito);
