@@ -117,6 +117,12 @@ export const seccionesApp: SeccionApp[] = [
         descripcion: 'Cuentas, roles y ámbitos de acceso.',
       },
       {
+        nombre: 'Roles y permisos',
+        ruta: '/app/administracion/roles',
+        permiso: 'seguridad.rol:CONSULTAR',
+        descripcion: 'Matriz de permisos y solicitudes de control dual.',
+      },
+      {
         nombre: 'Comunicados',
         ruta: '/app/administracion/comunicados',
         permiso: [
