@@ -231,13 +231,6 @@ Rol de un perfil con su ámbito: liga, club (club_id) o propio (RF-094, RN-054).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_asignaciones_club`: `CHECK (((ambito = 'CLUB') = (club_id IS NOT NULL)))`
 - Índice `ix_asignaciones_perfil`: `USING btree (perfil_id) WHERE activa`
 - Índice único `ux_asignaciones_activa`: `USING btree (perfil_id, rol_id, COALESCE(club_id, '00000000-0000-0000-0000-000000000000'::uuid)) WHERE activa`
@@ -261,13 +254,6 @@ Auditoría inalterable: solo INSERT y SELECT (RF-093, RNF-015). detalle no debe 
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_auditoria_modulo`: `CHECK ((modulo ~ '^M-[0-9]{2}$'::text))`
 - Índice `ix_auditoria_entidad`: `USING btree (entidad, entidad_id)`
 - Índice `ix_auditoria_fecha`: `USING btree (ocurrido_en DESC)`
@@ -292,13 +278,6 @@ Versiones del aviso de privacidad integral y simplificado (RF-097, DEC-40).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `avisos_privacidad_liga_id_tipo_version_key`: `UNIQUE (liga_id, tipo, version)`
 
 #### `consentimientos`
@@ -318,13 +297,6 @@ Consentimiento expreso del titular o, si es menor, de su tutor (otorgado_por_id)
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_consentimientos_finalidades`: `CHECK ((cardinality(finalidades) > 0))`
 
 #### `ligas`
@@ -351,13 +323,6 @@ Pares que no deben concentrarse en un rol sin aprobación del Presidente (RF-096
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_pares_orden`: `CHECK ((permiso_a_id < permiso_b_id))`
 
 #### `perfiles`
@@ -378,13 +343,6 @@ Cuenta de SIGLIM. usuario_auth_id enlaza con Supabase Auth; el perfil Sistema no
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_perfiles_sistema`: `CHECK (((NOT es_sistema) OR (usuario_auth_id IS NULL)))`
 - Trigger `tg_perfiles_actualizado_en` (before update) → `tg_actualizado_en()`
 
@@ -401,13 +359,6 @@ Catálogo de permisos modulo.recurso:ACCION (ADR-0007). Semilla de la migración
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_permisos_codigo`: `CHECK (((codigo)::text ~ '^[a-z]+\.[a-z_]+:[A-Z_]+$'::text))`
 - `ck_permisos_modulo`: `CHECK ((modulo ~ '^M-[0-9]{2}$'::text))`
 
@@ -422,13 +373,6 @@ Permisos de cada rol (matriz del Apéndice E del ERS).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - Trigger `tg_rol_permisos_propio` (before insert or delete or update) → `tg_rol_permisos_propio()`
 
 #### `roles`
@@ -448,13 +392,6 @@ Tipos de usuario (ERS §2.3). Sus permisos son configurables (RF-095).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `roles_liga_id_codigo_key`: `UNIQUE (liga_id, codigo)`
 
 #### `solicitudes_arco`
@@ -494,13 +431,6 @@ Control dual: cambio que crea un par incompatible, pendiente del Presidente (P-1
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_solicitudes_permisos_dual`: `CHECK (((resuelto_por IS NULL) OR (resuelto_por <> solicitado_por)))`
 - `ck_solicitudes_permisos_resolucion`: `CHECK (((estado = 'SOLICITADO') = (resuelto_por IS NULL)))`
 
@@ -523,13 +453,6 @@ Catálogo con orden y categoría superior inmediata configurables (RF-099, DEC-1
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `categorias_liga_id_nombre_key`: `UNIQUE (liga_id, nombre)`
 - `ck_categorias_superior`: `CHECK (((categoria_superior_id IS NULL) OR (categoria_superior_id <> id)))`
 - Índice único `ux_categorias_orden`: `USING btree (liga_id, orden) WHERE activa`
@@ -546,13 +469,6 @@ Categorías que participan en la temporada (RF-004).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `categorias_temporada_temporada_id_categoria_id_key`: `UNIQUE (temporada_id, categoria_id)`
 
 #### `convocatorias`
@@ -580,13 +496,6 @@ Uno o varios grupos por categoría de la temporada (RF-005).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `grupos_categoria_temporada_id_nombre_key`: `UNIQUE (categoria_temporada_id, nombre)`
 
 #### `interpretaciones_regla`
@@ -618,13 +527,6 @@ Duración de juego y bloque de cancha por categoría; sin fila se usan los de la
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_parametros_categoria`: `CHECK (((duracion_juego_min > 0) AND (bloque_cancha_min >= duracion_juego_min)))`
 
 #### `parametros_temporada`
@@ -658,13 +560,6 @@ Reglas versionadas de la temporada; la versión mayor es la vigente (RF-006, RF-
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_parametros_criterios`: `CHECK ((criterios_desempate[1] = 'PUNTOS'))`
 - `ck_parametros_default`: `CHECK (((goles_default_ganador > goles_default_perdedor) AND (goles_default_perdedor >= 0)))`
 - `ck_parametros_liguilla`: `CHECK ((clasificados_liguilla = ANY (ARRAY[2, 4, 8, 16, 32])))`
@@ -694,13 +589,6 @@ Periodo deportivo; una sola ACTIVA por liga (RF-001, RN-058). No se borra (RF-00
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_temporadas_fechas`: `CHECK (((fecha_fin IS NULL) OR (fecha_fin >= fecha_inicio)))`
 - `temporadas_liga_id_nombre_key`: `UNIQUE (liga_id, nombre)`
 - Índice único `ux_temporadas_activa`: `USING btree (liga_id) WHERE (estado = 'ACTIVA')`
@@ -738,13 +626,6 @@ Tarjetón del club por temporada con folio, sujeto a aprobación del Presidente 
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `afiliaciones_club_id_temporada_id_key`: `UNIQUE (club_id, temporada_id)`
 - `afiliaciones_temporada_id_folio_key`: `UNIQUE (temporada_id, folio)`
 
@@ -765,13 +646,6 @@ Directiva del club (presidente, secretario, tesorero, delegado) con vigencia (RF
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_cargos_vigencia`: `CHECK (((hasta IS NULL) OR (hasta >= desde)))`
 - Índice único `ux_cargos_vigentes`: `USING btree (club_id, cargo) WHERE (hasta IS NULL)`
 
@@ -793,13 +667,6 @@ Club afiliado. Un cambio de nombre crea un club nuevo y cierra el anterior (RF-0
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_clubes_cierre`: `CHECK (((estado = 'CERRADO') = (cerrado_en IS NOT NULL)))`
 - `clubes_liga_id_nombre_key`: `UNIQUE (liga_id, nombre)`
 - Trigger `tg_clubes_actualizado_en` (before update) → `tg_actualizado_en()`
@@ -823,13 +690,6 @@ Representación del club en un grupo de la temporada (RF-009). equipo_anterior_i
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_equipos_baja`: `CHECK (((estado = 'BAJA') = ((baja_en IS NOT NULL) AND (motivo_baja IS NOT NULL))))`
 - `equipos_grupo_id_nombre_key`: `UNIQUE (grupo_id, nombre)`
 - Índice `ix_equipos_club`: `USING btree (club_id)`
@@ -857,13 +717,6 @@ Venta de equipo y conservación de plaza, autorizadas por el Presidente y aplica
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_operaciones_venta`: `CHECK (((tipo <> 'VENTA') OR ((club_destino_id IS NOT NULL) AND (club_destino_id <> club_origen_id))))`
 
 #### `personas`
@@ -886,13 +739,6 @@ Identidad única por CURP, reutilizable como jugador, tutor, directivo o árbitr
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_personas_correo`: `CHECK (((correo IS NULL) OR ((correo)::text ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$'::text)))`
 - `ck_personas_curp`: `CHECK ((curp ~ '^[A-Z][AEIOUX][A-Z]{2}[0-9]{6}[HMX][A-Z]{5}[0-9A-Z][0-9]$'::text))`
 - Índice `ix_personas_apellidos`: `USING btree (apellido_paterno, apellido_materno, nombre)`
@@ -914,13 +760,6 @@ Vínculo menor–tutor; la cuenta del tutor gestiona al menor (RF-106, DEC-11).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_tutelas_distintos`: `CHECK ((menor_id <> tutor_id))`
 - Índice único `ux_tutelas_vigente`: `USING btree (menor_id, tutor_id) WHERE vigente`
 
@@ -955,13 +794,6 @@ Documentos, fotos, evidencias y comprobantes en un bucket privado de AWS S3; aqu
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_documentos_clave`: `CHECK (((s3_clave)::text !~ '\.\.'::text))`
 - `ck_documentos_dueno`: `CHECK ((num_nonnulls(registro_id, persona_id, afiliacion_id, expediente_id, pago_id) = 1))`
 - `ck_documentos_tamano`: `CHECK (((tamano_bytes > 0) AND (tamano_bytes <= 5242880)))`
@@ -1009,13 +841,6 @@ Persona en un equipo por temporada. Una CURP con un solo registro activo por tem
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_registros_baja`: `CHECK (((estado = 'BAJA') = (baja_en IS NOT NULL)))`
 - Índice `ix_registros_equipo`: `USING btree (equipo_id, estado)`
 - Índice `ix_registros_persona`: `USING btree (persona_id)`
@@ -1040,13 +865,6 @@ Documentos exigidos por tipo de categoría y para menores (RF-108, DEC-10). Conf
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_requisitos_cantidad`: `CHECK ((cantidad > 0))`
 - `requisitos_documento_liga_id_tipo_categoria_tipo_documento__key`: `UNIQUE (liga_id, tipo_categoria, tipo_documento_id)`
 
@@ -1081,13 +899,6 @@ Catálogo de tipos de documento (DEC-10).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - Índice `ix_arbitros_club`: `USING btree (club_id)`
 
 #### `designaciones`
@@ -1107,13 +918,6 @@ Restricciones, índices y triggers:
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - Índice `ix_designaciones_arbitro`: `USING btree (arbitro_id) WHERE vigente`
 - Índice único `ux_designaciones_arbitro`: `USING btree (partido_id, arbitro_id) WHERE vigente`
 - Índice único `ux_designaciones_central`: `USING btree (partido_id) WHERE (vigente AND (funcion = 'CENTRAL'))`
@@ -1133,13 +937,6 @@ Disponibilidad por fecha y horario (RF-022, backlog).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_disponibilidad_arbitral`: `CHECK ((NOT isempty(periodo)))`
 
 ### 5.6 M-06 Canchas y recursos
@@ -1165,13 +962,6 @@ Canchas con ubicación y propietario (RF-027, DEC-33).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `canchas_liga_id_nombre_key`: `UNIQUE (liga_id, nombre)`
 - `ck_canchas_propietario`: `CHECK ((((propietario = 'CLUB') = (club_id IS NOT NULL)) AND ((propietario = 'EXTERNO') = (propietario_externo IS NOT NULL))))`
 
@@ -1191,16 +981,27 @@ Disponibilidad, bloqueos con motivo y mantenimiento (RF-029 a RF-031).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_disponibilidad_cancha_motivo`: `CHECK (((tipo = 'DISPONIBLE') OR (motivo IS NOT NULL)))`
 - `ck_disponibilidad_cancha_periodo`: `CHECK ((NOT isempty(periodo)))`
 - Índice `ix_disponibilidad_cancha`: `USING gist (cancha_id, periodo)`
+
+#### `horarios_cancha_club`
+
+Horarios por categoría de la cancha que ofrece un club o que tiene en comodato (RF-119, DEC-33; backlog).
+
+| Columna | Tipo | Nulo | Predeterminado | Llave | Descripción |
+| --- | --- | --- | --- | --- | --- |
+| `id` | uuid | No | gen_random_uuid() | PK | Identificador único. |
+| `cancha_id` | uuid | No |  | FK → canchas.id | Cancha. |
+| `club_id` | uuid | No |  | FK → clubes.id | Club. |
+| `temporada_id` | uuid | No |  | FK → temporadas.id | Temporada. |
+| `categoria_id` | uuid | No |  | FK → categorias.id | Categoría del catálogo. |
+| `dia_semana` | smallint | No |  |  | Día de la semana (1 = lunes … 7 = domingo). |
+| `hora_inicio` | time without time zone | No |  |  | Hora de inicio del horario ofrecido. |
+| `hora_fin` | time without time zone | No |  |  | Hora de fin del horario ofrecido. |
+| `es_comodato` | boolean | No | false |  | Verdadero si la cancha está en comodato del club por la temporada. |
+
+Restricciones, índices y triggers:
 
 - `ck_horarios_dia`: `CHECK (((dia_semana >= 1) AND (dia_semana <= 7)))`
 - `ck_horarios_horas`: `CHECK ((hora_fin > hora_inicio))`
@@ -1218,13 +1019,6 @@ Sede o unidad deportiva que agrupa canchas (RF-028, backlog).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `sedes_liga_id_nombre_key`: `UNIQUE (liga_id, nombre)`
 
 #### `solicitudes_cancha`
@@ -1251,13 +1045,6 @@ Formato 1 (préstamo o comodato) y Formato 2 (oferta) con número de oficio (RF-
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_solicitudes_cancha_estado`: `CHECK ((((tipo = ANY (ARRAY['PRESTAMO', 'COMODATO'])) AND (estado = ANY (ARRAY['PENDIENTE', 'APROBADA', 'NO_APROBADA']))) OR ((tipo = 'OFERTA') AND (estado = ANY (ARRAY['PENDIENTE_NEGOCIACION', 'ACEPTADA', 'RECHAZADA'])))))`
 - `ck_solicitudes_cancha_solicitante`: `CHECK (((club_id IS NULL) <> (solicitante_externo IS NULL)))`
 - `solicitudes_cancha_liga_id_numero_oficio_key`: `UNIQUE (liga_id, numero_oficio)`
@@ -1302,13 +1089,6 @@ Jornada con estado de publicación Borrador → Revisión → Publicado; la apru
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_jornadas_aprobacion`: `CHECK (((aprobada_por IS NULL) OR (enviada_por IS NULL) OR (aprobada_por <> enviada_por)))`
 - `ck_jornadas_numero`: `CHECK ((numero > 0))`
 - Índice `ix_jornadas_grupo`: `USING btree (grupo_id, estado_publicacion)`
@@ -1339,13 +1119,6 @@ Partido programado manualmente. fin_bloque = inicio + bloque de cancha de la cat
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_partidos_bloque`: `CHECK ((fin_bloque > inicio))`
 - `ck_partidos_equipos`: `CHECK ((equipo_local_id <> equipo_visitante_id))`
 - `ex_partidos_cancha_ocupada`: `EXCLUDE USING gist (cancha_id WITH =, tstzrange(inicio, fin_bloque) WITH &&) WHERE ((estado <> 'CANCELADO'))` — VAL-004: la cancha ya está ocupada en ese horario.
@@ -1376,13 +1149,6 @@ Jugadores del partido; categoria_superior indica alineación en la categoría in
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `alineaciones_cedula_id_registro_jugador_id_key`: `UNIQUE (cedula_id, registro_jugador_id)`
 - `ck_alineaciones_playera`: `CHECK (((numero_playera IS NULL) OR ((numero_playera >= 0) AND (numero_playera <= 99))))`
 - Índice `ix_alineaciones_registro`: `USING btree (registro_jugador_id)`
@@ -1431,13 +1197,6 @@ Cédula del partido: la captura el Capturista y la aprueba el árbitro designado
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_cedulas_aprobacion`: `CHECK (((estado = 'APROBADA') = ((aprobada_por IS NOT NULL) AND (aprobada_en IS NOT NULL))))`
 - `ck_cedulas_comision`: `CHECK (((NOT aprobada_por_comision) OR plazo_vencido))`
 - `ck_cedulas_goles`: `CHECK (((goles_local >= 0) AND (goles_visitante >= 0) AND (COALESCE((penales_local)::integer, 0) >= 0) AND (COALESCE((penales_visitante)::integer, 0) >= 0)))`
@@ -1465,13 +1224,6 @@ Goles, tarjetas y sustituciones de la cédula (RF-025, DEC-19).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_eventos_minuto`: `CHECK (((minuto IS NULL) OR ((minuto >= 0) AND (minuto <= 150))))`
 - `ck_eventos_sustitucion`: `CHECK (((tipo = 'SUSTITUCION') = (alineacion_entra_id IS NOT NULL)))`
 - Índice `ix_eventos_cedula`: `USING btree (cedula_id)`
@@ -1490,13 +1242,6 @@ Personas o equipos involucrados en una incidencia (RF-026, RF-058).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_involucrados_uno`: `CHECK (((persona_id IS NULL) <> (equipo_id IS NULL)))`
 - Trigger `tg_involucrados_en_captura` (before insert or delete or update) → `tg_cedula_en_captura()`
 
@@ -1514,13 +1259,6 @@ Incidencias de la cédula (RF-026).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - Índice `ix_incidencias_cedula`: `USING btree (cedula_id)`
 - Trigger `tg_incidencias_en_captura` (before insert or delete or update) → `tg_cedula_en_captura()`
 
@@ -1540,13 +1278,6 @@ Transiciones del partido con usuario, fecha y motivo (RF-045, RN-021).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - Índice `ix_partido_historial`: `USING btree (partido_id)`
 
 #### `resultados`
@@ -1573,13 +1304,6 @@ Resultado oficial versionado: la versión vigente es la oficial; corregir crea u
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_resultados_goles`: `CHECK (((goles_local >= 0) AND (goles_visitante >= 0)))`
 - `ck_resultados_origen`: `CHECK ((((origen = 'CEDULA') AND (cedula_id IS NOT NULL) AND (resolucion_id IS NULL)) OR ((origen = 'RESOLUCION') AND (resolucion_id IS NOT NULL))))`
 - `ck_resultados_penales`: `CHECK (((penales_local IS NULL) = (penales_visitante IS NULL)))`
@@ -1602,13 +1326,6 @@ Sorteo registrado por el Presidente como último criterio de desempate (DEC-27).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `sorteos_desempate_grupo_id_orden_key`: `UNIQUE (grupo_id, orden)`
 
 #### `tabla_historial`
@@ -1648,13 +1365,6 @@ Artículos del reglamento con sanción, sujeto, efecto y aplicación automática
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `articulos_liga_id_numero_key`: `UNIQUE (liga_id, numero)`
 - `ck_articulos_valores`: `CHECK ((((tipo_sancion <> 'SUSPENSION_PARTIDOS') OR (partidos_suspension > 0)) AND ((tipo_sancion <> 'PERDIDA_PUNTOS') OR (puntos > 0)) AND ((tipo_sancion <> 'MULTA') OR (monto_multa > (0)::numeric))))`
 
@@ -1693,13 +1403,6 @@ Caso disciplinario; uno por incidencia que lo requiere, o automático por artíc
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_expedientes_origen`: `CHECK (((origen = 'INCIDENCIA') = (incidencia_id IS NOT NULL)))`
 - `expedientes_liga_id_folio_key`: `UNIQUE (liga_id, folio)`
 - Índice `ix_expedientes_estado`: `USING btree (liga_id, estado)`
@@ -1725,13 +1428,6 @@ Recurso de inconformidad resuelto por el Presidente en segunda instancia (RF-067
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_recursos_resolucion`: `CHECK (((estado = 'RESUELTO') = (resolucion_final_id IS NOT NULL)))`
 
 #### `resoluciones`
@@ -1751,13 +1447,6 @@ Resolución inmutable de primera instancia o de recurso (RF-062, RF-065, RF-067)
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_resoluciones_articulo`: `CHECK ((sin_sancion OR (articulo_id IS NOT NULL)))`
 - Trigger `tg_resoluciones_inmutable` (before delete or update) → `tg_inmutable()`
 - Trigger `tg_resoluciones_sin_truncate` (before truncate, por sentencia) → `tg_inmutable()`
@@ -1790,13 +1479,6 @@ Consecuencia de una resolución con vigencia por partidos o fechas; bloquea alin
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_sanciones_publicacion`: `CHECK (((publicada_en IS NULL) OR publicable))`
 - `ck_sanciones_sujeto`: `CHECK ((((sujeto = 'JUGADOR') AND (persona_id IS NOT NULL) AND (equipo_id IS NULL) AND (club_id IS NULL)) OR ((sujeto = 'EQUIPO') AND (equipo_id IS NOT NULL) AND (persona_id IS NULL) AND (club_id IS NULL)) OR ((sujeto = 'CLUB') AND (club_id IS NOT NULL) AND (persona_id IS NULL) AND (equipo_id IS NULL))))`
 - `ck_sanciones_valores`: `CHECK ((((tipo <> 'SUSPENSION_PARTIDOS') OR (partidos > 0)) AND ((tipo <> 'PERDIDA_PUNTOS') OR (puntos > 0)) AND ((tipo <> 'MULTA') OR (monto > (0)::numeric)) AND (partidos_cumplidos >= 0) AND ((partidos IS NULL) OR (partidos_cumplidos <= partidos))))`
@@ -1820,13 +1502,6 @@ Catálogo configurable; cada tipo indica si abre expediente (RF-128, DEC-22).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `tipos_incidencia_liga_id_codigo_key`: `UNIQUE (liga_id, codigo)`
 
 ### 5.10 M-10 Competencias y fases finales
@@ -1849,13 +1524,6 @@ Fase final (liguilla) del grupo con la versión de parámetros usada (RF-076 a R
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `fases_grupo_id_tipo_key`: `UNIQUE (grupo_id, tipo)`
 
 #### `llaves`
@@ -1875,13 +1543,6 @@ Llaves de eliminación; sus partidos se programan manualmente (RF-078, RF-080; b
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_llaves_equipos`: `CHECK (((equipo_a_id IS NULL) OR (equipo_b_id IS NULL) OR (equipo_a_id <> equipo_b_id)))`
 - `ck_llaves_ganador`: `CHECK (((ganador_id IS NULL) OR ((ganador_id = equipo_a_id) OR (ganador_id = equipo_b_id))))`
 - `llaves_fase_id_ronda_orden_key`: `UNIQUE (fase_id, ronda, orden)`
@@ -1904,13 +1565,6 @@ Equipos que suben o bajan y exclusiones por RN-052 (RF-070, RF-071; backlog).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_detalle_exclusion`: `CHECK (((NOT excluido) OR (motivo_exclusion IS NOT NULL)))`
 - `propuesta_movimiento_detalle_propuesta_id_equipo_id_key`: `UNIQUE (propuesta_id, equipo_id)`
 
@@ -1952,13 +1606,6 @@ Comunicados con flujo Borrador → Revisión → Publicado y aprobación del Pre
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_comunicados_dual`: `CHECK (((aprobado_por IS NULL) OR (aprobado_por <> redactado_por)))`
 - Trigger `tg_comunicados_actualizado_en` (before update) → `tg_actualizado_en()`
 - Trigger `tg_comunicados_publicacion` (before update of estado_publicacion) → `tg_publicacion_estado()`
@@ -1989,13 +1636,6 @@ Cargos a club o equipo: automáticos por partido, por multa o manuales (RF-133, 
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_cobros_monto`: `CHECK ((monto > (0)::numeric))`
 - `ck_cobros_origen`: `CHECK ((((tipo = ANY (ARRAY['ARBITRAJE', 'CANCHA'])) AND (partido_id IS NOT NULL) AND (equipo_id IS NOT NULL)) OR ((tipo = 'MULTA') AND (sancion_id IS NOT NULL)) OR (tipo = 'MANUAL')))`
 - `ck_cobros_periodo`: `CHECK ((fecha_limite >= periodo_inicio))`
@@ -2022,13 +1662,6 @@ Intento de pago simulado con referencia ficticia; no guarda datos de tarjeta (RF
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_intentos_referencia`: `CHECK (((referencia)::text ~ '^SIM-[0-9]{8}-[A-Z0-9]{6}$'::text))`
 - Índice único `ux_intentos_pendiente`: `USING btree (cobro_id) WHERE (estado = 'PENDIENTE')`
 
@@ -2049,13 +1682,6 @@ Pago de un cobro, en línea simulado o registrado por el Tesorero con comprobant
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_pagos_medio`: `CHECK (((medio = 'EN_LINEA_SIMULADO') = (intento_id IS NOT NULL)))`
 - `ck_pagos_monto`: `CHECK ((monto > (0)::numeric))`
 - Trigger `tg_pagos_validar` (before insert) → `tg_pagos_validar()`
@@ -2074,13 +1700,6 @@ Tarifas de arbitraje y cancha por temporada y categoría (RF-135; backlog). Mont
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_tarifas_monto`: `CHECK ((monto >= (0)::numeric))`
 - `tarifas_temporada_id_categoria_id_concepto_key`: `UNIQUE (temporada_id, categoria_id, concepto)`
 
@@ -2106,13 +1725,6 @@ Bandeja de salida de correos (patrón transactional outbox, RF-143, ADR-0010).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - `ck_correos_intentos`: `CHECK (((intentos >= 0) AND (intentos <= 5)))`
 - Índice `ix_correos_pendientes`: `USING btree (proximo_intento_en) WHERE (estado = 'PENDIENTE')`
 
@@ -2133,13 +1745,6 @@ Avisos dentro de la aplicación (RF-142, ADR-0010).
 
 Restricciones, índices y triggers:
 
-- `horarios_cancha_club_cancha_id_categoria_id_dia_semana_key`: `UNIQUE (cancha_id, categoria_id, dia_semana)`
-- `horarios_cancha_club_cancha_id_key`: `FOREIGN KEY (cancha_id) REFERENCES canchas(id) ON DELETE CASCADE`
-- `horarios_cancha_club_club_id_key`: `FOREIGN KEY (club_id) REFERENCES clubes(id)`
-- `horarios_cancha_club_temporada_id_key`: `FOREIGN KEY (temporada_id) REFERENCES temporadas(id)`
-- `horarios_cancha_club_categoria_id_key`: `FOREIGN KEY (categoria_id) REFERENCES categorias(id)`
-- `ck_horarios_dia_semana`: `CHECK ((dia_semana >= 1) AND (dia_semana <= 7))`
-- `ck_horarios_hora`: `CHECK ((hora_inicio < hora_fin) OR (hora_inicio = hora_fin))`
 - Índice `ix_notificaciones_perfil`: `USING btree (perfil_id, creada_en DESC)`
 
 ## 6. Tipos enumerados

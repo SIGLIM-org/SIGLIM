@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -39,6 +40,9 @@ class CanchasIT extends BaseDatosPrueba {
 
     @Autowired
     private CanchaService servicio;
+
+    @Autowired
+    private HorariosCanchaClubService horariosClub;
 
     @Autowired
     private SedeService sedes;
@@ -632,6 +636,44 @@ class CanchasIT extends BaseDatosPrueba {
     private UUID crearClub() {
         return jdbc.sql("INSERT INTO siglim.clubes (liga_id, nombre) VALUES (:liga, :nombre) RETURNING id")
                 .param("liga", LIGA).param("nombre", "Club " + UUID.randomUUID()).query(UUID.class).single();
+    }
+
+    @Test
+    @DisplayName("RF-119: PUT persiste el horario y reemplaza el conjunto completo")
+    void reemplazaHorariosClub() {
+        iniciarSesionComoAdministrador();
+        UUID club = crearClub();
+        CanchaDto cancha = servicio.crear(new CrearCanchaRequest("Cancha club " + UUID.randomUUID(),
+                UbicacionCancha.EXTERNA, null, PropietarioCancha.CLUB, club, null, null, null));
+        UUID temporada = jdbc.sql("""
+                        INSERT INTO siglim.temporadas (liga_id, nombre, fecha_inicio)
+                        VALUES (:ligaId, :nombre, DATE '2030-01-01') RETURNING id
+                        """)
+                .param("ligaId", LIGA).param("nombre", "Temporada " + UUID.randomUUID())
+                .query(UUID.class).single();
+        UUID categoria = jdbc.sql("""
+                        INSERT INTO siglim.categorias (liga_id, nombre, tipo, orden)
+                        SELECT :ligaId, :nombre, 'LIBRE', coalesce(max(orden), 0) + 1
+                          FROM siglim.categorias
+                        RETURNING id
+                        """)
+                .param("ligaId", LIGA).param("nombre", "Categoría " + UUID.randomUUID())
+                .query(UUID.class).single();
+        jdbc.sql("INSERT INTO siglim.categorias_temporada (temporada_id, categoria_id) "
+                        + "VALUES (:temporada, :categoria)")
+                .param("temporada", temporada).param("categoria", categoria).update();
+
+        var primera = new RegistrarHorarioRequest(List.of(new RegistrarHorarioRequest.HorarioCanchaClubItem(
+                temporada, categoria, 1, LocalTime.of(18, 0), LocalTime.of(20, 0), null, false)));
+        var segunda = new RegistrarHorarioRequest(List.of(new RegistrarHorarioRequest.HorarioCanchaClubItem(
+                temporada, categoria, 2, LocalTime.of(16, 0), LocalTime.of(18, 0), null, true)));
+
+        assertThat(horariosClub.reemplazar(cancha.id(), primera)).hasSize(1);
+        List<HorariosCanchaClubDto> resultado = horariosClub.reemplazar(cancha.id(), segunda);
+
+        assertThat(resultado).containsExactly(new HorariosCanchaClubDto(resultado.getFirst().id(), cancha.id(), club,
+                temporada, categoria, 2, LocalTime.of(16, 0), LocalTime.of(18, 0), true));
+        assertThat(horariosClub.listar(cancha.id())).isEqualTo(resultado);
     }
 
     private UUID crearPerfil() {

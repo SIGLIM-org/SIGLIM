@@ -1,37 +1,41 @@
 package mx.tecnm.morelia.siglim.canchas;
 
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
-import java.util.regex.Pattern;
-import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
-import mx.tecnm.morelia.siglim.seguridad.Autorizacion.AlcanceAutorizacion;
-import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
 import mx.tecnm.morelia.siglim.compartido.config.SiglimPropiedades;
+import mx.tecnm.morelia.siglim.compartido.error.ErroresTecnicos;
 import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
+import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
+import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
-/** GET / PUT de horarios por categoría y comodato (RF-119). */
+/** Consulta y reemplaza horarios de cancha de club y comodato (B-13.1, RF-119). */
 @Service
 public class HorariosCanchaClubService {
 
-    private static final String MODULO = "M-06";
     private static final String CONSULTAR = "canchas.cancha:CONSULTAR";
     private static final String EDITAR = "canchas.cancha:EDITAR";
-    private static final String ENTIDAD = "horarios_cancha_club";
 
     private final HorariosCanchaClubRepository horarios;
     private final CanchaRepository canchas;
+    private final Autorizacion autorizacion;
     private final UUID ligaId;
 
-    HorariosCanchaClubService(HorariosCanchaClubRepository horarios, CanchaRepository canchas, SiglimPropiedades configuracion) {
+    HorariosCanchaClubService(HorariosCanchaClubRepository horarios, CanchaRepository canchas,
+            Autorizacion autorizacion, SiglimPropiedades configuracion) {
         this.horarios = horarios;
         this.canchas = canchas;
+        this.autorizacion = autorizacion;
         this.ligaId = configuracion.ligaId();
     }
 
+    /** Devuelve los horarios ordenados por categoría, temporada, día y hora (RF-119). */
     @Transactional(readOnly = true)
     public List<HorariosCanchaClubDto> listar(UUID canchaId) {
         CanchaDto cancha = canchas.buscar(ligaId, canchaId).orElseThrow(() -> noExiste(canchaId));
@@ -39,37 +43,72 @@ public class HorariosCanchaClubService {
         return horarios.listarPorCancha(canchaId);
     }
 
+    /** Reemplaza de forma atómica el conjunto completo de horarios (RF-119). */
     @Transactional
     public List<HorariosCanchaClubDto> reemplazar(UUID canchaId, RegistrarHorarioRequest request) {
-        CanchaDto cancha = canchas.buscar(ligaId, canchaId).orElseThrow(() -> noExiste(canchaId));
+        CanchaDto cancha = canchas.buscarParaActualizar(ligaId, canchaId)
+                .orElseThrow(() -> noExiste(canchaId));
         autorizacion.exigir(EDITAR, objetivo(cancha));
-        validarContenido(request);
-        // TODO: implementar lógica de reemplazo real de la tabla horarios_cancha_club.
-        throw new UnsupportedOperationException("No implementado: reemplazo de horarios_cancha_club");
+        validarContenido(cancha, request);
+
+        horarios.eliminarPorCancha(canchaId);
+        if (request.horarios() != null) {
+            for (RegistrarHorarioRequest.HorarioCanchaClubItem item : request.horarios()) {
+                UUID clubId = item.clubId() == null ? clubDeCancha(cancha) : item.clubId();
+                horarios.insertar(canchaId, clubId, item.temporadaId(), item.categoriaId(),
+                        item.diaSemana(), item.horaInicio(), item.horaFin(), item.esComodato());
+            }
+        }
+        return horarios.listarPorCancha(canchaId);
     }
 
-
-
-    // Nota: implementar lógica de reemplazo real de la tabla horarios_cancha_club.
-
-    private void validarContenido(RegistrarHorarioRequest request) {
-        if (request == null || request.horarios() == null || request.horarios().isEmpty()) {
-            return;
+    private void validarContenido(CanchaDto cancha, RegistrarHorarioRequest request) {
+        if (request == null || request.horarios() == null) {
+            throw ReglaNegocioException.invalida(ErroresTecnicos.VALIDACION,
+                    "El cuerpo debe incluir la lista horarios.");
         }
+
+        Map<ClaveHorario, List<IntervaloHorario>> horariosPorCategoriaDia = new HashMap<>();
         for (RegistrarHorarioRequest.HorarioCanchaClubItem item : request.horarios()) {
-            if (item.categoriaId() == null) {
-                throw new IllegalArgumentException("Cada horario debe incluir categoriaId.");
+            if (item == null || item.temporadaId() == null || item.categoriaId() == null
+                    || item.diaSemana() == null || item.horaInicio() == null || item.horaFin() == null) {
+                throw ReglaNegocioException.invalida(ErroresTecnicos.VALIDACION,
+                        "Cada horario debe incluir temporadaId, categoriaId, diaSemana, horaInicio y horaFin.");
             }
-            if (StringUtils.isEmpty(item.desde()) || StringUtils.isEmpty(item.hasta())) {
-                throw new IllegalArgumentException("desde y hasta son obligatorios.");
+            if (item.diaSemana() < 1 || item.diaSemana() > 7) {
+                throw ReglaNegocioException.invalida(ErroresTecnicos.VALIDACION,
+                        "diaSemana debe ser un número del 1 (lunes) al 7 (domingo).");
             }
-            if (!iso8601Pattern.matcher(item.desde()).matches() || !iso8601Pattern.matcher(item.hasta()).matches()) {
-                throw new IllegalArgumentException("desde y hasta deben ser ISO 8601 (timestamptz).");
+            if (!item.horaInicio().isBefore(item.horaFin())) {
+                throw ReglaNegocioException.invalida(ErroresTecnicos.VALIDACION,
+                        "horaInicio debe ser anterior a horaFin.");
             }
+            if (!horarios.existeCategoriaEnTemporada(ligaId, item.temporadaId(), item.categoriaId())) {
+                throw referenciaInvalida("La temporada o categoría indicada no existe en esta liga.");
+            }
+            UUID clubId = item.clubId() == null ? clubDeCancha(cancha) : item.clubId();
+            if (clubId == null || !horarios.existeClubDeLiga(ligaId, clubId)) {
+                throw referenciaInvalida("Indica un club existente de esta liga para el horario.");
+            }
+            ClaveHorario clave = new ClaveHorario(item.categoriaId(), item.diaSemana());
+            List<IntervaloHorario> intervalos = horariosPorCategoriaDia.computeIfAbsent(clave,
+                    ignorada -> new ArrayList<>());
+            if (intervalos.stream().anyMatch(intervalo -> item.horaInicio().isBefore(intervalo.hasta())
+                    && intervalo.desde().isBefore(item.horaFin()))) {
+                throw ReglaNegocioException.noProcesable("RF-119",
+                        "Los horarios de una misma categoría y día no pueden traslaparse en la cancha.");
+            }
+            intervalos.add(new IntervaloHorario(item.horaInicio(), item.horaFin()));
         }
     }
 
-    private static final Pattern iso8601Pattern = Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:?\\d{2})?");
+    private static UUID clubDeCancha(CanchaDto cancha) {
+        return cancha.club() == null ? null : cancha.club().id();
+    }
+
+    private static ReglaNegocioException referenciaInvalida(String mensaje) {
+        return ReglaNegocioException.noProcesable(ErroresTecnicos.REFERENCIA_INVALIDA, mensaje);
+    }
 
     private static RecursoNoEncontradoException noExiste(UUID canchaId) {
         return new RecursoNoEncontradoException("Cancha " + canchaId);
@@ -81,6 +120,9 @@ public class HorariosCanchaClubService {
                 : ObjetivoAutorizacion.deLiga();
     }
 
-    private final Autorizacion autorizacion;
+    private record ClaveHorario(UUID categoriaId, int diaSemana) {
+    }
 
+    private record IntervaloHorario(LocalTime desde, LocalTime hasta) {
+    }
 }

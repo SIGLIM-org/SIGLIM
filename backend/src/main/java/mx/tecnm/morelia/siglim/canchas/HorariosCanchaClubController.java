@@ -1,5 +1,6 @@
 package mx.tecnm.morelia.siglim.canchas;
 
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -37,7 +38,7 @@ class HorariosCanchaClubController {
 
     @PutMapping
     ResponseEntity<List<HorariosCanchaClubDto>> reemplazar(@PathVariable UUID id,
-            @RequestBody RegistrarHorarioRequest request) {
+            @Valid @RequestBody RegistrarHorarioRequest request) {
         List<HorariosCanchaClubDto> resultado = servicio.reemplazar(id, request);
         return ResponseEntity.ok(resultado);
     }
