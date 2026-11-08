@@ -25,7 +25,9 @@ type Modal = { tipo: 'registrar' } | { tipo: 'editar' | 'baja'; equipo: Equipo }
  * Equipos del club por temporada (F-15, RF-009, RN-005). Las temporadas del filtro salen de los
  * propios equipos (DEC-54); por omisión, la activa. Se muestran en el orden del servidor
  * (categoría por su orden configurado → grupo → nombre, DEC-16). Registrar un equipo pide elegir su grupo, así
- * que solo se ofrece con `temporadas.temporada:CONSULTAR` y con el club activo (RN-041).
+ * que solo se ofrece con `temporadas.temporada:CONSULTAR` y con el club activo (RN-041). Un club
+ * cerrado es de solo lectura (RN-041): tampoco se editan ni se dan de baja sus equipos. Es la
+ * guarda del cliente, aunque DEC-61 ya impide cerrar un club con equipos activos en temporadas abiertas.
  */
 export function PestanaEquipos({ club }: Props) {
   const id = useId()
@@ -126,7 +128,7 @@ export function PestanaEquipos({ club }: Props) {
           <TablaEquipos
             equipos={equipos}
             mostrarTemporada={!temporadaId}
-            conAcciones={permisos.editarEquipo}
+            conAcciones={permisos.editarEquipo && club.estado === 'ACTIVO'}
             actualizando={consulta.isFetching}
             onEditar={(equipo) => abrir({ tipo: 'editar', equipo })}
             onDarDeBaja={(equipo) => abrir({ tipo: 'baja', equipo })}

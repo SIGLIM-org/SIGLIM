@@ -1,11 +1,15 @@
-import { Link } from 'react-router'
-import { Lock, Users, type LucideIcon } from 'lucide-react'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router'
+import { History, Lock, PencilLine, Users, type LucideIcon } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 import { clasesBoton } from '@/components/ui/estilosBoton'
 import { ErrorConsulta } from '@/components/ui/ErrorConsulta'
 import { EstadoCarga } from '@/components/ui/EstadoCarga'
 import { Insignia } from '@/components/ui/Insignia'
 import { useClub } from '@/features/organizacion/api'
 import { etiquetaEstadoClub, formatearDiaDeInstante } from '@/features/organizacion/etiquetas'
+import { ModalCambiarNombreClub } from '@/features/organizacion/ModalCambiarNombreClub'
+import { usePermisosClubes } from '@/features/organizacion/permisosClubes'
 import { PestanaEquipos } from '@/features/organizacion/PestanaEquipos'
 import { formatearFecha } from '@/features/temporadas/fechas'
 
@@ -22,9 +26,14 @@ const PESTANAS: readonly { valor: PestanaClub; texto: string; icono: LucideIcon 
   { valor: 'equipos', texto: 'Equipos', icono: Users },
 ]
 
-/** Encabezado del club y sus pestañas (F-15, RF-008, RN-041). */
+const RUTA_CLUBES = '/app/organizacion/clubes'
+
+/** Encabezado del club y sus pestañas (F-15, RF-008, RF-105, RN-041, DEC-15). */
 export function DetalleClub({ clubId, mostrarVolver }: Props) {
   const consulta = useClub(clubId)
+  const permisos = usePermisosClubes()
+  const navegar = useNavigate()
+  const [cambiandoNombre, setCambiandoNombre] = useState(false)
   // Con una sola pestaña no hay estado que cambiar; H-22 la volverá estado o parámetro de URL.
   const pestana: PestanaClub = 'equipos'
 
@@ -39,7 +48,7 @@ export function DetalleClub({ clubId, mostrarVolver }: Props) {
         onReintentar={() => void consulta.refetch()}
         accion={
           mostrarVolver && (
-            <Link to="/app/organizacion/clubes" className={clasesBoton('secundario')}>
+            <Link to={RUTA_CLUBES} className={clasesBoton('secundario')}>
               Volver a clubes
             </Link>
           )
@@ -50,19 +59,51 @@ export function DetalleClub({ clubId, mostrarVolver }: Props) {
 
   const club = consulta.data
   const estado = etiquetaEstadoClub[club.estado]
+  // Solo un club activo cambia de nombre; uno cerrado ya es historial (RN-041).
+  const puedeCambiarNombre = permisos.cambiarNombreClub && club.estado === 'ACTIVO'
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <section className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-surface p-4 sm:p-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="min-w-0 break-words text-headline-lg text-text-main">{club.nombre}</h2>
-          <Insignia variante={estado.variante} icono={estado.icono}>
-            {estado.texto}
-          </Insignia>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <h2 className="min-w-0 break-words text-headline-lg text-text-main">{club.nombre}</h2>
+            <Insignia variante={estado.variante} icono={estado.icono}>
+              {estado.texto}
+            </Insignia>
+          </div>
+          {/* Única acción del encabezado; H-22 puede moverla a un menú junto con «Editar». */}
+          {puedeCambiarNombre && (
+            <Button
+              variante="secundario"
+              icono={PencilLine}
+              onClick={() => setCambiandoNombre(true)}
+              className="w-full shrink-0 sm:w-auto"
+            >
+              Cambiar nombre
+            </Button>
+          )}
         </div>
-        <p className="text-body-md text-text-muted">
-          Registrado el {formatearDiaDeInstante(club.creadoEn)}
-        </p>
+        <div className="flex flex-col gap-1">
+          <p className="text-body-md text-text-muted">
+            Registrado el {formatearDiaDeInstante(club.creadoEn)}
+          </p>
+          {/* DEC-15: el club nuevo enlaza al cerrado, que conserva el historial. */}
+          {club.clubAnterior && (
+            <p className="flex items-start gap-2 text-body-md text-text-muted">
+              <History aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+              <span className="min-w-0 break-words">
+                Proviene de{' '}
+                <Link
+                  to={`${RUTA_CLUBES}/${club.clubAnterior.id}`}
+                  className="rounded-sm text-label-md text-primary underline underline-offset-2 hover:text-primary-hover"
+                >
+                  «{club.clubAnterior.nombre}»
+                </Link>
+              </span>
+            </p>
+          )}
+        </div>
         {club.estado === 'CERRADO' && (
           <dl className="grid gap-x-6 gap-y-3 border-t border-border pt-3 text-body-md sm:grid-cols-[auto_minmax(0,1fr)]">
             <div>
@@ -113,6 +154,17 @@ export function DetalleClub({ clubId, mostrarVolver }: Props) {
       <div role="tabpanel" id="panel-club-equipos" aria-labelledby="pestana-club-equipos" className="min-w-0">
         <PestanaEquipos club={club} />
       </div>
+
+      {cambiandoNombre && (
+        <ModalCambiarNombreClub
+          club={club}
+          onCerrar={() => setCambiandoNombre(false)}
+          onCambiado={(nuevo) => {
+            setCambiandoNombre(false)
+            void navegar(`${RUTA_CLUBES}/${nuevo.id}`)
+          }}
+        />
+      )}
     </div>
   )
 }

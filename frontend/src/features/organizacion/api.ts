@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import type {
   ActualizarEquipoPeticion,
   BajaEquipoPeticion,
+  CambiarNombreClubPeticion,
   Club,
   CrearClubPeticion,
   CrearEquipoPeticion,
@@ -80,6 +81,28 @@ export function useCrearClub() {
     onSuccess: () =>
       Promise.all([
         clienteConsultas.invalidateQueries({ queryKey: clavesOrganizacion.clubes }),
+        clienteConsultas.invalidateQueries({ queryKey: clavesUsuarios.clubes }),
+      ]),
+  })
+}
+
+/**
+ * Cambio de nombre (RF-105, DEC-15, DEC-49): el backend registra un club nuevo y cierra el actual.
+ * Se invalidan:
+ * - `clavesOrganizacion.clubes`: el prefijo cubre las listas (aparece el nuevo, el anterior pasa a
+ *   CERRADO) y el detalle del club anterior.
+ * - `clavesUsuarios.todas`: las asignaciones de ámbito CLUB pasan al club nuevo (F-12).
+ * - `clavesUsuarios.clubes`: el selector de clubes del modal de invitar debe ofrecer el nuevo.
+ */
+export function useCambiarNombreClub(id: string) {
+  const clienteConsultas = useQueryClient()
+
+  return useMutation({
+    mutationFn: (peticion: CambiarNombreClubPeticion) => api.post<Club>(`clubes/${id}/cambio-nombre`, peticion),
+    onSuccess: () =>
+      Promise.all([
+        clienteConsultas.invalidateQueries({ queryKey: clavesOrganizacion.clubes }),
+        clienteConsultas.invalidateQueries({ queryKey: clavesUsuarios.todas }),
         clienteConsultas.invalidateQueries({ queryKey: clavesUsuarios.clubes }),
       ]),
   })

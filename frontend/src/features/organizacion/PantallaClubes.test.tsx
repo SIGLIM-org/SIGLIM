@@ -465,6 +465,144 @@ describe('PantallaClubes (F-15, H-06.2)', () => {
     expect(await screen.findByText('Se muestran los primeros 100 de 130 equipos.')).toBeInTheDocument()
   })
 
+  describe('cambio de nombre (B-04.2, RF-105, RN-041, DEC-15)', () => {
+    const MOTIVO_CAMBIO = 'Acuerdo de asamblea del club'
+    const CLUB_NUEVO: Club = {
+      ...CLUB,
+      id: 'c9',
+      nombre: 'Club Águilas',
+      clubAnterior: { id: 'c1', nombre: 'Club Halcones' },
+    }
+
+    async function abrirCambioNombre() {
+      await userEvent.click(await screen.findByRole('button', { name: 'Cambiar nombre' }))
+      const modal = screen.getByRole('dialog', { name: 'Cambiar nombre — Club Halcones' })
+
+      return {
+        modal,
+        nombre: within(modal).getByLabelText(/Nombre/),
+        motivo: within(modal).getByLabelText(/Motivo/),
+        enviar: () => userEvent.click(within(modal).getByRole('button', { name: 'Cambiar nombre' })),
+      }
+    }
+
+    it('«Cambiar nombre» aparece con organizacion.club:EDITAR de ámbito LIGA y el club ACTIVO', async () => {
+      montar(`${RUTA}/c1`)
+
+      expect(await screen.findByRole('button', { name: 'Cambiar nombre' })).toBeInTheDocument()
+    })
+
+    it.each([
+      ['con EDITAR_CLUB de ámbito CLUB', () => otorgar('CLUB', ...SECRETARIO), CLUB],
+      ['sin organizacion.club:EDITAR', () => otorgar('LIGA', CONSULTAR_CLUB, CONSULTAR_EQUIPO), CLUB],
+      ['con el club CERRADO', () => otorgar('LIGA', ...SECRETARIO), CLUB_CERRADO],
+    ])('«Cambiar nombre» no aparece %s', async (_caso, preparar, club) => {
+      preparar()
+      responder({ club })
+      montar(`${RUTA}/c1`)
+
+      expect(await screen.findByRole('heading', { name: 'Club Halcones' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Cambiar nombre' })).not.toBeInTheDocument()
+    })
+
+    it('valida en el cliente nombre vacío, nombre igual al actual y motivo corto sin llamar al servidor', async () => {
+      montar(`${RUTA}/c1`)
+      const { modal, nombre, motivo, enviar } = await abrirCambioNombre()
+      expect(within(modal).getByText(/no se puede deshacer/)).toBeInTheDocument()
+
+      await userEvent.type(motivo, MOTIVO_CAMBIO)
+      await enviar()
+      expect(within(modal).getByText('Escribe el nuevo nombre del club.')).toBeInTheDocument()
+      expect(nombre).toHaveAttribute('aria-invalid', 'true')
+
+      await userEvent.type(nombre, '  Club Halcones  ')
+      await enviar()
+      expect(within(modal).getByText('El nombre nuevo debe ser distinto del actual.')).toBeInTheDocument()
+
+      await userEvent.clear(nombre)
+      await userEvent.type(nombre, 'Club Águilas')
+      await userEvent.clear(motivo)
+      await userEvent.type(motivo, '   Muy corto   ')
+      await enviar()
+      expect(within(modal).getByText('Escribe un motivo de al menos 10 caracteres.')).toBeInTheDocument()
+      expect(motivo).toHaveAttribute('aria-invalid', 'true')
+
+      expect(post).not.toHaveBeenCalled()
+    })
+
+    it('envía valores recortados, cierra el modal y navega al club nuevo, que enlaza al anterior', async () => {
+      post.mockResolvedValue(CLUB_NUEVO)
+      const enrutador = montar(`${RUTA}/c1`)
+      const { nombre, motivo, enviar } = await abrirCambioNombre()
+
+      await userEvent.type(nombre, '  Club Águilas  ')
+      await userEvent.type(motivo, `  ${MOTIVO_CAMBIO}  `)
+      // Solo el club nuevo responde con su nombre; el anterior sigue siendo «Club Halcones».
+      const responderBase = get.getMockImplementation()
+      get.mockImplementation(async (ruta: string) => (ruta === 'clubes/c9' ? CLUB_NUEVO : responderBase?.(ruta)))
+      await enviar()
+
+      expect(post).toHaveBeenCalledWith('clubes/c1/cambio-nombre', { nombre: 'Club Águilas', motivo: MOTIVO_CAMBIO })
+      await waitFor(() => expect(enrutador.state.location.pathname).toBe(`${RUTA}/c9`))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(await screen.findByRole('heading', { name: 'Club Águilas' })).toBeInTheDocument()
+      expect(screen.getByText(/Proviene de/)).toHaveTextContent('Proviene de «Club Halcones»')
+      expect(screen.getByRole('link', { name: '«Club Halcones»' })).toHaveAttribute('href', `${RUTA}/c1`)
+    })
+
+    it('409 DUPLICADO se muestra en el campo Nombre', async () => {
+      post.mockRejectedValue(error(409, 'DUPLICADO', 'Ya existe un club llamado «Club Águilas».'))
+      montar(`${RUTA}/c1`)
+      const { modal, nombre, motivo, enviar } = await abrirCambioNombre()
+
+      await userEvent.type(nombre, 'Club Águilas')
+      await userEvent.type(motivo, MOTIVO_CAMBIO)
+      await enviar()
+
+      expect(await within(modal).findByText('Ya existe un club llamado «Club Águilas».')).toBeInTheDocument()
+      expect(nombre).toHaveAttribute('aria-invalid', 'true')
+    })
+
+    it('400 RN-021 se muestra en el campo Motivo', async () => {
+      post.mockRejectedValue(error(400, 'RN-021', 'El motivo debe tener al menos 10 caracteres.'))
+      montar(`${RUTA}/c1`)
+      const { modal, nombre, motivo, enviar } = await abrirCambioNombre()
+
+      await userEvent.type(nombre, 'Club Águilas')
+      await userEvent.type(motivo, MOTIVO_CAMBIO)
+      await enviar()
+
+      expect(await within(modal).findByText('El motivo debe tener al menos 10 caracteres.')).toBeInTheDocument()
+      expect(motivo).toHaveAttribute('aria-invalid', 'true')
+    })
+
+    it('409 RN-041 muestra la alerta de bloqueo con el detail y el modal sigue abierto', async () => {
+      const detalle = 'El club tiene equipos activos en la temporada «Temporada 2026».'
+      post.mockRejectedValue(error(409, 'RN-041', detalle))
+      montar(`${RUTA}/c1`)
+      const { modal, nombre, motivo, enviar } = await abrirCambioNombre()
+
+      await userEvent.type(nombre, 'Club Águilas')
+      await userEvent.type(motivo, MOTIVO_CAMBIO)
+      await enviar()
+
+      const alerta = await within(modal).findByRole('alert')
+      expect(alerta).toHaveTextContent('No se puede cambiar el nombre del club')
+      expect(alerta).toHaveTextContent('(RN-041)')
+      expect(alerta).toHaveTextContent(detalle)
+      expect(screen.getByRole('dialog', { name: 'Cambiar nombre — Club Halcones' })).toBeInTheDocument()
+    })
+
+    it('RN-041: un club CERRADO con un equipo ACTIVO en temporada ACTIVA no ofrece Editar ni Dar de baja', async () => {
+      responder({ club: CLUB_CERRADO, equipos: pagina([equipo('e1', 'Halcones', 'Libre', 'A')]) })
+      montar(`${RUTA}/c1`)
+
+      const fila = within(await tabla()).getAllByRole('row')[1]
+      expect(within(fila).queryByRole('button', { name: 'Editar Halcones' })).not.toBeInTheDocument()
+      expect(within(fila).queryByRole('button', { name: 'Dar de baja Halcones' })).not.toBeInTheDocument()
+    })
+  })
+
   it('un club inexistente o ajeno muestra el 404 con «Volver a clubes»', async () => {
     responder({ club: error(404, 'NO_ENCONTRADO') })
     montar(`${RUTA}/x`)
