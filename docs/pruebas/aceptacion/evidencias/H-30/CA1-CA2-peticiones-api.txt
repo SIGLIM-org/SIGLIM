@@ -1,4 +1,4 @@
-#1 · 2026-11-08T02:41:34.524Z
+#1 · 2026-11-08T03:33:14.559Z
 GET http://localhost:5173/api/v1/cobros?pagina=0&tamano=20
 Petición: (sin cuerpo)
 HTTP 200
@@ -83,30 +83,30 @@ Respuesta: {
   "totalPaginas": 1
 }
 
-#2 · 2026-11-08T02:41:35.744Z
+#2 · 2026-11-08T03:33:15.705Z
 POST http://localhost:5173/api/v1/cobros/c0b00000-0000-4000-8000-000000000031/intentos-pago
 Petición: {}
 HTTP 201
 Respuesta: {
-  "id": "21433508-ba1e-4a73-a53e-b4e116aa934e",
-  "referencia": "SIM-20261107-77D25V",
+  "id": "4fb32565-d579-4b75-b2f9-44d41433bca7",
+  "referencia": "SIM-20261107-N1SQR4",
   "estado": "PENDIENTE",
-  "iniciadoEn": "2026-11-08T02:41:35.6836857Z"
+  "iniciadoEn": "2026-11-08T03:33:15.6257103Z"
 }
 
-#3 · 2026-11-08T02:41:36.189Z
-POST http://localhost:5173/api/v1/intentos-pago/21433508-ba1e-4a73-a53e-b4e116aa934e/confirmacion
+#3 · 2026-11-08T03:33:16.242Z
+POST http://localhost:5173/api/v1/intentos-pago/4fb32565-d579-4b75-b2f9-44d41433bca7/confirmacion
 Petición: {"resultado":"APROBADO"}
 HTTP 200
 Respuesta: {
-  "id": "21433508-ba1e-4a73-a53e-b4e116aa934e",
-  "referencia": "SIM-20261107-77D25V",
+  "id": "4fb32565-d579-4b75-b2f9-44d41433bca7",
+  "referencia": "SIM-20261107-N1SQR4",
   "estado": "APROBADO",
-  "iniciadoEn": "2026-11-08T02:41:35.683686Z",
-  "resueltoEn": "2026-11-08T02:41:36.1291707Z"
+  "iniciadoEn": "2026-11-08T03:33:15.62571Z",
+  "resueltoEn": "2026-11-08T03:33:16.1402694Z"
 }
 
-#4 · 2026-11-08T02:41:36.292Z
+#4 · 2026-11-08T03:33:16.302Z
 GET http://localhost:5173/api/v1/cobros?pagina=0&tamano=20
 Petición: (sin cuerpo)
 HTTP 200
@@ -191,30 +191,30 @@ Respuesta: {
   "totalPaginas": 1
 }
 
-#5 · 2026-11-08T02:41:36.929Z
+#5 · 2026-11-08T03:33:16.718Z
 POST http://localhost:5173/api/v1/cobros/c0b00000-0000-4000-8000-000000000032/intentos-pago
 Petición: {}
 HTTP 201
 Respuesta: {
-  "id": "f92bb086-9b1c-4084-97ba-0c3e79857005",
-  "referencia": "SIM-20261107-D7HKYS",
+  "id": "b1ea4910-17ec-4c16-bef5-bd4c108aee36",
+  "referencia": "SIM-20261107-VMFWPI",
   "estado": "PENDIENTE",
-  "iniciadoEn": "2026-11-08T02:41:36.8898875Z"
+  "iniciadoEn": "2026-11-08T03:33:16.6935085Z"
 }
 
-#6 · 2026-11-08T02:41:37.132Z
-POST http://localhost:5173/api/v1/intentos-pago/f92bb086-9b1c-4084-97ba-0c3e79857005/confirmacion
+#6 · 2026-11-08T03:33:16.899Z
+POST http://localhost:5173/api/v1/intentos-pago/b1ea4910-17ec-4c16-bef5-bd4c108aee36/confirmacion
 Petición: {"resultado":"RECHAZADO"}
 HTTP 200
 Respuesta: {
-  "id": "f92bb086-9b1c-4084-97ba-0c3e79857005",
-  "referencia": "SIM-20261107-D7HKYS",
+  "id": "b1ea4910-17ec-4c16-bef5-bd4c108aee36",
+  "referencia": "SIM-20261107-VMFWPI",
   "estado": "RECHAZADO",
-  "iniciadoEn": "2026-11-08T02:41:36.889888Z",
-  "resueltoEn": "2026-11-08T02:41:37.0842761Z"
+  "iniciadoEn": "2026-11-08T03:33:16.693509Z",
+  "resueltoEn": "2026-11-08T03:33:16.8578975Z"
 }
 
-#7 · 2026-11-08T02:41:37.225Z
+#7 · 2026-11-08T03:33:16.946Z
 GET http://localhost:5173/api/v1/cobros?pagina=0&tamano=20
 Petición: (sin cuerpo)
 HTTP 200
@@ -299,30 +299,30 @@ Respuesta: {
   "totalPaginas": 1
 }
 
-#8 · 2026-11-08T02:41:37.787Z
+#8 · 2026-11-08T03:33:17.406Z
 POST http://localhost:5173/api/v1/cobros/c0b00000-0000-4000-8000-000000000032/intentos-pago
 Petición: {}
 HTTP 201
 Respuesta: {
-  "id": "ef2e115d-d614-4daf-b50e-243f266ddb8a",
-  "referencia": "SIM-20261107-0GBPAJ",
+  "id": "bb5a9b19-d539-47a1-8ecf-6d469eda216d",
+  "referencia": "SIM-20261107-UIBHHJ",
   "estado": "PENDIENTE",
-  "iniciadoEn": "2026-11-08T02:41:37.7488236Z"
+  "iniciadoEn": "2026-11-08T03:33:17.3675978Z"
 }
 
-#9 · 2026-11-08T02:41:38.160Z
-POST http://localhost:5173/api/v1/intentos-pago/ef2e115d-d614-4daf-b50e-243f266ddb8a/confirmacion
+#9 · 2026-11-08T03:33:17.646Z
+POST http://localhost:5173/api/v1/intentos-pago/bb5a9b19-d539-47a1-8ecf-6d469eda216d/confirmacion
 Petición: {"resultado":"APROBADO"}
 HTTP 200
 Respuesta: {
-  "id": "ef2e115d-d614-4daf-b50e-243f266ddb8a",
-  "referencia": "SIM-20261107-0GBPAJ",
+  "id": "bb5a9b19-d539-47a1-8ecf-6d469eda216d",
+  "referencia": "SIM-20261107-UIBHHJ",
   "estado": "APROBADO",
-  "iniciadoEn": "2026-11-08T02:41:37.748824Z",
-  "resueltoEn": "2026-11-08T02:41:38.1219028Z"
+  "iniciadoEn": "2026-11-08T03:33:17.367598Z",
+  "resueltoEn": "2026-11-08T03:33:17.6223498Z"
 }
 
-#10 · 2026-11-08T02:41:38.257Z
+#10 · 2026-11-08T03:33:17.703Z
 GET http://localhost:5173/api/v1/cobros?pagina=0&tamano=20
 Petición: (sin cuerpo)
 HTTP 200
@@ -407,7 +407,7 @@ Respuesta: {
   "totalPaginas": 1
 }
 
-#11 · 2026-11-08T02:41:39.057Z
+#11 · 2026-11-08T03:33:18.234Z
 POST http://localhost:8080/api/v1/cobros/c0b00000-0000-4000-8000-000000000033/intentos-pago
 Petición: {}
 HTTP 409
@@ -420,7 +420,7 @@ Respuesta: {
   "codigo": "VAL-028"
 }
 
-#12 · 2026-11-08T02:41:39.105Z
+#12 · 2026-11-08T03:33:18.265Z
 POST http://localhost:8080/api/v1/cobros/c0b00000-0000-4000-8000-000000000034/intentos-pago
 Petición: {}
 HTTP 409

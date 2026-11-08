@@ -5,9 +5,9 @@
 | Historia | H-30 · subtarea H-30.3 |
 | Requisitos | RF-138, VAL-028, RNF-004, DEC-37, ADR-0012 |
 | Pantallas | F-34 (flujo móvil de pago simulado, abierto desde la tabla de cobros de F-33) |
-| Versión probada | `develop` en `2b407ff`, con las migraciones `20261020090000`, `20261022143000`, `20261027140000`, `20261103100000` y `20261106160000` |
+| Versión probada | `develop` en `9c6a62f`, fusionado en la rama de la prueba en `69b302d`, con las migraciones `20261020090000`, `20261022143000`, `20261027140000`, `20261103100000` y `20261106160000` |
 | Fecha | 2026-11-07 |
-| Ejecutó | Agente de IA (OpenCode) en el entorno local del equipo |
+| Ejecutó | DeepSeek V4.1 Flash Free (OpenCode) en el entorno local del equipo |
 | Resultado global | **Aprobado (4 de 4 criterios)** |
 
 ## 1. Entorno
@@ -52,11 +52,13 @@ Cobros, todos `tipo = MANUAL`:
 | 4 | Halcones | Halcones A | Arbitraje jornada 2 · vencido | 200.00 | VENCIDO (límite 31 oct 2026) | SQL |
 | 5 | Riviera | Riviera F.C. | Cuota de inscripción · club ajeno | 125.00 | PENDIENTE | SQL |
 
-Los cobros 3 y 4 se sembraron por SQL porque hoy ningún flujo produce `PAGADO` por pago externo
-(H-31) ni `VENCIDO` (vencimiento programado, B-31); los triggers `tg_pagos_validar` y
-`tg_cobros_estado` siguieron activos. El cobro 3 tiene un pago `EFECTIVO` de la semilla y el cobro
-5 pertenece a otro club, por lo que no aparece en la pantalla de la Directiva. Los pagos
-`EN_LINEA_SIMULADO` que genera esta prueba son únicamente los de los cobros 1 y 2.
+Los cobros 3 y 4 se sembraron por SQL para que CA-3 parta de un estado determinista, aunque
+`develop` ya incluye el pago externo de Tesorería (#90, H-31.2) y el vencimiento programado
+(#92, B-31.1); así la prueba no depende de esperar la tarea diaria ni de registrar antes un pago
+externo. Los triggers `tg_pagos_validar` y `tg_cobros_estado` siguieron activos. El cobro 3 tiene
+un pago `EFECTIVO` de la semilla y el cobro 5 pertenece a otro club, por lo que no aparece en la
+pantalla de la Directiva. Los pagos `EN_LINEA_SIMULADO` que genera esta prueba son únicamente los
+de los cobros 1 y 2.
 
 ## 3. Escenarios
 
@@ -90,14 +92,14 @@ Los cobros 3 y 4 se sembraron por SQL porque hoy ningún flujo produce `PAGADO` 
 - La tabla mostró los cuatro cobros de Halcones y **no** el cobro 5 de Riviera. El cobro 1 ofrecía
   «Pagar en línea (simulado)».
 - Paso 1: «Cobro a pagar», Club Halcones Morelia · Halcones A, «$1,500.00 MXN».
-- Paso 2: referencia **`SIM-20261107-77D25V`**; la petición
+- Paso 2: referencia **`SIM-20261107-N1SQR4`**; la petición
   `POST /api/v1/cobros/c0b00000-0000-4000-8000-000000000031/intentos-pago` respondió `HTTP 201`
   con `"estado":"PENDIENTE"`.
 - Paso 3: «Pago registrado» y «Comprobante de pago simulado» con la misma referencia; la
   confirmación `{"resultado":"APROBADO"}` respondió `HTTP 200` con `"estado":"APROBADO"` y
-  `"resueltoEn":"2026-11-08T02:41:36.1291707Z"`.
+  `"resueltoEn":"2026-11-08T03:33:16.140269Z"`.
 - Al cerrar, la fila del cobro 1 mostró **Pagado** y **0** botones.
-- Base: `siglim.pagos` con `EN_LINEA_SIMULADO`, `1500.00` y `SIM-20261107-77D25V`; el intento quedó
+- Base: `siglim.pagos` con `EN_LINEA_SIMULADO`, `1500.00` y `SIM-20261107-N1SQR4`; el intento quedó
   `APROBADO`; dos eventos de auditoría `M-13`, el segundo con `monto`, `pagoId`, `cobroId`,
   `resultado: "APROBADO"`, `referencia` y `estadoCobro: "PAGADO"`.
 
@@ -147,15 +149,15 @@ crudas del navegador) y
 
 **Resultado obtenido:** **Aprobado.**
 
-- Primer intento: referencia **`SIM-20261107-D7HKYS`**; la confirmación
+- Primer intento: referencia **`SIM-20261107-VMFWPI`**; la confirmación
   `{"resultado":"RECHAZADO"}` respondió `HTTP 200` con `"estado":"RECHAZADO"`. El comprobante mostró
   «El pago fue rechazado» y «La simulación no generó ningún cargo. El cobro quedó rechazado y puede
   reintentarse.».
 - Al cerrar, la fila mostró **Rechazado** y el botón **Reintentar pago** (1).
 - Reintento: el paso 1 ofreció «Reintentar pago simulado»; el paso 2 generó
-  **`SIM-20261107-0GBPAJ`**, distinta de la rechazada; la aprobación respondió `HTTP 200` y la fila
+  **`SIM-20261107-UIBHHJ`**, distinta de la rechazada; la aprobación respondió `HTTP 200` y la fila
   quedó **Pagado** sin acciones.
-- Base: **3** intentos (`APROBADO` 77D25V, `RECHAZADO` D7HKYS y `APROBADO` 0GBPAJ) y **2** pagos
+- Base: **3** intentos (`APROBADO` N1SQR4, `RECHAZADO` VMFWPI y `APROBADO` UIBHHJ) y **2** pagos
   `EN_LINEA_SIMULADO` (1500.00 y 275.25). La auditoría del rechazo no tiene `monto` ni `pagoId`; la
   del reintento registra `estadoAnterior: "RECHAZADO"` y el nuevo `pagoId`.
 
@@ -190,12 +192,15 @@ crudas del navegador) y
 **Resultado esperado**
 
 - La interfaz muestra **Pagado** y **Vencido** y no ofrece «Pagar en línea» ni «Reintentar pago».
+- El cobro VENCIDO muestra el aviso **«Vencido: comunícate con Tesorería»** (#93, B-31.2) y el
+  cobro PAGADO no lo muestra.
 - La API responde `409` con `codigo: "VAL-028"` y un `detail` que explica el estado del cobro.
 - `siglim.intentos_pago` no tiene filas para los cobros 3 y 4.
 
 **Resultado obtenido:** **Aprobado.**
 
-- La interfaz mostró **Pagado** y **Vencido**, con **0** botones en ambas filas.
+- La interfaz mostró **Pagado** y **Vencido**, con **0** botones en ambas filas. La fila del cobro
+  4 mostró el aviso **«Vencido: comunícate con Tesorería»**; la del cobro 3 no lo mostró.
 - API: los dos `POST` respondieron **`HTTP 409`** con `Content-Type: application/problem+json` y
   `"codigo":"VAL-028"`:
   - Cobro 3: «El cobro está PAGADO; no se puede pagar en línea.».
@@ -220,7 +225,11 @@ crudas del navegador) y
   confirma dos veces», «H-30 criterio 3 · VAL-028: un cobro VENCIDO no se paga en línea, pero sí lo
   registra Tesorería» y «VAL-015 y VAL-024: el Tesorero no paga en línea y la Directiva de otro club
   no ve el cobro».
-- `PantallaTesoreria.test.tsx` · «H-30.2: ofrece pagar solo los cobros pendientes o rechazados».
+- `PantallaTesoreria.test.tsx` · «H-30.2: ofrece pagar solo los cobros pendientes o rechazados» y
+  «B-31.2: con PAGAR sin REGISTRAR, el cobro vencido no se paga en línea y remite a Tesorería».
+- `ModalPagoSimulado.test.tsx` · «B-31.2: un 409 VAL-028 al iniciar muestra el detalle y refresca la
+  tesorería» y «B-31.2: un 409 VAL-028 al confirmar muestra el detalle, refresca y ya no ofrece
+  aprobar ni rechazar».
 
 ### CA-4 · La pantalla muestra «Pago simulado: no se realiza ningún cargo»
 
@@ -252,7 +261,7 @@ Observación 4).
 [`CA2-comprobante-rechazado.png`](evidencias/H-30/CA2-comprobante-rechazado.png),
 [`CA2-modal-reintento-referencia.png`](evidencias/H-30/CA2-modal-reintento-referencia.png),
 [`CA2-comprobante-reintento-aprobado.png`](evidencias/H-30/CA2-comprobante-reintento-aprobado.png) y
-[`resumen-ejecucion.txt`](evidencias/H-30/resumen-ejecucion.txt) (31 comprobaciones, 31 correctas)
+[`resumen-ejecucion.txt`](evidencias/H-30/resumen-ejecucion.txt) (33 comprobaciones, 33 correctas)
 
 **Pruebas automáticas relacionadas**
 
@@ -270,12 +279,12 @@ Observación 4).
 
 Pruebas automáticas de la misma versión:
 
-- Backend: `./mvnw verify` → **BUILD SUCCESS**. Pruebas unitarias y de controlador: **1043/1043**.
-  Pruebas de integración (PostgreSQL real en Testcontainers): **171 ejecutadas, 0 fallos, 0 errores,
+- Backend: `./mvnw verify` → **BUILD SUCCESS**. Pruebas unitarias y de controlador: **1100/1100**.
+  Pruebas de integración (PostgreSQL real en Testcontainers): **186 ejecutadas, 0 fallos, 0 errores,
   1 omitida** (`AlmacenamientoDocumentosAwsIT`, desactivada por defecto: requiere
   `-Dsiglim.s3.pruebaReal=true` y credenciales de AWS). `PagoSimuladoIT`: **8/8**, incluye los
   cuatro escenarios de los criterios 1 a 3 y los de concurrencia, idempotencia, permisos y ámbito.
-- Frontend: `npm run lint` sin hallazgos; `npm test` → **467/467** pruebas en **61** archivos;
+- Frontend: `npm run lint` sin hallazgos; `npm test` → **500/500** pruebas en **62** archivos;
   `npm run build` → **`✓ built`**.
 
 ## 5. Defectos encontrados
@@ -289,21 +298,25 @@ terminan correctamente.
    `tesoreria.pago:PAGAR` a `DIRECTIVA_CLUB` con ámbito de club; el `TESORERO` tiene
    `tesoreria.pago:REGISTRAR` (pago externo de H-31). No es un defecto: el pago en línea y el
    registro en ventanilla son acciones distintas.
-2. **Estados PAGADO y VENCIDO sembrados por SQL.** Ningún flujo produce todavía un cobro `VENCIDO`
-   (vencimiento programado, B-31) ni un `PAGADO` por pago externo (H-31). Para probar VAL-028 se
-   insertaron los cobros 3 y 4 y se cambió su estado con los triggers activos; el cobro 3 tiene un
-   pago `EFECTIVO` de la semilla. Solo los pagos de los cobros 1 y 2 son `EN_LINEA_SIMULADO` de
-   esta corrida.
-3. **La referencia usa la fecha de negocio.** La corrida ocurrió a las 20:41 de `America/Mexico_City`
-   (02:41 UTC del día siguiente) y la referencia generada fue `SIM-20261107-…`, con la fecha local
+2. **Estados PAGADO y VENCIDO sembrados por SQL.** `develop` ya incluye el pago externo de
+   Tesorería (#90, H-31.2) y el vencimiento programado (#92, B-31.1), pero la prueba fija por SQL
+   el estado inicial de los cobros 3 y 4 para que CA-3 sea determinista: no depende de esperar la
+   tarea diaria ni de registrar antes un pago externo. La semilla se aplicó con los triggers
+   `tg_pagos_validar` y `tg_cobros_estado` activos; el cobro 3 tiene un pago `EFECTIVO` y el cobro 4
+   quedó `VENCIDO` con límite 31 oct 2026. Al arrancar, `VencimientoCobrosService` revisó la base y
+   no venció ningún cobro, sin tocar los `PENDIENTE` con límite 15 dic 2026. Solo los pagos de los
+   cobros 1 y 2 son `EN_LINEA_SIMULADO` de esta corrida.
+3. **La referencia usa la fecha de negocio.** La corrida ocurrió a las 21:33 de `America/Mexico_City`
+   (03:33 UTC del día siguiente) y la referencia generada fue `SIM-20261107-…`, con la fecha local
    de la Liga. Es el comportamiento esperado y no afecta el criterio.
 4. **404 del `favicon`.** `frontend/index.html` no declara un `favicon`, así que Edge registra un
    `404` por `/favicon.ico` en la primera carga. No es un error de la aplicación ni de la prueba;
    [`resumen-ejecucion.txt`](evidencias/H-30/resumen-ejecucion.txt) lo cuenta aparte de los errores
    de consola (0).
 5. **La interfaz y la API coinciden en VAL-028.** La tabla oculta la acción para `PAGADO` y
-   `VENCIDO`, pero la prueba también llamó a la API directamente: ambas capas rechazan el pago. La
-   UI no es la única barrera.
+   `VENCIDO` y, desde #93, el `VENCIDO` de la Directiva muestra «Vencido: comunícate con Tesorería».
+   La prueba también llamó a la API directamente: ambas capas rechazan el pago. La UI no es la
+   única barrera.
 6. **Nada se borra.** El intento rechazado de CA-2 se conserva junto con el aprobado del reintento;
    la corrección de estado no elimina historial (RF-044, RN-005).
 7. **La segunda confirmación de un intento ya resuelto** responde `409` y no duplica el pago; se
@@ -312,11 +325,12 @@ terminan correctamente.
 
 ## 7. Conclusión
 
-La historia **H-30 cumple sus cuatro criterios de aceptación** sobre `develop` en `2b407ff` con
+La historia **H-30 cumple sus cuatro criterios de aceptación** sobre `develop` en `9c6a62f` con
 frontend, backend y base de datos reales: un cobro `PENDIENTE` pasa a `PAGADO` con un pago
 `EN_LINEA_SIMULADO` y su auditoría; un rechazo deja el cobro `RECHAZADO` sin pago y el reintento
 genera una referencia nueva y lo deja `PAGADO`; un cobro `PAGADO` o `VENCIDO` no se paga en línea
-(`409 VAL-028`) ni desde la interfaz ni desde la API; y el aviso «Pago simulado: no se realiza
-ningún cargo» aparece en los nueve pasos recorridos. La corrida terminó con 31 comprobaciones
-correctas, 0 fallos y 0 errores de consola de la aplicación. La subtarea **H-30.3 queda terminada**
-y no quedan defectos abiertos para H-30.
+(`409 VAL-028`) ni desde la interfaz ni desde la API; el `VENCIDO` de la Directiva remite a
+Tesorería con el aviso de #93, y el aviso «Pago simulado: no se realiza ningún cargo» aparece en
+los nueve pasos recorridos. La corrida terminó con 33 comprobaciones correctas, 0 fallos y 0
+errores de consola de la aplicación. La subtarea **H-30.3 queda terminada** y no quedan defectos
+abiertos para H-30.
