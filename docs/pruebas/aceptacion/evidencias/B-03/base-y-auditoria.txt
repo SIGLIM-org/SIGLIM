@@ -1,0 +1,38 @@
+Prueba de aceptación B-03.3 · verificación en la base compartida de Supabase
+Consultas ejecutadas el 2026-11-07 a las 19:45 (America/Mexico_City), al terminar la corrida.
+Horas en America/Mexico_City. Los perfiles se muestran por su nombre visible.
+
+== siglim.parametros_temporada (temporada bae83713-394b-4084-b6d8-63d74a3fd59e, «Temporada 2026–2027») ==
+id                                    version  puntos V/E/D  duracion_juego_min  bloque_cancha_min  es_demo  creado_por           creado_en
+0fd470e7-65ea-4d92-9288-f2b7675e8a3f  1        3 / 1 / 0     90                  120                true     López Meza Leonardo  2026-11-07 18:43:08
+Filas de la temporada: 1 (registrada en la preparación, 5 min antes de la primera interpretación). Ninguna fila posterior.
+
+== siglim.interpretaciones_regla ==
+I1  14c34c9c-0da2-4a5d-a181-dc154a8af7cc  AUTORIZADA
+    registrada_por López Meza Leonardo · registrada_en 2026-11-07 18:48:25
+    resuelta_por   Presidente Lio      · resuelta_en   2026-11-07 19:07:39
+    observaciones  «Autorizada en la prueba de aceptación B-03.3.»
+I2  a713a1cd-42b0-4356-81e9-2ad96a08c1c6  RECHAZADA
+    registrada_por López Meza Leonardo · registrada_en 2026-11-07 18:56:08
+    resuelta_por   Presidente Lio      · resuelta_en   2026-11-07 19:18:04
+    observaciones  «La regla ya está en el reglamento vigente: no requiere interpretación.»
+I3  1a4f8cd4-8947-41ce-ac37-adc0bfc195f4  RECHAZADA
+    registrada_por López Meza Leonardo · registrada_en 2026-11-07 18:56:18
+    resuelta_por   Presidente Lio      · resuelta_en   2026-11-07 19:41:05
+    observaciones  «Cierre de la prueba B-03.3: interpretación usada solo para verificar permisos.»
+Pendientes al cierre: 0.
+
+== siglim.auditoria desde 2026-11-07 18:30 ==
+18:37:37  M-01  INVITAR_USUARIO           perfiles               cad8ee53…  López Meza Leonardo  {"asignaciones":[{"rol":"PRESIDENTE","ambito":"LIGA"}]}
+18:43:08  M-02  REGISTRAR_PARAMETROS      parametros_temporada   0fd470e7…  López Meza Leonardo  {"version":1,"versionAnterior":null,"esDemo":true,"temporadaId":"bae83713…"}
+18:48:25  M-02  REGISTRAR_INTERPRETACION  interpretaciones_regla 14c34c9c…  López Meza Leonardo  {"estado":"PENDIENTE","temporadaId":"bae83713…"}
+18:56:08  M-02  REGISTRAR_INTERPRETACION  interpretaciones_regla a713a1cd…  López Meza Leonardo  {"estado":"PENDIENTE","temporadaId":"bae83713…"}
+18:56:18  M-02  REGISTRAR_INTERPRETACION  interpretaciones_regla 1a4f8cd4…  López Meza Leonardo  {"estado":"PENDIENTE","temporadaId":"bae83713…"}
+19:07:38  M-02  RESOLVER_INTERPRETACION   interpretaciones_regla 14c34c9c…  Presidente Lio       {"estado":"AUTORIZADA","estadoAnterior":"PENDIENTE","temporadaId":"bae83713…"}
+19:18:03  M-02  RESOLVER_INTERPRETACION   interpretaciones_regla a713a1cd…  Presidente Lio       {"estado":"RECHAZADA","estadoAnterior":"PENDIENTE","temporadaId":"bae83713…"}  motivo: «La regla ya está en el reglamento vigente: no requiere interpretación.»
+19:41:04  M-02  RESOLVER_INTERPRETACION   interpretaciones_regla 1a4f8cd4…  Presidente Lio       {"estado":"RECHAZADA","estadoAnterior":"PENDIENTE","temporadaId":"bae83713…"}  motivo: «Cierre de la prueba B-03.3: interpretación usada solo para verificar permisos.»
+
+Lecturas:
+- Ninguna acción sobre parametros_temporada después de 18:43:08: autorizar I1 y rechazar I2 no tocaron los parámetros (CA-3).
+- Los intentos rechazados no dejaron rastro: 400 RF-007 sobre I2 (antes de las 19:16), 403 VAL-015 del Administrador sobre I3 (antes de las 19:31) y 409 RF-007 sobre I1 (antes de las 19:36), según la hora de sus capturas, no aparecen en la auditoría ni cambiaron las filas.
+- La nota de la autorización de I1 se guarda en «observaciones», pero la auditoría solo copia el motivo al rechazar (D7 de InterpretacionReglaService).
