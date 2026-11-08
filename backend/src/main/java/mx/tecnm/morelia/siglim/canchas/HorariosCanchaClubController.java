@@ -32,7 +32,7 @@ class HorariosCanchaClubController {
 
     @GetMapping
     List<HorariosCanchaClubDto> listar(@PathVariable UUID id) {
-        return servicio.listar(id, id);
+        return servicio.listar(id);
     }
 
     @PutMapping

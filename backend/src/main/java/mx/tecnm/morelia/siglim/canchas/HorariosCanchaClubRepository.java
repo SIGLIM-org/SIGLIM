@@ -10,7 +10,7 @@ import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /** SQL de {@code horarios_cancha_club}. */
-@jakarta.annotation.Generated("")
+
 public class HorariosCanchaClubRepository {
 
     private final JdbcClient jdbc;

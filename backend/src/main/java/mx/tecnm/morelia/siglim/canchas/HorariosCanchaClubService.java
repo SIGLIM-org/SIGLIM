@@ -1,14 +1,12 @@
 package mx.tecnm.morelia.siglim.canchas;
 
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
 import java.util.UUID;
-import java.util.ArrayList;
 import java.util.regex.Pattern;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion.AlcanceAutorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
+import mx.tecnm.morelia.siglim.compartido.config.SiglimPropiedades;
 import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import org.springframework.stereotype.Service;
@@ -26,32 +24,33 @@ public class HorariosCanchaClubService {
 
     private final HorariosCanchaClubRepository horarios;
     private final CanchaRepository canchas;
+    private final UUID ligaId;
 
-    HorariosCanchaClubService(HorariosCanchaClubRepository horarios, CanchaRepository canchas) {
+    HorariosCanchaClubService(HorariosCanchaClubRepository horarios, CanchaRepository canchas, SiglimPropiedades configuracion) {
         this.horarios = horarios;
         this.canchas = canchas;
+        this.ligaId = configuracion.ligaId();
     }
 
     @Transactional(readOnly = true)
     public List<HorariosCanchaClubDto> listar(UUID canchaId) {
-        CanchaDto cancha = canchas.buscar(canchaId).orElseThrow(() -> noExiste(canchaId));
+        CanchaDto cancha = canchas.buscar(ligaId, canchaId).orElseThrow(() -> noExiste(canchaId));
         autorizacion.exigir(CONSULTAR, objetivo(cancha));
         return horarios.listarPorCancha(canchaId);
     }
 
     @Transactional
     public List<HorariosCanchaClubDto> reemplazar(UUID canchaId, RegistrarHorarioRequest request) {
-        CanchaDto cancha = canchas.buscar(canchaId).orElseThrow(() -> noExiste(canchaId));
+        CanchaDto cancha = canchas.buscar(ligaId, canchaId).orElseThrow(() -> noExiste(canchaId));
         autorizacion.exigir(EDITAR, objetivo(cancha));
         validarContenido(request);
         // TODO: implementar lógica de reemplazo real de la tabla horarios_cancha_club.
-        List<HorariosCanchaClubDto> nuevos = request.horarios().stream()
-                .map(fila -> new HorariosCanchaClubDto(null, canchaId, cancha.clubId(), null,
-                        fila.categoriaId(), Integer.parseInt(fila.desde()),
-                        fila.desde(), fila.hasta(), Boolean.TRUE.equals(fila.clubId())))
-                .toList();
-        return nuevos;
+        throw new UnsupportedOperationException("No implementado: reemplazo de horarios_cancha_club");
     }
+
+
+
+    // Nota: implementar lógica de reemplazo real de la tabla horarios_cancha_club.
 
     private void validarContenido(RegistrarHorarioRequest request) {
         if (request == null || request.horarios() == null || request.horarios().isEmpty()) {
@@ -77,8 +76,11 @@ public class HorariosCanchaClubService {
     }
 
     private static ObjetivoAutorizacion objetivo(CanchaDto cancha) {
-        return Autorizacion.objetivo(cancha.propietario(), cancha.clubId());
+        return cancha.propietario() == PropietarioCancha.CLUB && cancha.club() != null
+                ? ObjetivoAutorizacion.deClubes(cancha.club().id())
+                : ObjetivoAutorizacion.deLiga();
     }
 
-    private static final Autorizacion autorizacion = Autorizacion.self();
+    private final Autorizacion autorizacion;
+
 }
