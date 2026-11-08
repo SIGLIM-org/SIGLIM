@@ -1,0 +1,11 @@
+Pager usage is off.
+ id |              perfil_id               | perfil  | es_sistema | modulo |    accion    | entidad |              entidad_id              |                 motivo                  |                                                 detalle                                                  |          ocurrido_en
+----+--------------------------------------+---------+------------+--------+--------------+---------+--------------------------------------+-----------------------------------------+----------------------------------------------------------------------------------------------------------+-------------------------------
+  1 | a0000000-0000-4000-8000-000000000002 | Sistema | t          | M-13   | VENCER_COBRO | cobros  | c1000000-0000-4000-8000-000000000004 | vencimiento automático por fecha límite | {"monto": 900.00, "estadoNuevo": "VENCIDO", "fechaLimite": "2026-10-28", "estadoAnterior": "PENDIENTE"}  | 2026-11-08 03:22:10.621654+00
+  2 | a0000000-0000-4000-8000-000000000002 | Sistema | t          | M-13   | VENCER_COBRO | cobros  | c1000000-0000-4000-8000-000000000001 | vencimiento automático por fecha límite | {"monto": 1500.00, "estadoNuevo": "VENCIDO", "fechaLimite": "2026-11-06", "estadoAnterior": "PENDIENTE"} | 2026-11-08 03:22:10.621654+00
+(2 rows)
+
+ total_vencer_cobro
+--------------------
+                  2
+(1 row)
