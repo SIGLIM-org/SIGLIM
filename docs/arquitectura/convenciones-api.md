@@ -520,8 +520,11 @@ los dos dictámenes (F-13). Responde `200` con la solicitud resuelta. `APROBADO`
 cambio guardado; `RECHAZADO` lo descarta. Errores, en orden: sin el permiso, `403 VAL-015`;
 solicitud inexistente o de otra liga, `404`; ya resuelta, `409 RF-096` (una resolución no se reabre);
 quien la solicitó intenta dictaminarla, `403 RF-096` (DEC-04, aunque su cuenta tenga los dos
-permisos); sin decisión o sin motivo suficiente, `400`. No hay `DELETE`: el histórico de solicitudes
-se conserva (RF-003).
+permisos); sin decisión o sin motivo suficiente, `400`; y al aprobar, si el rol es de quien
+dictamina, `403 VAL-022` (el mismo límite de la edición directa, comprobado antes de aplicar el
+cambio). Ese último caso es el de una solicitud sobre `PRESIDENTE` que el propio Presidente intenta
+aprobar: la solicitud sigue `SOLICITADO` y la matriz no cambia. No hay `DELETE`: el histórico de
+solicitudes se conserva (RF-003).
 
 Las respuestas de las solicitudes llevan `Cache-Control: no-store` porque nombran a quien solicita y
 a quien resuelve (RNF-012). En el módulo `M-01` se auditan `CAMBIAR_PERMISOS_ROL` sobre `roles` al

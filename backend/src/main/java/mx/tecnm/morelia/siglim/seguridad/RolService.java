@@ -150,10 +150,13 @@ public class RolService {
      *
      * <p>Orden: permiso ({@code 403 VAL-015}) → solicitud ({@code 404}) → ya resuelta
      * ({@code 409 RF-096}) → quien la solicitó ({@code 403 RF-096}, DEC-04) → decisión
-     * ({@code 400 VALIDACION}) → motivo ({@code 400 RN-021}).
+     * ({@code 400 VALIDACION}) → motivo ({@code 400 RN-021}) → [solo al aprobar] rol de la
+     * solicitud ({@code 404}) → rol propio del aprobador ({@code 403 VAL-022}).
      *
      * @throws ReglaNegocioException 409 {@code RF-096} si ya estaba resuelta; 403 {@code RF-096} si
-     *                               la resuelve quien la solicitó; 400 {@code RN-021} sin motivo
+     *                               la resuelve quien la solicitó; 403 {@code VAL-022} si al
+     *                               aprobar el rol es del propio aprobador; 400 {@code RN-021} sin
+     *                               motivo
      */
     @Transactional
     public SolicitudCambioPermisosDto resolverSolicitud(UUID id,
@@ -181,6 +184,10 @@ public class RolService {
             // otra edición simultánea (RF-095).
             FilaRol rol = roles.buscarParaActualizar(ligaId, solicitud.rolId())
                     .orElseThrow(() -> noExiste(solicitud.rolId()));
+            // El aprobador no puede aplicar el cambio a un rol que tiene asignado: el mismo límite
+            // de VAL-022 que la edición directa, adelantado para explicarlo desde el servicio en
+            // lugar de dejar que lo rechace el trigger tg_rol_permisos_propio.
+            rechazarRolPropio(rol.id());
             roles.aplicarCambios(rol.id(), solicitud.permisosAgregadosIds(),
                     solicitud.permisosQuitadosIds());
         }

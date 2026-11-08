@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -172,6 +173,35 @@ class RolesPermisosIT extends BaseDatosPrueba {
     }
 
     @Test
+    @DisplayName("VAL-022: el Presidente no aprueba un cambio sobre su propio rol y la solicitud sigue SOLICITADO")
+    void presidenteNoApruebaCambioDeSuRol() {
+        UUID rolPresidente = rolPorCodigo("PRESIDENTE");
+        List<String> antes = permisosDeRol(rolPresidente);
+        List<String> propuestos = new ArrayList<>(antes);
+        propuestos.add(EDITAR_JORNADA);
+
+        iniciarSesionComoAdministrador();
+        UUID solicitudId = servicio.actualizarPermisos(rolPresidente,
+                        new ActualizarPermisosRolRequest(propuestos, MOTIVO))
+                .solicitud().id();
+
+        UUID presidente = perfilConRol("PRESIDENTE");
+        iniciarSesion(presidente);
+        assertThatThrownBy(() -> servicio.resolverSolicitud(solicitudId,
+                new ResolverSolicitudCambioPermisosRequest(DecisionSolicitudPermisos.APROBADO,
+                        MOTIVO_DICTAMEN)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.FORBIDDEN, "VAL-022"));
+
+        FilaSolicitud pendiente = solicitud(solicitudId);
+        assertThat(pendiente.estado()).as("la solicitud sigue pendiente").isEqualTo("SOLICITADO");
+        assertThat(pendiente.resueltoPor()).isNull();
+        assertThat(permisosDeRol(rolPresidente)).isEqualTo(antes);
+        assertThat(contarEventos("solicitudes_cambio_permisos", solicitudId.toString(),
+                "APROBAR_CAMBIO_PERMISOS")).as("no se auditó un dictamen rechazado").isZero();
+    }
+
+    @Test
     @DisplayName("DEC-04: quien solicita el cambio no puede aprobarlo, aunque tenga los dos permisos")
     void quienSolicitaNoAprueba() {
         UUID rol = crearRol();
@@ -281,6 +311,11 @@ class RolesPermisosIT extends BaseDatosPrueba {
                          ORDER BY p.codigo
                         """)
                 .param("rol", rol).query(String.class).list();
+    }
+
+    private UUID rolPorCodigo(String codigo) {
+        return jdbc.sql("SELECT id FROM siglim.roles WHERE codigo = :codigo")
+                .param("codigo", codigo).query(UUID.class).single();
     }
 
     private long permisoId(String codigo) {
