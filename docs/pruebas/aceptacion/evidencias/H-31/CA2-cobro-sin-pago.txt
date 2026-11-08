@@ -1,0 +1,18 @@
+Consulta ejecutada como postgres sobre la base local efímera (esquema siglim).
+Cobro del CA-2: c0000000-0000-4000-8000-000000000003 (monto 725.00).
+
+-- Estado del cobro
+                  id                  |      concepto       | monto  |  estado   
+--------------------------------------+---------------------+--------+-----------
+ c0000000-0000-4000-8000-000000000003 | Arbitraje jornada 1 | 725.00 | PENDIENTE
+(1 row)
+
+-- Pagos, comprobantes y auditoría del cobro
+ pagos | comprobantes | eventos_registrar_pago 
+-------+--------------+------------------------
+     0 |            0 |                      0
+(1 row)
+
+-- Objetos en el bucket (deben ser solo los dos comprobantes de los pagos válidos)
+<Key>liga/a0000000-0000-4000-8000-000000000001/comprobantes/7a84b4e7-24a2-4ec3-a368-238fe9de2cf3/20ea25f9-21eb-4f06-aae8-917b1528e0e7.pdf</Key>
+<Key>liga/a0000000-0000-4000-8000-000000000001/comprobantes/81139f0f-4582-4da7-aa66-8dca4f657c66/67c8efbc-767f-41f2-8ad6-0e22231d3164.pdf</Key>

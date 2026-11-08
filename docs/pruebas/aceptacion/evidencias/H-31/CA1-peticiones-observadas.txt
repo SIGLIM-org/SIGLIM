@@ -1,0 +1,9 @@
+POST http://localhost:5173/api/v1/cobros/c0000000-0000-4000-8000-000000000002/pagos
+Estado: 201
+Location: /api/v1/cobros/c0000000-0000-4000-8000-000000000002/pagos
+Cuerpo: {"id":"7a84b4e7-24a2-4ec3-a368-238fe9de2cf3","cobroId":"c0000000-0000-4000-8000-000000000002","medio":"TRANSFERENCIA","monto":350.50,"referencia":"SPEI-98432170","pagadoEn":"2026-11-06T06:00:00Z","registradoPor":{"id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","nombre":"Tesorero de aceptación"},"comprobante":{"documentoId":"20ea25f9-21eb-4f06-aae8-917b1528e0e7","tipoMime":"application/pdf","tamanoBytes":218}}
+
+POST http://localhost:5173/api/v1/cobros/c0000000-0000-4000-8000-000000000001/pagos
+Estado: 201
+Location: /api/v1/cobros/c0000000-0000-4000-8000-000000000001/pagos
+Cuerpo: {"id":"81139f0f-4582-4da7-aa66-8dca4f657c66","cobroId":"c0000000-0000-4000-8000-000000000001","medio":"EFECTIVO","monto":1500.00,"pagadoEn":"2026-11-08T02:41:25.20042Z","registradoPor":{"id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","nombre":"Tesorero de aceptación"},"comprobante":{"documentoId":"67c8efbc-767f-41f2-8ad6-0e22231d3164","tipoMime":"application/pdf","tamanoBytes":218}}

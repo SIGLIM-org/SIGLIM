@@ -1,0 +1,13 @@
+Consulta ejecutada como postgres sobre la base local efímera (esquema siglim).
+Cobros pagados: c0000000-0000-4000-8000-000000000001 y c0000000-0000-4000-8000-000000000002.
+
+-- Estado, pagos, comprobantes y eventos por cobro
+                  id                  | estado | pagos | comprobantes | eventos_registrar_pago 
+--------------------------------------+--------+-------+--------------+------------------------
+ c0000000-0000-4000-8000-000000000001 | PAGADO |     1 |            1 |                      1
+ c0000000-0000-4000-8000-000000000002 | PAGADO |     1 |            1 |                      1
+(2 rows)
+
+-- Objetos en el bucket (uno por pago, sin duplicados del segundo intento)
+<Key>liga/a0000000-0000-4000-8000-000000000001/comprobantes/7a84b4e7-24a2-4ec3-a368-238fe9de2cf3/20ea25f9-21eb-4f06-aae8-917b1528e0e7.pdf</Key>
+<Key>liga/a0000000-0000-4000-8000-000000000001/comprobantes/81139f0f-4582-4da7-aa66-8dca4f657c66/67c8efbc-767f-41f2-8ad6-0e22231d3164.pdf</Key>

@@ -1,0 +1,17 @@
+{
+  "peticion": {
+    "metodo": "POST",
+    "url": "http://localhost:8080/api/v1/cobros/c0000000-0000-4000-8000-000000000002/pagos",
+    "tipoContenido": "multipart/form-data",
+    "campos": {
+      "medio": "EFECTIVO",
+      "monto": "350.50",
+      "archivo": "comprobante-segundo-pago.pdf (application/pdf, 218 bytes)"
+    }
+  },
+  "respuesta": {
+    "estado": 409,
+    "location": null,
+    "cuerpo": "{\"detail\":\"El cobro está PAGADO; no admite otro pago.\",\"instance\":\"/api/v1/cobros/c0000000-0000-4000-8000-000000000002/pagos\",\"status\":409,\"title\":\"Conflicto con el estado actual\",\"type\":\"https://siglim.mx/errores/val-028\",\"codigo\":\"VAL-028\"}"
+  }
+}
