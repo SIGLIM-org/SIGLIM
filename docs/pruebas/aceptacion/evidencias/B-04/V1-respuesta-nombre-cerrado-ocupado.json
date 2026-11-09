@@ -1,0 +1,21 @@
+{
+  "peticion": {
+    "metodo": "POST",
+    "url": "http://localhost:8080/api/v1/clubes/c1000000-0000-4000-8000-000000000005/cambio-nombre",
+    "cuerpo": {
+      "nombre": "Club Halcones B-04",
+      "motivo": "La asamblea del club aprobó el cambio de nombre"
+    }
+  },
+  "respuesta": {
+    "estado": 409,
+    "cuerpo": {
+      "detail": "Ya existe un club llamado «Club Halcones B-04» en la liga.",
+      "instance": "/api/v1/clubes/c1000000-0000-4000-8000-000000000005/cambio-nombre",
+      "status": 409,
+      "title": "Conflicto con el estado actual",
+      "type": "https://siglim.mx/errores/duplicado",
+      "codigo": "DUPLICADO"
+    }
+  }
+}

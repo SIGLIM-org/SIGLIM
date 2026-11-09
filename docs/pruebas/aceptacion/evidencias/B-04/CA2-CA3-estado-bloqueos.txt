@@ -1,0 +1,19 @@
+                  id                  |                club                 |           equipo           | estado |       temporada        | estado_temporada 
+--------------------------------------+-------------------------------------+----------------------------+--------+------------------------+------------------
+ f0000000-0000-4000-8000-000000000001 | Club con equipo en curso B-04       | Equipo en curso B-04       | ACTIVO | Temporada 2026-27 B-04 | ACTIVA
+ f0000000-0000-4000-8000-000000000002 | Club con equipo en preparación B-04 | Equipo en preparación B-04 | ACTIVO | Temporada 2027-28 B-04 | CONFIGURACION
+(2 rows)
+
+              club               | estado_club |       concepto       | estado_cobro 
+---------------------------------+-------------+----------------------+--------------
+ Club con cobros liquidados B-04 | CERRADO     | Cuota pagada B-04    | PAGADO
+ Club con adeudo B-04            | ACTIVO      | Cuota pendiente B-04 | PENDIENTE
+ Club con cobros liquidados B-04 | CERRADO     | Cuota rechazada B-04 | RECHAZADO
+ Club con adeudo B-04            | ACTIVO      | Cuota vencida B-04   | VENCIDO
+(4 rows)
+
+ clubes_creados_por_intentos_bloqueados 
+----------------------------------------
+                                      0
+(1 row)
+

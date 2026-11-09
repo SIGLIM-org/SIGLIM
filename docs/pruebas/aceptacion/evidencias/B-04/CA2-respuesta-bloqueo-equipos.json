@@ -1,0 +1,22 @@
+{
+  "peticion": {
+    "metodo": "POST",
+    "url": "http://localhost:8080/api/v1/clubes/c1000000-0000-4000-8000-000000000002/cambio-nombre",
+    "cuerpo": {
+      "nombre": "Club con equipo en curso B-04 renombrado",
+      "motivo": "La asamblea del club aprobó el cambio de nombre"
+    }
+  },
+  "respuesta": {
+    "estado": 409,
+    "location": null,
+    "cuerpo": {
+      "detail": "El cambio de nombre se registra entre temporadas, sin equipos inscritos en la temporada en curso o en configuración; el club «Club con equipo en curso B-04» tiene 1 equipo inscrito.",
+      "instance": "/api/v1/clubes/c1000000-0000-4000-8000-000000000002/cambio-nombre",
+      "status": 409,
+      "title": "Conflicto con el estado actual",
+      "type": "https://siglim.mx/errores/rn-041",
+      "codigo": "RN-041"
+    }
+  }
+}

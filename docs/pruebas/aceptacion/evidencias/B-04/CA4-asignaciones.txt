@@ -1,0 +1,6 @@
+                  id                  |     perfil     |      rol       | ambito |        club        | activa |          revocada_en          
+--------------------------------------+----------------+----------------+--------+--------------------+--------+-------------------------------
+ b1000000-0000-4000-8000-000000000002 | Directiva B-04 | DIRECTIVA_CLUB | CLUB   | Club Halcones B-04 | f      | 2026-11-09 04:48:18.563653+00
+ 7d52323e-77ee-496d-b5ce-94dc466b68fe | Directiva B-04 | DIRECTIVA_CLUB | CLUB   | Club Águilas B-04  | t      | 
+(2 rows)
+
