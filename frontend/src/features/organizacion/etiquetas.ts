@@ -1,6 +1,23 @@
-import { Ban, CircleCheck, Lock, type LucideIcon } from 'lucide-react'
+import {
+  Archive,
+  Ban,
+  CircleCheck,
+  Clock,
+  Crown,
+  FileSignature,
+  Flag,
+  Lock,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react'
 import type { VarianteInsignia } from '@/components/ui/Insignia'
-import type { EstadoClub, EstadoEquipo } from '@/features/organizacion/tipos'
+import type {
+  CargoDirectiva,
+  EstadoCargoDirectiva,
+  EstadoClub,
+  EstadoEquipo,
+  TipoCargoDirectiva,
+} from '@/features/organizacion/tipos'
 import { ZONA_NEGOCIO } from '@/lib/zonaHoraria'
 
 type EstadoVisible = {
@@ -18,6 +35,36 @@ export const etiquetaEstadoClub: Record<EstadoClub, EstadoVisible> = {
 export const etiquetaEstadoEquipo: Record<EstadoEquipo, EstadoVisible> = {
   ACTIVO: { texto: 'Activo', variante: 'exito', icono: CircleCheck },
   BAJA: { texto: 'Baja', variante: 'neutra', icono: Ban },
+}
+
+/** Nombre e ícono de cada cargo de la directiva (RF-102, DEC-03). */
+export const etiquetaCargoDirectiva: Record<
+  TipoCargoDirectiva,
+  { texto: string; icono: LucideIcon }
+> = {
+  PRESIDENTE: { texto: 'Presidente', icono: Crown },
+  SECRETARIO: { texto: 'Secretario', icono: FileSignature },
+  TESORERO: { texto: 'Tesorero', icono: Wallet },
+  DELEGADO: { texto: 'Delegado', icono: Flag },
+}
+
+export const etiquetaEstadoCargoDirectiva: Record<EstadoCargoDirectiva, EstadoVisible> = {
+  PENDIENTE: { texto: 'Pendiente', variante: 'advertencia', icono: Clock },
+  AUTORIZADO: { texto: 'Vigente', variante: 'exito', icono: CircleCheck },
+}
+
+/**
+ * Un cargo autorizado con `hasta` ya concluyó, pero la API lo sigue devolviendo `AUTORIZADO`
+ * (RF-102): la interfaz lo distingue para no mostrar como vigente a quien ya dejó el cargo.
+ */
+export function estadoVisibleDeCargo(cargo: CargoDirectiva): EstadoVisible {
+  if (cargo.estado === 'PENDIENTE') {
+    return etiquetaEstadoCargoDirectiva.PENDIENTE
+  }
+
+  return cargo.hasta
+    ? { texto: 'Concluido', variante: 'neutra', icono: Archive }
+    : etiquetaEstadoCargoDirectiva.AUTORIZADO
 }
 
 const formatoInstante = new Intl.DateTimeFormat('es-MX', {

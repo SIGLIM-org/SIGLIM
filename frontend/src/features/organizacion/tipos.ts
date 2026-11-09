@@ -41,6 +41,48 @@ export type Equipo = {
   motivoBaja?: string
 }
 
+/** Cargos de la directiva del club (RF-102, DEC-03). */
+export type TipoCargoDirectiva = 'PRESIDENTE' | 'SECRETARIO' | 'TESORERO' | 'DELEGADO'
+
+export type EstadoCargoDirectiva = 'PENDIENTE' | 'AUTORIZADO'
+
+/**
+ * Vigencia de un cargo de directiva (RF-102). `hasta` solo viene cuando otro cambio ya la
+ * terminó; `autorizadoPor` solo cuando el cambio está autorizado.
+ */
+export type CargoDirectiva = {
+  id: string
+  clubId: string
+  personaId: string
+  nombrePersona: string
+  cargo: TipoCargoDirectiva
+  /** Día `AAAA-MM-DD` de inicio de la vigencia. */
+  desde: string
+  /** Día `AAAA-MM-DD` en que terminó; ausente si sigue vigente o está pendiente. */
+  hasta?: string
+  estado: EstadoCargoDirectiva
+  autorizadoPor?: string
+}
+
+/** `POST /clubes/{id}/directiva`: el cambio nace pendiente de autorización (RF-102). */
+export type RegistrarCargoDirectivaPeticion = {
+  personaId: string
+  cargo: TipoCargoDirectiva
+  desde: string
+}
+
+/**
+ * Identidad mínima que devuelve `GET /personas?curp=` (RF-010, RF-011). Se usa para confirmar a
+ * quién se le registra el cargo antes de enviar su `personaId`; no incluye datos de contacto.
+ */
+export type Persona = {
+  id: string
+  curp: string
+  nombre: string
+  apellidoPaterno: string
+  apellidoMaterno?: string
+}
+
 export type FiltrosClubes = {
   q?: string
   estado?: EstadoClub
