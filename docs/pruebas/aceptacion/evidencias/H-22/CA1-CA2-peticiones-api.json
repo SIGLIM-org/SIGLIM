@@ -1,0 +1,154 @@
+[
+  {
+    "metodo": "GET",
+    "url": "/api/v1/clubes/c0000000-0000-4000-8000-000000000001/directiva",
+    "estado": 200,
+    "cuerpo": [
+      {
+        "id": "d0000000-0000-4000-8000-000000000001",
+        "clubId": "c0000000-0000-4000-8000-000000000001",
+        "personaId": "a0000000-0000-4000-8000-0000000000a1",
+        "nombrePersona": "Ana Ruiz Hernández",
+        "cargo": "PRESIDENTE",
+        "desde": "2024-01-15",
+        "estado": "AUTORIZADO",
+        "autorizadoPor": "b2222222-2222-4222-8222-222222222222"
+      }
+    ]
+  },
+  {
+    "metodo": "POST",
+    "url": "/api/v1/clubes/c0000000-0000-4000-8000-000000000001/directiva",
+    "estado": 201,
+    "cuerpo": {
+      "id": "4114e7e6-be05-4d94-ae2b-af8959e9225f",
+      "clubId": "c0000000-0000-4000-8000-000000000001",
+      "personaId": "a0000000-0000-4000-8000-0000000000a2",
+      "nombrePersona": "Bruno Salas López",
+      "cargo": "PRESIDENTE",
+      "desde": "2026-12-01",
+      "estado": "PENDIENTE"
+    }
+  },
+  {
+    "metodo": "GET",
+    "url": "/api/v1/clubes/c0000000-0000-4000-8000-000000000001/directiva",
+    "estado": 200,
+    "cuerpo": [
+      {
+        "id": "4114e7e6-be05-4d94-ae2b-af8959e9225f",
+        "clubId": "c0000000-0000-4000-8000-000000000001",
+        "personaId": "a0000000-0000-4000-8000-0000000000a2",
+        "nombrePersona": "Bruno Salas López",
+        "cargo": "PRESIDENTE",
+        "desde": "2026-12-01",
+        "estado": "PENDIENTE"
+      },
+      {
+        "id": "d0000000-0000-4000-8000-000000000001",
+        "clubId": "c0000000-0000-4000-8000-000000000001",
+        "personaId": "a0000000-0000-4000-8000-0000000000a1",
+        "nombrePersona": "Ana Ruiz Hernández",
+        "cargo": "PRESIDENTE",
+        "desde": "2024-01-15",
+        "estado": "AUTORIZADO",
+        "autorizadoPor": "b2222222-2222-4222-8222-222222222222"
+      }
+    ]
+  },
+  {
+    "metodo": "GET",
+    "url": "/api/v1/clubes/c0000000-0000-4000-8000-000000000002/directiva",
+    "estado": 404,
+    "cuerpo": {
+      "detail": "El recurso no existe o no tienes acceso a él.",
+      "instance": "/api/v1/clubes/c0000000-0000-4000-8000-000000000002/directiva",
+      "status": 404,
+      "title": "Recurso no encontrado",
+      "type": "https://siglim.mx/errores/no-encontrado",
+      "codigo": "NO_ENCONTRADO"
+    }
+  },
+  {
+    "metodo": "POST",
+    "url": "/api/v1/clubes/c0000000-0000-4000-8000-000000000002/directiva",
+    "estado": 404,
+    "cuerpo": {
+      "detail": "El recurso no existe o no tienes acceso a él.",
+      "instance": "/api/v1/clubes/c0000000-0000-4000-8000-000000000002/directiva",
+      "status": 404,
+      "title": "Recurso no encontrado",
+      "type": "https://siglim.mx/errores/no-encontrado",
+      "codigo": "NO_ENCONTRADO"
+    }
+  },
+  {
+    "metodo": "GET",
+    "url": "/api/v1/clubes/c0000000-0000-4000-8000-000000000001/directiva",
+    "estado": 200,
+    "cuerpo": [
+      {
+        "id": "4114e7e6-be05-4d94-ae2b-af8959e9225f",
+        "clubId": "c0000000-0000-4000-8000-000000000001",
+        "personaId": "a0000000-0000-4000-8000-0000000000a2",
+        "nombrePersona": "Bruno Salas López",
+        "cargo": "PRESIDENTE",
+        "desde": "2026-12-01",
+        "estado": "PENDIENTE"
+      },
+      {
+        "id": "d0000000-0000-4000-8000-000000000001",
+        "clubId": "c0000000-0000-4000-8000-000000000001",
+        "personaId": "a0000000-0000-4000-8000-0000000000a1",
+        "nombrePersona": "Ana Ruiz Hernández",
+        "cargo": "PRESIDENTE",
+        "desde": "2024-01-15",
+        "estado": "AUTORIZADO",
+        "autorizadoPor": "b2222222-2222-4222-8222-222222222222"
+      }
+    ]
+  },
+  {
+    "metodo": "POST",
+    "url": "/api/v1/cargos-directiva/4114e7e6-be05-4d94-ae2b-af8959e9225f/autorizacion",
+    "estado": 200,
+    "cuerpo": {
+      "id": "4114e7e6-be05-4d94-ae2b-af8959e9225f",
+      "clubId": "c0000000-0000-4000-8000-000000000001",
+      "personaId": "a0000000-0000-4000-8000-0000000000a2",
+      "nombrePersona": "Bruno Salas López",
+      "cargo": "PRESIDENTE",
+      "desde": "2026-12-01",
+      "estado": "AUTORIZADO",
+      "autorizadoPor": "b2222222-2222-4222-8222-222222222222"
+    }
+  },
+  {
+    "metodo": "GET",
+    "url": "/api/v1/clubes/c0000000-0000-4000-8000-000000000001/directiva",
+    "estado": 200,
+    "cuerpo": [
+      {
+        "id": "4114e7e6-be05-4d94-ae2b-af8959e9225f",
+        "clubId": "c0000000-0000-4000-8000-000000000001",
+        "personaId": "a0000000-0000-4000-8000-0000000000a2",
+        "nombrePersona": "Bruno Salas López",
+        "cargo": "PRESIDENTE",
+        "desde": "2026-12-01",
+        "estado": "AUTORIZADO",
+        "autorizadoPor": "b2222222-2222-4222-8222-222222222222"
+      },
+      {
+        "id": "d0000000-0000-4000-8000-000000000001",
+        "clubId": "c0000000-0000-4000-8000-000000000001",
+        "personaId": "a0000000-0000-4000-8000-0000000000a1",
+        "nombrePersona": "Ana Ruiz Hernández",
+        "cargo": "PRESIDENTE",
+        "desde": "2024-01-15",
+        "hasta": "2026-11-30",
+        "estado": "AUTORIZADO",
+        "autorizadoPor": "b2222222-2222-4222-8222-222222222222"
+      }
+    ]
+  }
+]
