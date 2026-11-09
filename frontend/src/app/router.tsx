@@ -187,6 +187,17 @@ export const rutas: RouteObject[] = [
                 HydrateFallback: CargandoPagina,
               },
               {
+                path: '/app/administracion/roles',
+                lazy: async () => {
+                  const { PantallaRolesPermisos } = await import(
+                    '@/features/roles/PantallaRolesPermisos'
+                  )
+
+                  return { Component: PantallaRolesPermisos }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
                 path: '/app/administracion/comunicados',
                 lazy: async () => {
                   const { PantallaComunicados } = await import(
