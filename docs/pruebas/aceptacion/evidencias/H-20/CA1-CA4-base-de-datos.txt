@@ -1,0 +1,36 @@
+Pager usage is off.
+SET
+== Matriz de los roles usados en la prueba ==
+          rol          |                                         permisos                                          
+-----------------------+-------------------------------------------------------------------------------------------
+ AUXILIAR_COMUNICADOS  | publicacion.comunicado:REDACTAR
+ AUXILIAR_PROGRAMACION | programacion.jornada:APROBAR, programacion.jornada:CONSULTAR, programacion.jornada:EDITAR
+ COORDINADOR_CANCHAS   | canchas.cancha:CONSULTAR, canchas.solicitud:CREAR
+(3 rows)
+
+
+== Solicitudes de control dual (RF-096, VAL-023) ==
+          rol          |  estado   |                             motivo                             |                         agregados                         |          solicito           |         solicitado_en         |         resolvio         |          resuelto_en          |                  observaciones                  
+-----------------------+-----------+----------------------------------------------------------------+-----------------------------------------------------------+-----------------------------+-------------------------------+--------------------------+-------------------------------+-------------------------------------------------
+ AUXILIAR_PROGRAMACION | APROBADO  | Se requiere que el auxiliar también apruebe la programación    | programacion.jornada:APROBAR, programacion.jornada:EDITAR | Administrador de aceptación | 2026-11-08 23:02:12.012943-06 | Presidente de aceptación | 2026-11-08 23:02:14.39447-06  | Procede: la separación de funciones se revisó
+ AUXILIAR_COMUNICADOS  | RECHAZADO | Se propone que el auxiliar apruebe los comunicados que redacta | publicacion.comunicado:APROBAR                            | Administrador de aceptación | 2026-11-08 23:02:12.745139-06 | Presidente de aceptación | 2026-11-08 23:02:14.810014-06 | No procede: concentraría redacción y aprobación
+(2 rows)
+
+
+== Auditoría de los cambios (RF-093, VAL-016) ==
+          ocurrido_en          | modulo |          accion           |           entidad           |                             motivo                             |                                                                                                                             detalle                                                                                                                             |           perfil            
+-------------------------------+--------+---------------------------+-----------------------------+----------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------
+ 2026-11-08 23:02:10.880198-06 | M-01   | CAMBIAR_PERMISOS_ROL      | roles                       | La Liga autorizó que este rol capture solicitudes de cancha    | {"rol": "COORDINADOR_CANCHAS", "permisosQuitados": [], "permisosAgregados": ["canchas.solicitud:CREAR"]}                                                                                                                                                        | Administrador de aceptación
+ 2026-11-08 23:02:12.012943-06 | M-01   | SOLICITAR_CAMBIO_PERMISOS | solicitudes_cambio_permisos | Se requiere que el auxiliar también apruebe la programación    | {"rol": "AUXILIAR_PROGRAMACION", "permisosQuitados": [], "permisosAgregados": ["programacion.jornada:APROBAR", "programacion.jornada:EDITAR"], "paresIncompatibles": [{"permisoA": "programacion.jornada:EDITAR", "permisoB": "programacion.jornada:APROBAR"}]} | Administrador de aceptación
+ 2026-11-08 23:02:12.745139-06 | M-01   | SOLICITAR_CAMBIO_PERMISOS | solicitudes_cambio_permisos | Se propone que el auxiliar apruebe los comunicados que redacta | {"rol": "AUXILIAR_COMUNICADOS", "permisosQuitados": [], "permisosAgregados": ["publicacion.comunicado:APROBAR"], "paresIncompatibles": [{"permisoA": "publicacion.comunicado:REDACTAR", "permisoB": "publicacion.comunicado:APROBAR"}]}                         | Administrador de aceptación
+ 2026-11-08 23:02:14.39447-06  | M-01   | APROBAR_CAMBIO_PERMISOS   | solicitudes_cambio_permisos | Procede: la separación de funciones se revisó                  | {"rol": "AUXILIAR_PROGRAMACION", "permisosQuitados": [], "permisosAgregados": ["programacion.jornada:APROBAR", "programacion.jornada:EDITAR"]}                                                                                                                  | Presidente de aceptación
+ 2026-11-08 23:02:14.810014-06 | M-01   | RECHAZAR_CAMBIO_PERMISOS  | solicitudes_cambio_permisos | No procede: concentraría redacción y aprobación                | {"rol": "AUXILIAR_COMUNICADOS", "permisosQuitados": [], "permisosAgregados": ["publicacion.comunicado:APROBAR"]}                                                                                                                                                | Presidente de aceptación
+(5 rows)
+
+
+== Intentos VAL-022 sobre el rol propio: no deben dejar auditoría ==
+ eventos_de_cambio_del_rol_propio 
+----------------------------------
+                                0
+(1 row)
+
