@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 4.3 · 8 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 4.4 · 8 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -42,6 +42,7 @@ Versión 4.3 · 8 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 4.1 | 7 de noviembre de 2026 | B-04.1: §6.3 con el contrato del cambio de nombre de club (`POST /clubes/{id}/cambio-nombre`), su orden de errores, el traslado de asignaciones de rol, los cobros que se quedan en el club anterior y la auditoría `CERRAR_CLUB` + `REGISTRAR_CLUB` (DEC-49, DEC-61); el club incluye `clubAnterior` cuando existe. |
 | 4.2 | 7 de noviembre de 2026 | H-20.1: §6.1 con el contrato de la matriz de permisos (`GET /roles/{id}`, `GET /permisos` y `PATCH /roles/{id}/permisos` con `200`/`202`), el listado de solicitudes y su dictamen, los errores de VAL-022, VAL-023 y RF-096 y las acciones de auditoría `CAMBIAR_PERMISOS_ROL`, `SOLICITAR_CAMBIO_PERMISOS`, `APROBAR_CAMBIO_PERMISOS` y `RECHAZAR_CAMBIO_PERMISOS`. |
 | 4.3 | 8 de noviembre de 2026 | H-22.1: §6.3 documenta la consulta, registro pendiente y autorización de cargos de directiva con vigencias consecutivas (RF-102). |
+| 4.4 | 8 de noviembre de 2026 | H-22.2: §6.3 documenta la consulta de una persona por CURP que usa F-15 para identificar al titular de un cambio de directiva, con el permiso en cualquier ámbito y `Cache-Control: no-store` (RF-010, RF-011, RF-102). |
 
 ## Índice
 
@@ -932,6 +933,16 @@ club el día anterior al `desde` nuevo, y autoriza el cambio. El inicio nuevo de
 del cargo anterior; volver a autorizar un cambio ya autorizado o una vigencia que se traslapa
 responde `409 VAL-003`. Ambas operaciones se auditan en `M-03` como `REGISTRAR_CARGO_DIRECTIVA` y
 `AUTORIZAR_CARGO_DIRECTIVA`, sin nombres ni otros datos personales en la auditoría.
+
+**Persona por CURP (H-22.2, RF-010, RF-011).** `GET /personas?curp=` responde
+`{ "id", "curp", "nombre", "apellidoPaterno", "apellidoMaterno" }`; `apellidoMaterno` se omite si no
+existe. Es la consulta mínima que necesita F-15 para enviar el `personaId` de un cambio de directiva
+y confirmar el nombre antes de registrarlo. La CURP se normaliza a mayúsculas y debe cumplir el
+formato de 18 caracteres de `ck_personas_curp` (`400 VALIDACION` si no); una CURP sin persona
+responde `404 NO_ENCONTRADO` (VAL-024). Exige `organizacion.persona:CONSULTAR` en **cualquier
+ámbito** (se comprueba con `autorizacion.alcance`): la identidad es global y no pertenece a un club,
+pero la consulta exige la CURP exacta y no permite listar personas. La respuesta lleva
+`Cache-Control: no-store` porque incluye datos personales (RNF-012).
 
 **Equipo.** `GET /equipos?temporadaId=&grupoId=&clubId=&estado=&pagina=&tamano=` responde la envoltura
 de paginación ordenada por el orden de la categoría, el nombre del grupo y el nombre del equipo.

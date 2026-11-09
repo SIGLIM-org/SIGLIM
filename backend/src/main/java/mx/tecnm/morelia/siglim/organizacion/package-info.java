@@ -4,7 +4,7 @@
  * <p>Clubes, afiliación por temporada, directiva, equipos, venta de equipo y plaza, personas y
  * tutores.
  *
- * <p>Implementado hasta ahora (H-06.1, B-04):
+ * <p>Implementado hasta ahora (H-06.1, B-04, H-22):
  *
  * <ul>
  *   <li><b>Clubes (RF-008, RF-105).</b> {@code ClubController},
@@ -18,6 +18,12 @@
  *       {@link mx.tecnm.morelia.siglim.organizacion.EquipoService} y {@code EquipoRepository}:
  *       listado, detalle, alta, edición de nombre y grupo, y baja con motivo. El repositorio lee el
  *       grupo y el estado de su temporada solo para validar; el CRUD de grupos es de M-02.</li>
+ *   <li><b>Directiva (RF-102).</b> {@code CargoDirectivaController},
+ *       {@link mx.tecnm.morelia.siglim.organizacion.CargoDirectivaService} y
+ *       {@code CargoDirectivaRepository}: consulta del historial, registro de un cambio pendiente y
+ *       autorización que termina la vigencia anterior. {@link mx.tecnm.morelia.siglim.organizacion.PersonaController}
+ *       y {@link mx.tecnm.morelia.siglim.organizacion.PersonaService} consultan la identidad por CURP
+ *       para que F-15 envíe el {@code personaId} (RF-010, RF-011).</li>
  * </ul>
  *
  * <p>Todas las operaciones se autorizan con el ámbito del club (ADR-0007).
