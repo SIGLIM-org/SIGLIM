@@ -1,0 +1,22 @@
+{
+  "peticion": {
+    "metodo": "POST",
+    "url": "http://localhost:8080/api/v1/clubes/c1000000-0000-4000-8000-000000000001/cambio-nombre",
+    "cuerpo": {
+      "nombre": "Club Halcones Renacido B-04",
+      "motivo": "La asamblea del club aprobó el cambio de nombre"
+    }
+  },
+  "respuesta": {
+    "estado": 409,
+    "location": null,
+    "cuerpo": {
+      "detail": "El club «Club Halcones B-04» ya está cerrado: no puede cambiar de nombre.",
+      "instance": "/api/v1/clubes/c1000000-0000-4000-8000-000000000001/cambio-nombre",
+      "status": 409,
+      "title": "Conflicto con el estado actual",
+      "type": "https://siglim.mx/errores/rn-041",
+      "codigo": "RN-041"
+    }
+  }
+}

@@ -1,0 +1,59 @@
+Saltar al contenido
+S
+SIGLIM
+Liga Municipal de Futbol Amateur Morelia
+Secretario B-04
+Secretario (liga) · Liga
+Cerrar sesión
+
+Menú Ejecutivo
+
+Inicio
+Organización
+Programación
+Administración
+Clubes
+
+Clubes de la liga y sus equipos.
+
+Registrar club
+Buscar por nombre
+Estado
+Activos
+Cerrados
+Todos
+
+5 clubes
+
+Club con adeudo B-04
+ACTIVO
+Club con cobros liquidados F.C. B-04
+ACTIVO
+Club con equipo en curso B-04
+ACTIVO
+Club con equipo en preparación B-04
+ACTIVO
+Club Águilas B-04
+ACTIVO
+Club Halcones B-04
+CERRADO
+
+Registrado el 8 nov 2026
+
+Cerrado el
+8 nov 2026
+Motivo del cierre
+La asamblea del club aprobó el cambio de nombre
+
+Un club cerrado no recibe equipos nuevos.
+
+Equipos
+Estado
+Activos
+Todos
+Temporada
+Todas
+
+Sin equipos activos
+
+Los equipos dados de baja aparecen al elegir «Todos» en Estado.

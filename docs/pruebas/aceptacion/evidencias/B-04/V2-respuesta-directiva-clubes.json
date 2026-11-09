@@ -1,0 +1,40 @@
+{
+  "clubAnterior": {
+    "peticion": {
+      "metodo": "GET",
+      "url": "http://localhost:8080/api/v1/clubes/c1000000-0000-4000-8000-000000000001"
+    },
+    "respuesta": {
+      "estado": 404,
+      "location": null,
+      "cuerpo": {
+        "detail": "El recurso no existe o no tienes acceso a él.",
+        "instance": "/api/v1/clubes/c1000000-0000-4000-8000-000000000001",
+        "status": 404,
+        "title": "Recurso no encontrado",
+        "type": "https://siglim.mx/errores/no-encontrado",
+        "codigo": "NO_ENCONTRADO"
+      }
+    }
+  },
+  "clubNuevo": {
+    "peticion": {
+      "metodo": "GET",
+      "url": "http://localhost:8080/api/v1/clubes/292c5259-e288-469a-9d4d-fa109ec6728f"
+    },
+    "respuesta": {
+      "estado": 200,
+      "location": null,
+      "cuerpo": {
+        "id": "292c5259-e288-469a-9d4d-fa109ec6728f",
+        "nombre": "Club Águilas B-04",
+        "estado": "ACTIVO",
+        "creadoEn": "2026-11-08T22:48:18.563653-06:00",
+        "clubAnterior": {
+          "id": "c1000000-0000-4000-8000-000000000001",
+          "nombre": "Club Halcones B-04"
+        }
+      }
+    }
+  }
+}

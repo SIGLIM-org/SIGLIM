@@ -1,0 +1,6 @@
+          club_anterior          | estado_anterior |              club_nuevo              |       concepto       | estado_cobro 
+---------------------------------+-----------------+--------------------------------------+----------------------+--------------
+ Club con cobros liquidados B-04 | CERRADO         | Club con cobros liquidados F.C. B-04 | Cuota pagada B-04    | PAGADO
+ Club con cobros liquidados B-04 | CERRADO         | Club con cobros liquidados F.C. B-04 | Cuota rechazada B-04 | RECHAZADO
+(2 rows)
+
