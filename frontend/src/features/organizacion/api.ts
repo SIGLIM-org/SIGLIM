@@ -3,14 +3,18 @@ import type {
   ActualizarEquipoPeticion,
   BajaEquipoPeticion,
   CambiarNombreClubPeticion,
+  CargoDirectiva,
   Club,
   CrearClubPeticion,
   CrearEquipoPeticion,
   Equipo,
   FiltrosClubes,
   FiltrosEquipos,
+  Persona,
+  RegistrarCargoDirectivaPeticion,
 } from '@/features/organizacion/tipos'
 import { clavesUsuarios } from '@/features/usuarios/api'
+import { ApiError } from '@/lib/api/ApiError'
 import { api } from '@/lib/api/cliente'
 import type { Pagina } from '@/lib/api/tipos'
 
@@ -21,6 +25,7 @@ export const clavesOrganizacion = {
   clubes: ['organizacion', 'clubes'] as const,
   listaClubes: (filtros: FiltrosClubes) => ['organizacion', 'clubes', 'lista', filtros] as const,
   club: (id: string) => ['organizacion', 'clubes', 'detalle', id] as const,
+  directiva: (clubId: string) => ['organizacion', 'directiva', clubId] as const,
   equipos: ['organizacion', 'equipos'] as const,
   listaEquipos: (filtros: FiltrosEquipos) => ['organizacion', 'equipos', 'lista', filtros] as const,
 }
@@ -105,6 +110,49 @@ export function useCambiarNombreClub(id: string) {
         clienteConsultas.invalidateQueries({ queryKey: clavesUsuarios.todas }),
         clienteConsultas.invalidateQueries({ queryKey: clavesUsuarios.clubes }),
       ]),
+  })
+}
+
+/** Historial de la directiva, con los cambios pendientes incluidos (RF-102). */
+export function useDirectiva(clubId: string) {
+  return useQuery({
+    queryKey: clavesOrganizacion.directiva(clubId),
+    queryFn: () => api.get<CargoDirectiva[]>(`clubes/${clubId}/directiva`),
+  })
+}
+
+/** El cambio nace pendiente; se recarga la lista para que aparezca de inmediato (RF-102). */
+export function useRegistrarCargoDirectiva(clubId: string) {
+  const clienteConsultas = useQueryClient()
+
+  return useMutation({
+    mutationFn: (peticion: RegistrarCargoDirectivaPeticion) =>
+      api.post<CargoDirectiva>(`clubes/${clubId}/directiva`, peticion),
+    onSuccess: () => clienteConsultas.invalidateQueries({ queryKey: clavesOrganizacion.directiva(clubId) }),
+  })
+}
+
+/** Al autorizar, el backend termina el cargo vigente anterior; se recarga la lista (RF-102). */
+export function useAutorizarCargoDirectiva(clubId: string) {
+  const clienteConsultas = useQueryClient()
+
+  return useMutation({
+    mutationFn: (cargoId: string) => api.post<CargoDirectiva>(`cargos-directiva/${cargoId}/autorizacion`),
+    onSuccess: () => clienteConsultas.invalidateQueries({ queryKey: clavesOrganizacion.directiva(clubId) }),
+    // Un VAL-003 significa que el cambio ya no está pendiente (otra sesión lo autorizó o la
+    // vigencia se traslapa): refrescar la lista evita seguir mostrando un estado viejo.
+    onError: (error) => {
+      if (error instanceof ApiError && error.codigo === 'VAL-003') {
+        void clienteConsultas.invalidateQueries({ queryKey: clavesOrganizacion.directiva(clubId) })
+      }
+    },
+  })
+}
+
+/** Busca una persona por CURP para confirmar su identidad antes de registrar un cargo (RF-010). */
+export function useBuscarPersona() {
+  return useMutation({
+    mutationFn: (curp: string) => api.get<Persona>(`personas?curp=${encodeURIComponent(curp)}`),
   })
 }
 

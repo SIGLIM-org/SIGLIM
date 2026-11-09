@@ -5,6 +5,8 @@ import type { Permiso } from '@/features/seguridad/tipos'
 export const CONSULTAR_CLUB = 'organizacion.club:CONSULTAR'
 export const EDITAR_CLUB = 'organizacion.club:EDITAR'
 export const EDITAR_EQUIPO = 'organizacion.equipo:EDITAR'
+export const EDITAR_DIRECTIVA = 'organizacion.directiva:EDITAR'
+export const APROBAR_DIRECTIVA = 'organizacion.directiva:APROBAR'
 export const CONSULTAR_TEMPORADA = 'temporadas.temporada:CONSULTAR'
 
 /**
@@ -28,7 +30,8 @@ export function puedeCambiarNombreClub(permisos: readonly Permiso[]): boolean {
 
 /**
  * Acciones visibles de F-15 según los permisos de `/yo` (H-02.4). Elegir un grupo pide además
- * `temporadas.temporada:CONSULTAR`, porque el selector lee la estructura de M-02 (DEC-54).
+ * `temporadas.temporada:CONSULTAR`, porque el selector lee la estructura de M-02 (DEC-54). La
+ * directiva separa registrar (`EDITAR`) de autorizar (`APROBAR`); el backend aplica el ámbito.
  */
 export function usePermisosClubes() {
   const { yo } = useSesionActual()
@@ -39,6 +42,8 @@ export function usePermisosClubes() {
     cambiarNombreClub: puedeCambiarNombreClub(yo.permisos),
     editarEquipo,
     elegirGrupo: editarEquipo && tienePermiso(yo.permisos, CONSULTAR_TEMPORADA),
+    registrarDirectiva: tienePermiso(yo.permisos, EDITAR_DIRECTIVA),
+    autorizarDirectiva: tienePermiso(yo.permisos, APROBAR_DIRECTIVA),
     soloClub: soloAmbitoClub(yo.permisos),
   }
 }

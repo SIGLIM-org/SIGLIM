@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { History, Lock, PencilLine, Users, type LucideIcon } from 'lucide-react'
+import { useState, type KeyboardEvent } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router'
+import { History, Lock, PencilLine, Users, UsersRound, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { clasesBoton } from '@/components/ui/estilosBoton'
 import { ErrorConsulta } from '@/components/ui/ErrorConsulta'
@@ -10,6 +10,7 @@ import { useClub } from '@/features/organizacion/api'
 import { etiquetaEstadoClub, formatearDiaDeInstante } from '@/features/organizacion/etiquetas'
 import { ModalCambiarNombreClub } from '@/features/organizacion/ModalCambiarNombreClub'
 import { usePermisosClubes } from '@/features/organizacion/permisosClubes'
+import { PestanaDirectiva } from '@/features/organizacion/PestanaDirectiva'
 import { PestanaEquipos } from '@/features/organizacion/PestanaEquipos'
 import { formatearFecha } from '@/features/temporadas/fechas'
 
@@ -19,23 +20,75 @@ type Props = {
   mostrarVolver: boolean
 }
 
-/** Pestañas del detalle. H-22 (Datos, Directiva, Afiliaciones…) agregará las suyas aquí. */
-type PestanaClub = 'equipos'
+/** Pestañas del detalle. Datos y Afiliaciones quedan para las historias de M-03 que las cubren. */
+type PestanaClub = 'equipos' | 'directiva'
 
 const PESTANAS: readonly { valor: PestanaClub; texto: string; icono: LucideIcon }[] = [
   { valor: 'equipos', texto: 'Equipos', icono: Users },
+  { valor: 'directiva', texto: 'Directiva', icono: UsersRound },
 ]
 
 const RUTA_CLUBES = '/app/organizacion/clubes'
+
+/** La pestaña llega por `?pestana=`; sin parámetro se abre Equipos, como antes de H-22.2. */
+function pestanaDeParametro(valor: string | null): PestanaClub {
+  return valor === 'directiva' ? 'directiva' : 'equipos'
+}
 
 /** Encabezado del club y sus pestañas (F-15, RF-008, RF-105, RN-041, DEC-15). */
 export function DetalleClub({ clubId, mostrarVolver }: Props) {
   const consulta = useClub(clubId)
   const permisos = usePermisosClubes()
   const navegar = useNavigate()
+  const [parametros, setParametros] = useSearchParams()
   const [cambiandoNombre, setCambiandoNombre] = useState(false)
-  // Con una sola pestaña no hay estado que cambiar; H-22 la volverá estado o parámetro de URL.
-  const pestana: PestanaClub = 'equipos'
+  const pestana = pestanaDeParametro(parametros.get('pestana'))
+  // Cada panel se monta la primera vez que se visita y luego se conserva oculto (H-22.2).
+  const [visitadas, setVisitadas] = useState<PestanaClub[]>([pestana])
+
+  if (!visitadas.includes(pestana)) {
+    setVisitadas([...visitadas, pestana])
+  }
+
+  const cambiarPestana = (nueva: PestanaClub) => {
+    setParametros(
+      (actuales) => {
+        const siguientes = new URLSearchParams(actuales)
+        if (nueva === 'equipos') {
+          siguientes.delete('pestana')
+        } else {
+          siguientes.set('pestana', nueva)
+        }
+        return siguientes
+      },
+      { replace: true },
+    )
+  }
+
+  const navegarPestanas = (evento: KeyboardEvent<HTMLDivElement>) => {
+    const actual = PESTANAS.findIndex(({ valor }) => valor === pestana)
+    const total = PESTANAS.length
+    let siguiente: number | null = null
+
+    if (evento.key === 'ArrowRight') {
+      siguiente = (actual + 1) % total
+    } else if (evento.key === 'ArrowLeft') {
+      siguiente = (actual - 1 + total) % total
+    } else if (evento.key === 'Home') {
+      siguiente = 0
+    } else if (evento.key === 'End') {
+      siguiente = total - 1
+    }
+
+    if (siguiente === null) {
+      return
+    }
+
+    evento.preventDefault()
+    const valor = PESTANAS[siguiente].valor
+    cambiarPestana(valor)
+    document.getElementById(`pestana-club-${valor}`)?.focus()
+  }
 
   if (consulta.isPending) {
     return <EstadoCarga etiqueta="Cargando el club…" filas={3} columnas={2} />
@@ -72,7 +125,7 @@ export function DetalleClub({ clubId, mostrarVolver }: Props) {
               {estado.texto}
             </Insignia>
           </div>
-          {/* Única acción del encabezado; H-22 puede moverla a un menú junto con «Editar». */}
+          {/* Única acción del encabezado; un menú secundario puede agruparla con las demás. */}
           {puedeCambiarNombre && (
             <Button
               variante="secundario"
@@ -126,7 +179,12 @@ export function DetalleClub({ clubId, mostrarVolver }: Props) {
         )}
       </section>
 
-      <div role="tablist" aria-label={`Información de ${club.nombre}`} className="flex min-w-0 overflow-x-auto border-b-2 border-border">
+      <div
+        role="tablist"
+        aria-label={`Información de ${club.nombre}`}
+        onKeyDown={navegarPestanas}
+        className="flex min-w-0 overflow-x-auto border-b-2 border-border"
+      >
         {PESTANAS.map(({ valor, texto, icono: Icono }) => {
           const activa = pestana === valor
 
@@ -139,6 +197,7 @@ export function DetalleClub({ clubId, mostrarVolver }: Props) {
               aria-selected={activa}
               aria-controls={`panel-club-${valor}`}
               tabIndex={activa ? 0 : -1}
+              onClick={() => cambiarPestana(valor)}
               className={[
                 '-mb-0.5 flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-label-md transition-colors sm:px-4',
                 activa ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text-main',
@@ -151,9 +210,19 @@ export function DetalleClub({ clubId, mostrarVolver }: Props) {
         })}
       </div>
 
-      <div role="tabpanel" id="panel-club-equipos" aria-labelledby="pestana-club-equipos" className="min-w-0">
-        <PestanaEquipos club={club} />
-      </div>
+      {PESTANAS.map(({ valor }) => (
+        <div
+          key={valor}
+          role="tabpanel"
+          id={`panel-club-${valor}`}
+          aria-labelledby={`pestana-club-${valor}`}
+          hidden={pestana !== valor}
+          className="min-w-0"
+        >
+          {visitadas.includes(valor) && valor === 'equipos' && <PestanaEquipos club={club} />}
+          {visitadas.includes(valor) && valor === 'directiva' && <PestanaDirectiva club={club} />}
+        </div>
+      ))}
 
       {cambiandoNombre && (
         <ModalCambiarNombreClub

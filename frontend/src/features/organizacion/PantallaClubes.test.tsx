@@ -103,15 +103,22 @@ function error(status: number, codigo: string, detail = 'Detalle del servidor.')
   return new ApiError({ title: 'Error', status, detail, codigo })
 }
 
-type Respuestas = { clubes?: unknown; club?: unknown; equipos?: unknown }
+type Respuestas = { clubes?: unknown; club?: unknown; equipos?: unknown; directiva?: unknown }
 
-function responder({ clubes = pagina([CLUB]), club = CLUB, equipos = pagina<Equipo>([]) }: Respuestas = {}) {
+function responder({
+  clubes = pagina([CLUB]),
+  club = CLUB,
+  equipos = pagina<Equipo>([]),
+  directiva = [],
+}: Respuestas = {}) {
   get.mockImplementation(async (ruta: string) => {
     const respuesta = ruta.startsWith('clubes?')
       ? clubes
-      : ruta.startsWith('clubes/')
-        ? club
-        : ruta.startsWith('equipos?')
+      : ruta === 'clubes/c1/directiva'
+        ? directiva
+        : ruta.startsWith('clubes/')
+          ? club
+          : ruta.startsWith('equipos?')
           ? equipos
           : ruta.startsWith('temporadas?')
             ? pagina(TEMPORADAS)
@@ -253,6 +260,22 @@ describe('PantallaClubes (F-15, H-06.2)', () => {
 
     await userEvent.selectOptions(temporada, '')
     expect(within(await tabla()).getAllByRole('row')).toHaveLength(5)
+  })
+
+  it('H-22.2: la pestaña Directiva se abre por URL y consulta su endpoint', async () => {
+    const enrutador = montar(`${RUTA}/c1`)
+
+    await screen.findByRole('heading', { name: 'Club Halcones' })
+    await userEvent.click(screen.getByRole('tab', { name: 'Directiva' }))
+
+    await waitFor(() => expect(enrutador.state.location.search).toBe('?pestana=directiva'))
+    expect(screen.getByRole('tab', { name: 'Directiva' })).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByText('Sin directiva registrada')).toBeInTheDocument()
+    expect(get).toHaveBeenCalledWith('clubes/c1/directiva')
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Equipos' }))
+    await waitFor(() => expect(enrutador.state.location.search).toBe(''))
+    expect(screen.getByRole('tab', { name: 'Equipos' })).toHaveAttribute('aria-selected', 'true')
   })
 
   it('criterio 3: un equipo en BAJA muestra su fecha y motivo y no tiene acciones', async () => {
