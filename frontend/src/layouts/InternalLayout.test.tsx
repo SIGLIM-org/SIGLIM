@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router'
+import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProveedorSesionActual } from '@/features/seguridad/ProveedorSesionActual'
 import type { Permiso, Yo } from '@/features/seguridad/tipos'
@@ -11,6 +11,8 @@ const { obtenerYo, cerrarSesion } = vi.hoisted(() => ({
   obtenerYo: vi.fn(),
   cerrarSesion: vi.fn(),
 }))
+
+let resolverOrganizacion: (() => void) | null = null
 
 vi.mock('@/lib/api/cliente', () => ({
   api: { get: obtenerYo },
@@ -82,22 +84,34 @@ async function montar(yo: Yo = yoPresidente) {
     defaultOptions: { queries: { retry: false } },
   })
 
+  const enrutador = createMemoryRouter(
+    [
+      { path: '/login', element: <h1>Iniciar sesión</h1> },
+      {
+        element: (
+          <ProveedorSesionActual>
+            <InternalLayout />
+          </ProveedorSesionActual>
+        ),
+        children: [
+          { path: '/app', element: <p>Panel de inicio</p> },
+          {
+            path: '/app/organizacion',
+            lazy: () =>
+              new Promise((resolver) => {
+                resolverOrganizacion = () =>
+                  resolver({ Component: () => <p>Organización</p> })
+              }),
+          },
+        ],
+      },
+    ],
+    { initialEntries: ['/app'] },
+  )
+
   render(
     <QueryClientProvider client={clienteConsultas}>
-      <MemoryRouter initialEntries={['/app']}>
-        <Routes>
-          <Route path="/login" element={<h1>Iniciar sesión</h1>} />
-          <Route
-            element={
-              <ProveedorSesionActual>
-                <InternalLayout />
-              </ProveedorSesionActual>
-            }
-          >
-            <Route path="/app" element={<p>Panel de inicio</p>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
+      <RouterProvider router={enrutador} useTransitions />
     </QueryClientProvider>,
   )
 
@@ -109,6 +123,7 @@ describe('InternalLayout', () => {
     obtenerYo.mockReset()
     cerrarSesion.mockReset()
     cerrarSesion.mockResolvedValue({ error: null })
+    resolverOrganizacion = null
   })
 
   it('muestra el Menú Ejecutivo de F-07 y la identidad de la barra superior', async () => {
@@ -275,5 +290,19 @@ describe('InternalLayout', () => {
     expect(
       screen.queryByRole('dialog', { name: 'Menú Ejecutivo' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('DT-01: muestra el estado de carga al navegar a un módulo', async () => {
+    const usuario = userEvent.setup()
+    await montar()
+
+    const menu = screen.getByRole('navigation', { name: 'Menú Ejecutivo' })
+    await usuario.click(within(menu).getByRole('link', { name: 'Organización' }))
+
+    expect(screen.getByRole('status')).toHaveTextContent('Cargando módulo…')
+
+    resolverOrganizacion?.()
+
+    expect(await screen.findByText('Organización')).toBeInTheDocument()
   })
 })

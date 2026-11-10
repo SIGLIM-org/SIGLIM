@@ -28,8 +28,11 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * ({@code application/problem+json}) con la extensión {@code codigo} (convenciones de API §3).
  *
  * <ul>
- *   <li>{@link ReglaNegocioException}: el estado y el código que eligió el servicio.</li>
+ *   <li>{@link ReglaNegocioException}: el estado y el código que eligió el servicio, más sus
+ *       extensiones ({@code aceptable}, {@code partidosAfectados}…).</li>
  *   <li>{@link RecursoNoEncontradoException}: 404 {@code NO_ENCONTRADO} (VAL-024).</li>
+ *   <li>{@link ArchivoRechazadoException}: 400, 413 o 415 de la carga de documentos (§7);
+ *       {@link ServicioNoDisponibleException}: 503 {@code SERVICIO_NO_DISPONIBLE}.</li>
  *   <li>Errores de PostgreSQL: {@link TraductorErroresBd} (convenciones §3.2).</li>
  *   <li>Errores de Spring MVC (JSON mal formado, validación, método o ruta inexistentes): mismo
  *       formato, con mensaje en español; la validación de campos agrega {@code errores}.</li>
@@ -55,7 +58,10 @@ public class ManejadorGlobalErrores extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ReglaNegocioException.class)
     ResponseEntity<ProblemDetail> reglaDeNegocio(ReglaNegocioException error, HttpServletRequest peticion) {
-        return responder(new ErrorTraducido(error.estado(), error.codigo(), error.getMessage()), peticion);
+        ResponseEntity<ProblemDetail> respuesta =
+                responder(new ErrorTraducido(error.estado(), error.codigo(), error.getMessage()), peticion);
+        error.propiedades().forEach(respuesta.getBody()::setProperty);
+        return respuesta;
     }
 
     @ExceptionHandler(RecursoNoEncontradoException.class)
@@ -64,6 +70,22 @@ public class ManejadorGlobalErrores extends ResponseEntityExceptionHandler {
                 peticion.getRequestURI(), error.getMessage());
         return responder(new ErrorTraducido(HttpStatus.NOT_FOUND, ErroresTecnicos.NO_ENCONTRADO,
                 ErroresTecnicos.DETALLE_NO_ENCONTRADO), peticion);
+    }
+
+    /** Archivo vacío (400), demasiado grande (413) o de un tipo no permitido (415). */
+    @ExceptionHandler(ArchivoRechazadoException.class)
+    ResponseEntity<ProblemDetail> archivoRechazado(ArchivoRechazadoException error, HttpServletRequest peticion) {
+        return responder(new ErrorTraducido(error.estado(), error.codigo(), error.getMessage()), peticion);
+    }
+
+    /** S3 u otro servicio externo no disponible: 503 con mensaje genérico; la causa, a la bitácora. */
+    @ExceptionHandler(ServicioNoDisponibleException.class)
+    ResponseEntity<ProblemDetail> servicioNoDisponible(ServicioNoDisponibleException error,
+            HttpServletRequest peticion) {
+        log.warn("Servicio externo no disponible en {} {}: {}", peticion.getMethod(), peticion.getRequestURI(),
+                error.getMessage(), error.getCause());
+        return responder(new ErrorTraducido(HttpStatus.SERVICE_UNAVAILABLE, ErroresTecnicos.SERVICIO_NO_DISPONIBLE,
+                ErroresTecnicos.DETALLE_NO_DISPONIBLE), peticion);
     }
 
     @ExceptionHandler(AccessDeniedException.class)

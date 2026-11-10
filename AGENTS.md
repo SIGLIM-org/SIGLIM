@@ -40,10 +40,14 @@ menor autoridad: ver los conflictos C-01 a C-08 en
 > ⚠️ **Antes de programar:** la arquitectura, los ADR, el diccionario de datos, la migración y las
 > convenciones de API ya reflejan la Rev. 0.4.1. El prototipo de pantallas está aprobado por el
 > equipo ([`docs/diseno-ui/pantallas/`](docs/diseno-ui/pantallas/README.md) y
-> [`DESIGN.md`](docs/diseno-ui/DESIGN.md)); sus diferencias D-01 a D-12 con el ERS no se
+> [`DESIGN.md`](DESIGN.md)); sus diferencias (D-xx) con el ERS, en [`pantallas/README.md` §3](docs/diseno-ui/pantallas/README.md), no se
 > implementan. El trabajo se toma del **backlog v4**
 > ([`docs/planning/sprint-plan.md`](docs/planning/sprint-plan.md)): implementa solo historias de un
 > sprint y cita su clave (H-xx, T-xx) en la rama, el commit y el PR.
+
+> 🌿 **Ramas (DEC-51):** todo el trabajo sale de `develop` y vuelve a `develop` por Pull Request;
+> nunca crees una rama desde `main` ni abras un PR hacia `main`. `main` solo recibe `develop` al
+> cerrar cada sprint. Detalle en [`CONTRIBUTING.md`](CONTRIBUTING.md) §1.
 
 1. **Entrega `N`** (núcleo comprometido): se implementa en los Sprints. **Entrega `B`** (backlog
    priorizado): solo cuando su historia entre a un Sprint. **Entrega `F`** (ERS §2.6): nunca, aunque
@@ -58,8 +62,9 @@ menor autoridad: ver los conflictos C-01 a C-08 en
 4. **No inventes reglas de negocio** (RN-006, RN-035). Si una regla no está escrita, usa un valor
    configurable, márcalo `[PROPUESTA]` en un comentario y menciónalo en tu respuesta.
 5. **Permisos:** nunca decidas por el nombre del rol; usa el permiso `modulo.recurso:ACCION` más el
-   **ámbito** (liga, club o propio) con `autorizacion.exigir(...)` (ADR-0007). La matriz inicial está
-   en el Apéndice E del ERS y es configurable.
+   **ámbito** (liga, club o propio) con `autorizacion.exigir(...)` (ADR-0007). Para **listados**, usa
+   `autorizacion.alcance(permiso)` en el `WHERE` y en el `COUNT`. La matriz inicial está en el
+   Apéndice E del ERS y es configurable.
 6. Los datos de las capturas de diseño ("Liga Apex", "Temporada 2024/25", "Primera División") son
    de ejemplo, no requisitos.
 
@@ -82,6 +87,7 @@ frontend/             React 19 · TypeScript · Vite · Tailwind CSS 4 · TanSta
 | Instalar frontend | `frontend/` | `npm install` |
 | Ejecutar frontend | `frontend/` | `npm run dev` |
 | Verificar frontend | `frontend/` | `npm run lint && npm test && npm run build` |
+| Probar el esquema (migraciones) | `supabase/pruebas/` | `PGHOST=localhost PGPORT=5432 PGUSER=postgres ./ejecutar.sh` |
 
 Antes de dar una tarea por terminada, ejecuta la verificación del subproyecto que tocaste y
 reporta el resultado real. Si no pudiste ejecutarla, dilo.
@@ -142,11 +148,21 @@ Los triggers validan las transiciones y lanzan errores con el código del ERS en
   `@DisplayName` de las pruebas (`RF-039: rechaza cancha ocupada`).
 - **Base de datos:** nunca modifiques una migración existente; crea una nueva en
   `supabase/migrations/AAAAMMDDHHMMSS_descripcion.sql` y actualiza el diccionario en el mismo cambio.
-  Usa los nombres exactos de tablas y columnas del diccionario.
+  Usa los nombres exactos de tablas y columnas del diccionario. La migración se aplica **sola** al
+  proyecto compartido de Supabase cuando su PR se fusiona en `develop` (DEC-52): antes, haz que
+  pasen `supabase/pruebas/ejecutar.sh` y `./mvnw verify`, y nunca propongas aplicarla con el SQL
+  Editor ni con `supabase db push` contra el proyecto compartido.
 - **API:** sigue [`convenciones-api.md`](docs/arquitectura/convenciones-api.md): `/api/v1`, JSON
   camelCase, errores RFC 9457 con `codigo`, acciones de estado como `POST` a sub-recursos.
-- **Commits:** Conventional Commits con `Refs: RF-xxx` (ver [`CONTRIBUTING.md`](CONTRIBUTING.md)).
+- **Commits y ramas:** Conventional Commits con `Refs: RF-xxx`; ramas desde `develop` y PR hacia
+  `develop` (ver [`CONTRIBUTING.md`](CONTRIBUTING.md)).
 - Cambios pequeños y enfocados en la tarea. No reformatees ni renombres archivos ajenos a ella.
+- **Diseño de interfaz (solo `frontend/`):** al crear o modificar UI (componentes, pantallas,
+  estilos, layout, textos de interfaz) usa la skill `impeccable` y, antes de cerrar una pantalla,
+  pásale `/impeccable polish`. Su fuente de verdad visual es [`DESIGN.md`](DESIGN.md) (en la
+  raíz, donde la skill lo detecta) y el resto de `docs/diseno-ui/`: no lo muevas ni crees copias
+  en otras carpetas. Si una sugerencia de la skill contradice esos documentos o
+  el ERS, ganan ellos (sección 2). No la uses en tareas de backend, base de datos o documentación.
 
 ## 9. Seguridad
 

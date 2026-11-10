@@ -9,7 +9,7 @@ type Props = {
 
 /**
  * Página 403 (F-36) para acciones denegadas por falta de permiso (VAL-015).
- * Aún no tiene ruta: la mostrarán las pantallas cuando lleguen los permisos de H-01.
+ * La usa `RutaConPermiso` cuando la URL de un módulo no está permitida (H-02.4).
  */
 export function PaginaSinPermiso({ rutaInicio = '/' }: Props) {
   return (

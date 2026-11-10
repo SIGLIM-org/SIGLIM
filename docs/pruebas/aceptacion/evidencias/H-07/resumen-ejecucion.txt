@@ -1,0 +1,10 @@
+Fecha: 2026-11-01T04:02:38.691Z
+Cancha: 0ac39d8e-0dbf-4a50-956b-3e26cca9c7b8
+Partido sembrado: a07ba8e1-ca63-4f84-8565-a2b28b3d1db4
+Navegador: Chromium 156.0.8078.4 (Playwright)
+Errores de consola: Failed to load resource: the server responded with a status of 409 (Conflict) | Failed to load resource: the server responded with a status of 409 (Conflict)
+
+CA-1: cancha creada y visible con ubicación y propietario.
+CA-2: disponibilidad y bloqueo visibles en el calendario semanal.
+CA-3: el bloqueo sobre el partido devolvió 409; tras confirmar, el partido sigue en estado=PROGRAMADO  inicio=2026-11-03 10:00:00-06.
+CA-4: la cancha bloqueada y la inactiva rechazaron un partido nuevo con VAL-005.

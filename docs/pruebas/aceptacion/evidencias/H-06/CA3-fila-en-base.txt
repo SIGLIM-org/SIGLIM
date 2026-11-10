@@ -1,0 +1,3 @@
+Fila del equipo en siglim.equipos (debe seguir existiendo con estado BAJA):
+
+a4b11083-0708-4a18-8e2a-f37c629da94e|Fuego Nuevo F.C.|BAJA|2026-11-06|Se retiró del torneo por desintegración de la plantilla

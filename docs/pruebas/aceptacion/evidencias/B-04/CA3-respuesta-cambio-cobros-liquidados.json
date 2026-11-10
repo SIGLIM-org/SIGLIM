@@ -1,0 +1,24 @@
+{
+  "peticion": {
+    "metodo": "POST",
+    "url": "http://localhost:8080/api/v1/clubes/c1000000-0000-4000-8000-000000000005/cambio-nombre",
+    "cuerpo": {
+      "nombre": "Club con cobros liquidados F.C. B-04",
+      "motivo": "La asamblea del club aprobó el cambio de nombre"
+    }
+  },
+  "respuesta": {
+    "estado": 201,
+    "location": "/api/v1/clubes/001216e1-11c8-4e11-9564-c9fae4ab868b",
+    "cuerpo": {
+      "id": "001216e1-11c8-4e11-9564-c9fae4ab868b",
+      "nombre": "Club con cobros liquidados F.C. B-04",
+      "estado": "ACTIVO",
+      "creadoEn": "2026-11-08T22:48:24.476702-06:00",
+      "clubAnterior": {
+        "id": "c1000000-0000-4000-8000-000000000005",
+        "nombre": "Club con cobros liquidados B-04"
+      }
+    }
+  }
+}

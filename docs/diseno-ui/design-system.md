@@ -1,7 +1,7 @@
 # Sistema de Diseño - SIGLIM (Liga Apex)
 
 > [!WARNING]
-> **Reemplazado** por [`DESIGN.md`](DESIGN.md) (prototipo aprobado el 20 de octubre de 2026). Se conserva como referencia de la primera ronda de capturas.
+> **Reemplazado** por [`DESIGN.md`](../../DESIGN.md) (prototipo aprobado el 20 de octubre de 2026). Se conserva como referencia de la primera ronda de capturas.
 
 ## 1. Personalidad Visual y Carácter
 - **Nivel de formalidad**: Alto (sistema oficial de federación deportiva).

@@ -1,0 +1,48 @@
+### 1. POST /usuarios/{propio}/asignaciones (Capturista · Liga)
+HTTP/1.1 403 
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Type: application/problem+json
+Transfer-Encoding: chunked
+Date: Fri, 06 Nov 2026 04:05:12 GMT
+
+{"detail":"No puedes cambiar las asignaciones de rol de tu propia cuenta. Otra cuenta con permiso para gestionar usuarios debe hacerlo.","instance":"/api/v1/usuarios/163a6ecb-6fa7-4288-9d0e-6324c8102483/asignaciones","status":403,"title":"Acción no permitida","type":"https://siglim.mx/errores/val-022","codigo":"VAL-022"}
+### 2. POST /asignaciones-rol/{propia}/revocacion (asignación ya revocada)
+HTTP/1.1 403 
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Type: application/problem+json
+Transfer-Encoding: chunked
+Date: Fri, 06 Nov 2026 04:05:14 GMT
+
+{"detail":"No puedes cambiar las asignaciones de rol de tu propia cuenta. Otra cuenta con permiso para gestionar usuarios debe hacerlo.","instance":"/api/v1/asignaciones-rol/37fae165-cfd3-4555-a60f-b500bb86fadd/revocacion","status":403,"title":"Acción no permitida","type":"https://siglim.mx/errores/val-022","codigo":"VAL-022"}
+### 3. PATCH /usuarios/{propio} con activo=true (sin cambio real)
+HTTP/1.1 403 
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Type: application/problem+json
+Transfer-Encoding: chunked
+Date: Fri, 06 Nov 2026 04:05:15 GMT
+
+{"detail":"No puedes activar ni desactivar tu propia cuenta. Otra cuenta con permiso para gestionar usuarios debe hacerlo.","instance":"/api/v1/usuarios/163a6ecb-6fa7-4288-9d0e-6324c8102483","status":403,"title":"Acción no permitida","type":"https://siglim.mx/errores/val-022","codigo":"VAL-022"}

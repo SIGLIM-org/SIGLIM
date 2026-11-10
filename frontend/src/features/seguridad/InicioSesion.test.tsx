@@ -155,6 +155,26 @@ describe('InicioSesion', () => {
     )
   })
 
+  it('DEF-01: informa una falla del servicio de acceso en lugar de culpar a las credenciales', async () => {
+    const usuario = userEvent.setup()
+    iniciarSesionConContrasena.mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        message: 'Internal Server Error',
+        status: 500,
+        code: 'unexpected_failure',
+      },
+    })
+    montar()
+
+    await llenarAcceso(usuario)
+    await usuario.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
+
+    const alerta = await screen.findByRole('alert')
+    expect(alerta).toHaveTextContent('El servicio de acceso no está disponible')
+    expect(alerta).not.toHaveTextContent(/correo o contraseña incorrectos/i)
+  })
+
   it('H-01.2: muestra y oculta la contraseña', async () => {
     const usuario = userEvent.setup()
     montar()

@@ -25,7 +25,7 @@ Mockito y AssertJ.
 ```text
 mx.tecnm.morelia.siglim
 ├── compartido/      config (seguridad, CORS, tareas), error (RFC 9457), contexto de usuario (ADR-0005),
-│                    almacenamiento (ADR-0008), reloj
+│                    almacenamiento (ADR-0013), reloj
 ├── auditoria/       M-01  auditoría inalterable
 ├── seguridad/       M-01  perfiles, roles, permisos con ámbito, control dual, consentimiento (ADR-0007)
 ├── temporadas/      M-02
@@ -88,13 +88,15 @@ repositorio + prueba del servicio).
 - **Documentos:** se suben a AWS S3 desde `compartido.almacenamiento` y se leen con URL prefirmadas
   de 60 s (ADR-0013); en la tabla `documentos` se guardan bucket, clave y URL.
 - **Autorización:** cada método público de servicio empieza con
-  `autorizacion.exigir("modulo.recurso:ACCION", objetivo)` (ADR-0007). Nunca compares nombres de rol.
+  `autorizacion.exigir("modulo.recurso:ACCION", objetivo)` (ADR-0007). Los listados filtran en el
+  SQL con `autorizacion.alcance(permiso)` y la misma condición en el `COUNT`. Nunca compares nombres
+  de rol.
 - **Estados:** las transiciones se validan en el servicio con una máquina de estados explícita
   (DP-003) según el ERS §4.3 (partido, cédula, registro, expediente, cobro, publicación).
 - **Eventos:** efectos que forman parte de la operación crítica → oyente síncrono en la misma
   transacción; correo → bandeja de salida (ADR-0006, ADR-0010).
 - **Tareas programadas:** `@Scheduled` con actualización condicional idempotente y usuario Sistema
-  (ADR-0009). Usa el `Clock` inyectable, nunca `now()` directo en Java.
+  (ADR-0009; detalle en «Tareas programadas»). Usa el `Clock` inyectable, nunca `now()` directo en Java.
 - **Usuario actual:** `UsuarioActual.idRequerido()` (UUID = `perfiles.id`, que también va en el claim
   `perfil_id`). Llena `creado_por`, `validado_por`, etc. explícitamente; los historiales los llenan
   los triggers. En cambios de estado llama `motivoOperacion.fijar(motivo)` dentro de la transacción,
@@ -103,11 +105,60 @@ repositorio + prueba del servicio).
   `.env.example`. Propiedades propias bajo el prefijo `siglim.`.
 - **Sin** JPA, Lombok, `ddl-auto`, Flyway ni dependencias nuevas sin justificar.
 
+## Tareas programadas (ADR-0009)
+
+- **Dónde:** un método `@Scheduled` del servicio del módulo dueño (`@EnableScheduling` ya está en
+  `compartido.config.TareasConfig`), con `zone = "America/Mexico_City"` y el cron en
+  `application.yml` bajo `siglim.tareas.<tarea>.cron`. Ejemplo: `tesoreria.VencimientoCobrosService`.
+- **Como Sistema:** una tarea no tiene sesión. Envuelve el trabajo en
+  `EjecutorSistema#ejecutar(...)` y abre la transacción **dentro** (con `TransactionTemplate`): así
+  `GestorTransaccionesSiglim` fija `{"perfil_id":"<Sistema>"}` y `siglim_app`, y
+  `UsuarioActual.idRequerido()` y la auditoría devuelven el perfil Sistema. El ejecutor se niega
+  dentro de una petición HTTP, de una transacción abierta o con otra sesión en el hilo, y limpia el
+  contexto en `finally`. El UUID del perfil Sistema solo está en `EjecutorSistema.PERFIL_SISTEMA`.
+
+  ```java
+  ejecutorSistema.ejecutar(() -> transaccion.execute(estado -> vencerEnTransaccion(hoy)));
+  ```
+- **Idempotencia:** un `UPDATE ... WHERE <estado de origen> AND <ya pasó el momento> RETURNING`; solo
+  las filas devueltas se auditan (con el motivo fijo, también en `motivoOperacion.fijar`) y publican
+  eventos, en la misma transacción. «Hoy» se calcula con el `Clock` inyectado en la zona de México.
+- **Configuración:** `siglim.tareas.<tarea>.habilitada` (true por defecto) apaga el cron y la
+  ejecución al arrancar (`ApplicationReadyEvent`) si la tarea la tiene. Bitácora: un `INFO` por
+  ejecución con cantidad y duración, sin datos personales; un error se registra como `ERROR` y no
+  se propaga al planificador.
+- **Pruebas:** `src/test/resources/config/application.yml` deja **todas** las tareas en
+  `habilitada: false`, para que ningún contexto de prueba las dispare solo; agrega ahí cada tarea
+  nueva. Sus pruebas construyen el servicio con un `Clock.fixed(...)` y llaman al método
+  directamente (ver `VencimientoCobrosIT`).
+
 ## Pruebas
 
 - **Unitarias** (obligatorias): reglas del servicio con Mockito, sin Spring ni BD. Nombre del
   método en español; `@DisplayName` con el ID del requisito.
 - **De controlador** (`@WebMvcTest` + `@MockitoBean`): códigos HTTP, validación y formato de error.
+  Las pruebas de seguridad de **cada endpoint** (convenciones de API §10) se generan con el arnés
+  `seguridad.ArnesAutorizacionEndpoint` (H-02.3): `401` sin token y con token inválido (sin tocar el
+  servicio), `403 VAL-015` y `404` fuera de ámbito idéntico a uno inexistente (VAL-024). La
+  denegación se simula en el doble del servicio con las fábricas `Autorizacion.sinPermiso()` y
+  `Autorizacion.fueraDeAmbito(...)`; que el servicio llame a `exigir` con el permiso y el objetivo
+  correctos lo prueba su prueba unitaria.
+
+  ```java
+  @TestFactory
+  @DisplayName("RNF-003: seguridad de GET /api/v1/temporadas/{id}")
+  Stream<DynamicTest> seguridadConsultar() {
+      return ArnesAutorizacionEndpoint.para(mvc)
+              .peticion(HttpMethod.GET, "/api/v1/temporadas/{id}", ID)
+              .dobles(servicio)                       // se reinician entre escenarios
+              .simularDenegacion(error -> given(servicio.consultar(ID)).willThrow(error))
+              .pruebas();                             // void: willThrow(error).given(servicio).cerrar(ID)
+  }
+  ```
+
+  Con cuerpo, `.cuerpoJson("{…}")` **válido** (si no, `@Valid` responde 400 antes del servicio). Un
+  endpoint que solo exige sesión, como `/yo`, usa `.soloSesion()`. Ejemplos completos en
+  `ArnesAutorizacionEndpointTest`.
 - **De integración con BD** (decisión del equipo del 22 oct 2026): **Testcontainers** con
   `postgres:17-alpine` (la versión de Supabase), clases `*IT` que corre failsafe en `mvnw verify`.
   Cargan la simulación de Supabase y todas las migraciones como `supabase/pruebas/ejecutar.sh`;

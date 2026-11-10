@@ -1,0 +1,8 @@
+{
+  "detail": "Solo se edita un comunicado en borrador; este está publicado.",
+  "instance": "/api/v1/comunicados/e14ae10e-1ea9-4f0f-b560-32ede132e75d",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/rf-090",
+  "codigo": "RF-090"
+}

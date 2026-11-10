@@ -21,6 +21,7 @@ public final class ErroresTecnicos {
     public static final String METODO_NO_PERMITIDO = "METODO_NO_PERMITIDO";
     public static final String FORMATO_NO_SOPORTADO = "FORMATO_NO_SOPORTADO";
     public static final String ARCHIVO_DEMASIADO_GRANDE = "ARCHIVO_DEMASIADO_GRANDE";
+    public static final String TIPO_ARCHIVO_NO_PERMITIDO = "TIPO_ARCHIVO_NO_PERMITIDO";
     public static final String DUPLICADO = "DUPLICADO";
     public static final String REFERENCIA_INVALIDA = "REFERENCIA_INVALIDA";
     public static final String CONCURRENCIA = "CONCURRENCIA";
@@ -35,6 +36,8 @@ public final class ErroresTecnicos {
     static final String DETALLE_METODO = "Esta operación no está disponible para este recurso.";
     static final String DETALLE_FORMATO = "El formato de la solicitud no es compatible. Envía y acepta JSON.";
     static final String DETALLE_ARCHIVO = "El archivo supera el tamaño permitido.";
+    static final String DETALLE_TIPO_ARCHIVO = "El tipo de archivo no está permitido. Usa JPG, PNG, WebP o PDF.";
+    static final String DETALLE_ARCHIVO_VACIO = "El archivo está vacío. Selecciona otro archivo.";
     static final String DETALLE_DUPLICADO = "Ya existe un registro con esos datos.";
     static final String DETALLE_REFERENCIA =
             "Uno de los datos hace referencia a un registro que no existe. Actualiza la página e intenta de nuevo.";

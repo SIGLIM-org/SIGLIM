@@ -1,0 +1,37 @@
+-- Suma independiente de la API: PENDIENTE + VENCIDO por club y equipo (ROLLUP da subtotal por club y total de la liga).
+SELECT coalesce(cl.nombre, '== TOTAL LIGA ==') AS club,
+       CASE WHEN cl.nombre IS NULL THEN '' WHEN GROUPING(e.id) = 1 THEN '== total del club ==' ELSE coalesce(e.nombre, '(cargo al club, sin equipo)') END AS equipo,
+       sum(c.monto) AS total,
+       sum(c.monto) FILTER (WHERE c.estado = 'PENDIENTE') AS pendiente,
+       coalesce(sum(c.monto) FILTER (WHERE c.estado = 'VENCIDO'), 0.00) AS vencido,
+       count(*) AS cobros
+  FROM siglim.cobros c
+  JOIN siglim.clubes cl ON cl.id = c.club_id
+  LEFT JOIN siglim.equipos e ON e.id = c.equipo_id
+ WHERE c.estado IN ('PENDIENTE', 'VENCIDO')
+ GROUP BY ROLLUP (cl.nombre, (e.id, e.nombre))
+ ORDER BY cl.nombre NULLS LAST, GROUPING(e.id), e.nombre NULLS LAST;
+
+-- Cobros excluidos del adeudo (deben seguir existiendo y listarse).
+SELECT cl.nombre AS club, e.nombre AS equipo, c.concepto, c.monto, c.estado
+  FROM siglim.cobros c JOIN siglim.clubes cl ON cl.id = c.club_id LEFT JOIN siglim.equipos e ON e.id = c.equipo_id
+ WHERE c.estado NOT IN ('PENDIENTE', 'VENCIDO');
+
+-- ===== Salida real de psql =====
+         club          |           equipo            |  total  | pendiente | vencido | cobros 
+-----------------------+-----------------------------+---------+-----------+---------+--------
+ Club Halcones Morelia | Halcones A                  | 1700.00 |   1500.00 |  200.00 |      2
+ Club Halcones Morelia | Halcones B                  |  275.25 |    275.25 |    0.00 |      1
+ Club Halcones Morelia | (cargo al club, sin equipo) |  350.50 |    350.50 |    0.00 |      1
+ Club Halcones Morelia | == total del club ==        | 2325.75 |   2125.75 |  200.00 |      4
+ Club Riviera Morelia  | Riviera F.C.                |  725.00 |    125.00 |  600.00 |      2
+ Club Riviera Morelia  | == total del club ==        |  725.00 |    125.00 |  600.00 |      2
+ == TOTAL LIGA ==      |                             | 3050.75 |   2250.75 |  800.00 |      6
+(7 rows)
+
+         club          |   equipo   |         concepto         | monto  |  estado   
+-----------------------+------------+--------------------------+--------+-----------
+ Club Halcones Morelia | Halcones A | Arbitraje jornada 2      | 400.00 | PAGADO
+ Club Halcones Morelia | Halcones B | Reposición de credencial | 100.00 | RECHAZADO
+(2 rows)
+

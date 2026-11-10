@@ -12,7 +12,7 @@
 @import "tailwindcss";
 
 /*
- * Tokens del sistema de diseño aprobado (docs/diseno-ui/DESIGN.md).
+ * Tokens del sistema de diseño aprobado (DESIGN.md en la raíz del repositorio).
  * Cuando el bloque YAML y el texto del documento difieren, manda el texto
  * (docs/diseno-ui/README.md): primario #006837 y fondo #F8FAFC.
  */

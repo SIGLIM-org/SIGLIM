@@ -21,32 +21,44 @@ describe('PublicLayout', () => {
   it('muestra el encabezado, la navegación y el pie del portal', () => {
     montar()
 
+    const encabezado = screen.getByRole('banner')
+
     expect(
-      screen.getByRole('link', { name: 'SIGLIM, portal público' }),
+      within(encabezado).getByRole('link', {
+        name: 'SIGLIM, portal público',
+      }),
     ).toHaveAttribute('href', '/')
-    expect(screen.getByRole('link', { name: 'Programación' })).toHaveAttribute(
-      'href',
-      '/',
-    )
-    expect(screen.getByRole('link', { name: 'Resultados' })).toHaveAttribute(
-      'href',
-      '/resultados',
-    )
     expect(
-      screen.getByRole('link', { name: 'Tablas de posiciones' }),
+      within(encabezado).getByRole('link', { name: 'Programación' }),
+    ).toHaveAttribute('href', '/')
+    expect(
+      within(encabezado).getByRole('link', { name: 'Resultados' }),
+    ).toHaveAttribute('href', '/resultados')
+    expect(
+      within(encabezado).getByRole('link', { name: 'Tablas de posiciones' }),
     ).toHaveAttribute('href', '/tabla')
-    expect(screen.getByRole('link', { name: 'Iniciar sesión' })).toHaveAttribute(
-      'href',
-      '/login',
-    )
+    expect(
+      within(encabezado).getByRole('link', { name: 'Iniciar sesión' }),
+    ).toHaveAttribute('href', '/login')
 
     const pie = screen.getByRole('contentinfo')
     expect(
       within(pie).getByText('Liga Municipal de Futbol Amateur Morelia'),
     ).toBeInTheDocument()
-    expect(
-      within(pie).getByRole('link', { name: 'Aviso de privacidad' }),
-    ).toHaveAttribute('href', '/aviso-de-privacidad')
+
+    const enlacesPie = [
+      ['Programación', '/'],
+      ['Resultados', '/resultados'],
+      ['Tablas de posiciones', '/tabla'],
+      ['Aviso de privacidad', '/aviso-de-privacidad'],
+    ]
+
+    enlacesPie.forEach(([nombre, ruta]) => {
+      expect(within(pie).getByRole('link', { name: nombre })).toHaveAttribute(
+        'href',
+        ruta,
+      )
+    })
   })
 
   it('abre y cierra la navegación móvil', async () => {

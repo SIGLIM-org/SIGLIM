@@ -109,12 +109,58 @@ describe('api', () => {
     )
   })
 
+  it('RF-139: envía un FormData sin serializar ni fijar Content-Type', async () => {
+    const buscar = simularFetch(respuestaJson(201, { id: 'pago-1' }))
+    const formulario = new FormData()
+    formulario.append('medio', 'EFECTIVO')
+
+    await api.post('cobros/cb-1/pagos', formulario)
+
+    const [, opciones] = opcionesDe(buscar)
+    const cabeceras = new Headers(opciones.headers)
+    expect(opciones.body).toBe(formulario)
+    expect(cabeceras.has('Content-Type')).toBe(false)
+    expect(cabeceras.get('Authorization')).toBe('Bearer token-de-prueba')
+  })
+
   it('devuelve undefined en un 201 sin cuerpo', async () => {
     simularFetch(respuestaJson(201, undefined))
 
     await expect(
       api.post('/temporadas', { nombre: '2026/27' }),
     ).resolves.toBeUndefined()
+  })
+
+  it('RF-030: un 409 conserva aceptable y partidosAfectados en extensiones', async () => {
+    const partidosAfectados = [{ id: 'partido-1' }]
+    simularFetch(
+      respuestaProblema(409, {
+        title: 'Conflicto',
+        status: 409,
+        detail: 'El bloqueo afecta a 1 partido(s).',
+        codigo: 'RF-030',
+        aceptable: true,
+        partidosAfectados,
+      }),
+    )
+
+    await expect(api.post('canchas/c1/disponibilidad', {})).rejects.toMatchObject({
+      problema: {
+        codigo: 'RF-030',
+        aceptable: true,
+        extensiones: { partidosAfectados },
+      },
+    })
+  })
+
+  it('omite extensiones cuando el problema solo trae miembros conocidos', async () => {
+    simularFetch(
+      respuestaProblema(404, { title: 'No', status: 404, detail: 'No existe.', codigo: 'NO_ENCONTRADO' }),
+    )
+
+    const error = await api.get('canchas/c1').catch((motivo: ApiError) => motivo)
+
+    expect((error as ApiError).problema).not.toHaveProperty('extensiones')
   })
 
   it('expone problema.codigo y errores en un 409', async () => {

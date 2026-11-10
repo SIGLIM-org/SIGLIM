@@ -17,6 +17,9 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
  */
 @WebMvcTest(controllers = SaludController.class, properties = {
         "SUPABASE_URL=" + SeguridadPrueba.URL_SUPABASE,
+        "SIGLIM_LIGA_ID=a0000000-0000-4000-8000-000000000001",
+        "SIGLIM_S3_BUCKET=siglim-documentos-prueba",
+        "AWS_REGION=us-east-2",
         "SIGLIM_CORS_ORIGEN=" + SeguridadPrueba.ORIGEN_FRONTEND
 })
 @Import(SeguridadPrueba.class)

@@ -136,7 +136,7 @@ ITEMS = [
     dict(k='T-03', tipo='Tarea', epica='E01', sprint=1, moscow='Must', prio='Highest', sp=3,
          titulo='Crear el esqueleto del frontend React con el sistema de diseño aprobado',
          desc='Proyecto React 19 + TypeScript + Vite + Tailwind CSS 4 + TanStack Query. Tokens de '
-              '`docs/diseno-ui/DESIGN.md`, layouts del portal (`/`) y de la aplicación interna (`/app`, barra '
+              '`DESIGN.md`, layouts del portal (`/`) y de la aplicación interna (`/app`, barra '
               'lateral y superior), cliente HTTP que agrega el token y traduce los errores RFC 9457, y '
               'componentes base: botón, insignia de estado, insignia «No oficial», modal con motivo, alerta '
               'de bloqueo, estado vacío y de carga, páginas 403/404 (F-36 resuelto con DESIGN.md).',

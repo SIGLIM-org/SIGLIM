@@ -6,7 +6,7 @@ Esta documentación establece la especificación visual, de componentes, tipogr�
 > [!NOTE]
 > **Estado (20 de octubre de 2026).** El equipo aprobó el prototipo generado con los
 > [prompts de Stitch](prompts-stitch.md). Las fuentes vigentes son:
-> 1. [`DESIGN.md`](DESIGN.md): sistema visual exportado de Stitch (colores, tipografía, espaciado,
+> 1. [`DESIGN.md`](../../DESIGN.md) (en la raíz del repositorio): sistema visual exportado de Stitch (colores, tipografía, espaciado,
 >    componentes). Si el bloque YAML y el texto difieren, **manda el texto** (por ejemplo, primario
 >    `#006837` y fondo `#F8FAFC`).
 > 2. [`pantallas/`](pantallas/README.md): las 45 pantallas aprobadas con su HTML, la lista de
@@ -30,7 +30,7 @@ Está diseñada para servir como fuente de verdad absoluta para ingenieros front
 - [`responsive.md`](responsive.md): Breakpoints, comportamiento en dispositivos móviles y tabletas.
 - [`accessibility.md`](accessibility.md): Criterios WCAG 2.1 AA, contraste, navegación por teclado y soporte para tecnologías de asistencia.
 - [`open-design-decisions.md`](open-design-decisions.md): Registro de decisiones pendientes, inferencias y puntos que requieren validación del equipo.
-- [`DESIGN.md`](DESIGN.md): Sistema visual vigente exportado de Stitch.
+- [`DESIGN.md`](../../DESIGN.md): Sistema visual vigente exportado de Stitch (en la raíz del repositorio, donde lo detecta la skill Impeccable).
 - [`pantallas/`](pantallas/README.md): Pantallas aprobadas (PNG + HTML), interacciones, diferencias con el ERS y preguntas abiertas.
 - [`prompts-stitch.md`](prompts-stitch.md): Prompt base y un prompt por pantalla (F-01 a F-36 del núcleo, B-01 a B-10 del backlog) para generar el prototipo en Google Stitch.
 

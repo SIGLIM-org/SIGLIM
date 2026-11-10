@@ -11,6 +11,7 @@ roles: [ADR-0014](../docs/arquitectura/adr/0014-esquema-propio-y-roles-de-base-d
 | --- | --- |
 | `migrations/20261020090000_esquema_inicial.sql` | Migración inicial de la Rev. 0.4.1 (DEC-42): esquema `siglim`, roles `siglim_app` y `siglim_publico`, enums, 72 tablas, índices, triggers de reglas e historial, `calcular_tabla`, vistas `v_publica_*`, RLS por ámbito, comentarios de columnas y semilla (liga, perfil Sistema, 13 roles, permisos del Apéndice E, catálogos `[DEMO]`). Se ejecuta en una sola transacción. |
 | `migrations/20261022143000_fijar_search_path_error_negocio.sql` | Fija el `search_path` de `error_negocio` (aviso 0011 del asesor de seguridad de Supabase). Sin cambio de comportamiento. |
+| `migrations/20261027140000_proteger_inmutables_truncate.sql` | Impide vaciar `auditoria`, `resoluciones` y `parametros_temporada` con `TRUNCATE`, directo o por cascada (SCRUM-397, RNF-015). |
 | `pruebas/` | Pruebas SQL de los flujos (P-01 a P-11) y de los desempates, con un simulador mínimo de Supabase para PostgreSQL local. Ver [`pruebas/README.md`](pruebas/README.md). |
 
 La migración de la Rev. 0.3 quedó en
@@ -19,13 +20,25 @@ La migración de la Rev. 0.3 quedó en
 ## Proyecto compartido del equipo: las migraciones se aplican al fusionar
 
 El proyecto **SIGLIM** de Supabase está conectado al repositorio con la integración de GitHub de
-Supabase. Al fusionar en `main`, la verificación **«Supabase Preview»** compara
-`supabase/migrations/` con el historial del proyecto (`supabase_migrations.schema_migrations`) y
-aplica solo las migraciones que no estén registradas.
+Supabase, con **`develop` como rama de producción**
+([DEC-52](../docs/requisitos/decisiones/registro-de-decisiones.md)). Al fusionar un PR en `develop`,
+la verificación **«Supabase Preview»** compara `supabase/migrations/` con el historial del proyecto
+(`supabase_migrations.schema_migrations`) y aplica solo las migraciones que no estén registradas.
+El PR de cierre de sprint (`develop → main`) ya no aplica nada: esas migraciones ya están.
+
+> 🗄️ **Lo que se fusiona en `develop` llega de inmediato a la base que usa todo el equipo.** Antes
+> de fusionar un PR con migración, deben pasar `pruebas/ejecutar.sh` y `./mvnw verify` (backend).
+> Después del merge, confirma que se aplicó: *Database → Migrations* en el panel de Supabase, o
+> `supabase migration list` con la CLI vinculada. Si la verificación «Supabase Preview» falla, no
+> se aplicó nada (la migración va en una transacción): corrige con **otra** migración en un PR nuevo.
+
+**Configuración de la integración** (ya hecha; anotada para rehacerla si se reconecta el proyecto):
+*Project Settings → Integrations → GitHub Integration*: repositorio `israelweil/SIGLIM`, *Working
+directory* `.`, **Production branch `develop`** y **Deploy to production** activado.
 
 - **No apliques migraciones a mano** (SQL Editor) en el proyecto compartido: el SQL Editor no
   registra la migración en el historial y la integración intentará aplicarla otra vez al siguiente
-  merge.
+  merge en `develop`.
 - Si ya se aplicó una a mano, regístrala como aplicada (equivale a
   `supabase migration repair --status applied <versión>`):
   ```sql

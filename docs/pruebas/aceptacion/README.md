@@ -22,7 +22,7 @@ esta carpeta.
 | Escenarios | Un escenario por criterio de aceptación (`CA-n`), con el mismo número que en Jira |
 | Resultado | `Aprobado`, `Rechazado` o `Bloqueado`; si se rechaza, se anota el defecto y la historia no se cierra |
 | Datos personales | Las cuentas se describen por su rol, nunca por su correo; las capturas no muestran tokens, contraseñas ni correos personales |
-| Versión probada | Se registra el commit de `main` sobre el que se ejecutó la prueba |
+| Versión probada | Se registra el commit de `develop` sobre el que se ejecutó la prueba (las pruebas anteriores a DEC-51 registran `main`) |
 
 ## Plantilla
 
@@ -35,7 +35,7 @@ Copia esta estructura para cada historia nueva:
 | --- | --- |
 | Historia | H-xx (SCRUM-nnn) · subtarea H-xx.n (SCRUM-nnn) |
 | Requisitos | RF-xxx, … |
-| Versión probada | `main` en `<commit>` |
+| Versión probada | `develop` en `<commit>` |
 | Fecha | AAAA-MM-DD |
 | Ejecutó | <nombre> |
 | Resultado global | Aprobado / Rechazado |

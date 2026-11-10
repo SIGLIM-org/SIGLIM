@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router'
+import { Link, NavLink, Outlet, useLocation, useNavigation } from 'react-router'
 import {
   LogOut,
   Menu,
@@ -8,6 +8,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react'
+import { EstadoCarga } from '@/components/ui/EstadoCarga'
 import { useSesionActual } from '@/features/seguridad/ProveedorSesionActual'
 import {
   descripcionDeAcceso,
@@ -41,8 +42,10 @@ export function InternalLayout() {
   const abrirRef = useRef<HTMLButtonElement>(null)
   const dialogoRef = useRef<HTMLDivElement>(null)
   const { pathname } = useLocation()
+  const navegacion = useNavigation()
   const { yo } = useSesionActual()
   const { cerrar, cerrando } = useCerrarSesion()
+  const cargandoModulo = navegacion.state === 'loading'
   const secciones = seccionesPermitidas(yo.permisos)
   const detalleAcceso = descripcionDeAcceso(yo.asignaciones)
 
@@ -303,7 +306,11 @@ export function InternalLayout() {
           id="contenido-principal"
           className="min-h-dvh px-4 pb-8 pt-24 sm:px-6 lg:px-8"
         >
-          <Outlet />
+          {cargandoModulo ? (
+            <EstadoCarga etiqueta="Cargando módulo…" filas={6} columnas={3} />
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
     </div>

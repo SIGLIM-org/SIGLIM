@@ -23,7 +23,7 @@ src/
 ├── app/            App.tsx (providers) y router.tsx (todas las rutas)
 ├── config/env.ts   variables de entorno tipadas
 ├── lib/
-│   ├── api/        cliente HTTP único (cliente.ts), ApiError (RFC 9457), tipos de paginación
+│   ├── api/        cliente HTTP único (cliente.ts, cuerpo JSON o FormData), ApiError (RFC 9457), tipos de paginación
 │   └── supabase.ts cliente de Supabase SOLO para auth
 ├── components/ui/  componentes base del sistema de diseño (Button, …)
 ├── layouts/        PublicLayout (portal) e InternalLayout (aplicación interna)
@@ -40,19 +40,23 @@ src/
   componente ni `supabase.from(...)`.
 - **Errores:** captura `ApiError` y muestra `error.problema.detail` al usuario (ya viene en español
   y explica la causa). Decide el tratamiento por `error.problema.codigo` (`VAL-004`, `VAL-015`…),
-  nunca por el texto; marca los campos de `errores`. Ver convenciones de API §3.
+  nunca por el texto; marca los campos de `errores`. Ver convenciones de API §3. Una **consulta**
+  con error se muestra con `ErrorConsulta` (403/404) y no se reintenta en 4xx
+  (`reintentarConsulta`); una **mutación** muestra `detail` en el formulario o el modal.
 - **Rutas:** el portal público cuelga de `/` (`PublicLayout`); la aplicación interna de `/app`
   (`RutaProtegida` + `InternalLayout`). Registra rutas nuevas solo en `src/app/router.tsx`.
 - **Permisos:** el backend decide (VAL-015). El frontend oculta lo que el usuario no puede hacer
   con los permisos de `GET /api/v1/yo` y las `accionesPermitidas` de cada recurso, pero nunca es la
-  única barrera. Nunca condiciones por el nombre del rol.
+  única barrera. Usa `ConPermiso` (`@/features/seguridad/ConPermiso`) para ocultar acciones y
+  `RutaConPermiso` (`@/app/RutaConPermiso`) para bloquear la URL de un módulo; las páginas 403/404
+  de `pages/` son la salida visible (H-02.4). Nunca condiciones por el nombre del rol.
 - **Estilos:** solo utilidades de Tailwind con los tokens de `styles/index.css`
   (`bg-primary`, `text-text-muted`, `border-border`, `bg-surface-dark`…). **Prohibido** escribir
   colores HEX en componentes o crear archivos `.css` por componente.
-- **Diseño:** sigue [`DESIGN.md`](../docs/diseno-ui/DESIGN.md) y las pantallas aprobadas de
+- **Diseño:** sigue [`DESIGN.md`](../DESIGN.md) y las pantallas aprobadas de
   [`docs/diseno-ui/pantallas/`](../docs/diseno-ui/pantallas/README.md). El `code.html` de cada
   pantalla es referencia visual: **no lo copies**; reconstruye en React con los tokens y
-  componentes del proyecto. No implementes las diferencias D-01 a D-12 ni los conflictos C-01 a
+  componentes del proyecto. No implementes las diferencias (D-xx) de [`pantallas/README.md` §3](../docs/diseno-ui/pantallas/README.md) ni los conflictos C-01 a
   C-08 (sin buscador global, estadísticas de jugador solo en backlog y con consentimiento, un solo
   «Iniciar sesión»).
 - **Estados visibles (ERS 3.1.1):** muestra el estado del partido y las acciones permitidas,

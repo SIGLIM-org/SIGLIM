@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Button } from '@/components/ui/Button'
 
 /** Mínimo de caracteres del motivo, contados sin espacios al inicio ni al final (F-36). */
@@ -15,6 +15,8 @@ type Props = {
   titulo: string
   /** Explica qué efecto tendrá el cambio de estado. */
   descripcion: string
+  /** Aviso entre la descripción y el motivo, p. ej. los partidos afectados. */
+  aviso?: ReactNode
   etiquetaConfirmar?: string
   varianteConfirmar?: 'primario' | 'destructivo'
   /** Mantiene el modal abierto con «Confirmar» en espera mientras se guarda. */
@@ -33,6 +35,7 @@ export function ModalMotivo({
   abierto,
   titulo,
   descripcion,
+  aviso,
   etiquetaConfirmar = 'Confirmar',
   varianteConfirmar = 'primario',
   procesando = false,
@@ -105,6 +108,7 @@ export function ModalMotivo({
           <p id={idDescripcion} className="text-body-md text-text-muted">
             {descripcion}
           </p>
+          {aviso}
 
           <div className="flex flex-col gap-1">
             <label htmlFor={idCampo} className="text-label-md">

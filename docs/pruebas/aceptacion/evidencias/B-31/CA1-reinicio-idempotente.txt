@@ -1,0 +1,22 @@
+Pager usage is off.
+                  id                  |                concepto                | fecha_limite |  estado
+--------------------------------------+----------------------------------------+--------------+-----------
+ c1000000-0000-4000-8000-000000000001 | Cuota de inscripción temporada 2026-27 | 2026-11-06   | VENCIDO
+ c1000000-0000-4000-8000-000000000002 | Arbitraje jornada 1                    | 2026-11-07   | PENDIENTE
+ c1000000-0000-4000-8000-000000000003 | Uso de cancha para entrenamiento       | 2026-11-08   | PENDIENTE
+ c1000000-0000-4000-8000-000000000004 | Cuota atrasada desde octubre           | 2026-10-28   | VENCIDO
+ c1000000-0000-4000-8000-000000000005 | Cobro ya pagado                        | 2026-11-01   | PAGADO
+ c1000000-0000-4000-8000-000000000006 | Cobro rechazado                        | 2026-11-01   | RECHAZADO
+ c1000000-0000-4000-8000-000000000007 | Cobro vencido de una corrida anterior  | 2026-11-01   | VENCIDO
+(7 rows)
+
+ id |              perfil_id               | perfil  | modulo |    accion    | entidad |              entidad_id              |                 motivo                  |                                                 detalle                                                  |          ocurrido_en
+----+--------------------------------------+---------+--------+--------------+---------+--------------------------------------+-----------------------------------------+----------------------------------------------------------------------------------------------------------+-------------------------------
+  1 | a0000000-0000-4000-8000-000000000002 | Sistema | M-13   | VENCER_COBRO | cobros  | c1000000-0000-4000-8000-000000000004 | vencimiento automático por fecha límite | {"monto": 900.00, "estadoNuevo": "VENCIDO", "fechaLimite": "2026-10-28", "estadoAnterior": "PENDIENTE"}  | 2026-11-08 03:22:10.621654+00
+  2 | a0000000-0000-4000-8000-000000000002 | Sistema | M-13   | VENCER_COBRO | cobros  | c1000000-0000-4000-8000-000000000001 | vencimiento automático por fecha límite | {"monto": 1500.00, "estadoNuevo": "VENCIDO", "fechaLimite": "2026-11-06", "estadoAnterior": "PENDIENTE"} | 2026-11-08 03:22:10.621654+00
+(2 rows)
+
+                  id                  | nombre_mostrado | es_sistema
+--------------------------------------+-----------------+------------
+ a0000000-0000-4000-8000-000000000002 | Sistema         | t
+(1 row)

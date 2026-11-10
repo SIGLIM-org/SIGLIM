@@ -1,7 +1,7 @@
 # Diccionario de datos
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.1 · 22 de octubre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
+Versión 2.5 · 8 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
 
 > [!NOTE]
 > Este diccionario describe la migración
@@ -18,6 +18,10 @@ Versión 2.1 · 22 de octubre de 2026 · PostgreSQL 15+ en Supabase · Alineado 
 | 1.0 | 7 de octubre de 2026 | 22 tablas del alcance de la Rev. 0.3 en el esquema `public`. |
 | 2.0 | 20 de octubre de 2026 | 72 tablas del alcance de la Rev. 0.4 en el esquema `siglim`; permisos con ámbito, cédula, disciplina, tesorería, notificaciones y documentos en AWS S3; RLS por ámbito; pruebas de integración. |
 | 2.1 | 22 de octubre de 2026 | Migración `20261022143000_fijar_search_path_error_negocio.sql`: `error_negocio` fija `search_path = siglim, pg_temp` como el resto de las funciones (aviso 0011 del asesor de seguridad). Sin cambios en tablas ni en el comportamiento. |
+| 2.2 | 27 de octubre de 2026 | Migración `20261027140000_proteger_inmutables_truncate.sql` (SCRUM-397): `auditoria`, `resoluciones` y `parametros_temporada` agregan un trigger `BEFORE TRUNCATE ... FOR EACH STATEMENT` que reutiliza `tg_inmutable()`, porque los triggers por fila no se disparan con `TRUNCATE`. Rechaza el vaciado directo y por cascada con `P0001` y HINT `RNF-015`. Sin cambios en columnas. |
+| 2.3 | 3 de noviembre de 2026 | Migración `20261103100000_secretario_registra_equipos.sql` (H-06.1, SCRUM-270): el rol `SECRETARIO` recibe `organizacion.equipo:EDITAR`, que el Apéndice E del ERS le da (M-03 C L E, RF-009) y la semilla inicial omitió. Solo agrega una fila a `rol_permisos`; sin cambios en tablas ni funciones. |
+| 2.4 | 6 de noviembre de 2026 | Migración `20261106160000_tesorero_consulta_equipos.sql` (DEF-06, SCRUM-404): el rol `TESORERO` recibe `organizacion.equipo:CONSULTAR`, que DEC-55 agrega al Apéndice E del ERS (M-03 L, RF-137) para dirigir cobros a un equipo; no recibe `organizacion.equipo:EDITAR`. Solo agrega una fila a `rol_permisos`; sin cambios en tablas ni funciones. |
+| 2.5 | 8 de noviembre de 2026 | Migración `20261108100000_cargo_directiva_pendiente.sql` (H-22.1): `ux_cargos_vigentes` solo considera cargos autorizados (`autorizado_por IS NOT NULL`), para que un cambio pendiente no impida mantener vigente el cargo anterior (RF-102). Sin cambios en columnas ni datos. |
 
 ## 1. Propósito y alcance
 
@@ -256,6 +260,7 @@ Restricciones, índices y triggers:
 - Índice `ix_auditoria_fecha`: `USING btree (ocurrido_en DESC)`
 - Índice `ix_auditoria_perfil`: `USING btree (perfil_id, ocurrido_en DESC)`
 - Trigger `tg_auditoria_inmutable` (before delete or update) → `tg_inmutable()`
+- Trigger `tg_auditoria_sin_truncate` (before truncate, por sentencia) → `tg_inmutable()`
 
 #### `avisos_privacidad`
 
@@ -564,6 +569,7 @@ Restricciones, índices y triggers:
 - `ck_parametros_tiempos`: `CHECK (((duracion_juego_min > 0) AND (bloque_cancha_min >= duracion_juego_min) AND (plazo_validacion_cedula > '00:00:00'::interval)))`
 - `parametros_temporada_temporada_id_version_key`: `UNIQUE (temporada_id, version)`
 - Trigger `tg_parametros_inmutable` (before delete or update) → `tg_inmutable()`
+- Trigger `tg_parametros_sin_truncate` (before truncate, por sentencia) → `tg_inmutable()`
 - Trigger `tg_parametros_version` (before insert) → `tg_parametros_version()`
 
 #### `temporadas`
@@ -642,7 +648,7 @@ Directiva del club (presidente, secretario, tesorero, delegado) con vigencia (RF
 Restricciones, índices y triggers:
 
 - `ck_cargos_vigencia`: `CHECK (((hasta IS NULL) OR (hasta >= desde)))`
-- Índice único `ux_cargos_vigentes`: `USING btree (club_id, cargo) WHERE (hasta IS NULL)`
+- Índice único `ux_cargos_vigentes`: `USING btree (club_id, cargo) WHERE ((hasta IS NULL) AND (autorizado_por IS NOT NULL))`; los cambios pendientes no ocupan el cargo vigente.
 
 #### `clubes`
 
@@ -1444,6 +1450,7 @@ Restricciones, índices y triggers:
 
 - `ck_resoluciones_articulo`: `CHECK ((sin_sancion OR (articulo_id IS NOT NULL)))`
 - Trigger `tg_resoluciones_inmutable` (before delete or update) → `tg_inmutable()`
+- Trigger `tg_resoluciones_sin_truncate` (before truncate, por sentencia) → `tg_inmutable()`
 
 #### `sanciones`
 
@@ -1927,9 +1934,9 @@ matriz inicial del Apéndice E del ERS (configurable, DEC-04), los pares incompa
 | `JUGADOR_TUTOR` | Jugador o tutor | PROPIO | Sí | disciplina.expediente:CONSULTAR, notificaciones.aviso:CONSULTAR, partidos.partido:CONSULTAR, registros.documento:CONSULTAR, registros.registro:CONSULTAR |
 | `PRESIDENTE` | Presidente del Comité Ejecutivo | LIGA | Sí | auditoria.registro:CONSULTAR, canchas.cancha:CONSULTAR, canchas.solicitud:APROBAR, competencias.propuesta:APROBAR, disciplina.expediente:CONSULTAR, disciplina.recurso:RESOLVER, notificaciones.aviso:CONSULTAR, organizacion.afiliacion:APROBAR, organizacion.club:CONSULTAR, organizacion.directiva:APROBAR, organizacion.equipo:CONSULTAR, organizacion.venta:APROBAR, partidos.partido:CONSULTAR, partidos.sorteo:REGISTRAR, programacion.jornada:APROBAR, programacion.jornada:CONSULTAR, publicacion.comunicado:APROBAR, reportes.reporte:CONSULTAR, reportes.reporte:EXPORTAR, seguridad.permisos:APROBAR_INCOMPATIBLE, seguridad.rol:CONSULTAR, temporadas.interpretacion:APROBAR, temporadas.temporada:CONSULTAR |
 | `PROGRAMADOR` | Programador de partidos | LIGA | Sí | arbitraje.arbitro:CONSULTAR, arbitraje.designacion:CONSULTAR, canchas.cancha:CONSULTAR, competencias.fase:EDITAR, notificaciones.aviso:CONSULTAR, organizacion.equipo:CONSULTAR, partidos.partido:CAMBIAR_ESTADO, partidos.partido:CONSULTAR, programacion.jornada:CONSULTAR, programacion.jornada:EDITAR, programacion.jornada:ENVIAR, temporadas.temporada:CONSULTAR |
-| `SECRETARIO` | Secretario (liga) | LIGA | Sí | canchas.cancha:CONSULTAR, canchas.oficio:GENERAR, canchas.solicitud:CREAR, notificaciones.aviso:CONSULTAR, organizacion.afiliacion:CAPTURAR, organizacion.club:CONSULTAR, organizacion.club:EDITAR, organizacion.directiva:EDITAR, organizacion.equipo:CONSULTAR, organizacion.persona:CONSULTAR, organizacion.persona:EDITAR, publicacion.comunicado:REDACTAR, registros.documento:CONSULTAR, registros.documento:VALIDAR, registros.registro:CONSULTAR, registros.registro:VALIDAR, reportes.reporte:CONSULTAR, reportes.reporte:EXPORTAR, seguridad.consentimiento:REGISTRAR, temporadas.convocatoria:EDITAR, temporadas.temporada:CONSULTAR |
+| `SECRETARIO` | Secretario (liga) | LIGA | Sí | canchas.cancha:CONSULTAR, canchas.oficio:GENERAR, canchas.solicitud:CREAR, notificaciones.aviso:CONSULTAR, organizacion.afiliacion:CAPTURAR, organizacion.club:CONSULTAR, organizacion.club:EDITAR, organizacion.directiva:EDITAR, organizacion.equipo:CONSULTAR, organizacion.equipo:EDITAR, organizacion.persona:CONSULTAR, organizacion.persona:EDITAR, publicacion.comunicado:REDACTAR, registros.documento:CONSULTAR, registros.documento:VALIDAR, registros.registro:CONSULTAR, registros.registro:VALIDAR, reportes.reporte:CONSULTAR, reportes.reporte:EXPORTAR, seguridad.consentimiento:REGISTRAR, temporadas.convocatoria:EDITAR, temporadas.temporada:CONSULTAR |
 | `SISTEMA` | Sistema | LIGA | No | — |
-| `TESORERO` | Tesorero (liga) | LIGA | Sí | canchas.cancha:CONSULTAR, notificaciones.aviso:CONSULTAR, organizacion.club:CONSULTAR, reportes.reporte:CONSULTAR, reportes.reporte:EXPORTAR, tesoreria.cobro:CONSULTAR, tesoreria.cobro:CREAR, tesoreria.pago:REGISTRAR, tesoreria.tarifa:EDITAR |
+| `TESORERO` | Tesorero (liga) | LIGA | Sí | canchas.cancha:CONSULTAR, notificaciones.aviso:CONSULTAR, organizacion.club:CONSULTAR, organizacion.equipo:CONSULTAR, reportes.reporte:CONSULTAR, reportes.reporte:EXPORTAR, tesoreria.cobro:CONSULTAR, tesoreria.cobro:CREAR, tesoreria.pago:REGISTRAR, tesoreria.tarifa:EDITAR |
 | `USUARIO_PUBLICO` | Usuario público | LIGA | No | — |
 
 ### 10.2 Catálogo de permisos
@@ -2072,7 +2079,7 @@ Ningún rol de la matriz inicial contiene un par incompatible.
 | RF-057, RF-062 a RF-065 | Expediente, resolución inmutable y sanción | `expedientes`, `resoluciones`, `sanciones` |
 | RF-090, RF-121, DD-008 | Publicación con aprobación del Presidente | `tg_publicacion_estado`, `historial_publicacion` |
 | RF-136 a RF-141, VAL-028 | Cobros, pago simulado y vencimiento | `cobros`, `intentos_pago`, `pagos`, `tg_cobros_estado`, `tg_pagos_validar` |
-| RF-093, RNF-015 | Auditoría inalterable | `auditoria` (solo INSERT/SELECT), `tg_auditoria_inmutable` |
+| RF-093, RNF-015 | Auditoría inalterable | `auditoria` (solo INSERT/SELECT), `tg_auditoria_inmutable`, `tg_auditoria_sin_truncate`; también `tg_resoluciones_sin_truncate` y `tg_parametros_sin_truncate` |
 | RF-095, RF-096, VAL-022, VAL-023 | Permisos configurables y control dual | `rol_permisos`, `pares_incompatibles`, `solicitudes_cambio_permisos`, `tg_rol_permisos_propio` |
 | RN-054, RNF-012, VAL-024 | Ámbito de club y datos personales | Políticas RLS (§9.1) |
 | RNF-018, RF-108 | Documentos privados | `documentos` (bucket, clave y URL de S3) |
@@ -2083,7 +2090,8 @@ Ningún rol de la matriz inicial contiene un par incompatible.
 
 [`supabase/pruebas/`](../../supabase/pruebas/) contiene una simulación mínima de Supabase y pruebas que
 recorren P-01, P-02, P-03, P-05, P-06 y P-11 con el rol `siglim_app` y verifican 50 reglas (conflictos,
-separación de funciones, RLS por ámbito, inmutabilidad, desempates). Se ejecutan con
+separación de funciones, RLS por ámbito, inmutabilidad, desempates). Desde la versión 2.2 también
+comprueban que las tablas inmutables no se vacían con `TRUNCATE`, directo ni por cascada. Se ejecutan con
 `supabase/pruebas/ejecutar.sh` contra un PostgreSQL local.
 
 ## 13. Cambios respecto a la versión 1.0

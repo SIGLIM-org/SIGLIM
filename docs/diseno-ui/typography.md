@@ -1,7 +1,7 @@
 # Tipografía y Jerarquía - SIGLIM
 
 > [!WARNING]
-> **Reemplazado** por [`DESIGN.md`](DESIGN.md) (prototipo aprobado el 20 de octubre de 2026). Se conserva como referencia de la primera ronda de capturas.
+> **Reemplazado** por [`DESIGN.md`](../../DESIGN.md) (prototipo aprobado el 20 de octubre de 2026). Se conserva como referencia de la primera ronda de capturas.
 
 ## 1. Familia Tipográfica
 - **Fuente Principal**: Inter / Roboto / System Sans-Serif (`font-sans`).

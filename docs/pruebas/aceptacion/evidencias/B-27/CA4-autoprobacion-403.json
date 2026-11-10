@@ -1,0 +1,8 @@
+{
+  "detail": "Quien redactó el comunicado no puede aprobarlo: la aprobación corresponde al Presidente.",
+  "instance": "/api/v1/comunicados/7ec46db5-b4dc-44f9-b58a-14b3e72709ef/resolucion",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/rf-090",
+  "codigo": "RF-090"
+}

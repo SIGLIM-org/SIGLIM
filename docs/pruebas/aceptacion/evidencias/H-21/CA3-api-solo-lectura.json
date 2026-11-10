@@ -1,0 +1,26 @@
+[
+  {
+    "metodo": "POST",
+    "ruta": "/api/v1/auditoria",
+    "estado": 405,
+    "allow": "GET",
+    "tipo": "application/problem+json",
+    "cuerpo": "{\"detail\":\"Esta operación no está disponible para este recurso.\",\"instance\":\"/api/v1/auditoria\",\"status\":405,\"title\":\"Método no permitido\",\"type\":\"https://siglim.mx/errores/metodo-no-permitido\",\"codigo\":\"METODO_NO_PERMITIDO\"}"
+  },
+  {
+    "metodo": "PUT",
+    "ruta": "/api/v1/auditoria/1",
+    "estado": 404,
+    "allow": null,
+    "tipo": "application/problem+json",
+    "cuerpo": "{\"detail\":\"El recurso no existe o no tienes acceso a él.\",\"instance\":\"/api/v1/auditoria/1\",\"status\":404,\"title\":\"Recurso no encontrado\",\"type\":\"https://siglim.mx/errores/no-encontrado\",\"codigo\":\"NO_ENCONTRADO\"}"
+  },
+  {
+    "metodo": "DELETE",
+    "ruta": "/api/v1/auditoria/1",
+    "estado": 404,
+    "allow": null,
+    "tipo": "application/problem+json",
+    "cuerpo": "{\"detail\":\"El recurso no existe o no tienes acceso a él.\",\"instance\":\"/api/v1/auditoria/1\",\"status\":404,\"title\":\"Recurso no encontrado\",\"type\":\"https://siglim.mx/errores/no-encontrado\",\"codigo\":\"NO_ENCONTRADO\"}"
+  }
+]

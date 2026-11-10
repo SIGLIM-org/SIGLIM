@@ -1,0 +1,31 @@
+-- CA-1 · Cobros en siglim.cobros tras el alta (base local efímera, psql como postgres)
+SELECT c.id, cl.nombre AS club, e.nombre AS equipo, c.tipo, c.concepto, c.monto, c.periodo_inicio, c.fecha_limite, c.estado, p.nombre_mostrado AS creado_por FROM siglim.cobros c JOIN siglim.clubes cl ON cl.id = c.club_id LEFT JOIN siglim.equipos e ON e.id = c.equipo_id LEFT JOIN siglim.perfiles p ON p.id = c.creado_por ORDER BY c.creado_en;
+                  id                  |         club          |   equipo   |  tipo  |                concepto                |  monto  | periodo_inicio | fecha_limite |  estado   |     creado_por      
+--------------------------------------+-----------------------+------------+--------+----------------------------------------+---------+----------------+--------------+-----------+---------------------
+ c93d9917-49b2-4fba-bd4f-b8fcd01e54ef | Club Halcones Morelia | Halcones A | MANUAL | Cuota de inscripción temporada 2026-27 | 1500.00 | 2026-11-06     | 2026-11-20   | PENDIENTE | Tesorería de prueba
+ e1c9a897-e909-4297-a4b2-5d9fc991c600 | Club Halcones Morelia |            | MANUAL | Uso de cancha para entrenamiento       |  350.50 | 2026-11-06     | 2026-11-20   | PENDIENTE | Tesorería de prueba
+(2 rows)
+
+-- Auditoría de los cobros (M-13)
+SELECT a.id, a.modulo, a.accion, a.entidad, a.entidad_id, pf.nombre_mostrado AS usuario, a.motivo, jsonb_pretty(a.detalle) AS detalle, a.detalle ? 'concepto' AS detalle_lleva_concepto FROM siglim.auditoria a LEFT JOIN siglim.perfiles pf ON pf.id = a.perfil_id WHERE a.entidad = 'cobros' ORDER BY a.id;
+ id | modulo |     accion      | entidad |              entidad_id              |       usuario       | motivo |                         detalle                         | detalle_lleva_concepto 
+----+--------+-----------------+---------+--------------------------------------+---------------------+--------+---------------------------------------------------------+------------------------
+  1 | M-13   | REGISTRAR_COBRO | cobros  | c93d9917-49b2-4fba-bd4f-b8fcd01e54ef | Tesorería de prueba |        | {                                                      +| f
+    |        |                 |         |                                      |                     |        |     "tipo": "MANUAL",                                  +| 
+    |        |                 |         |                                      |                     |        |     "monto": 1500.00,                                  +| 
+    |        |                 |         |                                      |                     |        |     "clubId": "e1000000-0000-4000-8000-000000000001",  +| 
+    |        |                 |         |                                      |                     |        |     "estado": "PENDIENTE",                             +| 
+    |        |                 |         |                                      |                     |        |     "equipoId": "f1000000-0000-4000-8000-00000000000a",+| 
+    |        |                 |         |                                      |                     |        |     "fechaLimite": "2026-11-20",                       +| 
+    |        |                 |         |                                      |                     |        |     "periodoInicio": "2026-11-06"                      +| 
+    |        |                 |         |                                      |                     |        | }                                                       | 
+  2 | M-13   | REGISTRAR_COBRO | cobros  | e1c9a897-e909-4297-a4b2-5d9fc991c600 | Tesorería de prueba |        | {                                                      +| f
+    |        |                 |         |                                      |                     |        |     "tipo": "MANUAL",                                  +| 
+    |        |                 |         |                                      |                     |        |     "monto": 350.5,                                    +| 
+    |        |                 |         |                                      |                     |        |     "clubId": "e1000000-0000-4000-8000-000000000001",  +| 
+    |        |                 |         |                                      |                     |        |     "estado": "PENDIENTE",                             +| 
+    |        |                 |         |                                      |                     |        |     "fechaLimite": "2026-11-20",                       +| 
+    |        |                 |         |                                      |                     |        |     "periodoInicio": "2026-11-06"                      +| 
+    |        |                 |         |                                      |                     |        | }                                                       | 
+(2 rows)
+

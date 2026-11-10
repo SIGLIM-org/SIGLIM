@@ -107,6 +107,33 @@ describe('ModalMotivo', () => {
     expect(screen.getByText('5/500')).toBeInTheDocument()
   })
 
+  it('H-07: pinta el aviso entre la descripción y el motivo, y conserva lo escrito', () => {
+    const { rerender } = render(
+      <ModalMotivo
+        abierto
+        titulo="Desactivar cancha"
+        descripcion="Efecto"
+        onConfirmar={vi.fn()}
+        onCancelar={vi.fn()}
+      />,
+    )
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: 'Motivo escrito antes' } })
+
+    rerender(
+      <ModalMotivo
+        abierto
+        titulo="Desactivar cancha"
+        descripcion="Efecto"
+        aviso={<p>Dos partidos afectados</p>}
+        onConfirmar={vi.fn()}
+        onCancelar={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Dos partidos afectados')).toBeInTheDocument()
+    expect(screen.getByLabelText(/Motivo/)).toHaveValue('Motivo escrito antes')
+  })
+
   it('limita el motivo a 500 caracteres', async () => {
     render(<Escenario />)
     await abrir()

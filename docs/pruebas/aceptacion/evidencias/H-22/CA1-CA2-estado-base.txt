@@ -1,0 +1,23 @@
+H-22 · Estado de la base local al cerrar la corrida (2026-11-08)
+
+1. Cargos de directiva del Deportivo Halcones H-22 (no se borró ninguna fila)
+   cargo    |      titular       | vigencia_desde | vigencia_hasta |        autorizado_por
+------------+--------------------+----------------+----------------+-------------------------------
+ PRESIDENTE | Ana Ruiz Hernández | 2024-01-15     | 2026-11-30     | Presidente de aceptación H-22
+ PRESIDENTE | Bruno Salas López  | 2026-12-01     | (sin fin)      | Presidente de aceptación H-22
+(2 rows)
+
+
+2. Auditoría de la operación (RF-093)
+ id |          ocurrido_en          | modulo |          accion           |         ejecutado_por         |    motivo    |                                                                                             detalle
+----+-------------------------------+--------+---------------------------+-------------------------------+--------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  1 | 2026-11-09 05:51:47.671494+00 | M-03   | REGISTRAR_CARGO_DIRECTIVA | Directiva Halcones H-22       | (sin motivo) | {"cargo": "PRESIDENTE", "desde": "2026-12-01", "clubId": "c0000000-0000-4000-8000-000000000001", "estado": "PENDIENTE"}
+  2 | 2026-11-09 05:51:50.637749+00 | M-03   | AUTORIZAR_CARGO_DIRECTIVA | Presidente de aceptación H-22 | (sin motivo) | {"cargo": "PRESIDENTE", "desde": "2026-12-01", "clubId": "c0000000-0000-4000-8000-000000000001", "cargoAnteriorId": "d0000000-0000-4000-8000-000000000001", "cargoAnteriorHasta": "2026-11-30"}
+(2 rows)
+
+
+3. Integridad: filas totales de cargos_directiva del club
+ filas_del_club
+----------------
+              2
+(1 row)

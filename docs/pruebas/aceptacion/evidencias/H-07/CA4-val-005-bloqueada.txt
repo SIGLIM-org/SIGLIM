@@ -1,0 +1,8 @@
+RECHAZADO
+SQLSTATE=P0001
+HINT=VAL-005
+MENSAJE=ERROR: VAL-005: La cancha tiene bloqueo en ese horario: Riego del campo por mantenimiento.
+  Hint: VAL-005
+  Where: PL/pgSQL function error_negocio(text,text) line 3 at RAISE
+SQL statement "SELECT siglim.error_negocio('VAL-005', format('La cancha tiene %s en ese horario: %s.', lower(v_choque.tipo::text), v_choque.motivo))"
+PL/pgSQL function tg_partidos_programacion() line 37 at PERFORM

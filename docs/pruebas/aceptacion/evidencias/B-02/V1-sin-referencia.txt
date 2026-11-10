@@ -1,0 +1,2 @@
+{"detail":"Revisa los campos marcados.","instance":"/api/v1/temporadas/27a1639c-573b-46ea-8413-7c00299d98b7/convocatoria","status":400,"title":"Solicitud inválida","type":"https://siglim.mx/errores/validacion","codigo":"VALIDACION","errores":[{"campo":"referencia","mensaje":"La referencia de la convocatoria es obligatoria"}]}
+400

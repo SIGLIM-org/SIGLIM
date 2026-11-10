@@ -14,6 +14,11 @@ const clasesEnlace = ({ isActive }: { isActive: boolean }) =>
 const clasesSalto =
   'sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-label-md focus:text-on-primary'
 
+const enlacesPie = [
+  ...enlacesPortal,
+  { nombre: 'Aviso de privacidad', ruta: '/aviso-de-privacidad' },
+]
+
 /** Encabezado y pie del portal público (F-01). */
 export function PublicLayout() {
   const [menuAbierto, setMenuAbierto] = useState(false)
@@ -85,7 +90,7 @@ export function PublicLayout() {
           <div className="ml-auto flex items-center gap-2 lg:ml-3">
             <Link
               to="/login"
-              className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-3 text-label-md text-on-primary transition-colors hover:bg-primary-hover active:bg-primary-active"
+              className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-md bg-primary px-2 text-label-md text-on-primary transition-colors hover:bg-primary-hover active:bg-primary-active sm:gap-2 sm:px-3"
             >
               <LogIn aria-hidden="true" className="size-4" />
               Iniciar sesión
@@ -134,14 +139,29 @@ export function PublicLayout() {
       </main>
 
       <footer className="border-t border-border bg-surface">
-        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-6 text-body-sm text-text-muted sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <p>Liga Municipal de Futbol Amateur Morelia</p>
-          <Link
-            to="/aviso-de-privacidad"
-            className="underline underline-offset-2 hover:text-text-main"
-          >
-            Aviso de privacidad
-          </Link>
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-label-md text-text-main">
+              Liga Municipal de Futbol Amateur Morelia
+            </p>
+            <nav aria-label="Enlaces del portal">
+              <ul className="flex flex-wrap gap-x-5 gap-y-2 text-body-sm text-text-muted">
+                {enlacesPie.map((enlace) => (
+                  <li key={enlace.ruta}>
+                    <Link
+                      to={enlace.ruta}
+                      className="underline underline-offset-2 hover:text-text-main"
+                    >
+                      {enlace.nombre}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </div>
+          <p className="text-body-sm text-text-muted">
+            SIGLIM · Portal público de solo lectura
+          </p>
         </div>
       </footer>
     </div>

@@ -22,12 +22,46 @@ spring:
       maximum-pool-size: 5
       pool-name: siglim
 
+  # [PROPUESTA] Límite de la carga de documentos (ADR-0013 punto 4): 5 MB por archivo y 6 MB por
+  # petición para dejar espacio a los demás campos del formulario. Si se excede, 413
+  # ARCHIVO_DEMASIADO_GRANDE (convenciones de API §3.1).
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
 # Propiedades propias (SiglimPropiedades). Se validan al arrancar.
 siglim:
+  # Liga activa (ADR-0011 §5): los servicios filtran siempre por ella.
+  liga-id: ${SIGLIM_LIGA_ID}
   supabase:
     url: ${SUPABASE_URL}
+  # Alta de cuentas por invitación (H-03.1, ADR-0003 punto 5). La clave secreta solo vive aquí:
+  # nunca en el frontend ni en la bitácora.
+  invitaciones:
+    clave-secreta: ${SUPABASE_SECRET_KEY}
+    tiempo-conexion: 5s      # [PROPUESTA]
+    tiempo-respuesta: 10s    # [PROPUESTA]
+    # Origen del frontend al que vuelve el enlace de la invitación (+ /restablecer-contrasena).
+    origen-frontend: ${SIGLIM_FRONTEND_ORIGEN}
   cors:
     origenes: ${SIGLIM_CORS_ORIGEN}
+  # Documentos en AWS S3 (ADR-0013). Si las llaves quedan vacías, el SDK usa ~/.aws.
+  almacenamiento:
+    bucket: ${SIGLIM_S3_BUCKET}
+    region: ${AWS_REGION}
+    access-key-id: ${AWS_ACCESS_KEY_ID:}
+    secret-access-key: ${AWS_SECRET_ACCESS_KEY:}
+    vigencia-enlace: 60s     # [PROPUESTA] ADR-0013 punto 6
+    tamano-maximo: 5MB       # [PROPUESTA] ADR-0013 punto 4; no puede superar el CHECK de BD (5242880)
+  # Tareas programadas (ADR-0009): corren como el perfil Sistema con EjecutorSistema. Las pruebas
+  # las apagan en src/test/resources/config/application.yml y las invocan directamente.
+  tareas:
+    vencimiento-cobros:
+      habilitada: true
+      # [PROPUESTA] ADR-0009 §5: diaria a las 00:05 en America/Mexico_City (la zona va en el código).
+      # Formato de Spring: segundo minuto hora día mes día-de-la-semana. También corre al arrancar (DEC-60).
+      cron: "0 5 0 * * *"
 
 # Monitoreo (RNF-001, RNF-011): solo /actuator/health, sin detalles internos hacia afuera.
 management:

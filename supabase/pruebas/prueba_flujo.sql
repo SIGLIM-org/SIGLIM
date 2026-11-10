@@ -86,6 +86,28 @@ FROM (VALUES
 SELECT prueba.espera_error($$INSERT INTO siglim.rol_permisos SELECT r.id, p.id FROM siglim.roles r, siglim.permisos p
   WHERE r.codigo = 'ADMINISTRADOR_GENERAL' AND p.codigo = 'tesoreria.cobro:CREAR'$$, 'VAL-022');
 
+-- Apéndice E: el Secretario registra y edita equipos (migración 20261103100000, H-06.1)
+SELECT prueba.verifica(EXISTS (
+  SELECT 1 FROM siglim.rol_permisos rp
+    JOIN siglim.roles r ON r.id = rp.rol_id
+    JOIN siglim.permisos p ON p.id = rp.permiso_id
+   WHERE r.codigo = 'SECRETARIO' AND p.codigo = 'organizacion.equipo:EDITAR'),
+  'RF-009: el SECRETARIO tiene organizacion.equipo:EDITAR');
+
+-- DEC-55: el Tesorero consulta equipos para dirigir cobros, sin editarlos (migración 20261106160000, DEF-06)
+SELECT prueba.verifica(EXISTS (
+  SELECT 1 FROM siglim.rol_permisos rp
+    JOIN siglim.roles r ON r.id = rp.rol_id
+    JOIN siglim.permisos p ON p.id = rp.permiso_id
+   WHERE r.codigo = 'TESORERO' AND p.codigo = 'organizacion.equipo:CONSULTAR'),
+  'RF-137, DEC-55: el TESORERO tiene organizacion.equipo:CONSULTAR');
+SELECT prueba.verifica(NOT EXISTS (
+  SELECT 1 FROM siglim.rol_permisos rp
+    JOIN siglim.roles r ON r.id = rp.rol_id
+    JOIN siglim.permisos p ON p.id = rp.permiso_id
+   WHERE r.codigo = 'TESORERO' AND p.codigo = 'organizacion.equipo:EDITAR'),
+  'RF-137, DEC-55: el TESORERO no tiene organizacion.equipo:EDITAR');
+
 -- Temporada, categorías con jerarquía, grupos y parámetros
 INSERT INTO siglim.categorias (id, liga_id, nombre, tipo, orden) VALUES
   ('40000000-0000-4000-8000-000000000001', :'liga', 'Primera Fuerza', 'LIBRE', 1);
@@ -377,6 +399,27 @@ INSERT INTO siglim.solicitudes_cambio_permisos (id, rol_id, permisos_agregados, 
 SELECT 'e1000000-0000-4000-8000-000000000001', r.id, ARRAY[p.id], 'Prueba de control dual', :'admin'
 FROM siglim.roles r, siglim.permisos p WHERE r.codigo = 'CAPTURISTA' AND p.codigo = 'partidos.cedula:APROBAR';
 SELECT prueba.espera_error($$UPDATE siglim.solicitudes_cambio_permisos SET estado = 'APROBADO', resuelto_por = siglim.usuario_actual(), resuelto_en = now()$$, 'ck_solicitudes_permisos_dual');
+COMMIT;
+
+-- ================= Inmutables contra TRUNCATE (SCRUM-397) =============================
+-- siglim_app no tiene el privilegio; el dueño del esquema choca con el trigger de sentencia.
+BEGIN;
+SET LOCAL ROLE siglim_app;
+SELECT prueba.espera_error($$TRUNCATE siglim.auditoria$$, 'permission denied');
+COMMIT;
+BEGIN;   -- como dueño del esquema (sin SET ROLE)
+SELECT count(*) AS n_auditoria FROM siglim.auditoria \gset
+SELECT prueba.espera_error($$TRUNCATE siglim.auditoria$$, 'RNF-015');
+-- resoluciones y parametros_temporada son referenciadas por otras tablas: sin CASCADE ya las
+-- protege la llave foránea, así que se prueba la variante con CASCADE, que sí llegaba a vaciarlas.
+SELECT prueba.espera_error($$TRUNCATE siglim.resoluciones CASCADE$$, 'RNF-015');
+SELECT prueba.espera_error($$TRUNCATE siglim.parametros_temporada CASCADE$$, 'RNF-015');
+SELECT prueba.espera_error($$TRUNCATE siglim.perfiles CASCADE$$, 'RNF-015');
+SELECT prueba.verifica((SELECT count(*) FROM siglim.auditoria) = :n_auditoria,
+  'RNF-015: la auditoría conserva sus filas tras los TRUNCATE rechazados');
+SELECT prueba.verifica((SELECT count(*) FROM siglim.resoluciones) > 0
+  AND (SELECT count(*) FROM siglim.parametros_temporada) > 0,
+  'RNF-015: resoluciones y parámetros conservan sus filas');
 COMMIT;
 
 SELECT 'PRUEBAS COMPLETADAS' AS resultado;

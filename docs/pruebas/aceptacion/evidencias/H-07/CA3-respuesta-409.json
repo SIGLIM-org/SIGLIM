@@ -1,0 +1,27 @@
+{
+  "detail": "El bloqueo afecta a 1 partido(s), que no se reprogramarán solos.",
+  "instance": "/api/v1/canchas/0ac39d8e-0dbf-4a50-956b-3e26cca9c7b8/disponibilidad",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/rf-030",
+  "codigo": "RF-030",
+  "aceptable": true,
+  "partidosAfectados": [
+    {
+      "id": "a07ba8e1-ca63-4f84-8565-a2b28b3d1db4",
+      "estado": "PROGRAMADO",
+      "periodo": {
+        "desde": "2026-11-03T10:00:00-06:00",
+        "hasta": "2026-11-03T12:00:00-06:00"
+      },
+      "equipoLocal": {
+        "id": "b628fcdb-906a-47b0-8d89-87e84b619143",
+        "nombre": "Local H-07 8a437e6e-cad5-4ded-8ec0-b7922eb7bb98"
+      },
+      "equipoVisitante": {
+        "id": "bfb53173-ef97-4471-8e3c-0450c319f06e",
+        "nombre": "Visitante H-07 4978244d-caf7-4277-a318-45fd97590220"
+      }
+    }
+  ]
+}

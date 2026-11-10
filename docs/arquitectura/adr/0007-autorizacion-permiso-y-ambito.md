@@ -41,6 +41,11 @@ lo que impide que los permisos sean configurables (DP-008).
   falta del permiso responde **403**. Las convenciones de API (paso 5) fijan el formato.
 - Las asignaciones del usuario se leen **una vez por petición**, sin caché entre peticiones, para
   que un cambio de permisos surta efecto de inmediato (ADR-0003).
+- Actualización 2026-10-27 (H-02.1): las asignaciones se leen en cada llamada a `exigir` o
+  `alcance`, sin caché (cumple la intención de «sin caché entre peticiones»; un caché por petición
+  fallaría fuera de HTTP y usaría permisos viejos si la petición los cambia); los listados usan
+  `autorizacion.alcance(permiso)` en su `WHERE`; el objetivo de un partido incluye a jugadores y
+  árbitros designados.
 - El código **nunca** compara nombres de rol. `GET /api/v1/yo` devuelve los permisos
   efectivos con su ámbito para que el frontend oculte lo que no aplica; el frontend no es barrera.
 - Actualización 2026-10-23 (H-01.1): un solo endpoint, decisión del equipo. `GET /api/v1/yo`

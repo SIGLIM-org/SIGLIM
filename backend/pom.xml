@@ -12,6 +12,9 @@
   - validation: Jakarta Validation de DTO y de la configuración (falla al arrancar si falta una variable).
   - actuator:   /actuator/health para el monitoreo (RNF-001, RNF-011).
   - security-oauth2-resource-server: valida el JWT de Supabase Auth con su JWKS (T-02.2, ADR-0003).
+  - awssdk s3:  carga de documentos y URL prefirmadas en AWS S3 (T-04, ADR-0013 «Consecuencias»).
+                Sin netty-nio-client: el backend es síncrono y basta el cliente HTTP de Apache
+                (apache5-client, el que el SDK trae por defecto).
   Pruebas de integración con BD (T-02.3, decisión del equipo del 22 oct 2026): Testcontainers con
   PostgreSQL 17 (la versión de Supabase). Requieren Docker; sin Docker se omiten (*IT con failsafe).
 -->
@@ -38,6 +41,18 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>2.57.4</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -62,6 +77,16 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Pruebas: JUnit 5, AssertJ, Mockito y MockMvcTester (@WebMvcTest). -->

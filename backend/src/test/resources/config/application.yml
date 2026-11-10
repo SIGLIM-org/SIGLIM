@@ -1,0 +1,10 @@
+# Configuración común de las pruebas con contexto de Spring.
+# Spring Boot lee classpath:/config/application.yml además de classpath:/application.yml y le da
+# prioridad, así que aquí solo se sobrescriben valores: el resto sigue viniendo del de main.
+
+siglim:
+  tareas:
+    # Las tareas programadas (ADR-0009) no se disparan solas en las pruebas: ni con el cron ni al
+    # arrancar. Sus pruebas las invocan directamente con un reloj fijo (backend/AGENTS.md).
+    vencimiento-cobros:
+      habilitada: false

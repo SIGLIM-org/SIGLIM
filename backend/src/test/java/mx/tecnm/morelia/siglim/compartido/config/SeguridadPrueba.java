@@ -48,7 +48,9 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
  * de {@code ex_partidos_cancha_ocupada} de la migración y sin consultar la base de datos.
  *
  * <p>Uso: {@code @Import(SeguridadPrueba.class)} y, en {@code @WebMvcTest(properties = …)},
- * {@code SUPABASE_URL=} {@link #URL_SUPABASE} y {@code SIGLIM_CORS_ORIGEN=} {@link #ORIGEN_FRONTEND}.
+ * {@code SUPABASE_URL=} {@link #URL_SUPABASE}, {@code SIGLIM_CORS_ORIGEN=} {@link #ORIGEN_FRONTEND}
+ * y las variables {@code SIGLIM_LIGA_ID}, {@code SIGLIM_S3_BUCKET} y {@code AWS_REGION} que valida
+ * {@link SiglimPropiedades}.
  */
 @TestConfiguration(proxyBeanMethods = false)
 @Import({SeguridadConfig.class, PuntoEntradaNoAutenticado.class, ConvertidorAutenticacion.class,
@@ -125,6 +127,15 @@ public class SeguridadPrueba {
     /** Token de sesión válido, como el que emite Supabase Auth al iniciar sesión. */
     public static String tokenValido() {
         return token(LLAVE_PROYECTO, reclamos -> { });
+    }
+
+    /**
+     * Token con reclamos válidos pero firmado con una llave que no está en el JWKS del proyecto: la
+     * cadena de seguridad debe rechazarlo con {@code 401}. Lo usa el arnés de H-02.3 desde otros
+     * paquetes de prueba.
+     */
+    public static String tokenFirmadoConLlaveAjena() {
+        return token(LLAVE_AJENA, reclamos -> { });
     }
 
     /**

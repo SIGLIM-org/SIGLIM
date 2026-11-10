@@ -15,7 +15,11 @@ type Metodo = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 export type OpcionesPeticion = Omit<RequestInit, 'body' | 'method'> & {
   metodo?: Metodo
-  /** Se serializa como JSON y fija `Content-Type: application/json`. */
+  /**
+   * Un `FormData` se envía tal cual como `multipart/form-data`, sin fijar `Content-Type` para que
+   * el navegador agregue el `boundary`. Cualquier otro valor se serializa como JSON y fija
+   * `Content-Type: application/json`.
+   */
   cuerpo?: unknown
 }
 
@@ -29,6 +33,18 @@ async function tokenActual(): Promise<string | undefined> {
   return data.session?.access_token
 }
 
+/** Miembros del problema con campo propio; los demás van a `extensiones`. */
+const MIEMBROS_CONOCIDOS = new Set([
+  'type',
+  'title',
+  'status',
+  'detail',
+  'instance',
+  'codigo',
+  'errores',
+  'aceptable',
+])
+
 /**
  * Lee el problema RFC 9457 de una respuesta de error. Si un proxy o una caída
  * responden sin JSON, se usa un respaldo con la misma forma para que la
@@ -39,7 +55,13 @@ async function leerProblema(respuesta: Response): Promise<Problema> {
 
   if (tipo.includes('json')) {
     try {
-      const problema = (await respuesta.json()) as Partial<Problema>
+      const problema = (await respuesta.json()) as Partial<Problema> &
+        Record<string, unknown>
+      const extensiones = Object.fromEntries(
+        Object.entries(problema).filter(
+          ([clave]) => !MIEMBROS_CONOCIDOS.has(clave),
+        ),
+      )
 
       if (typeof problema.codigo === 'string' && problema.codigo.length > 0) {
         return {
@@ -51,6 +73,7 @@ async function leerProblema(respuesta: Response): Promise<Problema> {
           codigo: problema.codigo,
           errores: problema.errores,
           aceptable: problema.aceptable,
+          ...(Object.keys(extensiones).length > 0 ? { extensiones } : {}),
         }
       }
     } catch {
@@ -79,6 +102,9 @@ async function leerProblema(respuesta: Response): Promise<Problema> {
  * Ejecuta una petición al API, agrega el token de Supabase y convierte los
  * errores RFC 9457 en `ApiError` (T-03.4, convenciones de API §3).
  *
+ * El cuerpo viaja como JSON o, si es un `FormData`, como `multipart/form-data` (p. ej. un
+ * comprobante de pago, convenciones §6.13).
+ *
  * Una respuesta exitosa sin cuerpo (204, o 200/201 construidos con `build()`)
  * resuelve `undefined` en lugar de fallar al intentar leer JSON.
  */
@@ -97,9 +123,12 @@ export async function peticion<T>(
     cabeceras.set('Authorization', `Bearer ${token}`)
   }
 
-  let contenido: string | undefined
+  let contenido: string | FormData | undefined
 
-  if (cuerpo !== undefined) {
+  if (cuerpo instanceof FormData) {
+    // Sin Content-Type: el navegador lo fija con el boundary del multipart.
+    contenido = cuerpo
+  } else if (cuerpo !== undefined) {
     cabeceras.set('Content-Type', 'application/json')
     contenido = JSON.stringify(cuerpo)
   }

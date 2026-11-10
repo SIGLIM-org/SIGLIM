@@ -1,0 +1,15 @@
+# H-30.3 · CA-4 · Aviso «Pago simulado: no se realiza ningún cargo»
+# Comprobado en cada paso del flujo real de la interfaz (Edge headless, 390x844).
+
+1. CA-1 paso 1 · 2026-11-08T03:33:15.414Z
+2. CA-1 paso 2 · 2026-11-08T03:33:15.806Z
+3. CA-1 paso 3 · 2026-11-08T03:33:16.311Z
+4. CA-2 paso 1 · 2026-11-08T03:33:16.623Z
+5. CA-2 paso 2 · 2026-11-08T03:33:16.771Z
+6. CA-2 paso 3 (rechazo) · 2026-11-08T03:33:16.974Z
+7. CA-2 reintento paso 1 · 2026-11-08T03:33:17.286Z
+8. CA-2 reintento paso 2 · 2026-11-08T03:33:17.470Z
+9. CA-2 reintento paso 3 · 2026-11-08T03:33:17.707Z
+
+Total de pasos con el aviso visible: 9
+Texto exacto: Pago simulado: no se realiza ningún cargo

@@ -1,0 +1,25 @@
+{
+  "detail": "La temporada necesita parámetros deportivos antes de activarse.",
+  "instance": "/api/v1/temporadas/78b9b73a-3267-4266-bafa-cfb7ba8b5929/activacion",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/rf-100",
+  "codigo": "RF-100",
+  "requisitos": [
+    {
+      "codigo": "RF-100",
+      "descripcion": "Faltan los parámetros deportivos de la temporada.",
+      "cumple": false
+    },
+    {
+      "codigo": "RF-004",
+      "descripcion": "Falta asignar al menos una categoría a la temporada.",
+      "cumple": false
+    },
+    {
+      "codigo": "RF-005",
+      "descripcion": "Falta crear al menos un grupo en una categoría.",
+      "cumple": false
+    }
+  ]
+}

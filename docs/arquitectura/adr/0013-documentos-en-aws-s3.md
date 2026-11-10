@@ -55,3 +55,15 @@ con URL firmadas de vigencia corta por usuarios con permiso y ámbito (RNF-018).
 - Los respaldos de la base no incluyen los archivos: el versionado de S3 y, si la Liga lo pide, la
   replicación a otro bucket cubren su recuperación.
 - La tabla `siglim.documentos` y su RLS están en la migración inicial `20261020090000_esquema_inicial.sql`.
+
+## Notas de implementación (2026-10-26, T-04)
+- **Región `us-east-2`** en lugar de la región de México [PROPUESTA] del punto 1: la cuenta de AWS
+  es del tipo «proyectos», que asigna `us-east-2` a México, y `mx-central-1` no está disponible sin
+  activar funciones avanzadas de la cuenta. La región sigue siendo configurable (`AWS_REGION`).
+- **Solo TLS:** además de lo del punto 1, la política del bucket deniega toda petición sin TLS
+  (`aws:SecureTransport = false`).
+- **Un usuario IAM por desarrollador** con la política de mínimo privilegio del punto 2 adjunta
+  directamente, porque la cuenta por proyectos no permite grupos de IAM. Cada quien pone sus llaves
+  en su propio `backend/.env`.
+- **Sin `s3:ListBucket`:** una clave inexistente responde **403**, no 404, porque S3 no revela qué
+  existe a quien no puede listar. El backend no debe interpretar un 403 de S3 como «no existe».

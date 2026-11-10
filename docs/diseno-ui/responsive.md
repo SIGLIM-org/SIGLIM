@@ -1,7 +1,7 @@
 # Diseño Responsive y Breakpoints - SIGLIM
 
 > [!WARNING]
-> **Reemplazado** por [`DESIGN.md`](DESIGN.md) (prototipo aprobado el 20 de octubre de 2026). Se conserva como referencia de la primera ronda de capturas.
+> **Reemplazado** por [`DESIGN.md`](../../DESIGN.md) (prototipo aprobado el 20 de octubre de 2026). Se conserva como referencia de la primera ronda de capturas.
 
 ## 1. Breakpoints Principales
 - **Móvil (`< 640px`)**: Apilamiento vertical de tarjetas, menú hamburguesa para navegación principal, transformación de tablas anchas en vistas de tarjetas compactas cuando sea estrictamente necesario.

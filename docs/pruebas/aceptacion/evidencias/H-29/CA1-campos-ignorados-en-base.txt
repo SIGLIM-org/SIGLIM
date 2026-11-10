@@ -1,0 +1,8 @@
+-- CA-1 · Cobros creados por los POST con "estado" y "tipo" en el cuerpo (ejecutados al final, tras las evidencias del CA-2 y CA-3)
+SELECT c.id, cl.nombre AS club, c.tipo, c.concepto, c.monto, c.estado, c.sancion_id FROM siglim.cobros c JOIN siglim.clubes cl ON cl.id = c.club_id WHERE c.concepto LIKE 'Prueba campo %' ORDER BY c.creado_en;
+                  id                  |         club         |  tipo  |      concepto       | monto |  estado   | sancion_id 
+--------------------------------------+----------------------+--------+---------------------+-------+-----------+------------
+ 13df5ee3-67bd-41be-b18f-61849e957827 | Club Riviera Morelia | MANUAL | Prueba campo estado | 10.00 | PENDIENTE | 
+ f689523a-a4d8-48b2-97bf-3454d0ed78bd | Club Riviera Morelia | MANUAL | Prueba campo tipo   | 20.00 | PENDIENTE | 
+(2 rows)
+

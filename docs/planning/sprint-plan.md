@@ -108,7 +108,7 @@ Las horas de lo B en los Sprints 3 y 4 son estimación gruesa (SP × 3): sus sub
 Supuestos y reglas:
 
 - **Prioridad MoSCoW dentro del núcleo (DEC-47).** El ERS llama «núcleo comprometido» a 83 RF y 28 pantallas, que no caben en unas 6.5 semanas con 3 personas. Se compromete el **flujo central de punta a punta** (Must); el resto del núcleo (Should) queda listo para entrar en cuanto haya capacidad, y lo B queda como backlog.
-- **Nada pendiente se implementa como aprobado.** Las historias usan valores configurables, [DEMO] o [PROPUESTA] donde el ERS lo indica y no implementan las diferencias D-01 a D-12 de las pantallas.
+- **Nada pendiente se implementa como aprobado.** Las historias usan valores configurables, [DEMO] o [PROPUESTA] donde el ERS lo indica y no implementan las diferencias (D-xx) de [`pantallas/README.md` §3](../diseno-ui/pantallas/README.md).
 - **No entra trabajo ya hecho**: ERS, BPMN, arquitectura, BD, API y diseño. Sí entra lo que falta fuera del repositorio: aplicar la migración en Supabase (T-01) y crear la cuenta y el bucket de AWS (T-04).
 - **La demostración es local** con el proyecto Supabase de desarrollo mientras PEN-036 y PEN-037 sigan abiertos.
 

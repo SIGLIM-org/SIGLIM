@@ -31,4 +31,10 @@ esquema real y el documentado divergen.
 - **Actualización 2026-10-22:** el proyecto compartido está vinculado a GitHub y la integración de
   Supabase aplica las migraciones pendientes al fusionar en `main`. En ese proyecto no se aplican
   migraciones a mano; detalle en [`supabase/README.md`](../../../supabase/README.md).
+- **Actualización 2026-10-26 (DEC-51):** el código se integra en `develop` y llega a `main` solo al
+  cerrar cada sprint; por eso una migración fusionada en `develop` no se aplica al proyecto
+  compartido hasta ese cierre. Se resolvió en DEC-52 (abajo).
+- **Actualización 2026-10-27 (DEC-52):** la integración de GitHub usa `develop` como rama de
+  producción, así que la migración se aplica al fusionar su PR en `develop`. El proyecto compartido
+  es el entorno de integración del sprint; el PR `develop → main` no vuelve a aplicar nada.
 - Con la CLI y Docker, `supabase start` levanta un entorno local completo (Auth incluido).

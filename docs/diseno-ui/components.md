@@ -1,7 +1,7 @@
 # Componentes Visuales Reutilizables - SIGLIM
 
 > [!WARNING]
-> **Reemplazado** por [`DESIGN.md`](DESIGN.md) (prototipo aprobado el 20 de octubre de 2026). Se conserva como referencia de la primera ronda de capturas.
+> **Reemplazado** por [`DESIGN.md`](../../DESIGN.md) (prototipo aprobado el 20 de octubre de 2026). Se conserva como referencia de la primera ronda de capturas.
 
 ## 1. Botones (`Button`)
 - **Variantes**: 

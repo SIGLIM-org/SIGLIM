@@ -1,0 +1,8 @@
+RECHAZADO
+SQLSTATE=P0001
+HINT=VAL-005
+MENSAJE=ERROR: VAL-005: La cancha no está activa.
+  Hint: VAL-005
+  Where: PL/pgSQL function error_negocio(text,text) line 3 at RAISE
+SQL statement "SELECT siglim.error_negocio('VAL-005', 'La cancha no está activa.')"
+PL/pgSQL function tg_partidos_programacion() line 29 at PERFORM

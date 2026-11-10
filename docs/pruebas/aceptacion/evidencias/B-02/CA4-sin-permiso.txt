@@ -1,0 +1,2 @@
+{"detail":"Tu cuenta no tiene el permiso necesario para esta operación.","instance":"/api/v1/temporadas/27a1639c-573b-46ea-8413-7c00299d98b7/convocatoria","status":403,"title":"Acción no permitida","type":"https://siglim.mx/errores/val-015","codigo":"VAL-015"}
+403

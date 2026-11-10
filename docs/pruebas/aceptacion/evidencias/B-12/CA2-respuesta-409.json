@@ -1,0 +1,27 @@
+{
+  "detail": "El mantenimiento afecta a 1 partido(s), que no se reprogramarán solos.",
+  "instance": "/api/v1/canchas/a3000000-0000-4000-8000-000000000001/disponibilidad",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/rf-030",
+  "codigo": "RF-030",
+  "aceptable": true,
+  "partidosAfectados": [
+    {
+      "id": "a4000000-0000-4000-8000-000000000001",
+      "estado": "PROGRAMADO",
+      "periodo": {
+        "desde": "2026-11-05T15:00:00-06:00",
+        "hasta": "2026-11-05T17:00:00-06:00"
+      },
+      "equipoLocal": {
+        "id": "b2000000-0000-4000-8000-000000000001",
+        "nombre": "Halcones B-12"
+      },
+      "equipoVisitante": {
+        "id": "b2000000-0000-4000-8000-000000000002",
+        "nombre": "Toros B-12"
+      }
+    }
+  ]
+}

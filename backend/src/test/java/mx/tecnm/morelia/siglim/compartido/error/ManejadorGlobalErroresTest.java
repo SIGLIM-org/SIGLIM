@@ -21,6 +21,9 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
  */
 @WebMvcTest(controllers = ErroresPruebaController.class, properties = {
         "SUPABASE_URL=" + SeguridadPrueba.URL_SUPABASE,
+        "SIGLIM_LIGA_ID=a0000000-0000-4000-8000-000000000001",
+        "SIGLIM_S3_BUCKET=siglim-documentos-prueba",
+        "AWS_REGION=us-east-2",
         "SIGLIM_CORS_ORIGEN=" + SeguridadPrueba.ORIGEN_FRONTEND
 })
 @Import(SeguridadPrueba.class)
@@ -60,6 +63,16 @@ class ManejadorGlobalErroresTest {
             esProblema(resultado, HttpStatus.CONFLICT, "VAL-004");
             assertThat(resultado).bodyJson().extractingPath("$.detail").asString().contains("Unidad Deportiva Morelos 2");
             assertThat(resultado).bodyJson().extractingPath("$.instance").isEqualTo(BASE + "/regla");
+        }
+
+        @Test
+        @DisplayName("RF-030: las extensiones de ReglaNegocioException llegan al nivel raíz del problema")
+        void reglaConExtensiones() {
+            MvcTestResult resultado = get(BASE + "/regla-aceptable");
+
+            esProblema(resultado, HttpStatus.CONFLICT, "RF-030");
+            assertThat(resultado).bodyJson().extractingPath("$.aceptable").isEqualTo(true);
+            assertThat(resultado).bodyJson().extractingPath("$.partidosAfectados[0].id").isEqualTo("partido-1");
         }
 
         @Test
@@ -168,6 +181,47 @@ class ManejadorGlobalErroresTest {
         @DisplayName("Ruta inexistente (con sesión): 404 NO_ENCONTRADO")
         void rutaInexistente() {
             esProblema(get("/api/v1/no-existe"), HttpStatus.NOT_FOUND, "NO_ENCONTRADO");
+        }
+    }
+
+    @Nested
+    @DisplayName("Carga de archivos (convenciones §3.1 y §7)")
+    class ErroresDeArchivo {
+
+        @Test
+        @DisplayName("RF-108: archivo más grande que el límite responde 413 ARCHIVO_DEMASIADO_GRANDE")
+        void archivoDemasiadoGrande() {
+            MvcTestResult resultado = get(BASE + "/archivo/grande");
+
+            esProblema(resultado, HttpStatus.CONTENT_TOO_LARGE, "ARCHIVO_DEMASIADO_GRANDE");
+            assertThat(resultado).bodyJson().extractingPath("$.detail")
+                    .isEqualTo("El archivo supera el tamaño máximo de 5 MB.");
+        }
+
+        @Test
+        @DisplayName("RF-108: firma binaria no permitida responde 415 TIPO_ARCHIVO_NO_PERMITIDO")
+        void tipoNoPermitido() {
+            MvcTestResult resultado = get(BASE + "/archivo/tipo");
+
+            esProblema(resultado, HttpStatus.UNSUPPORTED_MEDIA_TYPE, "TIPO_ARCHIVO_NO_PERMITIDO");
+            assertThat(resultado).bodyJson().extractingPath("$.detail")
+                    .isEqualTo(ErroresTecnicos.DETALLE_TIPO_ARCHIVO);
+        }
+
+        @Test
+        @DisplayName("RF-108: el límite multipart de Spring también responde 413 ARCHIVO_DEMASIADO_GRANDE")
+        void limiteMultipartDeSpring() {
+            esProblema(get(BASE + "/archivo/limite-spring"), HttpStatus.CONTENT_TOO_LARGE, "ARCHIVO_DEMASIADO_GRANDE");
+        }
+
+        @Test
+        @DisplayName("ADR-0013: S3 no disponible responde 503 SERVICIO_NO_DISPONIBLE sin detalles técnicos")
+        void s3NoDisponible() {
+            MvcTestResult resultado = get(BASE + "/archivo/s3-caido");
+
+            esProblema(resultado, HttpStatus.SERVICE_UNAVAILABLE, "SERVICIO_NO_DISPONIBLE");
+            assertThat(resultado).bodyJson().extractingPath("$.detail")
+                    .isEqualTo(ErroresTecnicos.DETALLE_NO_DISPONIBLE);
         }
     }
 }

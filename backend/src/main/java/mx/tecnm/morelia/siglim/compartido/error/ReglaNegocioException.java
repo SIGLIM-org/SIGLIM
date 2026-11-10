@@ -1,6 +1,9 @@
 package mx.tecnm.morelia.siglim.compartido.error;
 
 import java.io.Serial;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 
 /**
@@ -11,6 +14,15 @@ import org.springframework.http.HttpStatus;
  * <pre>{@code
  * throw ReglaNegocioException.conflicto("VAL-004",
  *         "La cancha «Unidad Deportiva Morelos 2» ya tiene el partido Halcones vs. Toros de 10:00 a 11:45.");
+ * }</pre>
+ *
+ * <p>Si la interfaz necesita más datos que el mensaje, {@link #con(String, Object)} agrega
+ * extensiones al problema RFC 9457, por ejemplo en una advertencia que se puede aceptar:
+ *
+ * <pre>{@code
+ * throw ReglaNegocioException.conflicto("RF-030", "El bloqueo afecta a 2 partidos.")
+ *         .con("aceptable", true)
+ *         .con("partidosAfectados", partidos);
  * }</pre>
  *
  * <p>El estado HTTP sigue las convenciones de API §3.1: el método de fábrica dice el tipo de regla.
@@ -24,6 +36,8 @@ public final class ReglaNegocioException extends RuntimeException {
 
     private final HttpStatus estado;
     private final String codigo;
+    /** Solo viaja dentro del proceso hasta el manejador; no forma parte de la forma serializada. */
+    private final transient Map<String, Object> propiedades = new LinkedHashMap<>();
 
     private ReglaNegocioException(HttpStatus estado, String codigo, String mensaje) {
         super(mensaje);
@@ -49,6 +63,24 @@ public final class ReglaNegocioException extends RuntimeException {
     /** 422: la petición está bien formada pero su contenido incumple una regla (elegibilidad). */
     public static ReglaNegocioException noProcesable(String codigo, String mensaje) {
         return new ReglaNegocioException(HttpStatus.UNPROCESSABLE_CONTENT, codigo, mensaje);
+    }
+
+    /**
+     * Agrega una extensión al problema RFC 9457. Va a la respuesta tal cual: nunca datos personales
+     * ni detalles técnicos.
+     *
+     * @param nombre nombre del campo en camelCase; no debe ser un campo estándar ni {@code codigo}
+     * @param valor  valor que Jackson pueda serializar
+     * @return esta misma excepción, para encadenar antes de lanzarla
+     */
+    public ReglaNegocioException con(String nombre, Object valor) {
+        propiedades.put(nombre, valor);
+        return this;
+    }
+
+    /** Extensiones agregadas con {@link #con(String, Object)}, en orden; vacío si no hay. */
+    public Map<String, Object> propiedades() {
+        return Collections.unmodifiableMap(propiedades);
     }
 
     public HttpStatus estado() {

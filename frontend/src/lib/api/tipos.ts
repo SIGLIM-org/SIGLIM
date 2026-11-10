@@ -19,8 +19,14 @@ export type Problema = {
   /** Código del ERS (`VAL-004`, `RF-039`…) o técnico (`NO_AUTENTICADO`). */
   codigo: string
   errores?: ErrorCampo[]
-  /** Solo en advertencias aceptables (VAL-027): se reintenta con `motivoAceptacion`. */
+  /**
+   * Solo en advertencias aceptables. El campo con el que se confirma el reintento
+   * depende del endpoint: `motivoAceptacion` en la localía (VAL-027) y
+   * `confirmarPartidosAfectados` en canchas (RF-030).
+   */
   aceptable?: boolean
+  /** Miembros del problema que no son estándar ni de `ErrorCampo`, p. ej. `partidosAfectados`. */
+  extensiones?: Record<string, unknown>
 }
 
 /** Envoltura de los listados paginados (convenciones §4). */

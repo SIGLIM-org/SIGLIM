@@ -1,0 +1,5 @@
+Auditoría del equipo (REGISTRAR_EQUIPO, EDITAR_EQUIPO y DAR_BAJA_EQUIPO con su motivo):
+
+6|M-03|REGISTRAR_EQUIPO||{"clubId": "85fa5789-fa97-4ddb-aa9e-b724fb5aafa3", "estado": "ACTIVO", "grupoId": "60000000-0000-4000-8000-000000000004", "temporadaId": "60000000-0000-4000-8000-000000000001"}
+7|M-03|EDITAR_EQUIPO||{"campos": ["nombre"]}
+8|M-03|DAR_BAJA_EQUIPO|Se retiró del torneo por desintegración de la plantilla|{"bajaEn": "2026-11-06", "estado": "BAJA", "estadoAnterior": "ACTIVO"}

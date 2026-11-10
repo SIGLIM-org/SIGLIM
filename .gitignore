@@ -44,3 +44,16 @@ supabase/.temp/
 
 # ── Herramientas de documentación (Python) ────────────────
 __pycache__/
+
+# ── Impeccable (skill de diseño para agentes de IA) ───────
+# Binarios del motor: se descargan/verifican localmente, no se versionan
+.agents/skills/impeccable/scripts/bin/
+.claude/skills/impeccable/scripts/bin/
+# Configuración personal de Claude Code
+.claude/settings.local.json
+# Archivos locales y de sesión de Impeccable
+.impeccable/config.local.json
+.impeccable/hook.cache.json
+.impeccable/hook.pending.json
+.impeccable/*.png
+.impeccable/live/
