@@ -1,7 +1,7 @@
 # Diccionario de datos
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.5 · 8 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
+Versión 2.6 · 10 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
 
 > [!NOTE]
 > Este diccionario describe la migración
@@ -22,6 +22,7 @@ Versión 2.5 · 8 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado
 | 2.3 | 3 de noviembre de 2026 | Migración `20261103100000_secretario_registra_equipos.sql` (H-06.1, SCRUM-270): el rol `SECRETARIO` recibe `organizacion.equipo:EDITAR`, que el Apéndice E del ERS le da (M-03 C L E, RF-009) y la semilla inicial omitió. Solo agrega una fila a `rol_permisos`; sin cambios en tablas ni funciones. |
 | 2.4 | 6 de noviembre de 2026 | Migración `20261106160000_tesorero_consulta_equipos.sql` (DEF-06, SCRUM-404): el rol `TESORERO` recibe `organizacion.equipo:CONSULTAR`, que DEC-55 agrega al Apéndice E del ERS (M-03 L, RF-137) para dirigir cobros a un equipo; no recibe `organizacion.equipo:EDITAR`. Solo agrega una fila a `rol_permisos`; sin cambios en tablas ni funciones. |
 | 2.5 | 8 de noviembre de 2026 | Migración `20261108100000_cargo_directiva_pendiente.sql` (H-22.1): `ux_cargos_vigentes` solo considera cargos autorizados (`autorizado_por IS NOT NULL`), para que un cambio pendiente no impida mantener vigente el cargo anterior (RF-102). Sin cambios en columnas ni datos. |
+| 2.6 | 10 de noviembre de 2026 | Migración `20261110120000_reintentar_cambios_pendientes.sql` (DEF-07): repite de forma idempotente los cambios de `20261106160000` (DEF-06) y `20261108100000` (H-22.1). La causa no es un fallo de esas migraciones: el repositorio se transfirió el 5 de noviembre a `SIGLIM-org/SIGLIM` y la integración de GitHub de Supabase siguió apuntando a `israelweil/SIGLIM`, por lo que el proyecto compartido no registra merges posteriores a `20261103100000`. Esta migración es una red de seguridad redundante, no el arreglo: el arreglo es reconectar la integración con `SIGLIM-org/SIGLIM` (rama de producción `develop`) y verificar el historial, con lo que las migraciones originales se aplican solas (DEC-52, ADR-0004). No cambia el esquema documentado: solo confirma la fila de `rol_permisos` del Tesorero y la definición vigente de `ux_cargos_vigentes`. |
 
 ## 1. Propósito y alcance
 
