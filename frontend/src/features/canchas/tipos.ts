@@ -112,3 +112,50 @@ export type RegistrarDisponibilidadPeticion = {
   motivo?: string
   confirmarPartidosAfectados?: boolean
 }
+
+/* ---------------------------------------------------------------------------------------------
+ * Horarios de club y comodato por temporada (B-13, RF-119, DEC-33). Contrato: convenciones de
+ * API §6.6.1.
+ * ------------------------------------------------------------------------------------------- */
+
+/** Día de la semana del horario: 1 es lunes y 7 domingo (convenciones §6.6.1). */
+export type DiaSemana = 1 | 2 | 3 | 4 | 5 | 6 | 7
+
+/**
+ * Horario semanal de una categoría en la cancha durante una temporada (RF-119). Las horas llegan
+ * como `HH:mm:ss` y el intervalo es semiabierto: `horaFin` es exclusiva. En una cancha `CLUB` el
+ * club es su propietario y `esComodato` es `false`; en una `LIGA` todo horario es comodato (DEC-33).
+ */
+export type HorarioClub = {
+  id: string
+  canchaId: string
+  temporadaId: string
+  /** Categoría del catálogo (no la `CategoriaTemporada`). */
+  categoria: { id: string; nombre: string }
+  club: { id: string; nombre: string }
+  diaSemana: DiaSemana
+  horaInicio: string
+  horaFin: string
+  esComodato: boolean
+}
+
+/**
+ * Un horario del cuerpo de `PUT /canchas/{id}/horarios-club` (§6.6.1). `categoriaId` es el id del
+ * catálogo; `clubId` solo se manda en una cancha `LIGA`, donde es obligatorio. Nunca lleva `id`
+ * ni `esComodato`: el servidor los decide.
+ */
+export type HorarioClubPeticion = {
+  categoriaId: string
+  diaSemana: DiaSemana
+  /** `HH:mm`. */
+  horaInicio: string
+  /** `HH:mm`, exclusiva. */
+  horaFin: string
+  clubId?: string
+}
+
+/** `PUT /canchas/{id}/horarios-club`: reemplaza de forma atómica los horarios de UNA temporada; `[]` la vacía (§6.6.1). */
+export type ReemplazarHorariosClubPeticion = {
+  temporadaId: string
+  horarios: HorarioClubPeticion[]
+}

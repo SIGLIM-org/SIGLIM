@@ -6,11 +6,13 @@ import type {
   CrearCanchaPeticion,
   CrearSedePeticion,
   FiltrosCanchas,
+  HorarioClub,
   Intervalo,
   Ocupacion,
   PartidoEnCancha,
   RegistrarDisponibilidadPeticion,
   RegistroDisponibilidad,
+  ReemplazarHorariosClubPeticion,
   Sede,
 } from '@/features/canchas/tipos'
 import { ApiError } from '@/lib/api/ApiError'
@@ -23,6 +25,8 @@ export const clavesCanchas = {
   detalle: (id: string) => ['canchas', 'detalle', id] as const,
   ocupacion: (id: string, desde: string, hasta: string) =>
     ['canchas', 'ocupacion', id, desde, hasta] as const,
+  horariosClub: (id: string, temporadaId: string) =>
+    ['canchas', 'horarios-club', id, temporadaId] as const,
 }
 
 export const clavesSedes = {
@@ -173,4 +177,29 @@ export function partidosAfectadosDe(error: unknown): PartidoEnCancha[] {
     error instanceof ApiError ? error.problema.extensiones?.partidosAfectados : undefined
 
   return Array.isArray(partidos) ? partidos.filter(esPartidoEnCancha) : []
+}
+
+/** Horarios de club o comodato de la cancha en una temporada (RF-119, convenciones §6.6.1). */
+export function useHorariosClub(canchaId: string, temporadaId?: string) {
+  return useQuery({
+    queryKey: clavesCanchas.horariosClub(canchaId, temporadaId ?? ''),
+    queryFn: () =>
+      api.get<HorarioClub[]>(
+        `canchas/${canchaId}/horarios-club?temporadaId=${encodeURIComponent(temporadaId ?? '')}`,
+      ),
+    enabled: Boolean(canchaId && temporadaId),
+  })
+}
+
+/** Reemplaza los horarios de UNA temporada; la respuesta queda como la lista vigente (§6.6.1). */
+export function useReemplazarHorariosClub(canchaId: string) {
+  const clienteConsultas = useQueryClient()
+
+  return useMutation({
+    mutationFn: (peticion: ReemplazarHorariosClubPeticion) =>
+      api.put<HorarioClub[]>(`canchas/${canchaId}/horarios-club`, peticion),
+    onSuccess: (horarios, { temporadaId }) => {
+      clienteConsultas.setQueryData(clavesCanchas.horariosClub(canchaId, temporadaId), horarios)
+    },
+  })
 }
