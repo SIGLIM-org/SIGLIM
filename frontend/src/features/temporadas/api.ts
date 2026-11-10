@@ -169,11 +169,18 @@ export function useReordenarCategorias() {
   })
 }
 
-/** Categorías de la temporada con sus grupos anidados (RF-004, RF-005). */
-export function useCategoriasTemporada(temporadaId: string) {
+/**
+ * Categorías de la temporada con sus grupos anidados (RF-004, RF-005). `habilitada: false` evita
+ * la petición cuando la pantalla no necesita la lista (B-13.2).
+ */
+export function useCategoriasTemporada(
+  temporadaId: string,
+  { habilitada = true }: { habilitada?: boolean } = {},
+) {
   return useQuery({
     queryKey: clavesEstructura.categoriasTemporada(temporadaId),
     queryFn: () => api.get<CategoriaTemporada[]>(`temporadas/${temporadaId}/categorias`),
+    enabled: habilitada && Boolean(temporadaId),
   })
 }
 

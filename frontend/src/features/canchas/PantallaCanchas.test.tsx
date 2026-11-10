@@ -146,6 +146,24 @@ describe('PantallaCanchas', () => {
     expect(screen.getByRole('button', { name: 'Agregar disponibilidad' })).toBeInTheDocument()
   })
 
+  it('B-13.2, DEC-33: una cancha EXTERNO no muestra «Horarios por categoría» ni los pide', async () => {
+    otorgar(CONSULTAR, EDITAR, 'temporadas.temporada:CONSULTAR')
+    montar(`${RUTA}/c1`)
+
+    expect(await screen.findByRole('heading', { name: 'Cancha Norte' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Horarios por categoría' })).not.toBeInTheDocument()
+    expect(get.mock.calls.some(([ruta]) => String(ruta).includes('horarios-club'))).toBe(false)
+  })
+
+  it('B-13.2 [PROPUESTA]: sin temporadas.temporada:CONSULTAR la sección no aparece en una cancha de club', async () => {
+    responder({ detalle: { ...CANCHA, propietario: 'CLUB', club: { id: 'club-1', nombre: 'Halcones' } } })
+    montar(`${RUTA}/c1`)
+
+    expect(await screen.findByRole('heading', { name: 'Cancha Norte' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Horarios por categoría' })).not.toBeInTheDocument()
+    expect(get.mock.calls.some(([ruta]) => /horarios-club|^temporadas/.test(String(ruta)))).toBe(false)
+  })
+
   it('VAL-015: sin CONSULTAR muestra la 403 y no pide datos', () => {
     otorgar()
     montar()

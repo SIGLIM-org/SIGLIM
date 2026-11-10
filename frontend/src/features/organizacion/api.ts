@@ -66,6 +66,36 @@ export function useClubes(filtros: FiltrosClubes) {
   })
 }
 
+/** Máximo de `tamano` que acepta el API (convenciones §4). */
+const TAMANO_MAXIMO_PAGINA = 100
+
+/**
+ * Todos los clubes `ACTIVO` del ámbito de la sesión, recorriendo las páginas de 100 en 100 y
+ * concatenando `contenido` (B-13.2: comodato de una cancha de la liga, que tiene cerca de 200
+ * clubes). `habilitada: false` evita las peticiones cuando la pantalla no necesita la lista.
+ *
+ * [PROPUESTA] El API no tiene un listado sin paginar y el máximo de página es 100 (convenciones
+ * §4): se pide la primera página y, con su `totalPaginas`, las demás en paralelo.
+ */
+export function useClubesActivosTodos({ habilitada = true }: { habilitada?: boolean } = {}) {
+  return useQuery({
+    queryKey: [...clavesOrganizacion.clubes, 'activos-todos'] as const,
+    queryFn: async () => {
+      const pagina = (numero: number) =>
+        api.get<Pagina<Club>>(
+          `clubes?${consultaDeClubes({ estado: 'ACTIVO', pagina: numero, tamano: TAMANO_MAXIMO_PAGINA })}`,
+        )
+      const primera = await pagina(0)
+      const resto = await Promise.all(
+        Array.from({ length: Math.max(primera.totalPaginas - 1, 0) }, (_, indice) => pagina(indice + 1)),
+      )
+
+      return [primera, ...resto].flatMap(({ contenido }) => contenido)
+    },
+    enabled: habilitada,
+  })
+}
+
 /** Un club fuera de ámbito responde 404 igual que uno inexistente (VAL-024). */
 export function useClub(id: string) {
   return useQuery({
