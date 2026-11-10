@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 4.4 · 8 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 4.5 · 10 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -43,6 +43,7 @@ Versión 4.4 · 8 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 4.2 | 7 de noviembre de 2026 | H-20.1: §6.1 con el contrato de la matriz de permisos (`GET /roles/{id}`, `GET /permisos` y `PATCH /roles/{id}/permisos` con `200`/`202`), el listado de solicitudes y su dictamen, los errores de VAL-022, VAL-023 y RF-096 y las acciones de auditoría `CAMBIAR_PERMISOS_ROL`, `SOLICITAR_CAMBIO_PERMISOS`, `APROBAR_CAMBIO_PERMISOS` y `RECHAZAR_CAMBIO_PERMISOS`. |
 | 4.3 | 8 de noviembre de 2026 | H-22.1: §6.3 documenta la consulta, registro pendiente y autorización de cargos de directiva con vigencias consecutivas (RF-102). |
 | 4.4 | 8 de noviembre de 2026 | H-22.2: §6.3 documenta la consulta de una persona por CURP que usa F-15 para identificar al titular de un cambio de directiva, con el permiso en cualquier ámbito y `Cache-Control: no-store` (RF-010, RF-011, RF-102). |
+| 4.5 | 10 de noviembre de 2026 | B-13.1: §6.6 con `canchas.cancha:CONSULTAR` en el `GET` de horarios de club y `EDITAR` en el `PUT`; §6.6.1 con el contrato de `GET`/`PUT /canchas/{id}/horarios-club` (reemplazo atómico por temporada, reglas por tipo de cancha de DEC-33, traslapes en el mismo día), su orden de errores y la acción `REGISTRAR_HORARIOS_CANCHA`; §3.2 con `RF-119` en `422`. |
 
 ## Índice
 
@@ -208,7 +209,7 @@ que el mismo código responda siempre con el mismo estado. `error_negocio` arma 
 | `400` | `RN-021` | Falta el motivo obligatorio |
 | `403` | `VAL-021`, `VAL-022` | La persona no puede hacer esa acción aunque tenga el permiso |
 | `409` | `VAL-003`, `VAL-005`, `VAL-017`, `VAL-026`, `VAL-028`; `RF-001`, `RF-017`, `RF-039`, `RF-046`, `RF-048`, `RF-062`, `RF-090`, `RF-100`, `RF-113`, `RF-121`, `RF-122`, `RF-123`, `RF-124`, `RF-127`; `RN-024`, `RN-039`; `RNF-015`, `RNF-018` | Transición o cambio no permitido por el estado actual, o choque con otros datos |
-| `422` | `VAL-018`, `VAL-019`, `VAL-020`, `VAL-025`; `RF-013`, `RF-019`, `RF-020`, `RF-025`, `RF-033`; `RF-139` (pago que no cubre el monto) | El contenido de la petición incumple una regla |
+| `422` | `VAL-018`, `VAL-019`, `VAL-020`, `VAL-025`; `RF-013`, `RF-019`, `RF-020`, `RF-025`, `RF-033`; `RF-119` (horario de club o comodato incompatible con la cancha, o traslapado); `RF-139` (pago que no cubre el monto) | El contenido de la petición incumple una regla |
 
 Algunos códigos cubren más de un caso en la base (`RF-121` y `RF-123` también rechazan una
 devolución sin observaciones, y `RF-123` a quien no es el árbitro central). El servicio detecta esos
@@ -1015,7 +1016,7 @@ Cada equipo trae referencias anidadas (§9.1):
 | `GET /sedes` · `POST /sedes` · `PATCH /sedes/{id}` | Sedes que agrupan canchas. El `GET` responde la lista completa sin paginar, por `nombre` | `canchas.cancha:CONSULTAR` en el `GET` (cualquier ámbito), `canchas.cancha:EDITAR` en `POST` y `PATCH` | RF-028 | B |
 | `GET /canchas/{id}/disponibilidad?desde=&hasta=` · `POST` | Disponibilidad, bloqueos y mantenimiento con motivo. El `POST` responde `{ disponibilidad, partidosAfectados }` | `canchas.cancha:CONSULTAR` en el `GET`, `canchas.cancha:EDITAR` en el `POST` | RF-029, RF-030, RF-031 | N · B |
 | `GET /canchas/{id}/ocupacion?desde=&hasta=` | Disponibilidad, bloqueos, mantenimiento y partidos no cancelados del rango (calendario semanal y apoyo a la programación) | `canchas.cancha:CONSULTAR` | RF-032, RF-039 | N |
-| `GET /canchas/{id}/horarios-club` · `PUT` | Horarios por categoría y comodato | `canchas.cancha:EDITAR` | RF-119 | B |
+| `GET /canchas/{id}/horarios-club?temporadaId=` · `PUT` | Horarios por categoría de la cancha de club y comodato de la cancha de la liga, por temporada (§6.6.1) | `canchas.cancha:CONSULTAR` en el `GET`, `canchas.cancha:EDITAR` en el `PUT` | RF-119 | B |
 | `GET /solicitudes-cancha` · `POST` · `POST …/{id}/resolucion` · `GET …/{id}/oficio` | Formatos 1 y 2 y su carta | `canchas.solicitud:*`, `canchas.oficio:GENERAR` | RF-116 a RF-118 | B |
 
 - **Sede de una cancha (RF-028, [PROPUESTA]).** `POST /canchas` acepta `sedeId` opcional. En el
@@ -1047,6 +1048,69 @@ Cada equipo trae referencias anidadas (§9.1):
 - **Auditoría del `POST` [PROPUESTA].** Cada tipo tiene su acción: `REGISTRAR_DISPONIBILIDAD`,
   `BLOQUEAR_CANCHA` y `REGISTRAR_MANTENIMIENTO`. El evento lleva el `motivo` y en el detalle
   `canchaId`, `tipo`, `desde`, `hasta`, `partidosAfectados` y `partidosAfectadosIds`.
+
+#### 6.6.1 Horarios de club y comodato (B-13.1, RF-119, DEC-33)
+
+`GET /api/v1/canchas/{id}/horarios-club?temporadaId={uuid}` responde `200` con la lista de horarios
+de la cancha en esa temporada, vacía si no tiene, ordenada por `diaSemana`, `horaInicio` y orden de la
+categoría. `temporadaId` es obligatorio: sin él, `400 VALIDACION`. Una temporada cerrada se consulta
+igual.
+
+```json
+[
+  {
+    "id": "…",
+    "canchaId": "…",
+    "temporadaId": "…",
+    "categoria": { "id": "…", "nombre": "Libre" },
+    "club": { "id": "…", "nombre": "Halcones" },
+    "diaSemana": 6,
+    "horaInicio": "10:00:00",
+    "horaFin": "12:00:00",
+    "esComodato": false
+  }
+]
+```
+
+`PUT /api/v1/canchas/{id}/horarios-club` reemplaza de forma **atómica** los horarios de la cancha en
+**una** temporada y responde `200` con la lista resultante, igual que el `GET`. Los horarios de otras
+temporadas no se tocan; `"horarios": []` borra los de esa temporada.
+
+```json
+{
+  "temporadaId": "…",
+  "horarios": [
+    { "categoriaId": "…", "diaSemana": 6, "horaInicio": "10:00", "horaFin": "12:00", "clubId": "…" }
+  ]
+}
+```
+
+- `diaSemana` va de 1 (lunes) a 7 (domingo). Las horas se responden como `HH:mm:ss` y se aceptan como
+  `HH:mm` o `HH:mm:ss`; el intervalo es semiabierto (`horaFin` exclusiva).
+- `clubId` es opcional en una cancha de club (se toma su propietario) y obligatorio en una de la liga.
+- **Ámbito.** Una cancha `CLUB` se autoriza en el ámbito de su club; una `LIGA` o `EXTERNO`, en el de
+  la liga, como el resto de §6.6.
+
+Errores del `PUT`, en este orden (todo se valida en una transacción, con la cancha bloqueada):
+
+| Orden | Caso | Respuesta |
+| --- | --- | --- |
+| 1 | Cancha inexistente o de otra liga | `404 NO_ENCONTRADO` |
+| 2 | Sin `canchas.cancha:EDITAR` en el ámbito de la cancha | `403 VAL-015` |
+| 3 | Cuerpo mal formado, `temporadaId` u `horarios` ausentes, campo obligatorio ausente, `diaSemana` fuera de 1–7 o `horaInicio` ≥ `horaFin` | `400 VALIDACION` con `errores` (`horarios[i].campo`) |
+| 4 | Temporada que no existe en la liga | `422 REFERENCIA_INVALIDA` |
+| 5 | Temporada `CERRADA`: «La temporada «X» está cerrada: sus horarios son de solo lectura.» | `409 RF-003` |
+| 6 | Categoría no asignada a la temporada (`categoriasInvalidas`) o club que no es de la liga (`clubesInvalidos`) | `422 REFERENCIA_INVALIDA` |
+| 7 | Tipo de cancha (DEC-33): `EXTERNO` no admite horarios; en `CLUB` el club es su propietario y `esComodato` es `false` (un `clubId` distinto se rechaza); en `LIGA` cada horario es comodato (`esComodato` es `true`) y `clubId` es obligatorio | `422 RF-119` |
+| 8 | Dos horarios de la cancha del mismo día se traslapan, sin importar la categoría (10:00–12:00 y 12:00–14:00 no chocan) | `422 RF-119` |
+
+El `GET` responde `404` y `403` igual (con `canchas.cancha:CONSULTAR`) y `422 REFERENCIA_INVALIDA` si
+la temporada no es de la liga.
+
+**Auditoría.** El `PUT` registra en `M-06` la acción `REGISTRAR_HORARIOS_CANCHA` sobre la cancha
+(`entidad = canchas`, `entidadId` = la cancha), sin motivo, con el detalle
+`{ "canchaId", "temporadaId", "horarios": <número de horarios guardados> }`. Se registra también al
+vaciar la lista.
 
 ### 6.7 M-07 Programación manual
 
