@@ -42,14 +42,17 @@ import org.springframework.transaction.annotation.Transactional;
  *       {@code UNIQUE (temporada_id, folio)} es la última garantía.</li>
  *   <li><b>Estados (ERS §4.3).</b> El tarjetón nace {@code SOLICITADA}; el Presidente lo aprueba o lo
  *       rechaza y ambos son terminales. Solo se edita en {@code SOLICITADA}; repetir la resolución o
- *       editar uno resuelto responde {@code 409 RF-101}. El rechazo exige observaciones de al menos
- *       10 caracteres; al aprobar son opcionales. Se registran el perfil y la fecha de resolución.</li>
+ *       editar uno resuelto responde {@code 409 RF-101}. El rechazo exige observaciones de 10 a 500
+ *       caracteres y la aprobación las admite opcionales con el mismo tope. Se registran el perfil y
+ *       la fecha de resolución. Si el club se cerró antes de editar o resolver, responde
+ *       {@code 409 RN-041}.</li>
  *   <li><b>Ámbito (ADR-0007).</b> La captura, la edición y la consulta usan
  *       {@code organizacion.afiliacion:CAPTURAR} sobre el club del tarjetón; quien solo tiene
  *       {@code organizacion.afiliacion:APROBAR} (el Presidente) también lo consulta y es el único que
- *       resuelve. Un club ajeno responde {@code 404} igual que uno inexistente (VAL-024). Los
- *       listados filtran por el alcance de cualquiera de los dos permisos, en el {@code WHERE} y en
- *       el {@code COUNT}.</li>
+ *       resuelve. La consulta evalúa el alcance unificado de ambos permisos; un club ajeno responde
+ *       {@code 404} igual que uno inexistente (VAL-024). Los listados filtran por el alcance de
+ *       cualquiera de los dos permisos, en el {@code WHERE} y en el {@code COUNT}. El nombre del
+ *       perfil que capturó o resolvió solo se incluye si RLS permite verlo.</li>
  *   <li><b>Referencias.</b> El club debe existir y estar {@code ACTIVO} ({@code 409 RN-041} si está
  *       cerrado); la temporada debe ser de la liga y no estar {@code CERRADA} ({@code 422
  *       REFERENCIA_INVALIDA} y {@code 409 RF-003}); las categorías deben participar en la temporada
@@ -69,8 +72,9 @@ public class AfiliacionService {
     private static final String MODULO = "M-03";
     private static final String ENTIDAD = "afiliaciones";
 
-    /** [PROPUESTA] Mínimo de observaciones para rechazar, como las demás transiciones del sistema. */
+    /** Observaciones del dictamen: de 10 a 500 caracteres, como las demás transiciones (RN-021). */
     private static final int MINIMO_OBSERVACIONES = 10;
+    private static final int MAXIMO_OBSERVACIONES = 500;
 
     /** [PROPUESTA] Prefijo del folio interno del tarjetón, tomado del ejemplo de F-16. */
     private static final String PREFIJO_FOLIO = "AF";
@@ -110,7 +114,7 @@ public class AfiliacionService {
     @Transactional(readOnly = true)
     public AfiliacionDto consultar(UUID id) {
         AfiliacionDto afiliacion = buscar(id);
-        exigirConsulta(ObjetivoAutorizacion.deClubes(afiliacion.club().id()));
+        exigirConsulta(afiliacion.club().id());
         return afiliacion;
     }
 
@@ -181,13 +185,15 @@ public class AfiliacionService {
      * Edita colores o categorías mientras el tarjetón está {@code SOLICITADA} (RF-101). Lo ausente
      * conserva su valor; sin cambios responde el tarjetón sin auditar.
      *
-     * @throws ReglaNegocioException 409 {@code RF-101} si ya está resuelto o {@code RF-003} si la
-     *                               temporada está cerrada; 422 si una categoría no es de la temporada
+     * @throws ReglaNegocioException 409 {@code RF-101} si ya está resuelto, {@code RN-041} si el
+     *                               club se cerró o {@code RF-003} si la temporada está cerrada;
+     *                               422 si una categoría no es de la temporada
      */
     @Transactional
     public AfiliacionDto actualizar(UUID id, ActualizarAfiliacionRequest peticion) {
         AfiliacionDto actual = buscarConCandado(id);
         autorizacion.exigir(CAPTURAR, ObjetivoAutorizacion.deClubes(actual.club().id()));
+        exigirClubAbierto(actual, "no admite cambios");
         exigirTemporadaAbierta(actual.temporada().nombre(), actual.temporada().estado());
         if (actual.estado() != EstadoAfiliacion.SOLICITADA) {
             throw ReglaNegocioException.conflicto("RF-101",
@@ -232,17 +238,19 @@ public class AfiliacionService {
 
     /**
      * Aplica el dictamen del Presidente sobre un tarjetón {@code SOLICITADA} (criterio 2 de H-08,
-     * RF-101, CU-018). La aprobación puede llevar una nota; el rechazo exige observaciones de al
-     * menos 10 caracteres, que se guardan como motivo.
+     * RF-101, CU-018). La aprobación puede llevar una nota; el rechazo exige observaciones de 10 a
+     * 500 caracteres, que se guardan como motivo.
      *
-     * @throws ReglaNegocioException 409 {@code RF-101} si ya está resuelto o {@code RF-003} si la
-     *                               temporada está cerrada; 400 {@code RF-101} si rechaza sin
-     *                               observaciones suficientes
+     * @throws ReglaNegocioException 409 {@code RF-101} si ya está resuelto, {@code RN-041} si el
+     *                               club se cerró o {@code RF-003} si la temporada está cerrada; 400
+     *                               {@code RF-101} si rechaza sin observaciones suficientes; 400
+     *                               {@code VALIDACION} si las observaciones pasan de 500 caracteres.
      */
     @Transactional
     public AfiliacionDto resolver(UUID id, ResolverAfiliacionRequest peticion) {
         AfiliacionDto actual = buscarConCandado(id);
         autorizacion.exigir(APROBAR, ObjetivoAutorizacion.deClubes(actual.club().id()));
+        exigirClubAbierto(actual, "ya no admite resolución");
         exigirTemporadaAbierta(actual.temporada().nombre(), actual.temporada().estado());
         if (actual.estado() != EstadoAfiliacion.SOLICITADA) {
             throw ReglaNegocioException.conflicto("RF-101",
@@ -310,33 +318,15 @@ public class AfiliacionService {
 
     /**
      * Exige cualquiera de los dos permisos sobre el club, también cuando la persona tiene ambos con
-     * ámbitos distintos (por ejemplo, Presidenta y a la vez Directiva de un club). Un {@code 404} de
-     * ámbito se conserva: no se convierte en {@code 403} ni revela si el tarjetón existe (VAL-024).
+     * ámbitos distintos (por ejemplo, Presidenta y a la vez Directiva de un club). Se evalúa con el
+     * alcance unificado en lugar de llamar a {@code exigir} dos veces: atrapar su {@code 403} dejaría
+     * la transacción en rollback-only. Un club fuera del alcance responde {@code 404} igual que uno
+     * inexistente (VAL-024).
      */
-    private void exigirConsulta(ObjetivoAutorizacion objetivo) {
-        RecursoNoEncontradoException fueraDeCaptura = null;
-        try {
-            autorizacion.exigir(CAPTURAR, objetivo);
-            return;
-        } catch (RecursoNoEncontradoException fueraDeAlcance) {
-            fueraDeCaptura = fueraDeAlcance;
-        } catch (ReglaNegocioException sinCapturar) {
-            if (sinCapturar.estado() != HttpStatus.FORBIDDEN) {
-                throw sinCapturar;
-            }
-        }
-        try {
-            autorizacion.exigir(APROBAR, objetivo);
-        } catch (RecursoNoEncontradoException fueraDeAlcance) {
-            throw fueraDeAlcance;
-        } catch (ReglaNegocioException sinAprobar) {
-            if (sinAprobar.estado() != HttpStatus.FORBIDDEN) {
-                throw sinAprobar;
-            }
-            if (fueraDeCaptura != null) {
-                throw fueraDeCaptura;
-            }
-            throw Autorizacion.sinPermiso();
+    private void exigirConsulta(UUID clubId) {
+        AlcanceAutorizacion alcance = alcanceConsulta();
+        if (!alcance.todaLaLiga() && !alcance.clubes().contains(clubId)) {
+            throw Autorizacion.fueraDeAmbito(CAPTURAR);
         }
     }
 
@@ -378,6 +368,19 @@ public class AfiliacionService {
                                 + existente.estado().texto() + ".")
                 .con("afiliacionId", existente.id().toString())
                 .con("folio", existente.folio());
+    }
+
+    /**
+     * El club debe seguir abierto: cerrarlo (por ejemplo, por cambio de nombre) deja el tarjetón en
+     * solo lectura (RN-041). Se lee con {@code FOR SHARE} para no cruzarse con un cierre concurrente.
+     */
+    private void exigirClubAbierto(AfiliacionDto afiliacion, String consecuencia) {
+        ClubDto club = clubes.buscarParaCompartir(ligaId, afiliacion.club().id())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Club " + afiliacion.club().id()));
+        if (club.estado() == EstadoClub.CERRADO) {
+            throw ReglaNegocioException.conflicto("RN-041",
+                    "El club «" + club.nombre() + "» está cerrado: el tarjetón " + consecuencia + ".");
+        }
     }
 
     private static void exigirTemporadaAbierta(String nombre, EstadoTemporada estado) {
@@ -458,7 +461,14 @@ public class AfiliacionService {
     }
 
     private static String textoOpcional(String texto) {
-        return texto == null || texto.isBlank() ? null : texto.strip();
+        if (texto == null || texto.isBlank()) {
+            return null;
+        }
+        String valor = texto.strip();
+        if (valor.length() > MAXIMO_OBSERVACIONES) {
+            throw invalida("Las observaciones admiten hasta " + MAXIMO_OBSERVACIONES + " caracteres.");
+        }
+        return valor;
     }
 
     private void auditar(String accion, UUID entidadId, String motivo, Map<String, Object> detalle) {

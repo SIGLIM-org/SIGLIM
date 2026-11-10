@@ -220,6 +220,19 @@ class AfiliacionControllerTest {
     }
 
     @Test
+    @DisplayName("RF-101: más de 500 caracteres en observaciones responde 400 VALIDACION")
+    void resolverObservacionesDemasiadoLargas() {
+        String cuerpo = "{\"decision\":\"APROBADA\",\"observaciones\":\"" + "a".repeat(501) + "\"}";
+
+        MvcTestResult resultado = post(BASE + "/" + ID + "/resolucion", cuerpo);
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.VALIDACION);
+        assertThat(resultado).bodyJson().extractingPath("$.errores[0].campo").isEqualTo("observaciones");
+        Mockito.verifyNoInteractions(servicio);
+    }
+
+    @Test
     @DisplayName("RF-101: resolver un tarjetón ya resuelto responde 409 RF-101")
     void resolverRepetida() {
         given(servicio.resolver(eq(ID), any(ResolverAfiliacionRequest.class)))

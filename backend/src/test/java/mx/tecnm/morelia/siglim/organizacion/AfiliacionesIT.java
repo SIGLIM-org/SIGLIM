@@ -93,10 +93,13 @@ class AfiliacionesIT extends BaseDatosPrueba {
         assertThatThrownBy(() -> afiliaciones.resolver(afiliacionA.id(),
                 new ResolverAfiliacionRequest(DecisionAfiliacion.RECHAZADA, OBSERVACIONES)))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-101"));
+
+        iniciarSesion(secretario);
         assertThatThrownBy(() -> afiliaciones.actualizar(afiliacionA.id(),
                 new ActualizarAfiliacionRequest("Rojo", null)))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-101"));
 
+        iniciarSesion(presidente);
         assertThat(afiliaciones.listar(new FiltroAfiliaciones(temporada.id(), null, 0, 20)).totalElementos())
                 .isEqualTo(2);
         assertThat(afiliaciones.listar(new FiltroAfiliaciones(temporada.id(), EstadoAfiliacion.APROBADA, 0, 20))
@@ -152,6 +155,8 @@ class AfiliacionesIT extends BaseDatosPrueba {
                 COLORES, List.of(temporada.categoriaId())));
         AfiliacionDto delAjeno = afiliaciones.crear(new CrearAfiliacionRequest(ajeno.id(), temporada.id(),
                 COLORES, List.of(temporada.categoriaId())));
+
+        assertThat(dePropio.club().id()).isEqualTo(propio.id());
 
         iniciarSesion(directiva);
         assertThat(afiliaciones.listar(new FiltroAfiliaciones(temporada.id(), null, 0, 100)).contenido())
@@ -216,6 +221,36 @@ class AfiliacionesIT extends BaseDatosPrueba {
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-003"));
         assertThat(jdbc.sql("SELECT count(*) FROM siglim.afiliaciones WHERE temporada_id = :id")
                 .param("id", temporada.id()).query(Long.class).single()).isZero();
+    }
+
+    @Test
+    @DisplayName("RN-041: si el club se cierra, el tarjetón pendiente no se edita ni se resuelve")
+    void clubCerradoBloqueaEdicionYResolucion() {
+        TemporadaPrueba temporada = temporada(EstadoTemporada.CONFIGURACION);
+        iniciarSesionComoAdministrador();
+        ClubDto club = clubes.crear(new CrearClubRequest("Club " + UUID.randomUUID()));
+        UUID secretario = perfilConRol("SECRETARIO");
+        iniciarSesion(secretario);
+        AfiliacionDto afiliacion = afiliaciones.crear(new CrearAfiliacionRequest(club.id(), temporada.id(),
+                COLORES, List.of(temporada.categoriaId())));
+
+        iniciarSesionComoAdministrador();
+        clubes.cambiarNombre(club.id(), new CambioNombreClubRequest("Nuevo " + UUID.randomUUID(),
+                "Cambio de nombre para probar el cierre del tarjetón"));
+
+        iniciarSesion(secretario);
+        assertThatThrownBy(() -> afiliaciones.actualizar(afiliacion.id(),
+                new ActualizarAfiliacionRequest("Rojo", null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RN-041"));
+
+        iniciarSesion(perfilConRol("PRESIDENTE"));
+        assertThatThrownBy(() -> afiliaciones.resolver(afiliacion.id(),
+                new ResolverAfiliacionRequest(DecisionAfiliacion.APROBADA, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RN-041"));
+
+        iniciarSesion(secretario);
+        assertThat(afiliaciones.consultar(afiliacion.id()).estado()).isEqualTo(EstadoAfiliacion.SOLICITADA);
+        assertThat(eventos(afiliacion.id())).extracting(Evento::accion).containsExactly("REGISTRAR_AFILIACION");
     }
 
     // ── Apoyo ─────────────────────────────────────────────────────────────────────────────────

@@ -925,7 +925,8 @@ capture. `GET /afiliaciones/{id}`
 responde el mismo detalle; un tarjetón de otro club responde `404` igual que uno inexistente
 (VAL-024). El detalle lleva `id`, `folio`, `club`, `temporada` (con su `estado`), `coloresUniformes`,
 `estado`, `categorias`, `capturadaPor`, `capturadaEn` y, solo si ya se resolvió, `resueltaPor`,
-`resueltaEn` y `observaciones`.
+`resueltaEn` y `observaciones`. El `id` del perfil siempre se incluye; su `nombreMostrado` se omite si
+las políticas RLS de `perfiles` no permiten verlo al usuario de la sesión.
 
 `POST /afiliaciones` lleva `{ "clubId", "temporadaId", "coloresUniformes", "categoriaIds" }` y
 responde `201` con `Location`. El estado inicial es `SOLICITADA` y el perfil que captura sale de la
@@ -941,13 +942,15 @@ extensiones `afiliacionId` y `folio`.
 
 `PATCH /afiliaciones/{id}` edita `coloresUniformes` o `categoriaIds`; lo ausente conserva su valor y
 sin cambios responde el tarjetón sin auditar. Solo se edita en `SOLICITADA`: un tarjetón resuelto
-responde `409 RF-101` y uno de una temporada cerrada, `409 RF-003`. Las categorías nuevas se validan
-igual que en el alta y se reemplazan en la misma transacción.
+responde `409 RF-101`, uno de un club cerrado, `409 RN-041`, y uno de una temporada cerrada,
+`409 RF-003`. Las categorías nuevas se validan igual que en el alta y se reemplazan en la misma
+transacción.
 
 `POST /afiliaciones/{id}/resolucion` lleva `{ "decision": "APROBADA"|"RECHAZADA", "observaciones" }`
 y exige `organizacion.afiliacion:APROBAR` con ámbito del club. Pasar a `APROBADA` o `RECHAZADA` es
-terminal: resolver otra vez responde `409 RF-101`. El rechazo exige observaciones de al menos 10
-caracteres (`400 RF-101`) y las guarda como motivo; la aprobación las admite como nota. En ambos
+terminal: resolver otra vez responde `409 RF-101` y hacerlo con el club cerrado, `409 RN-041`. El
+rechazo exige observaciones de 10 a 500 caracteres (`400 RF-101` si faltan, `400 VALIDACION` si
+sobran) y las guarda como motivo; la aprobación las admite como nota. En ambos
 casos se guardan `resueltaPor` (perfil de la sesión) y `resueltaEn` (reloj del servidor). Las
 operaciones se auditan en `M-03` sobre `afiliaciones` como `REGISTRAR_AFILIACION`,
 `EDITAR_AFILIACION`, `APROBAR_AFILIACION` y `RECHAZAR_AFILIACION`, con folio y estados, sin datos

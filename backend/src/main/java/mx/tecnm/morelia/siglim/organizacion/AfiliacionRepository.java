@@ -24,9 +24,11 @@ import org.springframework.stereotype.Repository;
  * SQL de {@code afiliaciones} y de sus categorías (RF-101, DEC-09).
  *
  * <ul>
- *   <li><b>Lectura.</b> El club, la temporada y los perfiles que capturaron o resolvieron se leen
- *       con {@code JOIN}, y las categorías con una segunda consulta para la página completa (nunca
- *       una por fila). Las fechas se devuelven en la zona de negocio.</li>
+ *   <li><b>Lectura.</b> El club y la temporada se leen con {@code JOIN}, y las categorías con una
+ *       segunda consulta para la página completa (nunca una por fila). El perfil se une con
+ *       {@code LEFT JOIN}: su nombre solo está presente si las políticas RLS de {@code perfiles} lo
+ *       permiten (la Directiva no ve el perfil de la Secretaría), pero el identificador sale de
+ *       {@code afiliaciones}. Las fechas se devuelven en la zona de negocio.</li>
  *   <li><b>Ámbito.</b> El listado filtra por el club en el {@code WHERE} y el {@code COUNT} con la
  *       misma condición (ADR-0007).</li>
  *   <li><b>Folio y concurrencia.</b> {@link #bloquearTemporada} lee la temporada con
@@ -47,12 +49,12 @@ class AfiliacionRepository {
                    a.observaciones,
                    cl.id AS club_id, cl.nombre AS club_nombre,
                    t.id AS temporada_id, t.nombre AS temporada_nombre, t.estado AS temporada_estado,
-                   cp.id AS capturada_por_id, cp.nombre_mostrado AS capturada_por_nombre,
-                   rp.id AS resuelta_por_id, rp.nombre_mostrado AS resuelta_por_nombre
+                   a.capturada_por AS capturada_por_id, cp.nombre_mostrado AS capturada_por_nombre,
+                   a.resuelta_por AS resuelta_por_id, rp.nombre_mostrado AS resuelta_por_nombre
               FROM afiliaciones a
               JOIN clubes cl ON cl.id = a.club_id
               JOIN temporadas t ON t.id = a.temporada_id
-              JOIN perfiles cp ON cp.id = a.capturada_por
+              LEFT JOIN perfiles cp ON cp.id = a.capturada_por
               LEFT JOIN perfiles rp ON rp.id = a.resuelta_por
             """;
 

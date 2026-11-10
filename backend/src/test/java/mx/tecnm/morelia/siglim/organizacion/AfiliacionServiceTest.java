@@ -59,6 +59,7 @@ class AfiliacionServiceTest {
     private static final UUID TEMPORADA = UUID.fromString("55555555-5555-4555-8555-555555555555");
     private static final UUID CATEGORIA_A = UUID.fromString("77777777-7777-4777-8777-777777777777");
     private static final UUID CATEGORIA_B = UUID.fromString("88888888-8888-4888-8888-888888888888");
+    private static final UUID OTRO_CLUB = UUID.fromString("99999999-9999-4999-8999-999999999999");
     private static final Instant AHORA = Instant.parse("2030-08-02T12:00:00Z");
     private static final OffsetDateTime RESUELTA_EN = OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC);
     private static final OffsetDateTime CAPTURADA_EN = OffsetDateTime.parse("2030-08-02T06:00:00-06:00");
@@ -90,6 +91,8 @@ class AfiliacionServiceTest {
         Jwt token = Jwt.withTokenValue("token-de-prueba").header("alg", "ES256")
                 .subject(UUID.randomUUID().toString()).issuedAt(AHORA).expiresAt(AHORA.plusSeconds(3600)).build();
         SecurityContextHolder.getContext().setAuthentication(new AutenticacionSiglim(token, PERFIL));
+        // Por omisión el club del tarjetón sigue ACTIVO; las pruebas de cierre lo cambian.
+        given(clubes.buscarParaCompartir(LIGA, CLUB)).willReturn(Optional.of(CLUB_ACTIVO));
     }
 
     @AfterEach
@@ -187,47 +190,54 @@ class AfiliacionServiceTest {
     }
 
     @Test
-    @DisplayName("VAL-024: la consulta exige CAPTURAR sobre el club del tarjetón")
-    void consultarExigeAmbitoDelClub() {
+    @DisplayName("VAL-024: la consulta usa el alcance de CAPTURAR sobre el club del tarjetón")
+    void consultarUsaElAlcanceDelClub() {
         given(afiliaciones.buscar(LIGA, ID)).willReturn(Optional.of(solicitada()));
+        given(autorizacion.alcance(CAPTURAR))
+                .willReturn(new AlcanceAutorizacion(false, Set.of(CLUB), false));
+        given(autorizacion.alcance(APROBAR)).willThrow(Autorizacion.sinPermiso());
 
         assertThat(servicio.consultar(ID)).isEqualTo(solicitada());
-        verify(autorizacion).exigir(CAPTURAR, ObjetivoAutorizacion.deClubes(CLUB));
+        verify(autorizacion).alcance(CAPTURAR);
+        verify(autorizacion, never()).exigir(any(), any());
     }
 
     @Test
     @DisplayName("RF-101: el Presidente consulta con APROBAR aunque no tenga CAPTURAR")
     void consultarPresidente() {
         given(afiliaciones.buscar(LIGA, ID)).willReturn(Optional.of(solicitada()));
-        willThrow(Autorizacion.sinPermiso()).given(autorizacion)
-                .exigir(CAPTURAR, ObjetivoAutorizacion.deClubes(CLUB));
+        given(autorizacion.alcance(CAPTURAR)).willThrow(Autorizacion.sinPermiso());
+        given(autorizacion.alcance(APROBAR)).willReturn(liga());
 
         assertThat(servicio.consultar(ID).folio()).isEqualTo(FOLIO);
-        verify(autorizacion).exigir(APROBAR, ObjetivoAutorizacion.deClubes(CLUB));
+        verify(autorizacion).alcance(APROBAR);
+        verify(autorizacion, never()).exigir(any(), any());
     }
 
     @Test
     @DisplayName("VAL-024: un tarjetón de otro club responde 404 y no se convierte en 403")
     void consultarFueraDeAmbito() {
         given(afiliaciones.buscar(LIGA, ID)).willReturn(Optional.of(solicitada()));
-        willThrow(Autorizacion.fueraDeAmbito(CAPTURAR)).given(autorizacion)
-                .exigir(CAPTURAR, ObjetivoAutorizacion.deClubes(CLUB));
-        willThrow(Autorizacion.sinPermiso()).given(autorizacion)
-                .exigir(APROBAR, ObjetivoAutorizacion.deClubes(CLUB));
+        given(autorizacion.alcance(CAPTURAR))
+                .willReturn(new AlcanceAutorizacion(false, Set.of(OTRO_CLUB), false));
+        given(autorizacion.alcance(APROBAR)).willThrow(Autorizacion.sinPermiso());
 
         assertThatThrownBy(() -> servicio.consultar(ID)).isInstanceOf(RecursoNoEncontradoException.class);
-        verify(autorizacion).exigir(APROBAR, ObjetivoAutorizacion.deClubes(CLUB));
+        verify(autorizacion).alcance(CAPTURAR);
     }
 
     @Test
-    @DisplayName("RF-101, ADR-0007: con CAPTURAR y APROBAR de ámbitos distintos se prueba el segundo")
+    @DisplayName("RF-101, ADR-0007: con CAPTURAR y APROBAR de ámbitos distintos se une el alcance")
     void consultarConDosRolesDeAmbitoDistinto() {
         given(afiliaciones.buscar(LIGA, ID)).willReturn(Optional.of(solicitada()));
-        willThrow(Autorizacion.fueraDeAmbito(CAPTURAR)).given(autorizacion)
-                .exigir(CAPTURAR, ObjetivoAutorizacion.deClubes(CLUB));
+        given(autorizacion.alcance(CAPTURAR))
+                .willReturn(new AlcanceAutorizacion(false, Set.of(OTRO_CLUB), false));
+        given(autorizacion.alcance(APROBAR))
+                .willReturn(new AlcanceAutorizacion(false, Set.of(CLUB), false));
 
         assertThat(servicio.consultar(ID).folio()).isEqualTo(FOLIO);
-        verify(autorizacion).exigir(APROBAR, ObjetivoAutorizacion.deClubes(CLUB));
+        verify(autorizacion).alcance(CAPTURAR);
+        verify(autorizacion).alcance(APROBAR);
     }
 
     @Test
@@ -415,6 +425,18 @@ class AfiliacionServiceTest {
         verify(afiliaciones, never()).reemplazarCategorias(any(), any());
     }
 
+    @Test
+    @DisplayName("RN-041: un club cerrado no admite cambios en el tarjetón")
+    void actualizarClubCerrado() {
+        given(afiliaciones.buscarParaActualizar(LIGA, ID)).willReturn(Optional.of(solicitada()));
+        given(clubes.buscarParaCompartir(LIGA, CLUB)).willReturn(Optional.of(CLUB_CERRADO));
+
+        assertThatThrownBy(() -> servicio.actualizar(ID,
+                new ActualizarAfiliacionRequest("Rojo", null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RN-041"));
+        verify(afiliaciones, never()).actualizarColores(any(), any());
+    }
+
     // ── Resolución (criterio 2 de H-08) ──────────────────────────────────────────────────────
 
     @Test
@@ -465,6 +487,30 @@ class AfiliacionServiceTest {
         EventoAuditoria evento = eventoAuditado();
         assertThat(evento.accion()).isEqualTo("RECHAZAR_AFILIACION");
         assertThat(evento.motivo()).isEqualTo(OBSERVACIONES);
+    }
+
+    @Test
+    @DisplayName("RN-041: un club cerrado no permite resolver el tarjetón")
+    void resolverClubCerrado() {
+        given(afiliaciones.buscarParaActualizar(LIGA, ID)).willReturn(Optional.of(solicitada()));
+        given(clubes.buscarParaCompartir(LIGA, CLUB)).willReturn(Optional.of(CLUB_CERRADO));
+
+        assertThatThrownBy(() -> servicio.resolver(ID,
+                new ResolverAfiliacionRequest(DecisionAfiliacion.APROBADA, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RN-041"));
+        verify(afiliaciones, never()).resolver(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("RF-101: las observaciones admiten hasta 500 caracteres (400 VALIDACION)")
+    void resolverObservacionesDemasiadoLargas() {
+        given(afiliaciones.buscarParaActualizar(LIGA, ID)).willReturn(Optional.of(solicitada()));
+
+        assertThatThrownBy(() -> servicio.resolver(ID,
+                new ResolverAfiliacionRequest(DecisionAfiliacion.APROBADA, "a".repeat(501))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.BAD_REQUEST, ErroresTecnicos.VALIDACION));
+        verify(afiliaciones, never()).resolver(any(), any(), any(), any(), any());
     }
 
     @Test

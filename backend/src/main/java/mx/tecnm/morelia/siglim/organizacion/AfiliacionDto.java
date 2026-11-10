@@ -47,7 +47,11 @@ public record AfiliacionDto(
     public record TemporadaResumenDto(UUID id, String nombre, EstadoTemporada estado) {
     }
 
-    /** Perfil que capturó o resolvió, sin correo ni otros datos de contacto. */
+    /**
+     * Perfil que capturó o resolvió, sin correo ni otros datos de contacto. El nombre se omite si
+     * las políticas RLS de {@code perfiles} no permiten verlo al usuario de la sesión.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record PerfilDto(UUID id, String nombreMostrado) {
     }
 }
