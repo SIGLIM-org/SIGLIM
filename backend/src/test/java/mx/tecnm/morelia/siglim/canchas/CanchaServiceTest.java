@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -12,8 +15,11 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,7 +29,10 @@ import java.util.function.Consumer;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
 import mx.tecnm.morelia.siglim.auditoria.EventoAuditoria;
 import mx.tecnm.morelia.siglim.canchas.CanchaRepository.DatosCancha;
+import mx.tecnm.morelia.siglim.canchas.HorarioCanchaClubRepository.NuevoHorario;
+import mx.tecnm.morelia.siglim.canchas.HorarioCanchaClubRepository.TemporadaHorarios;
 import mx.tecnm.morelia.siglim.canchas.PartidoEnCanchaDto.EquipoDto;
+import mx.tecnm.morelia.siglim.canchas.ReemplazarHorariosClubRequest.HorarioRequest;
 import mx.tecnm.morelia.siglim.compartido.config.SiglimPropiedades;
 import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
 import mx.tecnm.morelia.siglim.compartido.contexto.MotivoOperacion;
@@ -32,11 +41,13 @@ import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion.AlcanceAutorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
+import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -73,12 +84,13 @@ class CanchaServiceTest {
     private final CanchaRepository canchas = mock(CanchaRepository.class);
     private final SedeRepository sedes = mock(SedeRepository.class);
     private final DisponibilidadCanchaRepository disponibilidades = mock(DisponibilidadCanchaRepository.class);
+    private final HorarioCanchaClubRepository horarios = mock(HorarioCanchaClubRepository.class);
     private final ConsultaPartidosEnCancha partidos = mock(ConsultaPartidosEnCancha.class);
     private final Autorizacion autorizacion = mock(Autorizacion.class);
     private final AuditoriaService auditoria = mock(AuditoriaService.class);
     private final MotivoOperacion motivoOperacion = mock(MotivoOperacion.class);
-    private final CanchaService servicio = new CanchaService(canchas, sedes, disponibilidades, partidos, autorizacion,
-            auditoria, motivoOperacion, Clock.fixed(AHORA, ZoneOffset.UTC),
+    private final CanchaService servicio = new CanchaService(canchas, sedes, disponibilidades, horarios, partidos,
+            autorizacion, auditoria, motivoOperacion, Clock.fixed(AHORA, ZoneOffset.UTC),
             new SiglimPropiedades(null, null, null, LIGA));
 
     @BeforeEach
@@ -174,7 +186,7 @@ class CanchaServiceTest {
     @Test
     @DisplayName("VAL-015: sin permiso de edición no crea nada")
     void crearSinPermiso() {
-        org.mockito.BDDMockito.willThrow(Autorizacion.sinPermiso()).given(autorizacion)
+        willThrow(Autorizacion.sinPermiso()).given(autorizacion)
                 .exigir(EDITAR, ObjetivoAutorizacion.deLiga());
 
         assertThatThrownBy(() -> servicio.crear(crear(PropietarioCancha.LIGA, null, null)))
@@ -657,5 +669,334 @@ class CanchaServiceTest {
         assertThat(ocupacion.bloques()).extracting(OcupacionDto.BloqueOcupacionDto::tipo)
                 .containsExactly(TipoBloqueOcupacion.PARTIDO, TipoBloqueOcupacion.BLOQUEO);
         assertThat(ocupacion.cancha().nombre()).isEqualTo("Cancha 1");
+    }
+
+    // ── Horarios de club y comodato (B-13.1) ──────────────────────────────────────────────────
+
+    private static final UUID TEMPORADA = UUID.fromString("66666666-6666-4666-8666-666666666666");
+    private static final UUID CATEGORIA = UUID.fromString("77777777-7777-4777-8777-777777777777");
+    private static final UUID OTRA_CATEGORIA = UUID.fromString("88888888-8888-4888-8888-888888888888");
+    private static final UUID OTRO_CLUB = UUID.fromString("99999999-9999-4999-8999-999999999999");
+    private static final LocalTime DIEZ = LocalTime.of(10, 0);
+    private static final LocalTime DOCE = LocalTime.of(12, 0);
+    private static final LocalTime CATORCE = LocalTime.of(14, 0);
+    private static final CanchaDto DE_CLUB = new CanchaDto(ID, "Cancha club", UbicacionCancha.EXTERNA, null, null,
+            PropietarioCancha.CLUB, new CanchaDto.ClubDto(CLUB, "Halcones"), null, null, true, DESDE);
+    private static final CanchaDto EXTERNA = new CanchaDto(ID, "Cancha rentada", UbicacionCancha.EXTERNA, null, null,
+            PropietarioCancha.EXTERNO, null, "Dueño externo", null, true, DESDE);
+
+    private static HorarioRequest horario(UUID categoria, Integer dia, LocalTime inicio, LocalTime fin, UUID club) {
+        return new HorarioRequest(categoria, dia, inicio, fin, club);
+    }
+
+    private static ReemplazarHorariosClubRequest reemplazo(HorarioRequest... lista) {
+        return new ReemplazarHorariosClubRequest(TEMPORADA, List.of(lista));
+    }
+
+    private void canchaParaHorarios(CanchaDto cancha) {
+        given(canchas.buscarParaActualizar(LIGA, ID)).willReturn(Optional.of(cancha));
+        given(canchas.buscar(LIGA, ID)).willReturn(Optional.of(cancha));
+    }
+
+    private void temporada(EstadoTemporada estado) {
+        TemporadaHorarios temporada = new TemporadaHorarios(TEMPORADA, "Temporada 2031", estado);
+        given(horarios.bloquearTemporada(LIGA, TEMPORADA)).willReturn(Optional.of(temporada));
+        given(horarios.buscarTemporada(LIGA, TEMPORADA)).willReturn(Optional.of(temporada));
+        given(horarios.categoriasDeTemporada(TEMPORADA)).willReturn(Set.of(CATEGORIA, OTRA_CATEGORIA));
+        given(horarios.clubesDeLiga(eq(LIGA), any())).willAnswer(invocacion -> Set.copyOf(invocacion.<Collection<UUID>>getArgument(1)));
+    }
+
+    private List<NuevoHorario> insertados() {
+        ArgumentCaptor<NuevoHorario> horario = ArgumentCaptor.forClass(NuevoHorario.class);
+        verify(horarios, atLeast(0)).insertar(eq(ID), eq(TEMPORADA), horario.capture());
+        return horario.getAllValues();
+    }
+
+    private void sinEscribirHorarios() {
+        verify(horarios, never()).eliminar(any(), any());
+        verify(horarios, never()).insertar(any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-119: el GET consulta con CONSULTAR en el ámbito del club y lista los horarios de la temporada")
+    void listarHorarios() {
+        canchaParaHorarios(DE_CLUB);
+        temporada(EstadoTemporada.CERRADA);
+        HorarioCanchaClubDto guardado = new HorarioCanchaClubDto(UUID.randomUUID(), ID, TEMPORADA,
+                new HorarioCanchaClubDto.ReferenciaDto(CATEGORIA, "Libre"),
+                new HorarioCanchaClubDto.ReferenciaDto(CLUB, "Halcones"), 6, DIEZ, DOCE, false);
+        given(horarios.listar(ID, TEMPORADA)).willReturn(List.of(guardado));
+
+        assertThat(servicio.listarHorariosClub(ID, TEMPORADA)).as("una temporada cerrada se consulta").containsExactly(guardado);
+
+        verify(autorizacion).exigir(CONSULTAR, ObjetivoAutorizacion.deClubes(CLUB));
+    }
+
+    @Test
+    @DisplayName("RF-119: el GET con una temporada de otra liga responde 422 REFERENCIA_INVALIDA")
+    void listarHorariosTemporadaAjena() {
+        canchaParaHorarios(DE_LIGA);
+        given(horarios.buscarTemporada(LIGA, TEMPORADA)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.listarHorariosClub(ID, TEMPORADA)).isInstanceOfSatisfying(
+                ReglaNegocioException.class, error(HttpStatus.UNPROCESSABLE_CONTENT, "REFERENCIA_INVALIDA"));
+        verify(horarios, never()).listar(any(), any());
+    }
+
+    @Test
+    @DisplayName("VAL-024: el PUT sobre una cancha inexistente responde 404 sin evaluar el permiso ni el cuerpo")
+    void horariosCanchaInexistente() {
+        given(canchas.buscarParaActualizar(LIGA, ID)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.reemplazarHorariosClub(ID, null))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        verifyNoInteractions(autorizacion, horarios);
+    }
+
+    @Test
+    @DisplayName("VAL-015: el PUT sin permiso responde 403 antes de validar el cuerpo")
+    void horariosSinPermiso() {
+        canchaParaHorarios(DE_CLUB);
+        willThrow(Autorizacion.sinPermiso()).given(autorizacion)
+                .exigir(EDITAR, ObjetivoAutorizacion.deClubes(CLUB));
+
+        assertThatThrownBy(() -> servicio.reemplazarHorariosClub(ID, null))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "VAL-015"));
+        verifyNoInteractions(horarios);
+    }
+
+    @Test
+    @DisplayName("RF-119: el cuerpo inválido responde 400 VALIDACION con todos los campos y antes de la temporada")
+    void horariosCuerpoInvalido() {
+        canchaParaHorarios(DE_CLUB);
+        ReemplazarHorariosClubRequest peticion = new ReemplazarHorariosClubRequest(null, Arrays.asList(
+                horario(null, 8, DIEZ, DOCE, null),
+                horario(CATEGORIA, 1, DOCE, DOCE, null),
+                null));
+
+        assertThatThrownBy(() -> servicio.reemplazarHorariosClub(ID, peticion)).isInstanceOfSatisfying(
+                ReglaNegocioException.class, excepcion -> {
+                    error(HttpStatus.BAD_REQUEST, "VALIDACION").accept(excepcion);
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, String>> errores = (List<Map<String, String>>) excepcion.propiedades().get("errores");
+                    assertThat(errores).extracting(campo -> campo.get("campo")).containsExactly("temporadaId",
+                            "horarios[0].categoriaId", "horarios[0].diaSemana", "horarios[1].horaFin", "horarios[2]");
+                });
+        verifyNoInteractions(horarios);
+    }
+
+    @Test
+    @DisplayName("RF-119: sin lista de horarios o con horas faltantes responde 400 VALIDACION")
+    void horariosSinLista() {
+        canchaParaHorarios(DE_CLUB);
+
+        assertThatThrownBy(() -> servicio.reemplazarHorariosClub(ID, new ReemplazarHorariosClubRequest(TEMPORADA, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "VALIDACION"));
+        assertThatThrownBy(() -> servicio.reemplazarHorariosClub(ID, reemplazo(horario(CATEGORIA, 0, null, DOCE, null))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "VALIDACION"));
+        verifyNoInteractions(horarios);
+    }
+
+    @Test
+    @DisplayName("RF-119: una temporada que no es de la liga responde 422 REFERENCIA_INVALIDA")
+    void horariosTemporadaAjena() {
+        canchaParaHorarios(DE_CLUB);
+        given(horarios.bloquearTemporada(LIGA, TEMPORADA)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.reemplazarHorariosClub(ID, reemplazo(horario(CATEGORIA, 1, DIEZ, DOCE, null))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.UNPROCESSABLE_CONTENT, "REFERENCIA_INVALIDA"));
+        sinEscribirHorarios();
+    }
+
+    @Test
+    @DisplayName("RF-003: una temporada cerrada responde 409 antes de revisar categorías, tipo y traslapes")
+    void horariosTemporadaCerrada() {
+        canchaParaHorarios(EXTERNA);
+        temporada(EstadoTemporada.CERRADA);
+        UUID ajena = UUID.randomUUID();
+
+        assertThatThrownBy(() -> servicio.reemplazarHorariosClub(ID, reemplazo(
+                horario(ajena, 1, DIEZ, DOCE, null), horario(ajena, 1, DIEZ, DOCE, null))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
+                    error(HttpStatus.CONFLICT, "RF-003").accept(excepcion);
+                    assertThat(excepcion.getMessage())
+                            .isEqualTo("La temporada «Temporada 2031» está cerrada: sus horarios son de solo lectura.");
+                });
+        verify(horarios, never()).categoriasDeTemporada(any());
+        sinEscribirHorarios();
+    }
+
+    @Test
+    @DisplayName("RF-119: una categoría no asignada a la temporada responde 422 REFERENCIA_INVALIDA antes del tipo")
+    void horariosCategoriaNoAsignada() {
+        canchaParaHorarios(EXTERNA);
+        temporada(EstadoTemporada.ACTIVA);
+        UUID ajena = UUID.randomUUID();
+
+        assertThatThrownBy(() -> servicio.reemplazarHorariosClub(ID, reemplazo(horario(ajena, 1, DIEZ, DOCE, null))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
+                    error(HttpStatus.UNPROCESSABLE_CONTENT, "REFERENCIA_INVALIDA").accept(excepcion);
+                    assertThat(excepcion.propiedades().get("categoriasInvalidas")).isEqualTo(List.of(ajena.toString()));
+                });
+        sinEscribirHorarios();
+    }
+
+    @Test
+    @DisplayName("RF-119: un club que no es de la liga responde 422 REFERENCIA_INVALIDA")
+    void horariosClubAjeno() {
+        canchaParaHorarios(DE_LIGA);
+        temporada(EstadoTemporada.ACTIVA);
+        given(horarios.clubesDeLiga(eq(LIGA), any())).willReturn(Set.of());
+
+        assertThatThrownBy(() -> servicio.reemplazarHorariosClub(ID, reemplazo(
+                horario(CATEGORIA, 1, DIEZ, DOCE, OTRO_CLUB))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.UNPROCESSABLE_CONTENT, "REFERENCIA_INVALIDA"));
+        sinEscribirHorarios();
+    }
+
+    @Test
+    @DisplayName("DEC-33: una cancha externa no admite horarios de club (422 RF-119)")
+    void horariosCanchaExterna() {
+        canchaParaHorarios(EXTERNA);
+        temporada(EstadoTemporada.ACTIVA);
+
+        assertThatThrownBy(() -> servicio.reemplazarHorariosClub(ID, reemplazo(horario(CATEGORIA, 1, DIEZ, DOCE, CLUB))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.UNPROCESSABLE_CONTENT, "RF-119"));
+        sinEscribirHorarios();
+    }
+
+    @Test
+    @DisplayName("DEC-33: en una cancha de club, otro club responde 422 RF-119")
+    void horariosCanchaDeClubConOtroClub() {
+        canchaParaHorarios(DE_CLUB);
+        temporada(EstadoTemporada.ACTIVA);
+
+        assertThatThrownBy(() -> servicio.reemplazarHorariosClub(ID, reemplazo(
+                horario(CATEGORIA, 1, DIEZ, DOCE, OTRO_CLUB))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.UNPROCESSABLE_CONTENT, "RF-119"));
+        sinEscribirHorarios();
+    }
+
+    @Test
+    @DisplayName("DEC-33: en una cancha de club, el club es su propietario y no hay comodato")
+    void horariosCanchaDeClub() {
+        canchaParaHorarios(DE_CLUB);
+        temporada(EstadoTemporada.CONFIGURACION);
+
+        servicio.reemplazarHorariosClub(ID, reemplazo(horario(CATEGORIA, 1, DIEZ, DOCE, null),
+                horario(OTRA_CATEGORIA, 2, DIEZ, DOCE, CLUB)));
+
+        assertThat(insertados()).containsExactly(
+                new NuevoHorario(CATEGORIA, CLUB, 1, DIEZ, DOCE, false),
+                new NuevoHorario(OTRA_CATEGORIA, CLUB, 2, DIEZ, DOCE, false));
+        verify(autorizacion).exigir(EDITAR, ObjetivoAutorizacion.deClubes(CLUB));
+    }
+
+    @Test
+    @DisplayName("DEC-33: en una cancha de la liga, sin club responde 422 RF-119")
+    void horariosCanchaDeLigaSinClub() {
+        canchaParaHorarios(DE_LIGA);
+        temporada(EstadoTemporada.ACTIVA);
+
+        assertThatThrownBy(() -> servicio.reemplazarHorariosClub(ID, reemplazo(horario(CATEGORIA, 1, DIEZ, DOCE, null))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.UNPROCESSABLE_CONTENT, "RF-119"));
+        sinEscribirHorarios();
+    }
+
+    @Test
+    @DisplayName("DEC-33: en una cancha de la liga, cada horario es comodato del club indicado")
+    void horariosCanchaDeLigaEnComodato() {
+        canchaParaHorarios(DE_LIGA);
+        temporada(EstadoTemporada.ACTIVA);
+
+        servicio.reemplazarHorariosClub(ID, reemplazo(horario(CATEGORIA, 3, DIEZ, DOCE, OTRO_CLUB)));
+
+        assertThat(insertados()).containsExactly(new NuevoHorario(CATEGORIA, OTRO_CLUB, 3, DIEZ, DOCE, true));
+        verify(autorizacion).exigir(EDITAR, ObjetivoAutorizacion.deLiga());
+    }
+
+    @Test
+    @DisplayName("RF-119: dos horarios del mismo día que se traslapan responden 422 aunque sean de otra categoría")
+    void horariosTraslapados() {
+        canchaParaHorarios(DE_CLUB);
+        temporada(EstadoTemporada.ACTIVA);
+
+        assertThatThrownBy(() -> servicio.reemplazarHorariosClub(ID, reemplazo(
+                horario(CATEGORIA, 6, DIEZ, DOCE, null),
+                horario(OTRA_CATEGORIA, 6, LocalTime.of(11, 0), CATORCE, null))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
+                    error(HttpStatus.UNPROCESSABLE_CONTENT, "RF-119").accept(excepcion);
+                    assertThat(excepcion.getMessage()).contains("sábado", "10:00 a 12:00", "11:00 a 14:00");
+                });
+        sinEscribirHorarios();
+    }
+
+    @Test
+    @DisplayName("RF-119: los intervalos contiguos y los de otro día no chocan")
+    void horariosContiguos() {
+        canchaParaHorarios(DE_CLUB);
+        temporada(EstadoTemporada.ACTIVA);
+
+        servicio.reemplazarHorariosClub(ID, reemplazo(
+                horario(OTRA_CATEGORIA, 6, DOCE, CATORCE, null),
+                horario(CATEGORIA, 6, DIEZ, DOCE, null),
+                horario(CATEGORIA, 7, DIEZ, CATORCE, null)));
+
+        assertThat(insertados()).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("RF-119: el reemplazo borra e inserta solo en la temporada indicada y responde la lista guardada")
+    void horariosReemplazoPorTemporada() {
+        canchaParaHorarios(DE_CLUB);
+        temporada(EstadoTemporada.ACTIVA);
+        List<HorarioCanchaClubDto> guardados = List.of(new HorarioCanchaClubDto(UUID.randomUUID(), ID, TEMPORADA,
+                new HorarioCanchaClubDto.ReferenciaDto(CATEGORIA, "Libre"),
+                new HorarioCanchaClubDto.ReferenciaDto(CLUB, "Halcones"), 1, DIEZ, DOCE, false));
+        given(horarios.listar(ID, TEMPORADA)).willReturn(guardados);
+
+        List<HorarioCanchaClubDto> respuesta =
+                servicio.reemplazarHorariosClub(ID, reemplazo(horario(CATEGORIA, 1, DIEZ, DOCE, null)));
+
+        InOrder orden = inOrder(horarios);
+        orden.verify(horarios).eliminar(ID, TEMPORADA);
+        orden.verify(horarios).insertar(eq(ID), eq(TEMPORADA), any(NuevoHorario.class));
+        orden.verify(horarios).listar(ID, TEMPORADA);
+        assertThat(respuesta).isEqualTo(guardados);
+    }
+
+    @Test
+    @DisplayName("RF-119: una lista vacía borra los horarios de la temporada y lo audita con 0")
+    void horariosListaVacia() {
+        canchaParaHorarios(DE_LIGA);
+        temporada(EstadoTemporada.ACTIVA);
+
+        servicio.reemplazarHorariosClub(ID, reemplazo());
+
+        verify(horarios).eliminar(ID, TEMPORADA);
+        verify(horarios, never()).insertar(any(), any(), any());
+        assertThat(eventoAuditado().detalle()).containsEntry("horarios", 0);
+    }
+
+    @Test
+    @DisplayName("RF-093: el PUT se audita como REGISTRAR_HORARIOS_CANCHA sobre la cancha con el número de horarios")
+    void horariosAuditados() {
+        canchaParaHorarios(DE_LIGA);
+        temporada(EstadoTemporada.ACTIVA);
+
+        servicio.reemplazarHorariosClub(ID, reemplazo(horario(CATEGORIA, 1, DIEZ, DOCE, CLUB),
+                horario(CATEGORIA, 2, DIEZ, DOCE, OTRO_CLUB)));
+
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.modulo()).isEqualTo("M-06");
+        assertThat(evento.accion()).isEqualTo("REGISTRAR_HORARIOS_CANCHA");
+        assertThat(evento.entidad()).isEqualTo("canchas");
+        assertThat(evento.entidadId()).isEqualTo(ID.toString());
+        assertThat(evento.motivo()).isNull();
+        assertThat(evento.detalle()).isEqualTo(Map.of("canchaId", ID.toString(), "temporadaId", TEMPORADA.toString(),
+                "horarios", 2));
     }
 }

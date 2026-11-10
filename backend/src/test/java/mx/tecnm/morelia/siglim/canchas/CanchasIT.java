@@ -7,12 +7,14 @@ import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 import mx.tecnm.morelia.siglim.BaseDatosPrueba;
 import mx.tecnm.morelia.siglim.PartidosPrueba;
+import mx.tecnm.morelia.siglim.canchas.ReemplazarHorariosClubRequest.HorarioRequest;
 import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
 import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
@@ -542,6 +544,80 @@ class CanchasIT extends BaseDatosPrueba {
                 .isEqualTo(MOTIVO_MANTENIMIENTO);
     }
 
+    // ── Horarios de club y comodato (B-13.1) ──────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-119: el PUT guarda los horarios, el GET los lee en orden y otra temporada no se toca")
+    void horariosDeClubPorTemporada() {
+        UUID perfil = iniciarSesionComoAdministrador();
+        UUID club = crearClub();
+        CanchaDto cancha = servicio.crear(new CrearCanchaRequest("Horarios " + UUID.randomUUID(),
+                UbicacionCancha.EXTERNA, null, PropietarioCancha.CLUB, club, null, null, null));
+        UUID temporada = crearTemporada();
+        UUID otraTemporada = crearTemporada();
+        UUID libre = asignarCategoriaNueva(temporada, 1);
+        UUID veteranos = asignarCategoriaNueva(temporada, 2);
+        UUID otraCategoria = asignarCategoriaNueva(otraTemporada, 1);
+        servicio.reemplazarHorariosClub(cancha.id(), new ReemplazarHorariosClubRequest(otraTemporada, List.of(
+                new HorarioRequest(otraCategoria, 1, LocalTime.of(9, 0), LocalTime.of(11, 0), null))));
+
+        servicio.reemplazarHorariosClub(cancha.id(), new ReemplazarHorariosClubRequest(temporada, List.of(
+                new HorarioRequest(veteranos, 6, LocalTime.of(12, 0), LocalTime.of(14, 0), null),
+                new HorarioRequest(libre, 6, LocalTime.of(10, 0), LocalTime.of(12, 0), club),
+                new HorarioRequest(veteranos, 7, LocalTime.of(10, 0), LocalTime.of(12, 0), null))));
+        List<HorarioCanchaClubDto> leidos = servicio.listarHorariosClub(cancha.id(), temporada);
+        List<HorarioCanchaClubDto> reemplazados = servicio.reemplazarHorariosClub(cancha.id(),
+                new ReemplazarHorariosClubRequest(temporada, List.of(
+                        new HorarioRequest(libre, 3, LocalTime.of(18, 0), LocalTime.of(20, 30), null))));
+
+        assertThat(leidos).extracting(h -> h.categoria().id(), HorarioCanchaClubDto::diaSemana,
+                        HorarioCanchaClubDto::horaInicio)
+                .containsExactly(tuple(libre, 6, LocalTime.of(10, 0)), tuple(veteranos, 6, LocalTime.of(12, 0)),
+                        tuple(veteranos, 7, LocalTime.of(10, 0)));
+        assertThat(leidos).allSatisfy(horario -> {
+            assertThat(horario.club().id()).isEqualTo(club);
+            assertThat(horario.club().nombre()).isNotBlank();
+            assertThat(horario.categoria().nombre()).isNotBlank();
+            assertThat(horario.esComodato()).isFalse();
+            assertThat(horario.temporadaId()).isEqualTo(temporada);
+        });
+        assertThat(reemplazados).extracting(HorarioCanchaClubDto::diaSemana, HorarioCanchaClubDto::horaFin)
+                .containsExactly(tuple(3, LocalTime.of(20, 30)));
+        assertThat(servicio.listarHorariosClub(cancha.id(), otraTemporada))
+                .as("la otra temporada conserva su horario")
+                .extracting(h -> h.categoria().id()).containsExactly(otraCategoria);
+
+        record Fila(UUID perfilId, String entidad, String detalle) {
+        }
+        List<Fila> auditados = jdbc.sql("""
+                        SELECT perfil_id, entidad, CAST(detalle AS text) AS detalle
+                          FROM siglim.auditoria
+                         WHERE modulo = 'M-06' AND accion = 'REGISTRAR_HORARIOS_CANCHA' AND entidad_id = :id
+                         ORDER BY id
+                        """)
+                .param("id", cancha.id().toString()).query(Fila.class).list();
+        assertThat(auditados).hasSize(3).allSatisfy(fila -> {
+            assertThat(fila.perfilId()).isEqualTo(perfil);
+            assertThat(fila.entidad()).isEqualTo("canchas");
+        });
+        assertThat(auditados.get(1).detalle()).contains("\"horarios\": 3", temporada.toString());
+    }
+
+    @Test
+    @DisplayName("RF-003: una temporada cerrada no admite horarios pero se consulta")
+    void horariosEnTemporadaCerrada() {
+        iniciarSesionComoAdministrador();
+        UUID cancha = nuevaCancha();
+        UUID temporada = crearTemporada();
+        UUID categoria = asignarCategoriaNueva(temporada, 1);
+        cerrarTemporada(temporada);
+
+        assertThatThrownBy(() -> servicio.reemplazarHorariosClub(cancha, new ReemplazarHorariosClubRequest(temporada,
+                List.of(new HorarioRequest(categoria, 1, LocalTime.of(9, 0), LocalTime.of(11, 0), crearClub())))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-003"));
+        assertThat(servicio.listarHorariosClub(cancha, temporada)).isEmpty();
+    }
+
     // ── Permisos con la matriz de la migración ────────────────────────────────────────────────
 
     @Test
@@ -632,6 +708,38 @@ class CanchasIT extends BaseDatosPrueba {
     private UUID crearClub() {
         return jdbc.sql("INSERT INTO siglim.clubes (liga_id, nombre) VALUES (:liga, :nombre) RETURNING id")
                 .param("liga", LIGA).param("nombre", "Club " + UUID.randomUUID()).query(UUID.class).single();
+    }
+
+    /** Temporada nueva en configuración; el nombre es único para no chocar con otras pruebas. */
+    private UUID crearTemporada() {
+        return jdbc.sql("""
+                        INSERT INTO siglim.temporadas (liga_id, nombre, fecha_inicio)
+                        VALUES (:liga, :nombre, DATE '2031-08-01') RETURNING id
+                        """)
+                .param("liga", LIGA).param("nombre", "Temporada " + UUID.randomUUID())
+                .query(UUID.class).single();
+    }
+
+    /** Activa y cierra la temporada como lo exige su trigger (RF-001, RF-100). */
+    private void cerrarTemporada(UUID temporada) {
+        jdbc.sql("INSERT INTO siglim.parametros_temporada (temporada_id, motivo) VALUES (:id, 'Parámetros de prueba')")
+                .param("id", temporada).update();
+        jdbc.sql("UPDATE siglim.temporadas SET estado = 'ACTIVA' WHERE id = :id").param("id", temporada).update();
+        jdbc.sql("UPDATE siglim.temporadas SET estado = 'CERRADA' WHERE id = :id").param("id", temporada).update();
+    }
+
+    /** Categoría nueva del catálogo, asignada a la temporada; {@code orden} relativo a las de la prueba. */
+    private UUID asignarCategoriaNueva(UUID temporada, int orden) {
+        UUID categoria = jdbc.sql("""
+                        INSERT INTO siglim.categorias (liga_id, nombre, tipo, orden)
+                        SELECT :liga, :nombre, 'LIBRE', coalesce(max(orden), 0) + :orden FROM siglim.categorias
+                        RETURNING id
+                        """)
+                .param("liga", LIGA).param("nombre", "Categoría " + UUID.randomUUID()).param("orden", orden)
+                .query(UUID.class).single();
+        jdbc.sql("INSERT INTO siglim.categorias_temporada (temporada_id, categoria_id) VALUES (:temporada, :categoria)")
+                .param("temporada", temporada).param("categoria", categoria).update();
+        return categoria;
     }
 
     private UUID crearPerfil() {
