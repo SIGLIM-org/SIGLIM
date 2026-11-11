@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 | --- | --- |
-| Defecto | DEF-07 (SCRUM-406) · Sprint 3 · bloquea las pruebas contra el compartido (B-13.3, 12 nov) |
+| Defecto | DEF-07 (SCRUM-431) · Sprint 3 · bloquea las pruebas contra el compartido (B-13.3, 12 nov) |
 | Origen | Análisis del cierre del Sprint 2, 10 nov 2026 |
 | Versión revisada | `develop` en `52bdd71` |
 | Fecha | 2026-11-10 |
@@ -115,4 +115,4 @@ integración de GitHub quedó apuntando al repositorio anterior después de la t
 `SIGLIM-org`. Hasta reconectarla y volver a ejecutarla, el proyecto compartido no refleja `develop` y
 las pruebas de aceptación del Sprint 3 contra el compartido no son fiables.
 
-**Refs:** DEF-06, H-22, DEC-52, SCRUM-406.
+**Refs:** DEF-06, H-22, DEC-52, SCRUM-431.
