@@ -854,7 +854,7 @@ la misma forma que `GET /temporadas/{id}/parametros/{version}`:
 | --- | --- | --- | --- | --- |
 | `GET /clubes` · `GET /clubes/{id}` · `POST /clubes` | Clubes. Sin `PATCH`: el nombre solo cambia con `POST /clubes/{id}/cambio-nombre` | `organizacion.club:CONSULTAR` en los `GET`; `organizacion.club:EDITAR` en `POST` | RF-008 | N |
 | `POST /clubes/{id}/cambio-nombre` | Cierra el club y crea uno nuevo | `organizacion.club:EDITAR` con ámbito de liga | RF-105 | B |
-| `GET /afiliaciones?temporadaId=&estado=` · `POST /afiliaciones` · `PATCH /afiliaciones/{id}` | Tarjetón por temporada (folio lo asigna el sistema) | `organizacion.afiliacion:CAPTURAR` | RF-101 | N |
+| `GET /afiliaciones?temporadaId=&estado=` · `GET /afiliaciones/{id}` · `POST /afiliaciones` · `PATCH /afiliaciones/{id}` | Tarjetón por temporada (folio lo asigna el sistema) | `organizacion.afiliacion:CAPTURAR`; los `GET` también con `organizacion.afiliacion:APROBAR` | RF-101 | N |
 | `POST /afiliaciones/{id}/resolucion` | Aprobar o rechazar | `organizacion.afiliacion:APROBAR` | RF-101 | N |
 | `GET /clubes/{id}/directiva` | Cargos e historial | `organizacion.club:CONSULTAR` con ámbito del club | RF-102 | N |
 | `POST /clubes/{id}/directiva` | Registrar un cambio pendiente | `organizacion.directiva:EDITAR` con ámbito del club | RF-102 | N |
@@ -914,6 +914,47 @@ historial se quedan en el club anterior. Se audita en `M-03` `CERRAR_CLUB` sobre
 `REGISTRAR_CLUB` sobre el nuevo (`{ "estado": "ACTIVO", "clubAnteriorId" }`); por cada asignación
 trasladada, en `M-01`, `REVOCAR_ASIGNACION` (motivo «Cambio de nombre del club») y `ASIGNAR_ROL`, con
 el mismo detalle que en §6.1. Si cualquier paso falla, no queda nada de lo anterior.
+
+**Afiliación del club (H-08.1, RF-101, CU-018, UI-023, DEC-09).** `GET /afiliaciones?temporadaId=&estado=`
+responde la envoltura de paginación (§4) ordenada por fecha de inicio de la temporada descendente y,
+dentro de ella, por nombre del club. Un `temporadaId` fuera del ámbito no es un error: la página sale
+vacía, y un `estado` sin coincidencias también. El listado y su `totalElementos` filtran por el club
+con la unión del alcance de `organizacion.afiliacion:CAPTURAR` (Secretaría y Directiva) y de
+`organizacion.afiliacion:APROBAR` (Presidencia), porque el Presidente revisa tarjetones aunque no los
+capture. `GET /afiliaciones/{id}`
+responde el mismo detalle; un tarjetón de otro club responde `404` igual que uno inexistente
+(VAL-024). El detalle lleva `id`, `folio`, `club`, `temporada` (con su `estado`), `coloresUniformes`,
+`estado`, `categorias`, `capturadaPor`, `capturadaEn` y, solo si ya se resolvió, `resueltaPor`,
+`resueltaEn` y `observaciones`. El `id` del perfil siempre se incluye; su `nombreMostrado` se omite si
+las políticas RLS de `perfiles` no permiten verlo al usuario de la sesión.
+
+`POST /afiliaciones` lleva `{ "clubId", "temporadaId", "coloresUniformes", "categoriaIds" }` y
+responde `201` con `Location`. El estado inicial es `SOLICITADA` y el perfil que captura sale de la
+sesión; el cuerpo no los envía. El folio lo asigna el sistema como `AF-<año de inicio de la
+temporada>-<consecutivo de cuatro dígitos>` **[PROPUESTA]** (el ejemplo `AF-2025-0137` de F-16), único
+por temporada: la temporada se bloquea con `FOR UPDATE` antes de contar, así que dos altas
+simultáneas no repiten consecutivo. El club debe existir, ser de la liga y estar `ACTIVO`
+(`409 RN-041` si está cerrado); la temporada debe ser de la liga (`422 REFERENCIA_INVALIDA`) y no
+estar `CERRADA` (`409 RF-003`); se exige al menos una categoría y los colores; todas las categorías
+deben participar en la temporada (`422 REFERENCIA_INVALIDA` con la extensión `categoriasInvalidas`).
+Un club ya afiliado en esa temporada responde `409 DUPLICADO` con el folio, el estado, y las
+extensiones `afiliacionId` y `folio`.
+
+`PATCH /afiliaciones/{id}` edita `coloresUniformes` o `categoriaIds`; lo ausente conserva su valor y
+sin cambios responde el tarjetón sin auditar. Solo se edita en `SOLICITADA`: un tarjetón resuelto
+responde `409 RF-101`, uno de un club cerrado, `409 RN-041`, y uno de una temporada cerrada,
+`409 RF-003`. Las categorías nuevas se validan igual que en el alta y se reemplazan en la misma
+transacción.
+
+`POST /afiliaciones/{id}/resolucion` lleva `{ "decision": "APROBADA"|"RECHAZADA", "observaciones" }`
+y exige `organizacion.afiliacion:APROBAR` con ámbito del club. Pasar a `APROBADA` o `RECHAZADA` es
+terminal: resolver otra vez responde `409 RF-101` y hacerlo con el club cerrado, `409 RN-041`. El
+rechazo exige observaciones de 10 a 500 caracteres (`400 RF-101` si faltan, `400 VALIDACION` si
+sobran) y las guarda como motivo; la aprobación las admite como nota. En ambos
+casos se guardan `resueltaPor` (perfil de la sesión) y `resueltaEn` (reloj del servidor). Las
+operaciones se auditan en `M-03` sobre `afiliaciones` como `REGISTRAR_AFILIACION`,
+`EDITAR_AFILIACION`, `APROBAR_AFILIACION` y `RECHAZAR_AFILIACION`, con folio y estados, sin datos
+personales.
 
 **Directiva del club (H-22.1, RF-102, DEC-03).** `GET /clubes/{id}/directiva` devuelve un arreglo con
 los cargos actuales, pendientes y anteriores del club, ordenados por cargo, pendientes primero y

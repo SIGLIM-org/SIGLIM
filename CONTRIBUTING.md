@@ -37,6 +37,36 @@ Decisión del equipo del 26 de octubre de 2026 ([DEC-51](docs/requisitos/decisio
 > `./mvnw verify`, y después se confirma que quedó aplicada. Nunca se aplica a mano con el SQL
 > Editor. Detalle en [`supabase/README.md`](supabase/README.md).
 
+### Si una migración no aparece en el proyecto compartido
+
+La integración solo recibe los merges del repositorio al que está conectada. Si el repositorio se
+transfiere o cambia de nombre, la instalación de Supabase puede quedarse con la ruta anterior y dejar
+de aplicar migraciones aunque ya estén en `develop` (pasó al pasar de `israelweil/SIGLIM` a
+`SIGLIM-org/SIGLIM` el 5 de noviembre de 2026; DEF-07).
+
+Comprueba el historial con el script de solo lectura, desde `supabase/`:
+
+```bash
+PGHOST=... PGPORT=6543 PGUSER=postgres.<ref> PGPASSWORD='...' PGSSLMODE=require \
+  ./verificar_migraciones.sh
+```
+
+Si faltan versiones, el paso manual es **reconectar la integración**, no aplicar SQL:
+
+1. En *Project Settings → Integrations → GitHub Integration*, confirma que el repositorio es
+   `SIGLIM-org/SIGLIM`, el *working directory* `.` y la rama de producción `develop`, con *Deploy to
+   production* activo. Si apunta al repositorio anterior o la GitHub App no tiene acceso a la
+   organización, reinstálala en `SIGLIM-org` y vuelve a seleccionar el repositorio.
+2. Dispara la integración con el siguiente merge en `develop` (o con su botón de reintento). Aplica
+   todas las migraciones pendientes en orden.
+3. Vuelve a ejecutar `verificar_migraciones.sh`: debe terminar en `OK`, sin versiones faltantes.
+4. Solo si una migración **ya aplicada** no está registrada, usa el `INSERT` de
+   [`supabase/README.md`](supabase/README.md) para registrarla.
+
+Nunca apliques una migración pendiente con el SQL Editor ni con `supabase db push` contra el proyecto
+compartido. Si la integración no se puede reconectar, el merge queda bloqueado y se escala a quien
+administra el proyecto de Supabase.
+
 Nombres de las ramas de trabajo (todas salen de `develop`):
 
 | Tipo | Formato | Ejemplo |
