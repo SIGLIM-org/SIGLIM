@@ -32,7 +32,7 @@
       },
       "cuerpoRespuesta": [
         {
-          "id": "0878ba54-3cbb-47c6-8c05-fcd178b911d9",
+          "id": "21d43bc3-7b3d-4a20-ae4c-6c385737f186",
           "canchaId": "b1300000-0000-4000-8000-000000000031",
           "temporadaId": "b1300000-0000-4000-8000-000000000001",
           "categoria": {
@@ -49,7 +49,7 @@
           "esComodato": true
         },
         {
-          "id": "53f76750-fed1-4669-97c1-6051c5cbb073",
+          "id": "e44530aa-faa4-4d40-90c0-4ff593143a0e",
           "canchaId": "b1300000-0000-4000-8000-000000000031",
           "temporadaId": "b1300000-0000-4000-8000-000000000001",
           "categoria": {
@@ -91,7 +91,7 @@
       },
       "cuerpoRespuesta": [
         {
-          "id": "2da6dadb-907c-4524-91d6-482c0b1f5ef5",
+          "id": "76864c47-7528-4f35-a938-9656310c08a4",
           "canchaId": "b1300000-0000-4000-8000-000000000032",
           "temporadaId": "b1300000-0000-4000-8000-000000000001",
           "categoria": {
@@ -116,7 +116,7 @@
       "cuerpoEnviado": null,
       "cuerpoRespuesta": [
         {
-          "id": "0878ba54-3cbb-47c6-8c05-fcd178b911d9",
+          "id": "21d43bc3-7b3d-4a20-ae4c-6c385737f186",
           "canchaId": "b1300000-0000-4000-8000-000000000031",
           "temporadaId": "b1300000-0000-4000-8000-000000000001",
           "categoria": {
@@ -133,7 +133,7 @@
           "esComodato": true
         },
         {
-          "id": "53f76750-fed1-4669-97c1-6051c5cbb073",
+          "id": "e44530aa-faa4-4d40-90c0-4ff593143a0e",
           "canchaId": "b1300000-0000-4000-8000-000000000031",
           "temporadaId": "b1300000-0000-4000-8000-000000000001",
           "categoria": {
@@ -158,7 +158,7 @@
       "cuerpoEnviado": null,
       "cuerpoRespuesta": [
         {
-          "id": "b9183631-ef64-470d-8e37-15bf1351ad10",
+          "id": "84e2edd2-b32a-41fc-923c-d484e0cfe756",
           "canchaId": "b1300000-0000-4000-8000-000000000031",
           "temporadaId": "b1300000-0000-4000-8000-000000000002",
           "categoria": {
@@ -183,7 +183,7 @@
       "cuerpoEnviado": null,
       "cuerpoRespuesta": [
         {
-          "id": "0878ba54-3cbb-47c6-8c05-fcd178b911d9",
+          "id": "21d43bc3-7b3d-4a20-ae4c-6c385737f186",
           "canchaId": "b1300000-0000-4000-8000-000000000031",
           "temporadaId": "b1300000-0000-4000-8000-000000000001",
           "categoria": {
@@ -200,7 +200,7 @@
           "esComodato": true
         },
         {
-          "id": "53f76750-fed1-4669-97c1-6051c5cbb073",
+          "id": "e44530aa-faa4-4d40-90c0-4ff593143a0e",
           "canchaId": "b1300000-0000-4000-8000-000000000031",
           "temporadaId": "b1300000-0000-4000-8000-000000000001",
           "categoria": {
@@ -236,7 +236,7 @@
       },
       "cuerpoRespuesta": [
         {
-          "id": "bff8c643-ffe1-46da-9623-01794b4a6b05",
+          "id": "c02affdb-281b-4615-b8ac-a5de8bb83d7b",
           "canchaId": "b1300000-0000-4000-8000-000000000031",
           "temporadaId": "b1300000-0000-4000-8000-000000000001",
           "categoria": {
@@ -257,12 +257,12 @@
   ],
   "respuestas": [
     {
-      "ca": "CA-1",
+      "ca": "CA-1a",
       "get": {
         "estado": 200,
         "cuerpo": [
           {
-            "id": "0878ba54-3cbb-47c6-8c05-fcd178b911d9",
+            "id": "21d43bc3-7b3d-4a20-ae4c-6c385737f186",
             "canchaId": "b1300000-0000-4000-8000-000000000031",
             "temporadaId": "b1300000-0000-4000-8000-000000000001",
             "categoria": {
@@ -279,7 +279,7 @@
             "esComodato": true
           },
           {
-            "id": "53f76750-fed1-4669-97c1-6051c5cbb073",
+            "id": "e44530aa-faa4-4d40-90c0-4ff593143a0e",
             "canchaId": "b1300000-0000-4000-8000-000000000031",
             "temporadaId": "b1300000-0000-4000-8000-000000000001",
             "categoria": {
@@ -299,12 +299,12 @@
       }
     },
     {
-      "ca": "CA-2",
+      "ca": "CA-1b",
       "get": {
         "estado": 200,
         "cuerpo": [
           {
-            "id": "2da6dadb-907c-4524-91d6-482c0b1f5ef5",
+            "id": "76864c47-7528-4f35-a938-9656310c08a4",
             "canchaId": "b1300000-0000-4000-8000-000000000032",
             "temporadaId": "b1300000-0000-4000-8000-000000000001",
             "categoria": {
@@ -324,7 +324,7 @@
       }
     },
     {
-      "ca": "CA-3 traslape",
+      "ca": "CA-2",
       "putsDelNavegador": 0,
       "putDirecto": {
         "estado": 422,
@@ -341,7 +341,7 @@
         "estado": 200,
         "cuerpo": [
           {
-            "id": "0878ba54-3cbb-47c6-8c05-fcd178b911d9",
+            "id": "21d43bc3-7b3d-4a20-ae4c-6c385737f186",
             "canchaId": "b1300000-0000-4000-8000-000000000031",
             "temporadaId": "b1300000-0000-4000-8000-000000000001",
             "categoria": {
@@ -358,7 +358,61 @@
             "esComodato": true
           },
           {
-            "id": "53f76750-fed1-4669-97c1-6051c5cbb073",
+            "id": "e44530aa-faa4-4d40-90c0-4ff593143a0e",
+            "canchaId": "b1300000-0000-4000-8000-000000000031",
+            "temporadaId": "b1300000-0000-4000-8000-000000000001",
+            "categoria": {
+              "id": "b1300000-0000-4000-8000-000000000012",
+              "nombre": "Segunda División"
+            },
+            "club": {
+              "id": "b1300000-0000-4000-8000-000000000022",
+              "nombre": "Toros B-13"
+            },
+            "diaSemana": 6,
+            "horaInicio": "12:00:00",
+            "horaFin": "14:00:00",
+            "esComodato": true
+          }
+        ]
+      }
+    },
+    {
+      "ca": "CA-3",
+      "putsDelNavegador": 0,
+      "putDirecto": {
+        "estado": 422,
+        "cuerpo": {
+          "detail": "Una cancha de la liga solo tiene horarios en comodato: indica el club de cada horario.",
+          "instance": "/api/v1/canchas/b1300000-0000-4000-8000-000000000031/horarios-club",
+          "status": 422,
+          "title": "No se puede procesar",
+          "type": "https://siglim.mx/errores/rf-119",
+          "codigo": "RF-119"
+        }
+      },
+      "get": {
+        "estado": 200,
+        "cuerpo": [
+          {
+            "id": "21d43bc3-7b3d-4a20-ae4c-6c385737f186",
+            "canchaId": "b1300000-0000-4000-8000-000000000031",
+            "temporadaId": "b1300000-0000-4000-8000-000000000001",
+            "categoria": {
+              "id": "b1300000-0000-4000-8000-000000000011",
+              "nombre": "Primera División"
+            },
+            "club": {
+              "id": "b1300000-0000-4000-8000-000000000021",
+              "nombre": "Halcones B-13"
+            },
+            "diaSemana": 6,
+            "horaInicio": "10:00:00",
+            "horaFin": "12:00:00",
+            "esComodato": true
+          },
+          {
+            "id": "e44530aa-faa4-4d40-90c0-4ff593143a0e",
             "canchaId": "b1300000-0000-4000-8000-000000000031",
             "temporadaId": "b1300000-0000-4000-8000-000000000001",
             "categoria": {
@@ -397,7 +451,7 @@
         "estado": 200,
         "cuerpo": [
           {
-            "id": "bff8c643-ffe1-46da-9623-01794b4a6b05",
+            "id": "c02affdb-281b-4615-b8ac-a5de8bb83d7b",
             "canchaId": "b1300000-0000-4000-8000-000000000031",
             "temporadaId": "b1300000-0000-4000-8000-000000000001",
             "categoria": {
@@ -419,7 +473,7 @@
         "estado": 200,
         "cuerpo": [
           {
-            "id": "b9183631-ef64-470d-8e37-15bf1351ad10",
+            "id": "84e2edd2-b32a-41fc-923c-d484e0cfe756",
             "canchaId": "b1300000-0000-4000-8000-000000000031",
             "temporadaId": "b1300000-0000-4000-8000-000000000002",
             "categoria": {

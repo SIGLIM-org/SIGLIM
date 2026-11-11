@@ -3,7 +3,7 @@ Estado de la base al terminar la corrida de aceptación de B-13
 
 Base: PostgreSQL 18.6, clúster efímero en 127.0.0.1:55432, base siglim_aceptacion
 Esquema: siglim, con mock_supabase.sql y las seis migraciones del repositorio
-Fecha de la consulta: 2026-11-10 15:54:36 (America/Mexico_City)
+Fecha de la consulta: 2026-11-11 07:49:35 (America/Mexico_City)
 
 1. horarios_cancha_club
 ------------------------
@@ -17,9 +17,9 @@ Temporada 2025-2026 | Cancha de la Liga B-13  | LIGA        | Primera División 
 --------------------------------------------------
 ocurrido_en         | modulo | accion                    | entidad | entidad_id                           | detalle_cancha                       | detalle_temporada                    | horarios_guardados
 --------------------+--------+---------------------------+---------+--------------------------------------+--------------------------------------+--------------------------------------+-------------------
-2026-11-10 15:50:58 | M-06   | REGISTRAR_HORARIOS_CANCHA | canchas | b1300000-0000-4000-8000-000000000031 | b1300000-0000-4000-8000-000000000031 | b1300000-0000-4000-8000-000000000001 | 2                 
-2026-11-10 15:50:59 | M-06   | REGISTRAR_HORARIOS_CANCHA | canchas | b1300000-0000-4000-8000-000000000032 | b1300000-0000-4000-8000-000000000032 | b1300000-0000-4000-8000-000000000001 | 1                 
-2026-11-10 15:51:01 | M-06   | REGISTRAR_HORARIOS_CANCHA | canchas | b1300000-0000-4000-8000-000000000031 | b1300000-0000-4000-8000-000000000031 | b1300000-0000-4000-8000-000000000001 | 1                 
+2026-11-11 07:49:10 | M-06   | REGISTRAR_HORARIOS_CANCHA | canchas | b1300000-0000-4000-8000-000000000031 | b1300000-0000-4000-8000-000000000031 | b1300000-0000-4000-8000-000000000001 | 2                 
+2026-11-11 07:49:12 | M-06   | REGISTRAR_HORARIOS_CANCHA | canchas | b1300000-0000-4000-8000-000000000032 | b1300000-0000-4000-8000-000000000032 | b1300000-0000-4000-8000-000000000001 | 1                 
+2026-11-11 07:49:14 | M-06   | REGISTRAR_HORARIOS_CANCHA | canchas | b1300000-0000-4000-8000-000000000031 | b1300000-0000-4000-8000-000000000031 | b1300000-0000-4000-8000-000000000001 | 1                 
 
 3. Matriz inicial de permisos de canchas (Apéndice E del ERS)
 --------------------------------------------------------------
@@ -32,8 +32,8 @@ PROGRAMADOR           | canchas.cancha:CONSULTAR
 SECRETARIO            | canchas.cancha:CONSULTAR
 TESORERO              | canchas.cancha:CONSULTAR
 
-Nota: el Administrador general tiene canchas.cancha:CONSULTAR y :EDITAR con ámbito LIGA; la
-matriz inicial no otorga esos permisos a la Directiva de club, por lo que la corrida manual usó
-la cuenta de Administrador general para ambos tipos de cancha. El ámbito CLUB del servicio está
-cubierto por CanchaServiceTest ("RF-119: el GET consulta con CONSULTAR en el ámbito del club",
+Nota: con la matriz inicial solo el Administrador general tiene canchas.cancha:CONSULTAR y
+:EDITAR (ámbito LIGA); el Secretario, actor de B-13 y de RF-119, no lo tiene. La corrida manual
+usó la cuenta de Administrador general para ambos tipos de cancha. El ámbito CLUB del servicio
+está cubierto por CanchaServiceTest ("RF-119: el GET consulta con CONSULTAR en el ámbito del club",
 "DEC-33: en una cancha de club, el club es su propietario y no hay comodato").
