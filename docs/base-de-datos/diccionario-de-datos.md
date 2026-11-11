@@ -1,7 +1,7 @@
 # Diccionario de datos
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.5 · 8 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
+Versión 2.6 · 11 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
 
 > [!NOTE]
 > Este diccionario describe la migración
@@ -22,6 +22,7 @@ Versión 2.5 · 8 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado
 | 2.3 | 3 de noviembre de 2026 | Migración `20261103100000_secretario_registra_equipos.sql` (H-06.1, SCRUM-270): el rol `SECRETARIO` recibe `organizacion.equipo:EDITAR`, que el Apéndice E del ERS le da (M-03 C L E, RF-009) y la semilla inicial omitió. Solo agrega una fila a `rol_permisos`; sin cambios en tablas ni funciones. |
 | 2.4 | 6 de noviembre de 2026 | Migración `20261106160000_tesorero_consulta_equipos.sql` (DEF-06, SCRUM-404): el rol `TESORERO` recibe `organizacion.equipo:CONSULTAR`, que DEC-55 agrega al Apéndice E del ERS (M-03 L, RF-137) para dirigir cobros a un equipo; no recibe `organizacion.equipo:EDITAR`. Solo agrega una fila a `rol_permisos`; sin cambios en tablas ni funciones. |
 | 2.5 | 8 de noviembre de 2026 | Migración `20261108100000_cargo_directiva_pendiente.sql` (H-22.1): `ux_cargos_vigentes` solo considera cargos autorizados (`autorizado_por IS NOT NULL`), para que un cambio pendiente no impida mantener vigente el cargo anterior (RF-102). Sin cambios en columnas ni datos. |
+| 2.6 | 11 de noviembre de 2026 | Migración `20261111130000_personas_tutela_consentimiento.sql` (H-09.1): funciones `SECURITY DEFINER` de lectura mínima `persona_por_curp(text)` y `es_tutor_vigente(uuid, uuid)`, y `es_menor(uuid, date)` pasa a `SECURITY DEFINER` (devuelve `NULL` si la persona no existe), para que la identidad sea global aunque RLS solo muestre al club sus personas (DEC-78); las tres solo las ejecuta `siglim_app`. `avisos_privacidad` agrega `es_demo` y la migración carga el aviso v1 `SIMPLIFICADO` de demostración, rotulado «No oficial» (DEC-74, DEC-80). Pruebas nuevas en `supabase/pruebas/prueba_funciones.sql`. |
 
 ## 1. Propósito y alcance
 
@@ -276,6 +277,7 @@ Versiones del aviso de privacidad integral y simplificado (RF-097, DEC-40).
 | `finalidades` | text[] | No |  |  | Finalidades que el titular puede aceptar por separado. |
 | `vigente_desde` | date | No |  |  | Fecha desde la que se usa esta versión. |
 | `creado_en` | timestamptz | No | now() |  | Fecha y hora de creación. |
+| `es_demo` | boolean | No | false |  | Valor de demostración [DEMO]: configurable y rotulado «no oficial» en la interfaz. |
 
 Restricciones, índices y triggers:
 
@@ -1814,12 +1816,14 @@ Restricciones, índices y triggers:
 | `clubes_usuario()` | `SETOF uuid` | SECURITY DEFINER | Clubes de las asignaciones activas con ámbito CLUB del usuario actual. |
 | `cobro_visible(p_cobro uuid)` | `boolean` | SECURITY DEFINER | Verdadero si el cobro pertenece a un club del ámbito del usuario. |
 | `error_negocio(p_codigo text, p_mensaje text)` | `void` | invocador | Lanza un error de negocio (SQLSTATE `P0001`) con el código del ERS (VAL-xxx, RN-xxx) en HINT para que el backend lo traduzca a RFC 9457. `search_path` fijo desde la versión 2.1. |
-| `es_menor(p_persona uuid, p_fecha date DEFAULT CURRENT_DATE)` | `boolean` | invocador | Verdadero si la persona tiene menos de 18 años en la fecha indicada (RN-055). |
+| `es_menor(p_persona uuid, p_fecha date DEFAULT CURRENT_DATE)` | `boolean` | SECURITY DEFINER | Verdadero si la persona tiene menos de 18 años en la fecha indicada; `NULL` si no existe, aunque RLS no la muestre (RN-055, DEC-78). |
+| `es_tutor_vigente(p_menor uuid, p_tutor uuid)` | `boolean` | SECURITY DEFINER | Verdadero si hay una tutela vigente entre el menor y el tutor, la haya registrado el club que sea (VAL-025, DEC-78). |
 | `es_titular(p_persona uuid)` | `boolean` | SECURITY DEFINER | Verdadero si la persona es el usuario actual o un menor bajo su tutela (ámbito propio, RF-144). |
 | `es_usuario_liga()` | `boolean` | SECURITY DEFINER | Verdadero si el usuario actual tiene una asignación activa con ámbito LIGA. |
 | `expediente_visible(p_expediente uuid)` | `boolean` | SECURITY DEFINER | Verdadero si el expediente involucra al ámbito del usuario (liga, club o propio). |
 | `motivo_actual()` | `text` | invocador | Motivo de la operación en curso (siglim.motivo), exigido en las transiciones de estado (RN-021). |
 | `parametros_vigentes(p_temporada uuid)` | `parametros_temporada` | invocador | Versión vigente (la mayor) de los parámetros de la temporada (RF-006, DP-002). |
+| `persona_por_curp(p_curp text)` | `TABLE(id uuid, curp text, nombre text, apellido_paterno text, apellido_materno text)` | SECURITY DEFINER | Identidad mínima de la persona con esa CURP, sin datos de contacto y sin importar el club (RF-010, DEC-78). |
 | `persona_usuario()` | `uuid` | SECURITY DEFINER | Persona asociada al perfil del usuario actual. |
 | `persona_visible(p_persona uuid)` | `boolean` | SECURITY DEFINER | Ámbito de datos personales: liga, club (jugadores, tutores, directivos y árbitros del club) o propio (RN-054, RNF-012). |
 | `registrar_administrador_inicial(p_correo text)` | `uuid` | invocador | Arranque: crea el perfil y la asignación del primer Administrador general. Solo el dueño del esquema la ejecuta. |
@@ -1829,6 +1833,11 @@ Restricciones, índices y triggers:
 
 Las funciones de trigger (`tg_*`) son `SECURITY DEFINER` para validar contra datos fuera del ámbito del
 usuario (por ejemplo, la CURP registrada en otro club, VAL-017) sin exponerlos; se listan en cada tabla.
+
+`persona_por_curp`, `es_menor` y `es_tutor_vigente` (versión 2.6, DEC-78) son de lectura mínima: el
+backend las usa para reutilizar una identidad registrada en otro club y validar tutela y
+consentimiento. No devuelven datos de contacto, solo las ejecuta `siglim_app` y el detalle y la
+edición de una persona siguen sujetos a RLS.
 
 ## 8. Vistas del portal público
 
@@ -2059,6 +2068,14 @@ Ningún rol de la matriz inicial contiene un par incompatible.
 | DEMO-1 | Baja del equipo por riña (requiere resolución de la Comisión Disciplinaria). | BAJA | EQUIPO | No |
 | DEMO-2 | Baja del equipo por 5 partidos perdidos por default. | BAJA | EQUIPO | Sí |
 | DEMO-3 | Baja del equipo por falta de pago. | BAJA | EQUIPO | Sí |
+
+### 10.6 Aviso de privacidad de demostración [DEMO] (DEC-74)
+
+La migración `20261111130000` carga, para la liga `a0000000-0000-4000-8000-000000000001`, el aviso
+`SIMPLIFICADO` versión `v1`, vigente desde el 11 de noviembre de 2026, con `es_demo = true` y las
+finalidades `REGISTRO_DEPORTIVO` y `DIFUSION`. Su texto dice que es un aviso de demostración **no
+oficial**, quién es el responsable, para qué se usan los datos y cómo ejercer los derechos ARCO. Usa
+`ON CONFLICT DO NOTHING`. Cuando la Liga apruebe su aviso, se registra como una versión nueva.
 
 ## 11. Trazabilidad ERS → base de datos
 
