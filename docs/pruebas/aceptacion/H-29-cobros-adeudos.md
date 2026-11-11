@@ -310,6 +310,10 @@ Ninguno de los dos se corrigió en esta tarea, como pide la prueba de aceptació
 > compartido: la integración de GitHub quedó apuntando al repositorio anterior después de la
 > transferencia a `SIGLIM-org`. La repetición de esta prueba contra el compartido sigue pendiente
 > hasta reconectar la integración; ver [DEF-07](DEF-07-migraciones-compartido.md).
+>
+> **Actualización 2026-11-10, 23:15 (cierre de DEF-07).** La migración ya está aplicada en el
+> compartido: el rol `TESORERO` tiene `organizacion.equipo:CONSULTAR` y no `EDITAR`
+> ([DEF-07 §8](DEF-07-migraciones-compartido.md#8-cierre-10-de-noviembre-de-2026)).
 
 ## 6. Observaciones
 

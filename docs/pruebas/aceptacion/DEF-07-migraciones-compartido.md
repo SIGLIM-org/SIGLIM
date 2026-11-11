@@ -4,10 +4,10 @@
 | --- | --- |
 | Defecto | DEF-07 (SCRUM-431) · Sprint 3 · bloquea las pruebas contra el compartido (B-13.3, 12 nov) |
 | Origen | Análisis del cierre del Sprint 2, 10 nov 2026 |
-| Versión revisada | `develop` en `52bdd71` |
+| Versión revisada | `develop` en `52bdd71` (análisis) y en `d4dcf95` (cierre) |
 | Fecha | 2026-11-10 |
-| Ejecutó | Agente de IA en el entorno local del equipo |
-| Resultado | **Pendiente**: el repositorio ya documenta la causa y el arreglo, pero la integración de Supabase sigue sin reconectar y la base compartida no tiene las dos migraciones |
+| Ejecutó | Agente de IA en el entorno local del equipo; cierre verificado por el agente de IA de López Meza Leonardo |
+| Resultado | **Aprobado** (10 nov 2026, 23:15): la integración se reconectó a `SIGLIM-org/SIGLIM`, el merge de #114 aplicó las dos migraciones y el compartido tiene las 6 versiones |
 
 ## 1. Qué se comprobó
 
@@ -70,9 +70,10 @@ corregir el problema sin romper DEC-52:
 - [`supabase/README.md`](../../../supabase/README.md): actualiza el repositorio de la integración y
   advierte sobre futuras transferencias o renombrados.
 
-## 4. Pasos pendientes en el proyecto compartido
+## 4. Pasos en el proyecto compartido
 
-Requieren acceso de administración al proyecto de Supabase:
+Requieren acceso de administración al proyecto de Supabase. Se hicieron el 10 de noviembre de 2026
+(sección 8):
 
 1. Reconectar la integración de GitHub a `SIGLIM-org/SIGLIM`, con *working directory* `.`, rama de
    producción `develop` y *Deploy to production* activo.
@@ -86,9 +87,9 @@ Requieren acceso de administración al proyecto de Supabase:
 
 | Criterio | Estado |
 | --- | --- |
-| 1. `supabase_migrations.schema_migrations` lista todas las migraciones de `develop` | **Pendiente**: 4 de 6. El script de verificación queda listo; se cierra al reconectar la integración |
-| 2. Se explica por qué la integración no las aplicó y se documenta el paso manual | **Cumplido** en este cambio |
-| 3. Se repiten las pruebas de aceptación de H-22 y DEF-06 contra el compartido | **Pendiente**: no se pueden repetir mientras falten las migraciones |
+| 1. `supabase_migrations.schema_migrations` lista todas las migraciones de `develop` | **Cumplido**: 6 de 6 después del merge de #114 |
+| 2. Se explica por qué la integración no las aplicó y se documenta el paso manual | **Cumplido** en #114 |
+| 3. Se repiten las pruebas de aceptación de H-22 y DEF-06 contra el compartido | **Cumplido a nivel de base de datos** (sección 8). Los recorridos de pantalla con capturas (F-33 y F-15) quedan como evidencia opcional |
 
 ## 6. Reproducción
 
@@ -114,5 +115,26 @@ El defecto no es de las migraciones: ambas son correctas y ya están en `develop
 integración de GitHub quedó apuntando al repositorio anterior después de la transferencia a
 `SIGLIM-org`. Hasta reconectarla y volver a ejecutarla, el proyecto compartido no refleja `develop` y
 las pruebas de aceptación del Sprint 3 contra el compartido no son fiables.
+
+## 8. Cierre (10 de noviembre de 2026)
+
+1. **Integración reconectada.** *Project Settings → Integrations → GitHub Integration*: repositorio
+   `SIGLIM-org/SIGLIM`, *working directory* `.`, rama de producción `develop` y *Deploy to
+   production* activo.
+2. **Merge que la disparó.** PR #114 fusionado en `develop` (`d4dcf95`). Toca `supabase/`, así que
+   la integración corrió; el check «Supabase Preview» del merge terminó en *success*. El PR #113
+   (migración de respaldo `20261110120000`) se cerró sin fusionar porque ya no hacía falta.
+3. **Historial del compartido.** Las 6 versiones, incluidas `20261106160000` y `20261108100000`.
+4. **Efectos comprobados** en el compartido, con una prueba dentro de una transacción revertida que
+   no dejó datos:
+   - **DEF-06:** el rol `TESORERO` tiene `organizacion.equipo:CONSULTAR` y no tiene
+     `organizacion.equipo:EDITAR`.
+   - **H-22:** `ux_cargos_vigentes` quedó con `WHERE hasta IS NULL AND autorizado_por IS NOT NULL`.
+     Un cargo vigente autorizado se registra; un cambio pendiente del mismo cargo convive con él; un
+     segundo cargo vigente autorizado lo rechaza el índice (`unique_violation`).
+
+La salida de las consultas está en
+[`CA3-verificacion-compartido.txt`](evidencias/DEF-07/CA3-verificacion-compartido.txt). Con esto, las
+pruebas de aceptación del Sprint 3 contra el compartido vuelven a ser fiables.
 
 **Refs:** DEF-06, H-22, DEC-52, SCRUM-431.
