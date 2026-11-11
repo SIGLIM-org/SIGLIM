@@ -4,9 +4,16 @@
  * <p>Clubes, afiliación por temporada, directiva, equipos, venta de equipo y plaza, personas y
  * tutores.
  *
- * <p>Implementado hasta ahora (H-06.1, B-04, H-22):
+ * <p>Implementado hasta ahora (H-06.1, H-08.1, B-04, H-22):
  *
  * <ul>
+ *   <li><b>Afiliación (RF-101).</b> {@code AfiliacionController},
+ *       {@link mx.tecnm.morelia.siglim.organizacion.AfiliacionService} y
+ *       {@code AfiliacionRepository}: tarjetón del club por temporada con folio, categorías,
+ *       edición mientras está {@code SOLICITADA} y resolución del Presidente con observaciones.
+ *       El folio lo asigna el sistema y la temporada se bloquea para que el consecutivo no se
+ *       repita. Las operaciones se autorizan con ámbito del club y se auditan en {@code M-03}
+ *       (DEC-09, CU-018, UI-023).</li>
  *   <li><b>Clubes (RF-008, RF-105).</b> {@code ClubController},
  *       {@link mx.tecnm.morelia.siglim.organizacion.ClubService} y {@code ClubRepository}: listado,
  *       detalle, alta y cambio de nombre. Sin edición: el cambio de nombre crea un club nuevo y cierra
