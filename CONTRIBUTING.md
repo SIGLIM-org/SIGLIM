@@ -99,6 +99,9 @@ Refs: RF-039, VAL-004
 - Llena la plantilla, incluida la **trazabilidad** (RF/CU/VAL que cubre).
 - Al menos **1 aprobación** de otro integrante antes de fusionar. Los PR hacia `develop` se fusionan
   con *squash*; el PR de cierre `develop → main`, con *merge commit*.
+- **Prueba de aceptación cruzada (DEC-73):** la hace un integrante distinto de quien programó la
+  historia. Roles: PO, Olvera Lobato David Geovani; SM y calidad, López Meza Leonardo; desarrollo
+  de arquitectura y datos, Olvera Bucio Jose Israel. Los tres programan (DEC-50).
 - Si el PR toca la BD: incluye la migración nueva **y** la actualización del diccionario.
 
 ## 4. Definición de Terminado (DoD)
