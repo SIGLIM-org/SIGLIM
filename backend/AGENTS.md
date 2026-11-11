@@ -66,7 +66,9 @@ repositorio + prueba del servicio).
 - **Transacciones en el servicio**, nunca en el controlador. `readOnly = true` para consultas.
 - **Errores de negocio:** lanza `ReglaNegocioException.conflicto("VAL-004", "mensaje para el usuario")`
   (también `invalida` 400, `prohibida` 403 y `noProcesable` 422, según convenciones §3.1); el
-  `ManejadorGlobalErrores` la convierte a `application/problem+json`. No devuelvas
+  `ManejadorGlobalErrores` la convierte a `application/problem+json`. El mensaje (`detail`) dice en
+  español qué pasó y qué hacer, sin códigos internos, SQL ni datos de otros clubes o personas; los
+  que ya existen se quedan como están (DEC-63). No devuelvas
   `ResponseEntity` con mapas de error hechos a mano. Los errores de PostgreSQL los traduce
   `TraductorErroresBd` por **SQLSTATE**, nunca por el texto del mensaje; un código nuevo en
   `error_negocio(...)` va también en `TablaCodigosHttp` y en convenciones §3.2.
