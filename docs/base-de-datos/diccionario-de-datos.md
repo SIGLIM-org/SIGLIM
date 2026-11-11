@@ -1,7 +1,7 @@
 # Diccionario de datos
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.6 · 11 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
+Versión 2.7 · 11 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
 
 > [!NOTE]
 > Este diccionario describe la migración
@@ -23,6 +23,7 @@ Versión 2.6 · 11 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alinead
 | 2.4 | 6 de noviembre de 2026 | Migración `20261106160000_tesorero_consulta_equipos.sql` (DEF-06, SCRUM-404): el rol `TESORERO` recibe `organizacion.equipo:CONSULTAR`, que DEC-55 agrega al Apéndice E del ERS (M-03 L, RF-137) para dirigir cobros a un equipo; no recibe `organizacion.equipo:EDITAR`. Solo agrega una fila a `rol_permisos`; sin cambios en tablas ni funciones. |
 | 2.5 | 8 de noviembre de 2026 | Migración `20261108100000_cargo_directiva_pendiente.sql` (H-22.1): `ux_cargos_vigentes` solo considera cargos autorizados (`autorizado_por IS NOT NULL`), para que un cambio pendiente no impida mantener vigente el cargo anterior (RF-102). Sin cambios en columnas ni datos. |
 | 2.6 | 11 de noviembre de 2026 | Migración `20261111130000_personas_tutela_consentimiento.sql` (H-09.1): funciones `SECURITY DEFINER` de lectura mínima `persona_por_curp(text)` y `es_tutor_vigente(uuid, uuid)`, y `es_menor(uuid, date)` pasa a `SECURITY DEFINER` (devuelve `NULL` si la persona no existe), para que la identidad sea global aunque RLS solo muestre al club sus personas (DEC-78); las tres solo las ejecuta `siglim_app`. `avisos_privacidad` agrega `es_demo` y la migración carga el aviso v1 `SIMPLIFICADO` de demostración, rotulado «No oficial» (DEC-74, DEC-80). Pruebas nuevas en `supabase/pruebas/prueba_funciones.sql`. |
+| 2.7 | 11 de noviembre de 2026 | Migración `20261111200000_registro_alta_unicidad.sql` (H-09.2): funciones `SECURITY DEFINER` de lectura mínima `registros_en_temporada(uuid, uuid)` (club, equipo y estado de los registros no rechazados de la persona en la temporada) y `requisitos_menor(uuid)` (tutela vigente y consentimiento de un tutor vigente, la misma condición de `tg_registros_validar` al activar), ejecutables solo por `siglim_app`; comentario `VAL-017` en `ux_registros_activo` para que su `23505` se traduzca con ese código (DEC-88 a DEC-90). |
 
 ## 1. Propósito y alcance
 
@@ -847,7 +848,7 @@ Restricciones, índices y triggers:
 - `ck_registros_baja`: `CHECK (((estado = 'BAJA') = (baja_en IS NOT NULL)))`
 - Índice `ix_registros_equipo`: `USING btree (equipo_id, estado)`
 - Índice `ix_registros_persona`: `USING btree (persona_id)`
-- Índice único `ux_registros_activo`: `USING btree (persona_id, temporada_id) WHERE (estado = ANY (ARRAY['PENDIENTE_VALIDACION', 'ACTIVO', 'SUSPENDIDO']))`
+- Índice único `ux_registros_activo`: `USING btree (persona_id, temporada_id) WHERE (estado = ANY (ARRAY['PENDIENTE_VALIDACION', 'ACTIVO', 'SUSPENDIDO']))`. Comentario (versión 2.7): `VAL-017: la CURP ya tiene un registro activo en la temporada.`
 - Trigger `tg_registros_historial` (after insert or update) → `tg_registros_historial()`
 - Trigger `tg_registros_jugador_actualizado_en` (before update) → `tg_actualizado_en()`
 - Trigger `tg_registros_validar` (before insert or update) → `tg_registros_validar()`
@@ -1828,6 +1829,8 @@ Restricciones, índices y triggers:
 | `persona_visible(p_persona uuid)` | `boolean` | SECURITY DEFINER | Ámbito de datos personales: liga, club (jugadores, tutores, directivos y árbitros del club) o propio (RN-054, RNF-012). |
 | `registrar_administrador_inicial(p_correo text)` | `uuid` | invocador | Arranque: crea el perfil y la asignación del primer Administrador general. Solo el dueño del esquema la ejecuta. |
 | `registro_visible(p_registro uuid)` | `boolean` | SECURITY DEFINER | Verdadero si el registro de jugador está en el ámbito del usuario. |
+| `registros_en_temporada(p_persona uuid, p_temporada uuid)` | `TABLE(club_id uuid, club_nombre text, equipo_id uuid, equipo_nombre text, estado estado_registro)` | SECURITY DEFINER | Registros no rechazados de la persona en la temporada, con club y equipo, aunque RLS no los muestre; el backend no expone el estado ni los ids de otro club (RF-107, VAL-017, VAL-026, DEC-88, DEC-90). |
+| `requisitos_menor(p_persona uuid)` | `TABLE(tiene_tutor_vigente boolean, tiene_consentimiento boolean)` | SECURITY DEFINER | Si el menor tiene tutela vigente y consentimiento no revocado de un tutor vigente: la misma condición que `tg_registros_validar` al activar (VAL-025, DEC-89, DEC-90). |
 | `temporada_de_grupo(p_grupo uuid)` | `uuid` | invocador | Temporada a la que pertenece el grupo. |
 | `usuario_actual()` | `uuid` | invocador | Perfil de SIGLIM que ejecuta la transacción (claim perfil_id que fija el backend). |
 
@@ -1838,6 +1841,12 @@ usuario (por ejemplo, la CURP registrada en otro club, VAL-017) sin exponerlos; 
 backend las usa para reutilizar una identidad registrada en otro club y validar tutela y
 consentimiento. No devuelven datos de contacto, solo las ejecuta `siglim_app` y el detalle y la
 edición de una persona siguen sujetos a RLS.
+
+`registros_en_temporada` y `requisitos_menor` (versión 2.7, DEC-90) son de lectura mínima para el
+alta de un registro (H-09.2): explican dónde está ya registrada una CURP (VAL-017) y detectan una
+baja en otro club (VAL-026) o los requisitos que le faltan a un menor (VAL-025) aunque RLS no
+muestre esos registros, tutelas o consentimientos al club. Solo las ejecuta `siglim_app`; el
+`INSERT` del registro sigue sujeto a `registros_crear`.
 
 ## 8. Vistas del portal público
 
