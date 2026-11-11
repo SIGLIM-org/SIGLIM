@@ -351,6 +351,9 @@ Ninguno en la historia. Observaciones que no bloquean la aceptación:
   `20261106160000_tesorero_consulta_equipos` (DEF-06, PR #85) está en `develop` pero no aparece en
   `supabase_migrations.schema_migrations` y el Tesorero sigue sin `organizacion.equipo:CONSULTAR`.
   Se reporta al equipo para revisar la integración de GitHub (DEC-52).
+  **Actualización 2026-11-10 (DEF-07):** la integración quedó apuntando a `israelweil/SIGLIM` después
+  de la transferencia a `SIGLIM-org`; la causa, la corrección y la verificación están en
+  [DEF-07](DEF-07-migraciones-compartido.md).
 
 ## 7. Conclusión
 

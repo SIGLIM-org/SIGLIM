@@ -305,6 +305,12 @@ cobro» y elegir un club: el formulario no muestra el campo de equipo
 
 Ninguno de los dos se corrigió en esta tarea, como pide la prueba de aceptación.
 
+> **Actualización 2026-11-10 (DEF-07).** DEF-06 se corrigió en el PR #85 con la migración
+> `20261106160000_tesorero_consulta_equipos`, pero esa migración no está aplicada en el proyecto
+> compartido: la integración de GitHub quedó apuntando al repositorio anterior después de la
+> transferencia a `SIGLIM-org`. La repetición de esta prueba contra el compartido sigue pendiente
+> hasta reconectar la integración; ver [DEF-07](DEF-07-migraciones-compartido.md).
+
 ## 6. Observaciones
 
 1. **`POST /cobros` ignora `estado` y `tipo` en lugar de rechazarlos.** Con `"estado": "PAGADO"` o

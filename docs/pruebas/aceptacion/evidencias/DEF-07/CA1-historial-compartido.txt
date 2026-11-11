@@ -1,0 +1,45 @@
+DEF-07 · Evidencia de la comprobación del proyecto compartido
+Fecha: 2026-11-10
+Método: consulta de solo lectura con el usuario de administración del proyecto compartido.
+
+1) Historial de migraciones
+
+SELECT version, name
+  FROM supabase_migrations.schema_migrations
+ ORDER BY version;
+
+20261020090000 | esquema_inicial
+20261022143000 | fijar_search_path_error_negocio
+20261027140000 | proteger_inmutables_truncate
+20261103100000 | secretario_registra_equipos
+
+Faltan, respecto a supabase/migrations/ en develop (52bdd71):
+20261106160000 | tesorero_consulta_equipos (DEF-06)
+20261108100000 | cargo_directiva_pendiente (H-22)
+
+2) Efecto de DEF-06
+
+SELECT p.codigo
+  FROM siglim.rol_permisos rp
+  JOIN siglim.roles ro ON ro.id = rp.rol_id
+  JOIN siglim.permisos p ON p.id = rp.permiso_id
+ WHERE ro.codigo = 'TESORERO'
+   AND p.codigo = 'organizacion.equipo:CONSULTAR';
+
+(0 filas)
+
+3) Efecto de H-22
+
+SELECT indexdef
+  FROM pg_indexes
+ WHERE schemaname = 'siglim'
+   AND tablename = 'cargos_directiva'
+ ORDER BY indexname;
+
+CREATE UNIQUE INDEX cargos_directiva_pkey ON siglim.cargos_directiva USING btree (id)
+CREATE UNIQUE INDEX ux_cargos_vigentes ON siglim.cargos_directiva USING btree (club_id, cargo) WHERE (hasta IS NULL)
+
+La definición esperada después de 20261108100000 es:
+... WHERE (hasta IS NULL AND autorizado_por IS NOT NULL)
+
+No se modificó la base compartida durante esta comprobación.
