@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 4.7 · 11 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 4.8 · 11 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -46,6 +46,7 @@ Versión 4.7 · 11 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../r
 | 4.5 | 10 de noviembre de 2026 | B-13.1: §6.6 con `canchas.cancha:CONSULTAR` en el `GET` de horarios de club y `EDITAR` en el `PUT`; §6.6.1 con el contrato de `GET`/`PUT /canchas/{id}/horarios-club` (reemplazo atómico por temporada, reglas por tipo de cancha de DEC-33, traslapes en el mismo día), su orden de errores y la acción `REGISTRAR_HORARIOS_CANCHA`; §3.2 con `RF-119` en `422`. |
 | 4.6 | 11 de noviembre de 2026 | DEC-63 y DEC-68: §11 quita los textos de los mensajes de error (PEN-016) y el proveedor de correo (PEN-034), ya resueltos; §6.6 cita DEC-64 como regla final del bloqueo de cancha sobre partidos (PEN-007). |
 | 4.7 | 11 de noviembre de 2026 | H-09.1: §6.1 con el aviso de privacidad vigente (`GET /avisos-privacidad/vigente`) y el registro del consentimiento (`POST /personas/{id}/consentimientos`), su orden de errores y la acción `REGISTRAR_CONSENTIMIENTO`; §6.3 con el alta y la edición de personas (`POST`/`PATCH /personas`) y la tutela (`POST /personas/{id}/tutelas`), sus órdenes de errores y las acciones `REGISTRAR_PERSONA`, `EDITAR_PERSONA` y `REGISTRAR_TUTELA`; la consulta por CURP de H-22.2 usa `persona_por_curp` (DEC-78 a DEC-84). |
+| 4.8 | 11 de noviembre de 2026 | H-09.2: §6.4 con el contrato del alta de un registro de jugador (`POST /registros-jugador`): permiso sobre el club del equipo, orden de errores (`RF-003`, `RF-013`, `RF-101`, `REFERENCIA_INVALIDA`, `VAL-017` con `club` y `equipo`, `VAL-026`, `RN-039` y `VAL-025` con `requisito`), fecha de alta en `America/Mexico_City`, respuesta `201` sin `Location` y la acción `REGISTRAR_REGISTRO_JUGADOR` (DEC-85 a DEC-90). |
 
 ## Índice
 
@@ -1138,7 +1139,7 @@ Cada equipo trae referencias anidadas (§9.1):
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
 | `GET /registros-jugador?temporadaId=&equipoId=&estado=` | Registros de su ámbito | `registros.registro:CONSULTAR` | RF-017 | N |
-| `POST /registros-jugador` | Alta: `{ personaId, equipoId }`; queda `PENDIENTE_VALIDACION`. `409 VAL-017` dice club y equipo donde ya está registrada la CURP | `registros.registro:EDITAR` | RF-013, RF-107 | N |
+| `POST /registros-jugador` | Alta: `{ personaId, equipoId }`; queda `PENDIENTE_VALIDACION`. `409 VAL-017` dice club y equipo donde ya está registrada la CURP; detalle abajo | `registros.registro:EDITAR` (club del equipo) | RF-013, RF-107, VAL-025 | N |
 | `GET /registros-jugador/{id}/requisitos` | Documentos que exige su categoría y cuáles faltan | `registros.registro:CONSULTAR` | RF-108, VAL-001 | N |
 | `POST /registros-jugador/{id}/validacion` · `/baja` | Validar, rechazar, dar de baja | ver §2.1 | RF-109, RF-014 | N |
 | `GET /registros-jugador/{id}/historial` | Cambios de estado con usuario y motivo | `registros.registro:CONSULTAR` | RF-018 | B |
@@ -1146,6 +1147,81 @@ Cada equipo trae referencias anidadas (§9.1):
 | `POST /registros-jugador/renovaciones` · `/transferencias` | Renovación y cambio de club entre temporadas | `registros.registro:EDITAR` | RF-015, RF-016 | B |
 | Documentos | Ver §7 | `registros.documento:*` | RF-108, RF-109 | N |
 | `GET /mi-informacion` | Registro, documentos, elegibilidad, partidos y sanciones del jugador o de los menores que tutela | ámbito `PROPIO` | RF-144 | N |
+
+#### Alta de un registro (H-09.2, RF-013, RF-107, VAL-017, VAL-025, DEC-85 a DEC-90)
+
+`POST /registros-jugador` recibe `{ "personaId", "equipoId" }` y registra a la persona en el equipo;
+la temporada es la del grupo del equipo. Exige `registros.registro:EDITAR` sobre el **club del
+equipo** (`ObjetivoAutorizacion.deClubes`); hoy solo la Directiva de club lo tiene, con ámbito
+`CLUB`. Los obligatorios los valida el servicio después del permiso, así que el cuerpo no lleva
+`@Valid`. Orden de errores:
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. Falta `personaId` o `equipoId`: `400 VALIDACION`.
+3. El equipo no existe en la liga, o es de un club fuera del ámbito del usuario: `404 NO_ENCONTRADO`,
+   sin distinguir los dos casos (VAL-024).
+4. La temporada del equipo está `CERRADA`: `409 RF-003` (se aceptan `CONFIGURACION` y `ACTIVA`).
+5. El equipo está en `BAJA`: `422 RF-013`.
+6. El club no tiene afiliación `APROBADA` en la temporada: `409 RF-101`, con un `detail` que pide
+   tramitar el tarjetón o esperar su aprobación. No se cruza la categoría con el tarjetón.
+7. La persona no existe: `422 REFERENCIA_INVALIDA`. Se comprueba con `es_menor`, que ve a personas
+   que RLS no muestra al club (identidad global, DEC-78).
+8. La persona ya tiene un registro `PENDIENTE_VALIDACION`, `ACTIVO` o `SUSPENDIDO` en la temporada,
+   en cualquier club: `409 VAL-017`. El `detail` nombra el club y el equipo (o dice «tu club» o «este
+   equipo») y el problema lleva las extensiones `club` y `equipo` con sus **nombres**:
+
+   ```json
+   {
+     "status": 409,
+     "codigo": "VAL-017",
+     "detail": "Esta persona ya está registrada en esta temporada en el club «Club Águilas», equipo «Águilas». Un jugador solo puede estar en un equipo por temporada.",
+     "club": "Club Águilas",
+     "equipo": "Águilas"
+   }
+   ```
+
+   Nunca se exponen ids, categoría ni estado de ese registro (un `SUSPENDIDO` revelaría una sanción).
+9. Sin registro activo, pero con uno en `BAJA` en **otro club** de la temporada: `409 VAL-026`, sin
+   nombrar el club.
+10. Con uno en `BAJA` en **otro equipo del mismo club**: `409 RN-039` (dentro de una temporada no hay
+    cambio de equipo, RF-016). Registrarse de nuevo en el mismo equipo sí se permite. Los registros
+    `RECHAZADO` no cuentan en los pasos 8 a 10.
+11. La persona es menor en la fecha de alta: sin tutela vigente, `422 VAL-025` con
+    `"requisito": "TUTOR"`; con tutor pero sin consentimiento no revocado otorgado por un tutor
+    vigente, `422 VAL-025` con `"requisito": "CONSENTIMIENTO"`. Es la misma condición que
+    `tg_registros_validar` al activar. No se exige aviso vigente ni una finalidad concreta
+    **[PROPUESTA]**; el INE del tutor es un documento y se exige al validar (H-10.2), no aquí. A los
+    adultos no se les exige consentimiento (DEC-76).
+
+La fecha de alta (`alta_en`) la calcula el servicio en `America/Mexico_City` y se envía en el
+`INSERT`; con ella se decide si la persona es menor. Los registros de otros clubes y los requisitos
+del menor se leen con `registros_en_temporada` y `requisitos_menor` (`SECURITY DEFINER`, solo
+`siglim_app`). El `INSERT … ON CONFLICT … DO NOTHING` sobre `ux_registros_activo` resuelve una
+carrera sin abortar la transacción: si otra petición registró antes a la persona, se responde el
+mismo `409 VAL-017` con los nombres. Si aun así llega un `23505` de ese índice, se traduce como
+`VAL-017` por su comentario (§3.2).
+
+Responde `201` **sin `Location`** (todavía no existe `GET /registros-jugador/{id}`) y con
+`Cache-Control: no-store`, con referencias anidadas (§9.1) y sin CURP (§9.2):
+
+```json
+{
+  "id": "…",
+  "persona": { "id": "…", "nombreCompleto": "Ana López Ruiz" },
+  "equipo": { "id": "…", "nombre": "Halcones" },
+  "club": { "id": "…", "nombre": "Club Halcones" },
+  "categoria": { "id": "…", "nombre": "Libre" },
+  "temporada": { "id": "…", "nombre": "Temporada 2026", "estado": "ACTIVA" },
+  "estado": "PENDIENTE_VALIDACION",
+  "altaEn": "2026-11-11",
+  "creadoEn": "2026-11-11T12:00:00-06:00"
+}
+```
+
+`creado_por` es el perfil de la sesión; el historial lo escribe `tg_registros_historial` con el
+motivo «Alta del registro». Se audita en `M-04` como `REGISTRAR_REGISTRO_JUGADOR` (entidad
+`registros_jugador`) con `{ "personaId", "equipoId", "temporadaId", "estado": "PENDIENTE_VALIDACION" }`,
+sin datos personales.
 
 ### 6.5 M-05 Árbitros y designaciones
 
