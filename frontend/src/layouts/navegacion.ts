@@ -61,6 +61,15 @@ export const seccionesApp: SeccionApp[] = [
         permiso: 'organizacion.club:CONSULTAR',
         descripcion: 'Clubes de la liga y sus equipos.',
       },
+      {
+        nombre: 'Afiliaciones',
+        ruta: '/app/organizacion/afiliaciones',
+        permiso: [
+          'organizacion.afiliacion:CAPTURAR',
+          'organizacion.afiliacion:APROBAR',
+        ],
+        descripcion: 'Tarjetón del club por temporada.',
+      },
     ],
   },
   {

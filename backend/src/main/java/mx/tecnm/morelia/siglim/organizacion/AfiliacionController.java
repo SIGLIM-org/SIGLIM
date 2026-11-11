@@ -41,6 +41,15 @@ class AfiliacionController {
         return servicio.listar(new FiltroAfiliaciones(temporadaId, estado, pagina, tamano));
     }
 
+    /**
+     * Contexto del tarjetón: temporadas, categorías y grupos. Es la vía de la Directiva, que no
+     * tiene el permiso de consultar temporadas de M-02 (H-08.2).
+     */
+    @GetMapping("/contexto")
+    ContextoAfiliacionDto contexto() {
+        return servicio.contexto();
+    }
+
     @GetMapping("/{id}")
     AfiliacionDto consultar(@PathVariable UUID id) {
         return servicio.consultar(id);

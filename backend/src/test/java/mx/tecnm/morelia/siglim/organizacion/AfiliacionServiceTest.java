@@ -32,8 +32,12 @@ import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.organizacion.AfiliacionDto.PerfilDto;
 import mx.tecnm.morelia.siglim.organizacion.AfiliacionDto.ReferenciaDto;
 import mx.tecnm.morelia.siglim.organizacion.AfiliacionDto.TemporadaResumenDto;
+import mx.tecnm.morelia.siglim.organizacion.AfiliacionRepository.CategoriaContexto;
 import mx.tecnm.morelia.siglim.organizacion.AfiliacionRepository.ResumenAfiliacion;
 import mx.tecnm.morelia.siglim.organizacion.AfiliacionRepository.TemporadaAfiliacion;
+import mx.tecnm.morelia.siglim.organizacion.AfiliacionRepository.TemporadaContexto;
+import mx.tecnm.morelia.siglim.organizacion.ContextoAfiliacionDto.CategoriaContextoDto;
+import mx.tecnm.morelia.siglim.organizacion.ContextoAfiliacionDto.GrupoContextoDto;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion.AlcanceAutorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
@@ -60,6 +64,8 @@ class AfiliacionServiceTest {
     private static final UUID CATEGORIA_A = UUID.fromString("77777777-7777-4777-8777-777777777777");
     private static final UUID CATEGORIA_B = UUID.fromString("88888888-8888-4888-8888-888888888888");
     private static final UUID OTRO_CLUB = UUID.fromString("99999999-9999-4999-8999-999999999999");
+    private static final UUID GRUPO_A = UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    private static final UUID GRUPO_B = UUID.fromString("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
     private static final Instant AHORA = Instant.parse("2030-08-02T12:00:00Z");
     private static final OffsetDateTime RESUELTA_EN = OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC);
     private static final OffsetDateTime CAPTURADA_EN = OffsetDateTime.parse("2030-08-02T06:00:00-06:00");
@@ -247,6 +253,42 @@ class AfiliacionServiceTest {
 
         assertThatThrownBy(() -> servicio.consultar(ID)).isInstanceOf(RecursoNoEncontradoException.class);
         verifyNoInteractions(autorizacion);
+    }
+
+    @Test
+    @DisplayName("H-08.2: el contexto entrega temporadas, categorías y grupos con alcance de club")
+    void contextoEntregaTemporadasCategoriasYGrupos() {
+        given(autorizacion.alcance(CAPTURAR))
+                .willReturn(new AlcanceAutorizacion(false, Set.of(CLUB), false));
+        given(autorizacion.alcance(APROBAR)).willThrow(Autorizacion.sinPermiso());
+        given(afiliaciones.temporadasDeLiga(LIGA)).willReturn(List.of(new TemporadaContexto(
+                TEMPORADA, "Temporada 2030", EstadoTemporada.CONFIGURACION, LocalDate.parse("2030-08-01"))));
+        given(afiliaciones.categoriasConGruposDeLiga(LIGA)).willReturn(List.of(
+                new CategoriaContexto(TEMPORADA, CATEGORIA_A, "Libre", null, null, 0),
+                new CategoriaContexto(TEMPORADA, CATEGORIA_B, "Femenil", GRUPO_A, "A", 2),
+                new CategoriaContexto(TEMPORADA, CATEGORIA_B, "Femenil", GRUPO_B, "B", 1)));
+
+        var contexto = servicio.contexto();
+
+        assertThat(contexto.temporadas()).hasSize(1);
+        var temporada = contexto.temporadas().getFirst();
+        assertThat(temporada.id()).isEqualTo(TEMPORADA);
+        assertThat(temporada.categorias()).extracting(CategoriaContextoDto::id)
+                .containsExactly(CATEGORIA_A, CATEGORIA_B);
+        assertThat(temporada.categorias().get(1).grupos()).extracting(GrupoContextoDto::nombre)
+                .containsExactly("A", "B");
+        verify(autorizacion).alcance(CAPTURAR);
+    }
+
+    @Test
+    @DisplayName("VAL-015: el contexto exige CAPTURAR o APROBAR")
+    void contextoSinPermiso() {
+        given(autorizacion.alcance(CAPTURAR)).willThrow(Autorizacion.sinPermiso());
+        given(autorizacion.alcance(APROBAR)).willThrow(Autorizacion.sinPermiso());
+
+        assertThatThrownBy(() -> servicio.contexto())
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "VAL-015"));
+        verifyNoInteractions(afiliaciones);
     }
 
     // ── Alta con folio (criterio 1 de H-08) ──────────────────────────────────────────────────

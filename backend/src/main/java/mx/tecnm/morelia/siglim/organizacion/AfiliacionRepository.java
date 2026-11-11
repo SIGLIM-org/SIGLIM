@@ -173,6 +173,51 @@ class AfiliacionRepository {
                 .list());
     }
 
+    /** Temporadas de la liga, de la más reciente a la más antigua, para el contexto del tarjetón. */
+    List<TemporadaContexto> temporadasDeLiga(UUID ligaId) {
+        return jdbc.sql("""
+                        SELECT id, nombre, estado, fecha_inicio
+                          FROM temporadas
+                         WHERE liga_id = :ligaId
+                         ORDER BY fecha_inicio DESC, id
+                        """)
+                .param("ligaId", ligaId)
+                .query((fila, numero) -> new TemporadaContexto(
+                        fila.getObject("id", UUID.class),
+                        fila.getString("nombre"),
+                        EstadoTemporada.valueOf(fila.getString("estado")),
+                        fila.getObject("fecha_inicio", LocalDate.class)))
+                .list();
+    }
+
+    /**
+     * Categorías de las temporadas de la liga con sus grupos y equipos activos, en una sola
+     * consulta (sin N+1). Una categoría sin grupos sale con {@code grupo_id} nulo.
+     */
+    List<CategoriaContexto> categoriasConGruposDeLiga(UUID ligaId) {
+        return jdbc.sql("""
+                        SELECT ct.temporada_id, c.id AS categoria_id, c.nombre AS categoria_nombre,
+                               g.id AS grupo_id, g.nombre AS grupo_nombre,
+                               (SELECT count(*) FROM equipos e
+                                 WHERE e.grupo_id = g.id AND e.estado <> 'BAJA') AS equipos
+                          FROM categorias_temporada ct
+                          JOIN categorias c ON c.id = ct.categoria_id AND c.liga_id = :ligaId
+                          JOIN temporadas t ON t.id = ct.temporada_id
+                          LEFT JOIN grupos g ON g.categoria_temporada_id = ct.id
+                         WHERE t.liga_id = :ligaId
+                         ORDER BY ct.temporada_id, c.orden, c.nombre, g.nombre
+                        """)
+                .param("ligaId", ligaId)
+                .query((fila, numero) -> new CategoriaContexto(
+                        fila.getObject("temporada_id", UUID.class),
+                        fila.getObject("categoria_id", UUID.class),
+                        fila.getString("categoria_nombre"),
+                        fila.getObject("grupo_id", UUID.class),
+                        fila.getString("grupo_nombre"),
+                        fila.getLong("equipos")))
+                .list();
+    }
+
     UUID insertar(UUID clubId, UUID temporadaId, String folio, String coloresUniformes, UUID capturadaPor) {
         return jdbc.sql("""
                         INSERT INTO afiliaciones (club_id, temporada_id, folio, colores_uniforme, capturada_por)
@@ -346,6 +391,15 @@ class AfiliacionRepository {
 
     /** Temporada con lo necesario para validar RF-003 y calcular el folio. */
     record TemporadaAfiliacion(UUID id, String nombre, EstadoTemporada estado, LocalDate fechaInicio) {
+    }
+
+    /** Temporada del contexto de captura, con sus categorías. */
+    record TemporadaContexto(UUID id, String nombre, EstadoTemporada estado, LocalDate fechaInicio) {
+    }
+
+    /** Fila de categoría de una temporada; {@code grupoId} es nulo si la categoría no tiene grupos. */
+    record CategoriaContexto(UUID temporadaId, UUID categoriaId, String categoriaNombre, UUID grupoId,
+                             String grupoNombre, long equipos) {
     }
 
     private record CategoriaFila(UUID afiliacionId, UUID categoriaId, String categoriaNombre) {

@@ -20,8 +20,12 @@ import mx.tecnm.morelia.siglim.compartido.error.ErroresTecnicos;
 import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.organizacion.AfiliacionDto.ReferenciaDto;
+import mx.tecnm.morelia.siglim.organizacion.AfiliacionRepository.CategoriaContexto;
 import mx.tecnm.morelia.siglim.organizacion.AfiliacionRepository.ResumenAfiliacion;
 import mx.tecnm.morelia.siglim.organizacion.AfiliacionRepository.TemporadaAfiliacion;
+import mx.tecnm.morelia.siglim.organizacion.ContextoAfiliacionDto.CategoriaContextoDto;
+import mx.tecnm.morelia.siglim.organizacion.ContextoAfiliacionDto.GrupoContextoDto;
+import mx.tecnm.morelia.siglim.organizacion.ContextoAfiliacionDto.TemporadaContextoDto;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion.AlcanceAutorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
@@ -116,6 +120,38 @@ public class AfiliacionService {
         AfiliacionDto afiliacion = buscar(id);
         exigirConsulta(afiliacion.club().id());
         return afiliacion;
+    }
+
+    /**
+     * Temporadas de la liga con sus categorías y grupos para la pantalla de afiliación (F-16,
+     * H-08.2). Se autoriza con cualquiera de los dos permisos del tarjetón y no con el permiso de
+     * M-02: la Directiva necesita este contexto para capturar y no tiene
+     * {@code temporadas.temporada:CONSULTAR} en la matriz inicial. Las temporadas y categorías son
+     * de la liga, no de un club, así que el ámbito no las filtra; el permiso sí.
+     */
+    @Transactional(readOnly = true)
+    public ContextoAfiliacionDto contexto() {
+        alcanceConsulta();
+
+        Map<UUID, Map<UUID, CategoriaAcumulada>> porTemporada = new LinkedHashMap<>();
+        for (CategoriaContexto fila : afiliaciones.categoriasConGruposDeLiga(ligaId)) {
+            Map<UUID, CategoriaAcumulada> categorias =
+                    porTemporada.computeIfAbsent(fila.temporadaId(), clave -> new LinkedHashMap<>());
+            CategoriaAcumulada categoria = categorias.computeIfAbsent(fila.categoriaId(),
+                    clave -> new CategoriaAcumulada(fila.categoriaId(), fila.categoriaNombre()));
+            if (fila.grupoId() != null) {
+                categoria.grupos.add(new GrupoContextoDto(fila.grupoId(), fila.grupoNombre(), fila.equipos()));
+            }
+        }
+
+        List<TemporadaContextoDto> temporadas = afiliaciones.temporadasDeLiga(ligaId).stream()
+                .map(temporada -> new TemporadaContextoDto(
+                        temporada.id(), temporada.nombre(), temporada.estado(), temporada.fechaInicio(),
+                        porTemporada.getOrDefault(temporada.id(), Map.of()).values().stream()
+                                .map(CategoriaAcumulada::aDto)
+                                .toList()))
+                .toList();
+        return new ContextoAfiliacionDto(temporadas);
     }
 
     /**
@@ -478,5 +514,22 @@ public class AfiliacionService {
 
     private static ReglaNegocioException invalida(String mensaje) {
         return ReglaNegocioException.invalida(ErroresTecnicos.VALIDACION, mensaje);
+    }
+
+    /** Acumula grupos de una categoría mientras se recorre la consulta plana. */
+    private static final class CategoriaAcumulada {
+
+        private final UUID id;
+        private final String nombre;
+        private final List<GrupoContextoDto> grupos = new ArrayList<>();
+
+        private CategoriaAcumulada(UUID id, String nombre) {
+            this.id = id;
+            this.nombre = nombre;
+        }
+
+        private CategoriaContextoDto aDto() {
+            return new CategoriaContextoDto(id, nombre, grupos);
+        }
     }
 }

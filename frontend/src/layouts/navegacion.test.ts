@@ -18,14 +18,30 @@ describe('subsecciones', () => {
   it('H-06.2: Organización ofrece Clubes con su permiso y la ruta queda en la sección', () => {
     const organizacion = seccionesApp.find(({ nombre }) => nombre === 'Organización')
 
-    expect(organizacion?.subsecciones).toEqual([
+    expect(organizacion?.subsecciones).toContainEqual(
       expect.objectContaining({
         nombre: 'Clubes',
         ruta: '/app/organizacion/clubes',
         permiso: 'organizacion.club:CONSULTAR',
       }),
-    ])
+    )
     expect(seccionDeRuta('/app/organizacion/clubes/c1')?.nombre).toBe('Organización')
+  })
+
+  it('H-08.2: Organización ofrece Afiliaciones con sus dos permisos', () => {
+    const organizacion = seccionesApp.find(({ nombre }) => nombre === 'Organización')
+
+    expect(organizacion?.subsecciones).toContainEqual(
+      expect.objectContaining({
+        nombre: 'Afiliaciones',
+        ruta: '/app/organizacion/afiliaciones',
+        permiso: [
+          'organizacion.afiliacion:CAPTURAR',
+          'organizacion.afiliacion:APROBAR',
+        ],
+      }),
+    )
+    expect(seccionDeRuta('/app/organizacion/afiliaciones/af-1')?.nombre).toBe('Organización')
   })
 
   it('H-21.2: Administración ofrece Auditoría con su permiso y la ruta queda en la sección', () => {

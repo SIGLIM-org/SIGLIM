@@ -10,6 +10,8 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import mx.tecnm.morelia.siglim.BaseDatosPrueba;
 import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
+import mx.tecnm.morelia.siglim.organizacion.ContextoAfiliacionDto;
+import mx.tecnm.morelia.siglim.organizacion.ContextoAfiliacionDto.TemporadaContextoDto;
 import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
@@ -137,6 +139,36 @@ class AfiliacionesIT extends BaseDatosPrueba {
                 .containsExactly("REGISTRAR_AFILIACION", "RECHAZAR_AFILIACION");
         assertThat(eventos.getLast().motivo()).isEqualTo(OBSERVACIONES);
         assertThat(eventos.getLast().perfilId()).isEqualTo(presidente);
+    }
+
+    // ── H-08.2: contexto para la Directiva ──────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("H-08.2 · RF-101: la DIRECTIVA obtiene temporadas y categorías y captura el tarjetón")
+    void directivaCapturaConContexto() {
+        TemporadaPrueba temporada = temporada(EstadoTemporada.CONFIGURACION);
+        iniciarSesionComoAdministrador();
+        ClubDto club = clubes.crear(new CrearClubRequest("Club " + UUID.randomUUID()));
+        UUID directiva = perfilDeDirectiva(club.id());
+
+        iniciarSesion(directiva);
+        ContextoAfiliacionDto contexto = afiliaciones.contexto();
+        TemporadaContextoDto delContexto = contexto.temporadas().stream()
+                .filter(t -> t.id().equals(temporada.id()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(delContexto.nombre()).isEqualTo(temporada.nombre());
+        assertThat(delContexto.categorias()).extracting(ContextoAfiliacionDto.CategoriaContextoDto::id)
+                .contains(temporada.categoriaId());
+
+        AfiliacionDto afiliacion = afiliaciones.crear(new CrearAfiliacionRequest(club.id(), temporada.id(),
+                COLORES, List.of(temporada.categoriaId())));
+
+        assertThat(afiliacion.estado()).isEqualTo(EstadoAfiliacion.SOLICITADA);
+        assertThat(afiliacion.folio()).startsWith("AF-");
+        assertThat(afiliacion.capturadaPor().id()).isEqualTo(directiva);
+        assertThat(eventos(afiliacion.id())).extracting(Evento::accion)
+                .containsExactly("REGISTRAR_AFILIACION");
     }
 
     // ── Criterio 3: ámbito por club ──────────────────────────────────────────────────────────
