@@ -4,10 +4,12 @@ import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PantallaAfiliaciones, RUTA_AFILIACIONES } from '@/features/organizacion/afiliaciones/PantallaAfiliaciones'
-import type { Afiliacion } from '@/features/organizacion/afiliaciones/tipos'
+import type {
+  Afiliacion,
+  ContextoAfiliacion,
+} from '@/features/organizacion/afiliaciones/tipos'
 import type { Club } from '@/features/organizacion/tipos'
 import type { Ambito, Permiso } from '@/features/seguridad/tipos'
-import type { CategoriaTemporada, Temporada } from '@/features/temporadas/tipos'
 import { ApiError } from '@/lib/api/ApiError'
 
 const { get, post, patch, sesion } = vi.hoisted(() => ({
@@ -31,14 +33,26 @@ vi.mock('@/features/seguridad/ProveedorSesionActual', () => ({
 const CAPTURAR = 'organizacion.afiliacion:CAPTURAR'
 const APROBAR = 'organizacion.afiliacion:APROBAR'
 
-const TEMPORADA: Temporada = {
+const TEMPORADA = {
   id: 't1',
   nombre: 'Temporada 2026',
   fechaInicio: '2026-01-01',
-  estado: 'ACTIVA',
-  creadoEn: '',
-  categoriasAsignadas: 1,
-  gruposCreados: 1,
+  estado: 'ACTIVA' as const,
+}
+
+const CONTEXTO: ContextoAfiliacion = {
+  temporadas: [
+    {
+      ...TEMPORADA,
+      categorias: [
+        {
+          id: 'cat-libre',
+          nombre: 'Libre',
+          grupos: [{ id: 'g-a', nombre: 'A', equipos: 3 }],
+        },
+      ],
+    },
+  ],
 }
 
 const CLUB: Club = {
@@ -47,14 +61,6 @@ const CLUB: Club = {
   estado: 'ACTIVO',
   creadoEn: '2026-01-01T10:00:00-06:00',
 }
-
-const CATEGORIAS: CategoriaTemporada[] = [
-  {
-    id: 'ct-libre',
-    categoria: { id: 'cat-libre', nombre: 'Libre', tipo: 'LIBRE', orden: 1 },
-    grupos: [{ id: 'g-a', nombre: 'A', equipos: 3 }],
-  },
-]
 
 const SOLICITADA: Afiliacion = {
   id: 'af-1',
@@ -102,34 +108,30 @@ function error(status: number, codigo: string, detail = 'Detalle del servidor.')
 }
 
 type Respuestas = {
-  temporadas?: Temporada[]
-  temporadasError?: unknown
+  contexto?: ContextoAfiliacion
+  contextoError?: unknown
   clubes?: Club[]
-  categorias?: CategoriaTemporada[]
   lista?: unknown
   detalle?: unknown
 }
 
 function responder({
-  temporadas = [TEMPORADA],
-  temporadasError,
+  contexto = CONTEXTO,
+  contextoError,
   clubes = [CLUB],
-  categorias = CATEGORIAS,
   lista = pagina([]),
   detalle = SOLICITADA,
 }: Respuestas = {}) {
   get.mockImplementation(async (ruta: string) => {
-    const respuesta = ruta.startsWith('temporadas?')
-      ? (temporadasError ?? pagina(temporadas))
-      : ruta === 'temporadas/t1/categorias'
-        ? categorias
-        : ruta.startsWith('clubes?')
-          ? pagina(clubes, clubes.length)
-          : ruta.startsWith('afiliaciones?')
-            ? lista
-            : ruta.startsWith('afiliaciones/')
-              ? detalle
-              : undefined
+    const respuesta = ruta === 'afiliaciones/contexto'
+      ? (contextoError ?? contexto)
+      : ruta.startsWith('clubes?')
+        ? pagina(clubes, clubes.length)
+        : ruta.startsWith('afiliaciones?')
+          ? lista
+          : ruta.startsWith('afiliaciones/')
+            ? detalle
+            : undefined
 
     if (respuesta instanceof Error) {
       throw respuesta
@@ -297,15 +299,15 @@ describe('PantallaAfiliaciones (F-16, H-08.2)', () => {
   })
 
   it('VAL-015: si no puede leer temporadas, explica el bloqueo antes de capturar', async () => {
-    responder({ temporadasError: error(403, 'VAL-015') })
+    responder({ contextoError: error(403, 'VAL-015') })
     montar()
 
     const abrir = await screen.findAllByRole('button', { name: 'Registrar afiliación' })
     await userEvent.click(abrir[0])
 
-    expect(await screen.findByText('No puedes consultar las temporadas')).toBeInTheDocument()
+    expect(await screen.findByText('No puedes consultar las temporadas de afiliación')).toBeInTheDocument()
     expect(
-      screen.getByText(/Pide a la Liga que habilite el permiso para consultar temporadas/),
+      screen.getByText(/Pide a la Liga que habilite los permisos de afiliación/),
     ).toBeInTheDocument()
   })
 })

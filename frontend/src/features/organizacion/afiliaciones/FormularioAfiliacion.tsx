@@ -2,18 +2,18 @@ import { useEffect, useId, useState, type FormEvent } from 'react'
 import { CircleAlert, FileCheck2, ListChecks, Send, Shirt } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { CampoSeleccion } from '@/components/ui/CampoSeleccion'
-import { ErrorConsulta } from '@/components/ui/ErrorConsulta'
-import { EstadoCarga } from '@/components/ui/EstadoCarga'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { Insignia } from '@/components/ui/Insignia'
 import { useActualizarAfiliacion, useCrearAfiliacion } from '@/features/organizacion/afiliaciones/api'
 import { etiquetaEstadoAfiliacion } from '@/features/organizacion/afiliaciones/etiquetas'
-import type { Afiliacion } from '@/features/organizacion/afiliaciones/tipos'
+import type {
+  Afiliacion,
+  CategoriaContextoAfiliacion,
+  TemporadaContextoAfiliacion,
+} from '@/features/organizacion/afiliaciones/tipos'
 import { detalleDeFallo, erroresDeCampos } from '@/features/organizacion/erroresFormulario'
 import type { Club } from '@/features/organizacion/tipos'
-import { useCategoriasTemporada } from '@/features/temporadas/api'
 import { etiquetaEstadoTemporada } from '@/features/temporadas/etiquetas'
-import type { CategoriaTemporada, Temporada } from '@/features/temporadas/tipos'
 import { ApiError } from '@/lib/api/ApiError'
 
 /** Límite del campo `colores_uniforme` en la base (varchar 120). */
@@ -21,7 +21,7 @@ const MAXIMO_COLORES = 120
 
 type Props = {
   clubes: readonly Club[]
-  temporadas: readonly Temporada[]
+  temporadas: readonly TemporadaContextoAfiliacion[]
   afiliacion?: Afiliacion
   /** Temporada que el usuario tenía elegida en la bandeja; puede ser una cerrada. */
   temporadaInicial?: string
@@ -64,9 +64,6 @@ export function FormularioAfiliacion({
   const crear = useCrearAfiliacion()
   const actualizar = useActualizarAfiliacion(afiliacion?.id ?? '')
   const guardando = crear.isPending || actualizar.isPending
-  const categoriasConsulta = useCategoriasTemporada(temporadaId, {
-    habilitada: Boolean(temporadaId),
-  })
 
   // Si el padre termina de cargar clubes o temporadas después del montaje, se elige el primero.
   useEffect(() => {
@@ -87,23 +84,23 @@ export function FormularioAfiliacion({
   const temporadaSeleccionada = afiliacion
     ? afiliacion.temporada
     : temporadas.find(({ id: actual }) => actual === temporadaId)
-  const categoriasDeApi = categoriasConsulta.data ?? []
+  const temporadaDelContexto = temporadas.find(
+    ({ id: actual }) => actual === (afiliacion?.temporada.id ?? temporadaId),
+  )
   const categoriasDisponibles: readonly CategoriaOpcion[] =
-    categoriasDeApi.length > 0
-      ? categoriasDeApi.map(aOpcion)
+    (temporadaDelContexto?.categorias ?? []).length > 0
+      ? (temporadaDelContexto?.categorias ?? []).map(aOpcion)
       : (afiliacion?.categorias.map((categoria) => ({
           id: categoria.id,
           nombre: categoria.nombre,
           detalle: 'Categoría registrada en el tarjetón',
         })) ?? [])
-  const categoriasCargando = categoriasConsulta.isPending && Boolean(temporadaId)
-  const sinCategorias = !categoriasCargando && categoriasDisponibles.length === 0
+  const sinCategorias = categoriasDisponibles.length === 0
   const temporadaCerrada = temporadaSeleccionada?.estado === 'CERRADA'
   const puedeEnviar =
     !guardando &&
     Boolean(clubSeleccionado) &&
     Boolean(temporadaId) &&
-    !categoriasCargando &&
     !sinCategorias &&
     !temporadaCerrada
 
@@ -350,61 +347,29 @@ export function FormularioAfiliacion({
               </p>
             </div>
 
-            {categoriasCargando && (
-              <EstadoCarga etiqueta="Cargando categorías de la temporada…" filas={3} columnas={2} />
-            )}
-
-            {categoriasConsulta.isError && !afiliacion && (
-              <ErrorConsulta
-                error={categoriasConsulta.error}
-                onReintentar={() => void categoriasConsulta.refetch()}
-              />
-            )}
-
-            {categoriasConsulta.isError && afiliacion && (
-              <div
-                role="alert"
-                className="flex flex-col gap-2 rounded-md bg-warning/14 p-3 text-body-sm text-warning-strong"
-              >
-                <p>
-                  No se pudieron cargar las categorías de la temporada; se conservan las que ya
-                  tiene el tarjetón. Puedes editar los colores sin perderlas.
+            <fieldset
+              id={idCategorias}
+              aria-describedby={errores.categoriaIds ? idErrorCategorias : undefined}
+              aria-invalid={errores.categoriaIds ? true : undefined}
+              className="flex flex-col gap-2"
+            >
+              <legend className="sr-only">Categorías de la temporada</legend>
+              {sinCategorias ? (
+                <p className="rounded-md bg-background p-3 text-body-md text-text-muted">
+                  La temporada elegida no tiene categorías asignadas. Configúralas en Temporadas
+                  antes de capturar el tarjetón.
                 </p>
-                <Button
-                  variante="secundario"
-                  onClick={() => void categoriasConsulta.refetch()}
-                  className="self-start"
-                >
-                  Reintentar
-                </Button>
-              </div>
-            )}
-
-            {!categoriasCargando && (!categoriasConsulta.isError || Boolean(afiliacion)) && (
-              <fieldset
-                id={idCategorias}
-                aria-describedby={errores.categoriaIds ? idErrorCategorias : undefined}
-                aria-invalid={errores.categoriaIds ? true : undefined}
-                className="flex flex-col gap-2"
-              >
-                <legend className="sr-only">Categorías de la temporada</legend>
-                {sinCategorias ? (
-                  <p className="rounded-md bg-background p-3 text-body-md text-text-muted">
-                    La temporada elegida no tiene categorías asignadas. Configúralas en Temporadas
-                    antes de capturar el tarjetón.
-                  </p>
-                ) : (
-                  categoriasDisponibles.map((categoria) =>
-                    categoriaDisponible(
-                      categoria,
-                      categorias.includes(categoria.id),
-                      guardando,
-                      alternarCategoria,
-                    ),
-                  )
-                )}
-              </fieldset>
-            )}
+              ) : (
+                categoriasDisponibles.map((categoria) =>
+                  categoriaDisponible(
+                    categoria,
+                    categorias.includes(categoria.id),
+                    guardando,
+                    alternarCategoria,
+                  ),
+                )
+              )}
+            </fieldset>
 
             {errores.categoriaIds && (
               <p id={idErrorCategorias} role="alert" className="text-body-sm text-error-strong">
@@ -541,12 +506,12 @@ type CategoriaOpcion = {
   detalle: string
 }
 
-function aOpcion(categoriaTemporada: CategoriaTemporada): CategoriaOpcion {
-  const { categoria, grupos } = categoriaTemporada
+function aOpcion(categoriaTemporada: CategoriaContextoAfiliacion): CategoriaOpcion {
+  const { id, nombre, grupos } = categoriaTemporada
 
   return {
-    id: categoria.id,
-    nombre: categoria.nombre,
+    id,
+    nombre,
     detalle:
       grupos.length === 0
         ? 'Sin grupos'

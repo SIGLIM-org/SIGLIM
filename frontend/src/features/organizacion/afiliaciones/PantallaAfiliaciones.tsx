@@ -6,7 +6,12 @@ import { Button } from '@/components/ui/Button'
 import { ErrorConsulta } from '@/components/ui/ErrorConsulta'
 import { EstadoCarga } from '@/components/ui/EstadoCarga'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
-import { useAfiliacion, useAfiliaciones, TAMANO_AFILIACIONES } from '@/features/organizacion/afiliaciones/api'
+import {
+  TAMANO_AFILIACIONES,
+  useAfiliacion,
+  useAfiliaciones,
+  useContextoAfiliaciones,
+} from '@/features/organizacion/afiliaciones/api'
 import { BandejaAfiliaciones } from '@/features/organizacion/afiliaciones/BandejaAfiliaciones'
 import { DetalleAfiliacion } from '@/features/organizacion/afiliaciones/DetalleAfiliacion'
 import { FormularioAfiliacion } from '@/features/organizacion/afiliaciones/FormularioAfiliacion'
@@ -23,7 +28,6 @@ import {
 } from '@/features/organizacion/afiliaciones/permisos'
 import { useClubesActivosTodos } from '@/features/organizacion/api'
 import { ConPermiso } from '@/features/seguridad/ConPermiso'
-import { useTemporadas } from '@/features/temporadas/api'
 import { esSinPermiso } from '@/lib/api/errores'
 import { PaginaSinPermiso } from '@/pages/PaginaSinPermiso'
 
@@ -63,8 +67,8 @@ function PaginaAfiliaciones() {
   const [decision, setDecision] = useState<DecisionAfiliacion | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
 
-  const temporadasConsulta = useTemporadas(0, 100)
-  const temporadas = temporadasConsulta.data?.contenido ?? []
+  const contextoConsulta = useContextoAfiliaciones()
+  const temporadas = contextoConsulta.data?.temporadas ?? []
   const porDefecto =
     temporadas.find(({ estado }) => estado === 'ACTIVA') ??
     temporadas.find(({ estado }) => estado !== 'CERRADA') ??
@@ -82,11 +86,11 @@ function PaginaAfiliaciones() {
   const afiliacionSeleccionada =
     detalle.data ?? lista.data?.contenido.find(({ id }) => id === afiliacionId)
   const detalleVisible = Boolean(afiliacionId) || creando || editando
-  const catalogoCargando = creando && (temporadasConsulta.isPending || clubesConsulta.isPending)
+  const catalogoCargando = creando && (contextoConsulta.isPending || clubesConsulta.isPending)
   // Editar no necesita el catálogo: el tarjetón ya trae su temporada y sus categorías. Solo el
   // alta depende de que se puedan leer las temporadas y los clubes.
   const errorCatalogo = creando
-    ? (temporadasConsulta.error ?? clubesConsulta.error)
+    ? (contextoConsulta.error ?? clubesConsulta.error)
     : null
 
   if (esSinPermiso(lista.error)) {
@@ -217,7 +221,7 @@ function PaginaAfiliaciones() {
         <div className={detalleVisible ? 'hidden min-w-0 lg:block' : 'min-w-0'}>
           <BandejaAfiliaciones
             temporadas={temporadas}
-            temporadasCargando={temporadasConsulta.isPending}
+            temporadasCargando={contextoConsulta.isPending}
             temporadaId={temporadaId}
             filtro={filtro}
             pagina={pagina}
@@ -239,14 +243,13 @@ function PaginaAfiliaciones() {
           {creando || editando ? (
             catalogoCargando ? (
               <EstadoCarga etiqueta="Cargando clubes y temporadas…" filas={4} columnas={2} />
-            ) : errorCatalogo && esSinPermiso(temporadasConsulta.error) ? (
+            ) : errorCatalogo && esSinPermiso(contextoConsulta.error) ? (
               <AlertaBloqueo
-                causa="No puedes consultar las temporadas"
+                causa="No puedes consultar las temporadas de afiliación"
                 conflicto="La captura del tarjetón necesita leer la temporada y sus categorías."
                 accion={
                   <span className="flex flex-col items-start gap-2">
-                    Pide a la Liga que habilite el permiso para consultar temporadas. Mientras
-                    tanto, la Secretaría puede capturar el tarjetón.
+                    Pide a la Liga que habilite los permisos de afiliación para tu cuenta.
                     <Button variante="secundario" onClick={volver}>
                       Volver a la bandeja
                     </Button>
@@ -258,7 +261,7 @@ function PaginaAfiliaciones() {
               <ErrorConsulta
                 error={errorCatalogo}
                 onReintentar={() => {
-                  void temporadasConsulta.refetch()
+                  void contextoConsulta.refetch()
                   if (capturar) {
                     void clubesConsulta.refetch()
                   }

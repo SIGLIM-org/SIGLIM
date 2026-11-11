@@ -19,6 +19,34 @@ export type TemporadaAfiliacion = {
   estado: EstadoTemporada
 }
 
+/** Resumen de temporada que necesita la bandeja; el contexto añade fechas y categorías. */
+export type TemporadaResumenAfiliacion = TemporadaAfiliacion
+
+/** Grupo de una categoría en la temporada, con sus equipos activos. */
+export type GrupoContextoAfiliacion = {
+  id: string
+  nombre: string
+  equipos: number
+}
+
+/** Categoría que participa en la temporada, con sus grupos. */
+export type CategoriaContextoAfiliacion = {
+  id: string
+  nombre: string
+  grupos: GrupoContextoAfiliacion[]
+}
+
+/** Temporada del contexto de captura: la misma que usa el API en el tarjetón, con categorías. */
+export type TemporadaContextoAfiliacion = TemporadaAfiliacion & {
+  fechaInicio: string
+  categorias: CategoriaContextoAfiliacion[]
+}
+
+/** `GET /afiliaciones/contexto`: temporadas de la liga con sus categorías y grupos (H-08.2). */
+export type ContextoAfiliacion = {
+  temporadas: TemporadaContextoAfiliacion[]
+}
+
 /** Tarjetón del club por temporada (RF-101, DEC-09). */
 export type Afiliacion = {
   id: string

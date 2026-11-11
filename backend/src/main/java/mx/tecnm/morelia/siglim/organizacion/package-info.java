@@ -12,8 +12,9 @@
  *       {@code AfiliacionRepository}: tarjetón del club por temporada con folio, categorías,
  *       edición mientras está {@code SOLICITADA} y resolución del Presidente con observaciones.
  *       El folio lo asigna el sistema y la temporada se bloquea para que el consecutivo no se
- *       repita. Las operaciones se autorizan con ámbito del club y se auditan en {@code M-03}
- *       (DEC-09, CU-018, UI-023).</li>
+ *       repita. Las operaciones se autorizan con ámbito del club y se auditan en {@code M-03}.
+ *       {@code GET /afiliaciones/contexto} entrega temporadas, categorías y grupos con los mismos
+ *       permisos de afiliación, para que la Directiva no dependa de M-02 (DEC-09, CU-018, UI-023).</li>
  *   <li><b>Clubes (RF-008, RF-105).</b> {@code ClubController},
  *       {@link mx.tecnm.morelia.siglim.organizacion.ClubService} y {@code ClubRepository}: listado,
  *       detalle, alta y cambio de nombre. Sin edición: el cambio de nombre crea un club nuevo y cierra

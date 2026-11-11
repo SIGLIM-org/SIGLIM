@@ -855,6 +855,7 @@ la misma forma que `GET /temporadas/{id}/parametros/{version}`:
 | `GET /clubes` · `GET /clubes/{id}` · `POST /clubes` | Clubes. Sin `PATCH`: el nombre solo cambia con `POST /clubes/{id}/cambio-nombre` | `organizacion.club:CONSULTAR` en los `GET`; `organizacion.club:EDITAR` en `POST` | RF-008 | N |
 | `POST /clubes/{id}/cambio-nombre` | Cierra el club y crea uno nuevo | `organizacion.club:EDITAR` con ámbito de liga | RF-105 | B |
 | `GET /afiliaciones?temporadaId=&estado=` · `GET /afiliaciones/{id}` · `POST /afiliaciones` · `PATCH /afiliaciones/{id}` | Tarjetón por temporada (folio lo asigna el sistema) | `organizacion.afiliacion:CAPTURAR`; los `GET` también con `organizacion.afiliacion:APROBAR` | RF-101 | N |
+| `GET /afiliaciones/contexto` | Temporadas, categorías y grupos para capturar o revisar el tarjetón | `organizacion.afiliacion:CAPTURAR` o `organizacion.afiliacion:APROBAR` | RF-101 | N |
 | `POST /afiliaciones/{id}/resolucion` | Aprobar o rechazar | `organizacion.afiliacion:APROBAR` | RF-101 | N |
 | `GET /clubes/{id}/directiva` | Cargos e historial | `organizacion.club:CONSULTAR` con ámbito del club | RF-102 | N |
 | `POST /clubes/{id}/directiva` | Registrar un cambio pendiente | `organizacion.directiva:EDITAR` con ámbito del club | RF-102 | N |
@@ -927,6 +928,14 @@ responde el mismo detalle; un tarjetón de otro club responde `404` igual que un
 `estado`, `categorias`, `capturadaPor`, `capturadaEn` y, solo si ya se resolvió, `resueltaPor`,
 `resueltaEn` y `observaciones`. El `id` del perfil siempre se incluye; su `nombreMostrado` se omite si
 las políticas RLS de `perfiles` no permiten verlo al usuario de la sesión.
+
+**Contexto de afiliación (H-08.2).** `GET /afiliaciones/contexto` responde
+`{ "temporadas": [{ "id", "nombre", "estado", "fechaInicio", "categorias": [{ "id", "nombre",
+"grupos": [{ "id", "nombre", "equipos" }] }] }] }` con las temporadas de la liga de la más reciente
+a la más antigua. Es la vía de la pantalla F-16 para que la Directiva capture sin depender de
+`temporadas.temporada:CONSULTAR` (M-02): el endpoint se autoriza con cualquiera de los dos permisos
+de afiliación y solo devuelve datos de contexto del tarjetón. Las temporadas y categorías son de la
+liga, no de un club; el ámbito no las filtra, el permiso sí. Es de solo lectura y no se audita.
 
 `POST /afiliaciones` lleva `{ "clubId", "temporadaId", "coloresUniformes", "categoriaIds" }` y
 responde `201` con `Location`. El estado inicial es `SOLICITADA` y el perfil que captura sale de la

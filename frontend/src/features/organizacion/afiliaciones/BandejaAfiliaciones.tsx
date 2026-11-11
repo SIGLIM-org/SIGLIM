@@ -10,16 +10,16 @@ import { filtrosAfiliaciones } from '@/features/organizacion/afiliaciones/etique
 import type {
   Afiliacion,
   FiltroEstadoAfiliacion,
+  TemporadaResumenAfiliacion,
 } from '@/features/organizacion/afiliaciones/tipos'
 import { etiquetaEstadoTemporada } from '@/features/temporadas/etiquetas'
-import type { Temporada } from '@/features/temporadas/tipos'
 import type { Pagina } from '@/lib/api/tipos'
 import { esSinPermiso } from '@/lib/api/errores'
 
 const formatoEntero = new Intl.NumberFormat('es-MX')
 
 type Props = {
-  temporadas: readonly Temporada[]
+  temporadas: readonly TemporadaResumenAfiliacion[]
   temporadasCargando: boolean
   temporadaId: string
   filtro: FiltroEstadoAfiliacion

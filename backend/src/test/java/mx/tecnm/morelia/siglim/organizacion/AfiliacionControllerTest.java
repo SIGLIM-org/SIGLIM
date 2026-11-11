@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -16,6 +17,9 @@ import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.organizacion.AfiliacionDto.PerfilDto;
 import mx.tecnm.morelia.siglim.organizacion.AfiliacionDto.ReferenciaDto;
 import mx.tecnm.morelia.siglim.organizacion.AfiliacionDto.TemporadaResumenDto;
+import mx.tecnm.morelia.siglim.organizacion.ContextoAfiliacionDto.CategoriaContextoDto;
+import mx.tecnm.morelia.siglim.organizacion.ContextoAfiliacionDto.GrupoContextoDto;
+import mx.tecnm.morelia.siglim.organizacion.ContextoAfiliacionDto.TemporadaContextoDto;
 import mx.tecnm.morelia.siglim.seguridad.ArnesAutorizacionEndpoint;
 import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
 import org.junit.jupiter.api.DisplayName;
@@ -50,6 +54,7 @@ class AfiliacionControllerTest {
     private static final UUID CLUB = UUID.fromString("22222222-2222-4222-8222-222222222222");
     private static final UUID TEMPORADA = UUID.fromString("55555555-5555-4555-8555-555555555555");
     private static final UUID CATEGORIA = UUID.fromString("77777777-7777-4777-8777-777777777777");
+    private static final UUID GRUPO = UUID.fromString("99999999-9999-4999-8999-999999999999");
     private static final String BASE = "/api/v1/afiliaciones";
     private static final String CUERPO_CREAR = "{\"clubId\":\"" + CLUB + "\",\"temporadaId\":\"" + TEMPORADA
             + "\",\"coloresUniformes\":\"Azul y blanco\",\"categoriaIds\":[\"" + CATEGORIA + "\"]}";
@@ -115,6 +120,27 @@ class AfiliacionControllerTest {
         assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.VALIDACION);
         Mockito.verifyNoInteractions(servicio);
+    }
+
+    @Test
+    @DisplayName("H-08.2: GET /contexto devuelve temporadas con categorías y grupos")
+    void contexto() {
+        given(servicio.contexto()).willReturn(new ContextoAfiliacionDto(List.of(
+                new TemporadaContextoDto(TEMPORADA, "Temporada 2030", EstadoTemporada.ACTIVA,
+                        LocalDate.parse("2030-08-01"),
+                        List.of(new CategoriaContextoDto(CATEGORIA, "Libre",
+                                List.of(new GrupoContextoDto(GRUPO, "A", 3))))))));
+
+        MvcTestResult resultado = mvc.get().uri(BASE + "/contexto")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatusOk();
+        assertThat(resultado).bodyJson().extractingPath("$.temporadas[0].id").isEqualTo(TEMPORADA.toString());
+        assertThat(resultado).bodyJson().extractingPath("$.temporadas[0].categorias[0].id")
+                .isEqualTo(CATEGORIA.toString());
+        assertThat(resultado).bodyJson().extractingPath("$.temporadas[0].categorias[0].grupos[0].equipos")
+                .isEqualTo(3);
+        Mockito.verify(servicio).contexto();
     }
 
     @Test
@@ -265,6 +291,16 @@ class AfiliacionControllerTest {
                 .dobles(servicio)
                 .simularDenegacion(error -> given(servicio.listar(any(FiltroAfiliaciones.class)))
                         .willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de GET /api/v1/afiliaciones/contexto")
+    Stream<DynamicTest> seguridadContexto() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.GET, BASE + "/contexto")
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.contexto()).willThrow(error))
                 .pruebas();
     }
 

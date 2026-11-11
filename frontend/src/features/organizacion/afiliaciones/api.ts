@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import type {
   ActualizarAfiliacionPeticion,
   Afiliacion,
+  ContextoAfiliacion,
   CrearAfiliacionPeticion,
   FiltrosAfiliaciones,
   ResolverAfiliacionPeticion,
@@ -14,6 +15,7 @@ export const TAMANO_AFILIACIONES = 20
 
 export const clavesAfiliaciones = {
   todas: ['organizacion', 'afiliaciones'] as const,
+  contexto: ['organizacion', 'afiliaciones', 'contexto'] as const,
   lista: (filtros: FiltrosAfiliaciones) =>
     ['organizacion', 'afiliaciones', 'lista', filtros] as const,
   detalle: (id: string) => ['organizacion', 'afiliaciones', 'detalle', id] as const,
@@ -37,6 +39,17 @@ function consultaDeAfiliaciones({
   parametros.set('tamano', String(tamano))
 
   return parametros.toString()
+}
+
+/**
+ * Temporadas, categorías y grupos para capturar o revisar el tarjetón (H-08.2). Se sirve con los
+ * permisos de afiliación, así que la Directiva no depende del permiso de M-02.
+ */
+export function useContextoAfiliaciones() {
+  return useQuery({
+    queryKey: clavesAfiliaciones.contexto,
+    queryFn: () => api.get<ContextoAfiliacion>('afiliaciones/contexto'),
+  })
 }
 
 /** Tarjetones visibles para la sesión, filtrados por temporada y estado (RF-101, ADR-0007). */
