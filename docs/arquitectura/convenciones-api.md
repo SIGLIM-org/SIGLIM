@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 4.8 · 11 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 4.9 · 11 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -47,6 +47,7 @@ Versión 4.8 · 11 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../r
 | 4.6 | 11 de noviembre de 2026 | DEC-63 y DEC-68: §11 quita los textos de los mensajes de error (PEN-016) y el proveedor de correo (PEN-034), ya resueltos; §6.6 cita DEC-64 como regla final del bloqueo de cancha sobre partidos (PEN-007). |
 | 4.7 | 11 de noviembre de 2026 | H-09.1: §6.1 con el aviso de privacidad vigente (`GET /avisos-privacidad/vigente`) y el registro del consentimiento (`POST /personas/{id}/consentimientos`), su orden de errores y la acción `REGISTRAR_CONSENTIMIENTO`; §6.3 con el alta y la edición de personas (`POST`/`PATCH /personas`) y la tutela (`POST /personas/{id}/tutelas`), sus órdenes de errores y las acciones `REGISTRAR_PERSONA`, `EDITAR_PERSONA` y `REGISTRAR_TUTELA`; la consulta por CURP de H-22.2 usa `persona_por_curp` (DEC-78 a DEC-84). |
 | 4.8 | 11 de noviembre de 2026 | H-09.2: §6.4 con el contrato del alta de un registro de jugador (`POST /registros-jugador`): permiso sobre el club del equipo, orden de errores (`RF-003`, `RF-013`, `RF-101`, `REFERENCIA_INVALIDA`, `VAL-017` con `club` y `equipo`, `VAL-026`, `RN-039` y `VAL-025` con `requisito`), fecha de alta en `America/Mexico_City`, respuesta `201` sin `Location` y la acción `REGISTRAR_REGISTRO_JUGADOR` (DEC-85 a DEC-90). |
+| 4.9 | 11 de noviembre de 2026 | H-11.1: §6.5 con el contrato de árbitros (`GET`/`POST /arbitros` y `POST /arbitros/{id}/validacion`), el estado `PROPUESTO`, la validación y el rechazo con observaciones, el `409 DUPLICADO` que solo nombra el club (DEC-88) y el `INSERT … ON CONFLICT DO NOTHING` de las carreras (DEC-90); permisos `CONSULTAR`/`PROPONER`/`VALIDAR` y auditoría `PROPONER_ARBITRO`, `VALIDAR_ARBITRO` y `RECHAZAR_ARBITRO`. |
 
 ## Índice
 
@@ -1246,7 +1247,10 @@ en el filtro devuelve una página vacía, no un `403`.
 del club y responde `201` con `Location` y el árbitro en estado `PROPUESTO`; el perfil que lo
 presenta sale de la sesión. Un club de otra liga o inexistente responde `404` (VAL-024). Como la
 identidad es única (RF-010, DEC-10), si la persona ya está en el catálogo responde `409 DUPLICADO`
-con `arbitroId`, `clubId` y `estado`; una persona inexistente responde `422 REFERENCIA_INVALIDA`.
+nombrando solo el club que ya la presenta (extensión `club`), sin su estado ni identificadores
+(DEC-88). Una persona inexistente responde `422 REFERENCIA_INVALIDA`. El alta usa
+`INSERT … ON CONFLICT (persona_id) DO NOTHING RETURNING id`: si dos directivas presentan a la misma
+persona a la vez, la segunda no aborta la transacción y recibe el mismo `409` (DEC-90).
 
 `POST /arbitros/{id}/validacion` lleva `{ "decision": "VALIDADO"|"RECHAZADO", "observaciones" }` y
 exige `arbitraje.arbitro:VALIDAR`. Solo se aplica a un árbitro `PROPUESTO`; cualquier otro estado

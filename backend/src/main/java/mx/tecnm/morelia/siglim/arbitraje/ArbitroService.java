@@ -18,7 +18,6 @@ import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion.AlcanceAutorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +29,12 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li><b>Presentación (RF-112, DEC-17).</b> La Directiva de club registra a una persona ya
  *       existente con su {@code personaId} y su club; el árbitro nace {@code PROPUESTO}, ligado al
  *       club y al perfil de la sesión. La identidad es única (RF-010, DEC-10): si la persona ya está
- *       en el catálogo, responde {@code 409 DUPLICADO} con el club y el estado actuales.</li>
+ *       en el catálogo, responde {@code 409 DUPLICADO} nombrando solo el club que ya la presenta.</li>
+ *   <li><b>Concurrencia (DEC-90).</b> El alta usa
+ *       {@code INSERT … ON CONFLICT (persona_id) DO NOTHING RETURNING id}. Si dos directivas
+ *       presentan a la misma persona a la vez, la segunda no aborta la transacción: consulta el club
+ *       que ganó y responde el mismo {@code 409}, sin atrapar {@code DuplicateKeyException}
+ *       (defecto SCRUM-433).</li>
  *   <li><b>Ámbito (ADR-0007).</b> El alta exige {@code arbitraje.arbitro:PROPONER} sobre el club; el
  *       listado usa {@code arbitraje.arbitro:CONSULTAR} y filtra en el SQL y en el {@code COUNT} por
  *       los clubes del alcance, así que la Directiva solo ve los suyos y la Comisión (ámbito
@@ -116,7 +120,11 @@ public class ArbitroService {
         }
 
         UUID perfil = UsuarioActual.idRequerido();
-        UUID id = insertarSinDuplicado(peticion.clubId(), peticion.personaId(), perfil);
+        UUID id = arbitros.insertar(peticion.clubId(), peticion.personaId(), perfil)
+                .orElseThrow(() -> arbitros.buscarPorPersona(peticion.personaId())
+                        .map(ArbitroService::duplicado)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "El árbitro chocó con arbitros.persona_id y no se encontró")));
 
         Map<String, Object> detalle = new LinkedHashMap<>();
         detalle.put("clubId", peticion.clubId().toString());
@@ -183,26 +191,11 @@ public class ArbitroService {
         return new RecursoNoEncontradoException("Árbitro " + id);
     }
 
-    private UUID insertarSinDuplicado(UUID clubId, UUID personaId, UUID perfil) {
-        try {
-            return arbitros.insertar(clubId, personaId, perfil);
-        } catch (DuplicateKeyException carrera) {
-            ResumenArbitro existente = arbitros.buscarPorPersona(personaId).orElse(null);
-            if (existente != null) {
-                throw duplicado(existente);
-            }
-            throw ReglaNegocioException.conflicto(ErroresTecnicos.DUPLICADO,
-                    "No se pudo registrar al árbitro. Recarga la página e intenta de nuevo.");
-        }
-    }
-
     private static ReglaNegocioException duplicado(ResumenArbitro existente) {
         return ReglaNegocioException.conflicto(ErroresTecnicos.DUPLICADO,
                         "La persona ya está registrada como árbitro del club «"
-                                + existente.clubNombre() + "» en estado " + existente.estado().texto() + ".")
-                .con("arbitroId", existente.id().toString())
-                .con("clubId", existente.clubId().toString())
-                .con("estado", existente.estado().name());
+                                + existente.clubNombre() + "».")
+                .con("club", existente.clubNombre());
     }
 
     private static String observacionesValidas(String observaciones) {

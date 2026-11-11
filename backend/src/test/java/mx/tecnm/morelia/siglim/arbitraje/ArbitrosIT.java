@@ -19,6 +19,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * H-11.1 contra PostgreSQL real, con {@link ArbitroService} completo: autorización con la matriz de
@@ -34,6 +36,12 @@ class ArbitrosIT extends BaseDatosPrueba {
 
     @Autowired
     private ArbitroService arbitros;
+
+    @Autowired
+    private ArbitroRepository repositorio;
+
+    @Autowired
+    private PlatformTransactionManager transacciones;
 
     // ── Criterios 1 y 2: presentación, validación y auditoría ───────────────────────────────────
 
@@ -59,7 +67,10 @@ class ArbitrosIT extends BaseDatosPrueba {
         assertThatThrownBy(() -> arbitros.crear(new CrearArbitroRequest(persona, club.id())))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
                     error(HttpStatus.CONFLICT, "DUPLICADO").accept(excepcion);
-                    assertThat(excepcion.getMessage()).contains("Halcones").contains("propuesto");
+                    assertThat(excepcion.getMessage()).contains("Halcones")
+                            .doesNotContain("PROPUESTO").doesNotContain("propuesto");
+                    assertThat(excepcion.propiedades()).containsOnlyKeys("club");
+                    assertThat(excepcion.propiedades().get("club").toString()).startsWith("Halcones");
                 });
 
         UUID comision = perfilConRol("COMISION_ARBITRAJE");
@@ -108,6 +119,23 @@ class ArbitrosIT extends BaseDatosPrueba {
         assertThat(eventos.getLast().motivo()).isEqualTo(OBSERVACIONES);
     }
 
+    @Test
+    @DisplayName("DEC-90: el ON CONFLICT de persona_id no aborta la transacción y deja consultar")
+    void onConflictNoAbortaLaTransaccion() {
+        Club club = club("Repetido");
+        UUID persona = persona();
+        UUID perfil = iniciarSesionComoAdministrador();
+
+        new TransactionTemplate(transacciones).executeWithoutResult(estado -> {
+            assertThat(repositorio.insertar(club.id(), persona, perfil)).isPresent();
+            assertThat(repositorio.insertar(club.id(), persona, perfil)).isEmpty();
+            assertThat(jdbc.sql("SELECT count(*) FROM siglim.arbitros WHERE persona_id = :persona")
+                    .param("persona", persona)
+                    .query(Long.class)
+                    .single()).isEqualTo(1);
+        });
+    }
+
     // ── Criterio 3: ámbito por club ─────────────────────────────────────────────────────────────
 
     @Test
@@ -149,7 +177,7 @@ class ArbitrosIT extends BaseDatosPrueba {
 
     private Club club(String nombre) {
         UUID id = jdbc.sql("""
-                        INSERT INTO clubes (liga_id, nombre)
+                        INSERT INTO siglim.clubes (liga_id, nombre)
                         VALUES (:liga, :nombre)
                         RETURNING id
                         """)
@@ -164,7 +192,7 @@ class ArbitrosIT extends BaseDatosPrueba {
     private UUID persona() {
         String sufijo = "" + letra() + letra() + letra();
         return jdbc.sql("""
-                        INSERT INTO personas (curp, nombre, apellido_paterno, fecha_nacimiento)
+                        INSERT INTO siglim.personas (curp, nombre, apellido_paterno, fecha_nacimiento)
                         VALUES (:curp, 'Carlos Alberto', 'Prado', :nacimiento)
                         RETURNING id
                         """)
@@ -179,7 +207,7 @@ class ArbitrosIT extends BaseDatosPrueba {
     }
 
     private UUID crearPerfil() {
-        return jdbc.sql("INSERT INTO perfiles (nombre_mostrado) VALUES ('Usuario de prueba') RETURNING id")
+        return jdbc.sql("INSERT INTO siglim.perfiles (nombre_mostrado) VALUES ('Usuario de prueba') RETURNING id")
                 .query(UUID.class)
                 .single();
     }
@@ -188,8 +216,8 @@ class ArbitrosIT extends BaseDatosPrueba {
     private UUID perfilConRol(String rol) {
         UUID perfil = crearPerfil();
         jdbc.sql("""
-                        INSERT INTO asignaciones_rol (perfil_id, rol_id, liga_id, ambito)
-                        SELECT :perfil, id, liga_id, ambito_predeterminado FROM roles WHERE codigo = :rol
+                        INSERT INTO siglim.asignaciones_rol (perfil_id, rol_id, liga_id, ambito)
+                        SELECT :perfil, id, liga_id, ambito_predeterminado FROM siglim.roles WHERE codigo = :rol
                         """)
                 .param("perfil", perfil)
                 .param("rol", rol)
@@ -201,8 +229,8 @@ class ArbitrosIT extends BaseDatosPrueba {
     private UUID perfilDeDirectiva(UUID club) {
         UUID perfil = crearPerfil();
         jdbc.sql("""
-                        INSERT INTO asignaciones_rol (perfil_id, rol_id, liga_id, ambito, club_id)
-                        SELECT :perfil, id, liga_id, 'CLUB', :club FROM roles WHERE codigo = 'DIRECTIVA_CLUB'
+                        INSERT INTO siglim.asignaciones_rol (perfil_id, rol_id, liga_id, ambito, club_id)
+                        SELECT :perfil, id, liga_id, 'CLUB', :club FROM siglim.roles WHERE codigo = 'DIRECTIVA_CLUB'
                         """)
                 .param("perfil", perfil)
                 .param("club", club)
@@ -220,7 +248,7 @@ class ArbitrosIT extends BaseDatosPrueba {
     }
 
     private String estadoEnBase(UUID arbitro) {
-        return jdbc.sql("SELECT estado::text FROM arbitros WHERE id = :id")
+        return jdbc.sql("SELECT estado::text FROM siglim.arbitros WHERE id = :id")
                 .param("id", arbitro)
                 .query(String.class)
                 .single();
@@ -229,7 +257,7 @@ class ArbitrosIT extends BaseDatosPrueba {
     private List<Evento> eventos(UUID arbitro) {
         return jdbc.sql("""
                         SELECT accion, perfil_id, motivo
-                          FROM auditoria
+                          FROM siglim.auditoria
                          WHERE modulo = 'M-05' AND entidad = 'arbitros' AND entidad_id = :id
                          ORDER BY id
                         """)

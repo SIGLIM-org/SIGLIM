@@ -22,9 +22,11 @@ import org.springframework.stereotype.Repository;
  *       (convenciones de API §9.2). Las fechas se devuelven en la zona de negocio.</li>
  *   <li><b>Ámbito.</b> El listado filtra por club en el {@code WHERE} y en el {@code COUNT} con la
  *       misma condición (ADR-0007).</li>
- *   <li><b>Concurrencia.</b> La validación bloquea el árbitro con {@code FOR UPDATE} para que dos
- *       dictámenes simultáneos no se pisen. El alta confía en el índice único de {@code persona_id} y
- *       el servicio traduce la carrera a un {@code 409} explicado.</li>
+ *   <li><b>Concurrencia (DEC-90).</b> La validación bloquea el árbitro con {@code FOR UPDATE} para
+ *       que dos dictámenes simultáneos no se pisen. El alta usa
+ *       {@code INSERT … ON CONFLICT (persona_id) DO NOTHING RETURNING id}: si otra petición presentó
+ *       antes a la misma persona, la transacción sigue sana y el servicio consulta el club que ya la
+ *       tiene para responder {@code 409}, sin atrapar {@code DuplicateKeyException} (SCRUM-433).</li>
  * </ul>
  *
  * <p>Refs: H-11.1, RF-021, RF-112, RF-113, ADR-0007, ADR-0011
@@ -110,34 +112,39 @@ class ArbitroRepository {
                 .single();
     }
 
-    /** La persona ya está en el catálogo: el índice único de {@code persona_id} es global. */
+    /**
+     * El club que ya presenta a esa persona. El índice único de {@code persona_id} es global; del
+     * club solo se devuelve el nombre, nunca su estado ni identificadores (DEC-88).
+     */
     Optional<ResumenArbitro> buscarPorPersona(UUID personaId) {
         return jdbc.sql("""
-                        SELECT a.id, a.estado, cl.id AS club_id, cl.nombre AS club_nombre
+                        SELECT cl.nombre AS club_nombre
                           FROM arbitros a
                           JOIN clubes cl ON cl.id = a.club_id
                          WHERE a.persona_id = :personaId
                         """)
                 .param("personaId", personaId)
-                .query((fila, numero) -> new ResumenArbitro(
-                        fila.getObject("id", UUID.class),
-                        EstadoArbitro.valueOf(fila.getString("estado")),
-                        fila.getObject("club_id", UUID.class),
-                        fila.getString("club_nombre")))
+                .query((fila, numero) -> new ResumenArbitro(fila.getString("club_nombre")))
                 .optional();
     }
 
-    UUID insertar(UUID clubId, UUID personaId, UUID propuestoPor) {
+    /**
+     * Inserta al árbitro {@code PROPUESTO} (lo pone el {@code DEFAULT}). Si otra petición presentó
+     * antes a la misma persona, {@code ON CONFLICT … DO NOTHING} no inserta y devuelve vacío sin
+     * abortar la transacción (DEC-90; defecto SCRUM-433).
+     */
+    Optional<UUID> insertar(UUID clubId, UUID personaId, UUID propuestoPor) {
         return jdbc.sql("""
                         INSERT INTO arbitros (club_id, persona_id, propuesto_por)
                         VALUES (:clubId, :personaId, :propuestoPor)
+                        ON CONFLICT (persona_id) DO NOTHING
                         RETURNING id
                         """)
                 .param("clubId", clubId)
                 .param("personaId", personaId)
                 .param("propuestoPor", propuestoPor)
                 .query(UUID.class)
-                .single();
+                .optional();
     }
 
     /** Aplica el dictamen: estado final, perfil y fecha de validación, y observaciones. */
@@ -194,7 +201,7 @@ class ArbitroRepository {
         return valor == null ? null : valor.atZoneSameInstant(ZONA_DE_NEGOCIO).toOffsetDateTime();
     }
 
-    /** Lo mínimo para explicar que la persona ya está en el catálogo. */
-    record ResumenArbitro(UUID id, EstadoArbitro estado, UUID clubId, String clubNombre) {
+    /** El club que ya presenta a la persona, solo para explicar el {@code 409} (DEC-88). */
+    record ResumenArbitro(String clubNombre) {
     }
 }

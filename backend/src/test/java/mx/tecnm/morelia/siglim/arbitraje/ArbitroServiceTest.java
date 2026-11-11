@@ -2,11 +2,13 @@ package mx.tecnm.morelia.siglim.arbitraje;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.entry;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -53,7 +55,6 @@ class ArbitroServiceTest {
     private static final UUID ID = UUID.fromString("11111111-1111-4111-8111-111111111111");
     private static final UUID PERFIL = UUID.fromString("44444444-4444-4444-8444-444444444444");
     private static final UUID CLUB = UUID.fromString("22222222-2222-4222-8222-222222222222");
-    private static final UUID OTRO_CLUB = UUID.fromString("99999999-9999-4999-8999-999999999999");
     private static final UUID PERSONA = UUID.fromString("55555555-5555-4555-8555-555555555555");
     private static final Instant AHORA = Instant.parse("2030-08-02T12:00:00Z");
     private static final OffsetDateTime PROPUESTO_EN = OffsetDateTime.parse("2030-08-02T06:00:00-06:00");
@@ -162,7 +163,7 @@ class ArbitroServiceTest {
     @DisplayName("H-11 criterio 1 · RF-112: la Directiva presenta al árbitro y queda PROPUESTO ligado a su club")
     void crearDejaPropuestoYAudita() {
         given(arbitros.buscarPorPersona(PERSONA)).willReturn(Optional.empty());
-        given(arbitros.insertar(CLUB, PERSONA, PERFIL)).willReturn(ID);
+        given(arbitros.insertar(CLUB, PERSONA, PERFIL)).willReturn(Optional.of(ID));
         given(arbitros.buscar(LIGA, ID)).willReturn(Optional.of(propuesto()));
 
         ArbitroDto creado = servicio.crear(new CrearArbitroRequest(PERSONA, CLUB));
@@ -184,20 +185,38 @@ class ArbitroServiceTest {
     }
 
     @Test
-    @DisplayName("RF-010, DEC-10: la persona ya registrada como árbitro responde 409 con club y estado")
+    @DisplayName("RF-010, DEC-10, DEC-88: la persona ya registrada responde 409 solo con el club")
     void crearPersonaDuplicada() {
-        given(arbitros.buscarPorPersona(PERSONA)).willReturn(Optional.of(
-                new ResumenArbitro(ID, EstadoArbitro.VALIDADO, OTRO_CLUB, "Club Toros")));
+        given(arbitros.buscarPorPersona(PERSONA))
+                .willReturn(Optional.of(new ResumenArbitro("Club Toros")));
 
         assertThatThrownBy(() -> servicio.crear(new CrearArbitroRequest(PERSONA, CLUB)))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
                     error(HttpStatus.CONFLICT, ErroresTecnicos.DUPLICADO).accept(excepcion);
-                    assertThat(excepcion.getMessage()).contains("Club Toros").contains("validado");
-                    assertThat(excepcion.propiedades()).containsEntry("arbitroId", ID.toString())
-                            .containsEntry("clubId", OTRO_CLUB.toString())
-                            .containsEntry("estado", "VALIDADO");
+                    assertThat(excepcion.getMessage()).contains("Club Toros")
+                            .doesNotContain("validado").doesNotContain("rechazado");
+                    assertThat(excepcion.propiedades())
+                            .containsOnly(entry("club", "Club Toros"));
                 });
         verify(arbitros, never()).insertar(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("DEC-90: si el alta choca con persona_id, el ON CONFLICT deja la transacción sana y da 409")
+    void crearCarreraDeDuplicado() {
+        given(arbitros.buscarPorPersona(PERSONA))
+                .willReturn(Optional.empty(), Optional.of(new ResumenArbitro("Club Toros")));
+        given(arbitros.insertar(CLUB, PERSONA, PERFIL)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.crear(new CrearArbitroRequest(PERSONA, CLUB)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
+                    error(HttpStatus.CONFLICT, ErroresTecnicos.DUPLICADO).accept(excepcion);
+                    assertThat(excepcion.getMessage()).contains("Club Toros");
+                });
+
+        verify(arbitros).insertar(CLUB, PERSONA, PERFIL);
+        verify(arbitros, times(2)).buscarPorPersona(PERSONA);
+        verifyNoInteractions(auditoria);
     }
 
     @Test
