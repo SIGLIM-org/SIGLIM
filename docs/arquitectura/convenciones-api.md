@@ -1052,12 +1052,34 @@ Cada equipo trae referencias anidadas (§9.1):
 
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
-| `GET /arbitros?estado=&clubId=` · `POST /arbitros` | Árbitros presentados por el club | `arbitraje.arbitro:PROPONER` | RF-112, RF-021 | N |
+| `GET /arbitros?estado=&clubId=` · `POST /arbitros` | Árbitros presentados por el club | `GET`: `arbitraje.arbitro:CONSULTAR` · `POST`: `arbitraje.arbitro:PROPONER` | RF-112, RF-021 | N |
 | `POST /arbitros/{id}/validacion` | Validar o rechazar | `arbitraje.arbitro:VALIDAR` | RF-113 | N |
 | `GET /clubes/{id}/cuota-arbitros` | Árbitros presentados frente a los requeridos | `arbitraje.arbitro:CONSULTAR` | RF-114 | B |
 | `GET /arbitros/{id}/disponibilidad` · `PUT` | Disponibilidad | `arbitraje.disponibilidad:EDITAR` | RF-022 | B |
 | `GET /designaciones?jornadaId=&arbitroId=` · `POST /partidos/{id}/designaciones` | Designar; `422 VAL-019` si el árbitro es de un club del partido | `arbitraje.designacion:*` | RF-023, RF-115 | N |
 | `GET /mis-designaciones` | Partidos asignados al árbitro | ámbito `PROPIO` | RF-123 | N |
+
+**Árbitros del club (H-11.1, RF-021, RF-112, RF-113, DEC-17).** `GET /arbitros?estado=&clubId=&pagina=&tamano=`
+responde la envoltura de paginación; cada elemento trae `persona` con `{ id, nombreCompleto }` (sin
+CURP ni datos de contacto, convenciones §9.2), `club`, `estado`, `propuestoPor`, `propuestoEn` y, si
+ya se resolvió, `validadoPor`, `validadoEn` y `observaciones`. Exige
+`arbitraje.arbitro:CONSULTAR` y filtra por el ámbito en el `WHERE` y en el `COUNT`: la Directiva de
+club solo ve los árbitros de su club y la Comisión (ámbito `LIGA`) los ve todos. Un `clubId` ajeno
+en el filtro devuelve una página vacía, no un `403`.
+
+`POST /arbitros` lleva `{ "personaId", "clubId" }`, requiere `arbitraje.arbitro:PROPONER` con ámbito
+del club y responde `201` con `Location` y el árbitro en estado `PROPUESTO`; el perfil que lo
+presenta sale de la sesión. Un club de otra liga o inexistente responde `404` (VAL-024). Como la
+identidad es única (RF-010, DEC-10), si la persona ya está en el catálogo responde `409 DUPLICADO`
+con `arbitroId`, `clubId` y `estado`; una persona inexistente responde `422 REFERENCIA_INVALIDA`.
+
+`POST /arbitros/{id}/validacion` lleva `{ "decision": "VALIDADO"|"RECHAZADO", "observaciones" }` y
+exige `arbitraje.arbitro:VALIDAR`. Solo se aplica a un árbitro `PROPUESTO`; cualquier otro estado
+responde `409 RF-113`. El rechazo exige observaciones de 10 a 500 caracteres (`400 RF-113` si
+faltan); la validación las admite como nota. Se guardan el perfil y la fecha del dictamen y se
+auditan como `PROPONER_ARBITRO`, `VALIDAR_ARBITRO` y `RECHAZAR_ARBITRO` en `M-05` sobre `arbitros`,
+sin nombres ni CURP. Solo los `VALIDADO` pueden designarse: el trigger de `designaciones` responde
+`RF-113` para cualquier otro estado.
 
 ### 6.6 M-06 Canchas y recursos
 
