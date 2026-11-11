@@ -84,6 +84,12 @@ export const seccionesApp: SeccionApp[] = [
         permiso: 'canchas.cancha:CONSULTAR',
         descripcion: 'Catálogo, disponibilidad y bloqueos.',
       },
+      {
+        nombre: 'Árbitros',
+        ruta: '/app/programacion/arbitros',
+        permiso: 'arbitraje.arbitro:CONSULTAR',
+        descripcion: 'Árbitros presentados por los clubes y su validación.',
+      },
     ],
   },
   { nombre: 'Partidos', ruta: '/app/partidos', icono: Goal, modulos: ['M-08'] },

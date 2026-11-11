@@ -5,14 +5,27 @@ describe('subsecciones', () => {
   it('H-07.2: Programación ofrece Canchas con su permiso y la ruta queda en la sección', () => {
     const programacion = seccionesApp.find(({ nombre }) => nombre === 'Programación')
 
-    expect(programacion?.subsecciones).toEqual([
+    expect(programacion?.subsecciones).toContainEqual(
       expect.objectContaining({
         nombre: 'Canchas',
         ruta: '/app/programacion/canchas',
         permiso: 'canchas.cancha:CONSULTAR',
       }),
-    ])
+    )
     expect(seccionDeRuta('/app/programacion/canchas/c1')?.nombre).toBe('Programación')
+  })
+
+  it('H-11.2: Programación ofrece Árbitros con su permiso y la ruta queda en la sección', () => {
+    const programacion = seccionesApp.find(({ nombre }) => nombre === 'Programación')
+
+    expect(programacion?.subsecciones).toContainEqual(
+      expect.objectContaining({
+        nombre: 'Árbitros',
+        ruta: '/app/programacion/arbitros',
+        permiso: 'arbitraje.arbitro:CONSULTAR',
+      }),
+    )
+    expect(seccionDeRuta('/app/programacion/arbitros')?.nombre).toBe('Programación')
   })
 
   it('H-06.2: Organización ofrece Clubes con su permiso y la ruta queda en la sección', () => {
