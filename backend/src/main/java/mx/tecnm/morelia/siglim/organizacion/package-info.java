@@ -32,6 +32,12 @@
  *       autorización que termina la vigencia anterior. {@link mx.tecnm.morelia.siglim.organizacion.PersonaController}
  *       y {@link mx.tecnm.morelia.siglim.organizacion.PersonaService} consultan la identidad por CURP
  *       para que F-15 envíe el {@code personaId} (RF-010, RF-011).</li>
+ *   <li><b>Personas y tutela (H-09.1).</b> {@link mx.tecnm.morelia.siglim.organizacion.PersonaService}
+ *       registra y edita personas y vincula menores con su tutor. La identidad es global: la CURP se
+ *       busca con la función {@code persona_por_curp} aunque RLS no muestre a la persona, y el permiso
+ *       se comprueba en cualquier ámbito; corregir la identidad exige el ámbito de toda la liga
+ *       (RF-010, RF-106, DEC-77, DEC-78, DEC-82 a DEC-84). El consentimiento es de M-01
+ *       ({@code seguridad.ConsentimientoService}).</li>
  * </ul>
  *
  * <p>Todas las operaciones se autorizan con el ámbito del club (ADR-0007).

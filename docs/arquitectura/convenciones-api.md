@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 4.6 · 11 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 4.8 · 11 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -45,6 +45,8 @@ Versión 4.6 · 11 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../r
 | 4.4 | 8 de noviembre de 2026 | H-22.2: §6.3 documenta la consulta de una persona por CURP que usa F-15 para identificar al titular de un cambio de directiva, con el permiso en cualquier ámbito y `Cache-Control: no-store` (RF-010, RF-011, RF-102). |
 | 4.5 | 10 de noviembre de 2026 | B-13.1: §6.6 con `canchas.cancha:CONSULTAR` en el `GET` de horarios de club y `EDITAR` en el `PUT`; §6.6.1 con el contrato de `GET`/`PUT /canchas/{id}/horarios-club` (reemplazo atómico por temporada, reglas por tipo de cancha de DEC-33, traslapes en el mismo día), su orden de errores y la acción `REGISTRAR_HORARIOS_CANCHA`; §3.2 con `RF-119` en `422`. |
 | 4.6 | 11 de noviembre de 2026 | DEC-63 y DEC-68: §11 quita los textos de los mensajes de error (PEN-016) y el proveedor de correo (PEN-034), ya resueltos; §6.6 cita DEC-64 como regla final del bloqueo de cancha sobre partidos (PEN-007). |
+| 4.7 | 11 de noviembre de 2026 | H-09.1: §6.1 con el aviso de privacidad vigente (`GET /avisos-privacidad/vigente`) y el registro del consentimiento (`POST /personas/{id}/consentimientos`), su orden de errores y la acción `REGISTRAR_CONSENTIMIENTO`; §6.3 con el alta y la edición de personas (`POST`/`PATCH /personas`) y la tutela (`POST /personas/{id}/tutelas`), sus órdenes de errores y las acciones `REGISTRAR_PERSONA`, `EDITAR_PERSONA` y `REGISTRAR_TUTELA`; la consulta por CURP de H-22.2 usa `persona_por_curp` (DEC-78 a DEC-84). |
+| 4.8 | 11 de noviembre de 2026 | H-09.2: §6.4 con el contrato del alta de un registro de jugador (`POST /registros-jugador`): permiso sobre el club del equipo, orden de errores (`RF-003`, `RF-013`, `RF-101`, `REFERENCIA_INVALIDA`, `VAL-017` con `club` y `equipo`, `VAL-026`, `RN-039` y `VAL-025` con `requisito`), fecha de alta en `America/Mexico_City`, respuesta `201` sin `Location` y la acción `REGISTRAR_REGISTRO_JUGADOR` (DEC-85 a DEC-90). |
 
 ## Índice
 
@@ -166,7 +168,7 @@ propiedades de extensión: `codigo` (siempre) y `errores` (cuando hay campos se�
 | `400` | JSON mal formado, tipos incorrectos, campos obligatorios ausentes o formato inválido (CURP, correo) | `VALIDACION` |
 | `401` | Sin token, token vencido o inválido | `NO_AUTENTICADO` |
 | `403` | El usuario no tiene el permiso (denegación por defecto) | `VAL-015` |
-| `403` | Separación de funciones de la persona: aprobar la cédula que capturó, cambiar permisos de su propio rol, cambiar sus propias asignaciones o el estado de su cuenta, corregir un resultado sin resolución | `VAL-021`, `VAL-022`, `VAL-010` |
+| `403` | Separación de funciones de la persona: aprobar la cédula que capturó, cambiar permisos de su propio rol, cambiar sus propias asignaciones o el estado de su cuenta, registrarse como tutor desde su propia cuenta (DEC-79), corregir un resultado sin resolución | `VAL-021`, `VAL-022`, `VAL-010` |
 | `404` | El recurso no existe **o** está fuera del ámbito del usuario (no se revela cuál de los dos) | `NO_ENCONTRADO` (VAL-024) |
 | `405` | El recurso existe pero no admite ese método (la respuesta incluye la cabecera `Allow`) | `METODO_NO_PERMITIDO` |
 | `406`, `415` | La petición no envía o no acepta JSON (`Content-Type`, `Accept`) | `FORMATO_NO_SOPORTADO` |
@@ -316,8 +318,8 @@ implementa hasta que su historia entre a un Sprint (AGENTS.md §3). Los permisos
 | `GET /roles` · `GET /roles/{id}` · `GET /permisos` | Roles, permisos y pares incompatibles | `seguridad.rol:CONSULTAR` | RF-095 | N |
 | `PATCH /roles/{id}/permisos` | Cambiar permisos de un rol: `200` si se aplica, `202` si queda pendiente | `seguridad.rol:EDITAR` | RF-095, VAL-022, VAL-023 | N |
 | `GET /solicitudes-cambio-permisos` · `POST …/{id}/resolucion` | Pares incompatibles por aprobar | `seguridad.permisos:APROBAR_INCOMPATIBLE` | RF-096 | N |
-| `GET /avisos-privacidad/vigente` | Aviso de privacidad vigente | sesión | RF-097 | N |
-| `POST /personas/{id}/consentimientos` | Registrar consentimiento del titular o del tutor | `seguridad.consentimiento:REGISTRAR` | RF-097, VAL-025 | N |
+| `GET /avisos-privacidad/vigente?tipo=` | Aviso de privacidad vigente de la liga | sesión | RF-097 | N |
+| `POST /personas/{id}/consentimientos` | Registrar consentimiento del titular o del tutor | `seguridad.consentimiento:REGISTRAR` en cualquier ámbito | RF-097, VAL-025 | N |
 | `GET /solicitudes-arco` · `POST /solicitudes-arco` · `PATCH …/{id}` | Solicitudes ARCO | `seguridad.arco:GESTIONAR` | RF-098 | B |
 | `GET /auditoria?perfilId=&modulo=&accion=&desde=&hasta=` | Consultar auditoría. `tamano` por defecto 50. `orden`: `ocurridoEn` | `auditoria.registro:CONSULTAR` | RF-134 | N |
 | `GET /auditoria/opciones-filtro` | Perfiles, módulos y acciones presentes en la auditoría de la liga, para llenar los filtros; sin paginación | `auditoria.registro:CONSULTAR` | RF-134 | N |
@@ -353,6 +355,46 @@ implementa hasta que su historia entre a un Sprint (AGENTS.md §3). Los permisos
   "detalle": { "tipo": "BLOQUEO" }
 }
 ```
+
+**Aviso de privacidad vigente (H-09.1, RF-097, DEC-74, DEC-80).** `GET /avisos-privacidad/vigente?tipo=`
+acepta `INTEGRAL` o `SIMPLIFICADO` (por defecto `SIMPLIFICADO`; otro valor, `400 VALIDACION`) y
+devuelve, de la liga configurada (`siglim.liga-id`), la versión de ese tipo con el mayor
+`vigenteDesde` que no sea posterior a hoy en `America/Mexico_City` (ante un empate, la creada al
+último **[PROPUESTA]**). Basta con tener sesión. Si no hay aviso vigente, `404 NO_ENCONTRADO`. Lleva
+`Cache-Control: no-store` y no se audita.
+
+```json
+{
+  "id": "…", "tipo": "SIMPLIFICADO", "version": "v1", "contenido": "AVISO DE PRIVACIDAD … NO OFICIAL …",
+  "finalidades": ["REGISTRO_DEPORTIVO", "DIFUSION"], "vigenteDesde": "2026-11-11", "esDemo": true
+}
+```
+
+`esDemo` es `true` en el aviso v1 de demostración que carga la migración `20261111130000`: la
+interfaz lo rotula «No oficial» (DEC-74).
+
+**Consentimiento (H-09.1, RF-097, VAL-025, DEC-76, DEC-81).** `POST /personas/{id}/consentimientos`
+recibe `{ "avisoId", "finalidades": [ … ], "otorgadoPorId"? }` y responde `201` con
+`{ "id", "personaId", "otorgadoPorId", "avisoId", "finalidades", "otorgadoEn" }`, sin `Location`
+(todavía no existe un `GET` del recurso) y con `Cache-Control: no-store`. Exige
+`seguridad.consentimiento:REGISTRAR` en **cualquier ámbito** (`autorizacion.alcance`), porque la
+persona puede no estar todavía en el club. Orden de errores:
+
+1. Sin el permiso: `403 VAL-015`.
+2. Sin `avisoId`, sin finalidades o con una finalidad vacía: `400 VALIDACION`. Las finalidades se
+   recortan y las repetidas se quitan **[PROPUESTA]**.
+3. La persona no existe: `404 NO_ENCONTRADO` (se comprueba con `es_menor`, que no depende de RLS,
+   DEC-78).
+4. El aviso no existe: `422 REFERENCIA_INVALIDA`.
+5. El aviso no es el vigente de su tipo en la liga: `422 RF-097`.
+6. Alguna finalidad no está en el aviso: `422 RF-097`.
+7. **Menor:** `otorgadoPorId` es obligatorio y debe ser su tutor vigente (`es_tutor_vigente`, aunque
+   la tutela la haya registrado otro club); si no, `422 VAL-025`. **Adulto:** `otorgadoPorId` se omite
+   o es la misma persona; si es otra, `422 RF-097`. Se guarda `otorgado_por_id = persona_id` (DEC-76).
+
+`registrado_por` es el perfil de la sesión. Se audita en `M-01` como `REGISTRAR_CONSENTIMIENTO`
+(entidad `consentimientos`) con `avisoId` y `finalidades` en el detalle, sin datos personales.
+Revocar un consentimiento no forma parte de H-09.1.
 
 **Usuarios, invitación y asignaciones (H-03.1, RF-094).** Los permisos son
 `seguridad.usuario:CONSULTAR` para `GET /usuarios` y `GET /usuarios/{id}`,
@@ -863,9 +905,9 @@ la misma forma que `GET /temporadas/{id}/parametros/{version}`:
 | `POST /cargos-directiva/{id}/autorizacion` | Autorizar un cambio | `organizacion.directiva:APROBAR` con ámbito del club | RF-102 | N |
 | `GET /equipos?temporadaId=&grupoId=&clubId=&estado=` · `GET /equipos/{id}` · `POST` · `PATCH /equipos/{id}` · `POST /equipos/{id}/baja` | Equipos | `organizacion.equipo:CONSULTAR` en los `GET`; `organizacion.equipo:EDITAR` en `POST`, `PATCH` y la baja | RF-009 | N |
 | `POST /operaciones-equipo` · `POST …/{id}/resolucion` | Venta y conservación de plaza | `organizacion.venta:*` | RF-103, RF-104 | B |
-| `GET /personas?curp=` · `POST /personas` · `PATCH /personas/{id}` | Identidad única por CURP; `POST` con una CURP existente responde `409` con el `id` para reutilizarla | `organizacion.persona:*` | RF-010, RF-011 | N |
+| `GET /personas?curp=` · `POST /personas` · `PATCH /personas/{id}` | Identidad única por CURP; `POST` con una CURP existente responde `409 RF-010` con el `personaId` para reutilizarla | `organizacion.persona:CONSULTAR` en el `GET` y `organizacion.persona:EDITAR` en `POST` y `PATCH`, en cualquier ámbito; corregir la identidad exige `EDITAR` en toda la liga (DEC-77) | RF-010, RF-011 | N |
 | `GET /personas/{id}/historial` | Clubes y equipos por temporada | `organizacion.persona:CONSULTAR` | RF-012 | N |
-| `POST /personas/{id}/tutelas` | Vincular menor y tutor | `organizacion.persona:EDITAR` | RF-106 | N |
+| `POST /personas/{id}/tutelas` | Vincular menor y tutor | `organizacion.persona:EDITAR` en cualquier ámbito | RF-106 | N |
 
 **Ámbito.** Clubes y equipos se autorizan con el ámbito del club: la directiva de un club solo ve y
 opera el suyo, y un club o equipo ajeno responde `404` igual que uno inexistente (VAL-024). Los
@@ -993,8 +1035,66 @@ y confirmar el nombre antes de registrarlo. La CURP se normaliza a mayúsculas y
 formato de 18 caracteres de `ck_personas_curp` (`400 VALIDACION` si no); una CURP sin persona
 responde `404 NO_ENCONTRADO` (VAL-024). Exige `organizacion.persona:CONSULTAR` en **cualquier
 ámbito** (se comprueba con `autorizacion.alcance`): la identidad es global y no pertenece a un club,
-pero la consulta exige la CURP exacta y no permite listar personas. La respuesta lleva
-`Cache-Control: no-store` porque incluye datos personales (RNF-012).
+pero la consulta exige la CURP exacta y no permite listar personas. Desde H-09.1 la consulta usa la
+función `persona_por_curp` (`SECURITY DEFINER`, DEC-78), así que encuentra también a las personas que
+RLS no muestra al club (por ejemplo, quien jugó en otro club); devuelve solo estos cinco campos. La
+respuesta lleva `Cache-Control: no-store` porque incluye datos personales (RNF-012).
+
+**Alta de una persona (H-09.1, RF-010, DEC-62, DEC-84).** `POST /personas` recibe
+`{ "curp", "nombre", "apellidoPaterno", "apellidoMaterno"?, "fechaNacimiento", "correo"?, "telefono"? }`
+y responde `201` con `Location: /api/v1/personas/{id}`, `Cache-Control: no-store` y el detalle
+`{ "id", "curp", "nombre", "apellidoPaterno", "apellidoMaterno", "fechaNacimiento", "correo", "telefono" }`
+(los opcionales vacíos se omiten). Exige `organizacion.persona:EDITAR` en cualquier ámbito. Orden:
+
+1. Sin el permiso: `403 VAL-015`.
+2. Datos: CURP con el formato de `ck_personas_curp`, nombre y apellido paterno obligatorios (hasta 100
+   caracteres), fecha de nacimiento obligatoria y no futura en `America/Mexico_City`, correo con el
+   formato de `ck_personas_correo` y teléfono de hasta 20 caracteres **[PROPUESTA]**; si no,
+   `400 VALIDACION`. Los textos se recortan y un opcional vacío se guarda como `NULL`.
+3. La CURP ya existe en cualquier club (`persona_por_curp`, aunque RLS no la muestre): `409 RF-010`
+   con la extensión `personaId` y un `detail` que pide reutilizarla. Si una carrera inserta la misma
+   CURP antes, el `INSERT … ON CONFLICT (curp) DO NOTHING` no inserta y se responde igual.
+
+`creado_por` es el perfil de la sesión. Se audita en `M-03` como `REGISTRAR_PERSONA` (entidad
+`personas`) sin detalle.
+
+**Edición de una persona (H-09.1, RF-010, RF-011, DEC-77, DEC-83).** `PATCH /personas/{id}` recibe
+un cuerpo parcial con los mismos campos del alta: un campo ausente o `null` conserva su valor y una
+cadena vacía en `apellidoMaterno`, `correo` o `telefono` borra el dato **[PROPUESTA]**. Responde `200`
+con el detalle y `Cache-Control: no-store`. Orden:
+
+1. Sin `organizacion.persona:EDITAR` en ningún ámbito: `403 VAL-015`.
+2. Cuerpo sin campos: `400 VALIDACION`.
+3. La persona no existe o RLS no la deja ver al usuario: `404 NO_ENCONTRADO`.
+4. Correo y teléfono se editan con el permiso en cualquier ámbito. Cambiar CURP, nombre, apellidos o
+   fecha de nacimiento exige el permiso con ámbito de **toda la liga**; si no, `403 VAL-015` con un
+   mensaje que explica que esos datos los corrige el Secretario de la liga. Un campo de identidad
+   igual al actual no cuenta como cambio **[PROPUESTA]**.
+5. Datos con las reglas del alta: `400 VALIDACION`.
+6. Una CURP nueva que ya tiene otra persona: `409 DUPLICADO`.
+
+Sin cambios reales se responde la persona sin escribir ni auditar. Si hay cambios, se actualiza
+`actualizado_en` y se audita en `M-03` como `EDITAR_PERSONA` con `{ "campos": [ … ] }`: solo los
+**nombres** de los campos cambiados, nunca sus valores.
+
+**Tutela (H-09.1, RF-106, DEC-75, DEC-79, DEC-82).** `POST /personas/{id}/tutelas` vincula al menor
+`{id}` con `{ "tutorId", "parentesco" }` y responde `201` con
+`{ "id", "menorId", "tutorId", "parentesco", "vigente", "creadoEn" }`, sin `Location` (todavía no existe
+un `GET` del recurso). Exige `organizacion.persona:EDITAR` en cualquier ámbito. La cuenta del tutor no
+se exige: se crea después con la invitación de H-03 (DEC-75). Orden:
+
+1. Sin el permiso: `403 VAL-015`.
+2. Sin `tutorId`, o `parentesco` vacío o de más de 40 caracteres tras recortarlo: `400 VALIDACION`.
+3. El menor no existe: `404 NO_ENCONTRADO`.
+4. El tutor es la persona de la cuenta que hace la petición (`persona_usuario()`): `403 VAL-022`
+   (separación de funciones, DEC-79).
+5. La persona no es menor de edad: `422 RF-106`.
+6. El tutor no existe: `422 REFERENCIA_INVALIDA`.
+7. El tutor es menor de edad: `422 RF-106`.
+8. Ya hay una tutela vigente entre ambos (`ux_tutelas_vigente`): `409 DUPLICADO`.
+
+`creado_por` es el perfil de la sesión. Se audita en `M-03` como `REGISTRAR_TUTELA` (entidad
+`tutelas`) con `menorId` y `tutorId` en el detalle, sin parentesco ni otros datos personales.
 
 **Equipo.** `GET /equipos?temporadaId=&grupoId=&clubId=&estado=&pagina=&tamano=` responde la envoltura
 de paginación ordenada por el orden de la categoría, el nombre del grupo y el nombre del equipo.
@@ -1039,7 +1139,7 @@ Cada equipo trae referencias anidadas (§9.1):
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
 | `GET /registros-jugador?temporadaId=&equipoId=&estado=` | Registros de su ámbito | `registros.registro:CONSULTAR` | RF-017 | N |
-| `POST /registros-jugador` | Alta: `{ personaId, equipoId }`; queda `PENDIENTE_VALIDACION`. `409 VAL-017` dice club y equipo donde ya está registrada la CURP | `registros.registro:EDITAR` | RF-013, RF-107 | N |
+| `POST /registros-jugador` | Alta: `{ personaId, equipoId }`; queda `PENDIENTE_VALIDACION`. `409 VAL-017` dice club y equipo donde ya está registrada la CURP; detalle abajo | `registros.registro:EDITAR` (club del equipo) | RF-013, RF-107, VAL-025 | N |
 | `GET /registros-jugador/{id}/requisitos` | Documentos que exige su categoría y cuáles faltan | `registros.registro:CONSULTAR` | RF-108, VAL-001 | N |
 | `POST /registros-jugador/{id}/validacion` · `/baja` | Validar, rechazar, dar de baja | ver §2.1 | RF-109, RF-014 | N |
 | `GET /registros-jugador/{id}/historial` | Cambios de estado con usuario y motivo | `registros.registro:CONSULTAR` | RF-018 | B |
@@ -1047,6 +1147,81 @@ Cada equipo trae referencias anidadas (§9.1):
 | `POST /registros-jugador/renovaciones` · `/transferencias` | Renovación y cambio de club entre temporadas | `registros.registro:EDITAR` | RF-015, RF-016 | B |
 | Documentos | Ver §7 | `registros.documento:*` | RF-108, RF-109 | N |
 | `GET /mi-informacion` | Registro, documentos, elegibilidad, partidos y sanciones del jugador o de los menores que tutela | ámbito `PROPIO` | RF-144 | N |
+
+#### Alta de un registro (H-09.2, RF-013, RF-107, VAL-017, VAL-025, DEC-85 a DEC-90)
+
+`POST /registros-jugador` recibe `{ "personaId", "equipoId" }` y registra a la persona en el equipo;
+la temporada es la del grupo del equipo. Exige `registros.registro:EDITAR` sobre el **club del
+equipo** (`ObjetivoAutorizacion.deClubes`); hoy solo la Directiva de club lo tiene, con ámbito
+`CLUB`. Los obligatorios los valida el servicio después del permiso, así que el cuerpo no lleva
+`@Valid`. Orden de errores:
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. Falta `personaId` o `equipoId`: `400 VALIDACION`.
+3. El equipo no existe en la liga, o es de un club fuera del ámbito del usuario: `404 NO_ENCONTRADO`,
+   sin distinguir los dos casos (VAL-024).
+4. La temporada del equipo está `CERRADA`: `409 RF-003` (se aceptan `CONFIGURACION` y `ACTIVA`).
+5. El equipo está en `BAJA`: `422 RF-013`.
+6. El club no tiene afiliación `APROBADA` en la temporada: `409 RF-101`, con un `detail` que pide
+   tramitar el tarjetón o esperar su aprobación. No se cruza la categoría con el tarjetón.
+7. La persona no existe: `422 REFERENCIA_INVALIDA`. Se comprueba con `es_menor`, que ve a personas
+   que RLS no muestra al club (identidad global, DEC-78).
+8. La persona ya tiene un registro `PENDIENTE_VALIDACION`, `ACTIVO` o `SUSPENDIDO` en la temporada,
+   en cualquier club: `409 VAL-017`. El `detail` nombra el club y el equipo (o dice «tu club» o «este
+   equipo») y el problema lleva las extensiones `club` y `equipo` con sus **nombres**:
+
+   ```json
+   {
+     "status": 409,
+     "codigo": "VAL-017",
+     "detail": "Esta persona ya está registrada en esta temporada en el club «Club Águilas», equipo «Águilas». Un jugador solo puede estar en un equipo por temporada.",
+     "club": "Club Águilas",
+     "equipo": "Águilas"
+   }
+   ```
+
+   Nunca se exponen ids, categoría ni estado de ese registro (un `SUSPENDIDO` revelaría una sanción).
+9. Sin registro activo, pero con uno en `BAJA` en **otro club** de la temporada: `409 VAL-026`, sin
+   nombrar el club.
+10. Con uno en `BAJA` en **otro equipo del mismo club**: `409 RN-039` (dentro de una temporada no hay
+    cambio de equipo, RF-016). Registrarse de nuevo en el mismo equipo sí se permite. Los registros
+    `RECHAZADO` no cuentan en los pasos 8 a 10.
+11. La persona es menor en la fecha de alta: sin tutela vigente, `422 VAL-025` con
+    `"requisito": "TUTOR"`; con tutor pero sin consentimiento no revocado otorgado por un tutor
+    vigente, `422 VAL-025` con `"requisito": "CONSENTIMIENTO"`. Es la misma condición que
+    `tg_registros_validar` al activar. No se exige aviso vigente ni una finalidad concreta
+    **[PROPUESTA]**; el INE del tutor es un documento y se exige al validar (H-10.2), no aquí. A los
+    adultos no se les exige consentimiento (DEC-76).
+
+La fecha de alta (`alta_en`) la calcula el servicio en `America/Mexico_City` y se envía en el
+`INSERT`; con ella se decide si la persona es menor. Los registros de otros clubes y los requisitos
+del menor se leen con `registros_en_temporada` y `requisitos_menor` (`SECURITY DEFINER`, solo
+`siglim_app`). El `INSERT … ON CONFLICT … DO NOTHING` sobre `ux_registros_activo` resuelve una
+carrera sin abortar la transacción: si otra petición registró antes a la persona, se responde el
+mismo `409 VAL-017` con los nombres. Si aun así llega un `23505` de ese índice, se traduce como
+`VAL-017` por su comentario (§3.2).
+
+Responde `201` **sin `Location`** (todavía no existe `GET /registros-jugador/{id}`) y con
+`Cache-Control: no-store`, con referencias anidadas (§9.1) y sin CURP (§9.2):
+
+```json
+{
+  "id": "…",
+  "persona": { "id": "…", "nombreCompleto": "Ana López Ruiz" },
+  "equipo": { "id": "…", "nombre": "Halcones" },
+  "club": { "id": "…", "nombre": "Club Halcones" },
+  "categoria": { "id": "…", "nombre": "Libre" },
+  "temporada": { "id": "…", "nombre": "Temporada 2026", "estado": "ACTIVA" },
+  "estado": "PENDIENTE_VALIDACION",
+  "altaEn": "2026-11-11",
+  "creadoEn": "2026-11-11T12:00:00-06:00"
+}
+```
+
+`creado_por` es el perfil de la sesión; el historial lo escribe `tg_registros_historial` con el
+motivo «Alta del registro». Se audita en `M-04` como `REGISTRAR_REGISTRO_JUGADOR` (entidad
+`registros_jugador`) con `{ "personaId", "equipoId", "temporadaId", "estado": "PENDIENTE_VALIDACION" }`,
+sin datos personales.
 
 ### 6.5 M-05 Árbitros y designaciones
 
