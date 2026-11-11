@@ -132,6 +132,17 @@ export const rutas: RouteObject[] = [
                 HydrateFallback: CargandoPagina,
               },
               {
+                path: '/app/organizacion/afiliaciones/:afiliacionId?',
+                lazy: async () => {
+                  const { PantallaAfiliaciones } = await import(
+                    '@/features/organizacion/afiliaciones/PantallaAfiliaciones'
+                  )
+
+                  return { Component: PantallaAfiliaciones }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
                 path: '/app/programacion/canchas/:canchaId?',
                 lazy: async () => {
                   const { PantallaCanchas } = await import(
