@@ -10,7 +10,13 @@ import java.util.UUID;
  * cargos recibe un {@code personaId}, así que la interfaz busca a la persona por su CURP y muestra
  * su nombre antes de enviar el cambio. {@code apellidoMaterno} se omite cuando no existe.
  *
- * <p>Refs: H-22.2, RF-010, RF-102
+ * <p>{@code esMenor} solo lo llena la consulta por CURP ({@code GET /personas?curp=}): dice si la
+ * persona es menor de edad hoy en {@code America/Mexico_City}, la misma fecha con la que el alta de un
+ * registro decide VAL-025 (DEC-89). Con él, el asistente de alta (F-18) sabe si pide tutor y quién
+ * otorga el consentimiento, sin exponer la fecha de nacimiento (DEC-104). Donde no se calcula queda
+ * {@code null} y se omite.
+ *
+ * <p>Refs: H-22.2, H-09.3, RF-010, RF-102, VAL-025, DEC-104
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record PersonaDto(
@@ -18,5 +24,16 @@ public record PersonaDto(
         String curp,
         String nombre,
         String apellidoPaterno,
-        String apellidoMaterno) {
+        String apellidoMaterno,
+        Boolean esMenor) {
+
+    /** Identidad sin la minoría calculada (se omite en el JSON). */
+    public PersonaDto(UUID id, String curp, String nombre, String apellidoPaterno, String apellidoMaterno) {
+        this(id, curp, nombre, apellidoPaterno, apellidoMaterno, null);
+    }
+
+    /** La misma identidad con la minoría calculada (DEC-104). */
+    PersonaDto conMinoria(boolean menor) {
+        return new PersonaDto(id, curp, nombre, apellidoPaterno, apellidoMaterno, menor);
+    }
 }

@@ -48,7 +48,11 @@ function consultaDeClubes({ q, estado, pagina, tamano }: FiltrosClubes): string 
 }
 
 function consultaDeEquipos({ clubId, estado }: FiltrosEquipos): string {
-  const parametros = new URLSearchParams({ clubId })
+  const parametros = new URLSearchParams()
+
+  if (clubId) {
+    parametros.set('clubId', clubId)
+  }
 
   if (estado) {
     parametros.set('estado', estado)
@@ -198,7 +202,7 @@ export function useCrearPersona() {
   })
 }
 
-/** Equipos de un club, ordenados en el backend por el orden de la categoría, grupo y nombre (RF-009, DEC-16). */
+/** Equipos de un club (o de todo el ámbito sin `clubId`), ordenados en el backend por el orden de la categoría, grupo y nombre (RF-009, DEC-16). */
 export function useEquipos(filtros: FiltrosEquipos) {
   return useQuery({
     queryKey: clavesOrganizacion.listaEquipos(filtros),

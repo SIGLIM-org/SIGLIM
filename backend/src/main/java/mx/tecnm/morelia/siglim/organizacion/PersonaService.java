@@ -44,8 +44,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       {@code Cache-Control: no-store} (RNF-012).</li>
  * </ul>
  *
- * <p>Refs: H-22.2, H-09.1, RF-010, RF-011, RF-106, VAL-022, DEC-10, DEC-62, DEC-75, DEC-77, DEC-78,
- * DEC-79, DEC-82, DEC-83, DEC-84, RNF-012
+ * <p>Refs: H-22.2, H-09.1, H-09.3, RF-010, RF-011, RF-106, VAL-022, VAL-025, DEC-10, DEC-62, DEC-75,
+ * DEC-77, DEC-78, DEC-79, DEC-82, DEC-83, DEC-84, DEC-104, RNF-012
  */
 @Service
 public class PersonaService {
@@ -81,13 +81,23 @@ public class PersonaService {
         this.ligaId = propiedades.ligaId();
     }
 
-    /** La persona con esa CURP, de cualquier club, o {@code 404 NO_ENCONTRADO} (DEC-78). */
+    /**
+     * La persona con esa CURP, de cualquier club, o {@code 404 NO_ENCONTRADO} (DEC-78), con
+     * {@code esMenor} calculado con {@code es_menor} y la fecha de hoy en {@code America/Mexico_City},
+     * la misma que usa el alta de un registro para VAL-025 (DEC-89, DEC-104). No expone la fecha de
+     * nacimiento.
+     *
+     * <p>Refs: H-22.2, H-09.3, DEC-78, DEC-104, VAL-025
+     */
     @Transactional(readOnly = true)
     public PersonaDto buscarPorCurp(String curp) {
         autorizacion.alcance(CONSULTAR);
         String normalizada = curpValida(curp);
-        return personas.buscarPorCurp(normalizada)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Persona con la CURP consultada"));
+        PersonaDto persona = personas.buscarPorCurp(normalizada)
+                .orElseThrow(PersonaService::curpSinPersona);
+        boolean menor = personas.esMenor(persona.id(), hoy())
+                .orElseThrow(PersonaService::curpSinPersona);
+        return persona.conMinoria(menor);
     }
 
     /**
@@ -350,6 +360,10 @@ public class PersonaService {
                         "Esta persona ya está registrada con esa CURP. Búscala por su CURP y reutiliza su "
                                 + "registro en lugar de crear otro.")
                 .con("personaId", personaId);
+    }
+
+    private static RecursoNoEncontradoException curpSinPersona() {
+        return new RecursoNoEncontradoException("Persona con la CURP consultada");
     }
 
     private static ReglaNegocioException tutelaDuplicada() {

@@ -70,6 +70,13 @@ export const seccionesApp: SeccionApp[] = [
         ],
         descripcion: 'Tarjetón del club por temporada.',
       },
+      {
+        // Pantalla de acción (DEC-108): con EDITAR, no con CONSULTAR. Con H-09.4 pasa a «Jugadores» (F-17).
+        nombre: 'Alta de jugador',
+        ruta: '/app/organizacion/jugadores/alta',
+        permiso: 'registros.registro:EDITAR',
+        descripcion: 'Registra a un jugador por CURP con su tutor y consentimiento.',
+      },
     ],
   },
   {
