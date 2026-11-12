@@ -53,6 +53,42 @@ public interface Autorizacion {
     void exigir(String permiso, ObjetivoAutorizacion objetivo);
 
     /**
+     * Pregunta, sin lanzar el error, si el usuario de la sesión puede hacer esa operación sobre ese
+     * recurso: la misma regla que {@link #exigir(String, ObjetivoAutorizacion)}, pero responde
+     * {@code false} ante el {@code 403 VAL-015} (sin el permiso) o el {@code 404} de fuera de ámbito
+     * (VAL-024).
+     *
+     * <p>Sirve para decidir qué parte de una respuesta se muestra, nunca para autorizar la operación
+     * principal, que sigue empezando con {@code exigir}. Por ejemplo, el detalle de un registro de
+     * jugador lleva la CURP completa solo si la sesión tiene {@code organizacion.persona:CONSULTAR}
+     * sobre el club del registro (DEC-110). Otro error (sin sesión, una falla de la base) se propaga.
+     *
+     * <p>Como {@code exigir}, se llama dentro de la transacción del servicio. Llama a {@code exigir}
+     * del mismo objeto, sin pasar por el proxy transaccional, así que la denegación capturada no marca
+     * la transacción como {@code rollback-only}.
+     *
+     * <p>Refs: H-10.5, RNF-003, RNF-012, VAL-015, VAL-024, ADR-0007, DEC-110
+     *
+     * @param permiso  código {@code modulo.recurso:ACCION} del catálogo de la migración
+     * @param objetivo a quién pertenece el recurso ({@link ObjetivoAutorizacion})
+     * @return {@code true} si alguna asignación activa otorga el permiso con un ámbito que alcanza el
+     *         objetivo
+     */
+    default boolean permite(String permiso, ObjetivoAutorizacion objetivo) {
+        try {
+            exigir(permiso, objetivo);
+            return true;
+        } catch (RecursoNoEncontradoException fueraDeAmbito) {
+            return false;
+        } catch (ReglaNegocioException error) {
+            if (ErroresTecnicos.SIN_PERMISO.equals(error.codigo())) {
+                return false;
+            }
+            throw error;
+        }
+    }
+
+    /**
      * Resume el alcance de todas las asignaciones activas que otorgan el permiso, para que un
      * listado filtre en el SQL y su total cuente solo las filas visibles (criterio 3 de H-02,
      * ADR-0007 §2).

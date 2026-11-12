@@ -9,13 +9,17 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
+import mx.tecnm.morelia.siglim.compartido.api.Pagina;
 import mx.tecnm.morelia.siglim.compartido.config.SeguridadPrueba;
 import mx.tecnm.morelia.siglim.compartido.error.ErroresTecnicos;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.registros.DocumentoDto.TipoDocumentoDto;
+import mx.tecnm.morelia.siglim.registros.RegistroJugadorDetalleDto.PersonaDetalleDto;
+import mx.tecnm.morelia.siglim.registros.RegistroJugadorDetalleDto.TutorDto;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorDto.PersonaResumenDto;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorDto.ReferenciaDto;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorDto.TemporadaResumenDto;
+import mx.tecnm.morelia.siglim.registros.RegistroJugadorResumenDto.PersonaListadoDto;
 import mx.tecnm.morelia.siglim.seguridad.ArnesAutorizacionEndpoint;
 import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
 import org.junit.jupiter.api.DisplayName;
@@ -34,7 +38,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
-/** Contrato HTTP del alta y la validación de un registro de jugador (convenciones de API §6.4; H-09.2, H-10.2). */
+/**
+ * Contrato HTTP del alta, la validación y la consulta de registros de jugador (convenciones de API §6.4;
+ * H-09.2, H-10.2, H-10.5).
+ */
 @WebMvcTest(controllers = RegistroJugadorController.class, properties = {
         "SUPABASE_URL=" + SeguridadPrueba.URL_SUPABASE,
         "SIGLIM_LIGA_ID=a0000000-0000-4000-8000-000000000001",
@@ -71,6 +78,16 @@ class RegistroJugadorControllerTest {
             new ReferenciaDto(SECRETARIO, "Secretario"), OffsetDateTime.parse("2026-11-12T10:30:00-06:00"),
             "Documentos revisados");
 
+    private static final RegistroJugadorResumenDto FILA = new RegistroJugadorResumenDto(REGISTRO,
+            new PersonaListadoDto(PERSONA, "Ana López", "GAPA******HMN***05"),
+            CREADO.equipo(), CREADO.club(), CREADO.categoria(), CREADO.temporada(),
+            EstadoRegistro.ACTIVO, false, CREADO.altaEn(), CREADO.creadoEn());
+    private static final RegistroJugadorDetalleDto DETALLE = new RegistroJugadorDetalleDto(REGISTRO,
+            new PersonaDetalleDto(PERSONA, "Ana López", "GAPA******HMN***05", "GAPA750101HMNRRS05"),
+            CREADO.equipo(), CREADO.club(), CREADO.categoria(), CREADO.temporada(),
+            EstadoRegistro.PENDIENTE_VALIDACION, true, CREADO.altaEn(), CREADO.creadoEn(), null, null, null,
+            List.of(new TutorDto("María López", "Madre")));
+
     @Autowired
     private MockMvcTester mvc;
 
@@ -80,14 +97,14 @@ class RegistroJugadorControllerTest {
     private final String autorizacion = "Bearer " + SeguridadPrueba.tokenValido();
 
     @Test
-    @DisplayName("RF-013 · DEC-90: POST /registros-jugador responde 201 sin Location, con no-store y sin CURP")
+    @DisplayName("RF-013 · DEC-109: POST /registros-jugador responde 201 con Location, con no-store y sin CURP")
     void registrar() {
         given(servicio.registrar(any())).willReturn(CREADO);
 
         MvcTestResult resultado = enviar(CUERPO);
 
         assertThat(resultado).hasStatus(HttpStatus.CREATED);
-        assertThat(resultado).doesNotContainHeader(HttpHeaders.LOCATION);
+        assertThat(resultado).hasHeader(HttpHeaders.LOCATION, "/api/v1/registros-jugador/" + REGISTRO);
         assertThat(resultado).hasHeader(HttpHeaders.CACHE_CONTROL, "no-store");
         assertThat(resultado).bodyJson().extractingPath("$.id").isEqualTo(REGISTRO.toString());
         assertThat(resultado).bodyJson().extractingPath("$.persona.nombreCompleto").isEqualTo("Ana López");
@@ -239,6 +256,132 @@ class RegistroJugadorControllerTest {
                 .cuerpoJson(CUERPO)
                 .dobles(servicio)
                 .simularDenegacion(error -> given(servicio.registrar(any())).willThrow(error))
+                .pruebas();
+    }
+
+    // ── Consulta (H-10.5, DEC-109, DEC-110) ────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-017 · DEC-109: GET /registros-jugador responde 200 con no-store, la página y la CURP enmascarada")
+    void listar() {
+        UUID temporada = UUID.fromString("50000000-0000-4000-8000-000000000001");
+        UUID club = UUID.fromString("c0000000-0000-4000-8000-000000000001");
+        FiltroRegistros filtro = new FiltroRegistros("ACTIVO,PENDIENTE_VALIDACION", temporada, club, EQUIPO,
+                "nombre,asc", 1, 10);
+        given(servicio.listar(filtro)).willReturn(Pagina.de(List.of(FILA), 1, 10, 11));
+
+        MvcTestResult resultado = mvc.get()
+                .uri(RUTA + "?estado=ACTIVO,PENDIENTE_VALIDACION&temporadaId=" + temporada + "&clubId=" + club
+                        + "&equipoId=" + EQUIPO + "&orden=nombre,asc&pagina=1&tamano=10")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.OK);
+        assertThat(resultado).hasHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        assertThat(resultado).bodyJson().extractingPath("$.totalElementos").isEqualTo(11);
+        assertThat(resultado).bodyJson().extractingPath("$.totalPaginas").isEqualTo(2);
+        assertThat(resultado).bodyJson().extractingPath("$.contenido[0].id").isEqualTo(REGISTRO.toString());
+        assertThat(resultado).bodyJson().extractingPath("$.contenido[0].persona.curpEnmascarada")
+                .isEqualTo("GAPA******HMN***05");
+        assertThat(resultado).bodyJson().doesNotHavePath("$.contenido[0].persona.curp");
+        assertThat(resultado).bodyJson().extractingPath("$.contenido[0].esMenor").isEqualTo(false);
+        assertThat(resultado).bodyJson().extractingPath("$.contenido[0].temporada.estado").isEqualTo("ACTIVA");
+        assertThat(resultado).bodyJson().doesNotHavePath("$.contenido[0].validadoPor");
+        Mockito.verify(servicio).listar(filtro);
+    }
+
+    @Test
+    @DisplayName("DEC-109: sin parámetros llega la página 0 de 20 sin filtros ni orden")
+    void listarSinParametros() {
+        FiltroRegistros filtro = new FiltroRegistros(null, null, null, null, null, 0, 20);
+        given(servicio.listar(filtro)).willReturn(Pagina.de(List.of(), 0, 20, 0));
+
+        MvcTestResult resultado = mvc.get().uri(RUTA).header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.OK);
+        assertThat(resultado).bodyJson().extractingPath("$.contenido").asArray().isEmpty();
+        Mockito.verify(servicio).listar(filtro);
+    }
+
+    @Test
+    @DisplayName("DEC-109: un estado o un orden desconocido responde 400 VALIDACION (lo decide el servicio)")
+    void listarFiltroInvalido() {
+        given(servicio.listar(any())).willThrow(ReglaNegocioException.invalida(ErroresTecnicos.VALIDACION,
+                "El estado no es válido."));
+
+        MvcTestResult estado = mvc.get().uri(RUTA + "?estado=VIGENTE")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+        MvcTestResult orden = mvc.get().uri(RUTA + "?orden=apellido,asc")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(estado).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(estado).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.VALIDACION);
+        assertThat(orden).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(orden).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.VALIDACION);
+        Mockito.verify(servicio).listar(new FiltroRegistros("VIGENTE", null, null, null, null, 0, 20));
+        Mockito.verify(servicio).listar(new FiltroRegistros(null, null, null, null, "apellido,asc", 0, 20));
+    }
+
+    @Test
+    @DisplayName("DEC-109: un clubId que no es UUID responde 400 VALIDACION sin llegar al servicio")
+    void listarUuidInvalido() {
+        MvcTestResult resultado = mvc.get().uri(RUTA + "?clubId=no-es-uuid")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.VALIDACION);
+        Mockito.verifyNoInteractions(servicio);
+    }
+
+    @Test
+    @DisplayName("RF-017 · DEC-110: GET /registros-jugador/{id} responde 200 con no-store, CURP, esMenor y tutores")
+    void consultar() {
+        given(servicio.consultar(REGISTRO)).willReturn(DETALLE);
+
+        MvcTestResult resultado = mvc.get().uri(RUTA + "/{id}", REGISTRO)
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.OK);
+        assertThat(resultado).hasHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        assertThat(resultado).bodyJson().extractingPath("$.persona.curp").isEqualTo("GAPA750101HMNRRS05");
+        assertThat(resultado).bodyJson().extractingPath("$.persona.curpEnmascarada").isEqualTo("GAPA******HMN***05");
+        assertThat(resultado).bodyJson().extractingPath("$.esMenor").isEqualTo(true);
+        assertThat(resultado).bodyJson().extractingPath("$.tutores[0].nombreCompleto").isEqualTo("María López");
+        assertThat(resultado).bodyJson().extractingPath("$.tutores[0].parentesco").isEqualTo("Madre");
+        assertThat(resultado).bodyJson().doesNotHavePath("$.tutores[0].curp");
+        assertThat(resultado).bodyJson().hasPathSatisfying("$.validadoPor", valor -> assertThat(valor).isNull());
+    }
+
+    @Test
+    @DisplayName("DEC-110: sin organizacion.persona:CONSULTAR la respuesta lleva curp en null")
+    void consultarSinCurp() {
+        given(servicio.consultar(REGISTRO)).willReturn(DETALLE.con(false, List.of()));
+
+        MvcTestResult resultado = mvc.get().uri(RUTA + "/{id}", REGISTRO)
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.OK);
+        assertThat(resultado).bodyJson().hasPathSatisfying("$.persona.curp", valor -> assertThat(valor).isNull());
+        assertThat(resultado).bodyJson().extractingPath("$.persona.curpEnmascarada").isEqualTo("GAPA******HMN***05");
+        assertThat(resultado).bodyJson().extractingPath("$.tutores").asArray().isEmpty();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003 · VAL-015 · VAL-024: seguridad de GET /api/v1/registros-jugador")
+    Stream<DynamicTest> seguridadListar() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.GET, RUTA)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.listar(any())).willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003 · VAL-015 · VAL-024: seguridad de GET /api/v1/registros-jugador/{id}")
+    Stream<DynamicTest> seguridadConsultar() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.GET, RUTA + "/{id}", REGISTRO)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.consultar(REGISTRO)).willThrow(error))
                 .pruebas();
     }
 

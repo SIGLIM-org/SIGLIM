@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.2 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.3 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -51,6 +51,7 @@ Versión 5.2 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../r
 | 5.0 | 12 de noviembre de 2026 | H-10.1: §6.4 y §7 con los documentos de un registro: carga (`POST /registros-jugador/{id}/documentos`), reemplazo (`POST /documentos/{id}/reemplazo`, solo de `PENDIENTE` o `RECHAZADO`), requisitos (`GET /registros-jugador/{id}/requisitos`), enlace prefirmado (`GET /documentos/{id}/enlace`) y validación de un documento (`POST /documentos/{id}/validacion`), con sus permisos y ámbitos, órdenes de errores, `201` sin `Location`, `Cache-Control: no-store` y las acciones de auditoría `CARGAR_DOCUMENTO`, `REEMPLAZAR_DOCUMENTO`, `VALIDAR_DOCUMENTO` y `CONSULTAR_DOCUMENTO`; §3.2 con `RF-109` en `409` y `VAL-015` en `403` (DEC-91 a DEC-96). |
 | 5.1 | 12 de noviembre de 2026 | H-10.2: §6.4 con la validación de un registro (`POST /registros-jugador/{id}/validacion`): permiso `registros.registro:VALIDAR` sobre el club del equipo, orden de errores, `VAL-022` **[PROPUESTA]** para quien dio de alta el registro, RF-013, `422 VAL-001` con la extensión `faltantes`, VAL-025, `UPDATE` condicional con el registro bloqueado, respuesta `200` con `validadoPor`, `validadoEn` y `observaciones`, motivo del historial y auditoría `VALIDAR_REGISTRO_JUGADOR`; el alta muestra los tres campos nuevos en `null`; §2.1 con las observaciones opcionales al aprobar; §3.2 con `VAL-001` en `422` y `VAL-015` también para registros (DEC-97 a DEC-102). |
 | 5.2 | 12 de noviembre de 2026 | H-09.3: §6.3 con `esMenor` en `GET /personas?curp=` (DEC-104). |
+| 5.3 | 12 de noviembre de 2026 | H-10.5: §6.4 con la consulta de registros: `GET /registros-jugador` (filtros `estado`, `temporadaId`, `clubId`, `equipoId`; orden `creadoEn,asc`, `creadoEn,desc` o `nombre,asc`; ámbito en el `WHERE` y en el `COUNT`; filas con la CURP enmascarada, sin avance de documentos) y `GET /registros-jugador/{id}` (detalle con `esMenor`, tutores vigentes y la CURP completa solo con `organizacion.persona:CONSULTAR` sobre el club), ambos con `Cache-Control: no-store` y su orden de errores; el alta responde `201` con `Location`; §9.2 cita DEC-110 como la aplicación del enmascarado en M-04 (DEC-109, DEC-110). |
 
 ## Índice
 
@@ -1145,7 +1146,8 @@ Cada equipo trae referencias anidadas (§9.1):
 
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
-| `GET /registros-jugador?temporadaId=&equipoId=&estado=` | Registros de su ámbito | `registros.registro:CONSULTAR` | RF-017 | N |
+| `GET /registros-jugador?estado=&temporadaId=&clubId=&equipoId=&orden=&pagina=&tamano=` | Registros de su ámbito, paginados (§4). `estado` admite varios valores separados por coma; `orden`: `creadoEn,asc` (por defecto), `creadoEn,desc` o `nombre,asc`. Filas con la CURP enmascarada; detalle abajo | `registros.registro:CONSULTAR` (ámbito en el `WHERE` y en el `COUNT`) | RF-017 | N |
+| `GET /registros-jugador/{id}` | Detalle con `esMenor`, tutores vigentes del menor y la CURP completa solo con `organizacion.persona:CONSULTAR` sobre el club; detalle abajo | `registros.registro:CONSULTAR` (club o persona del registro) | RF-017 | N |
 | `POST /registros-jugador` | Alta: `{ personaId, equipoId }`; queda `PENDIENTE_VALIDACION`. `409 VAL-017` dice club y equipo donde ya está registrada la CURP; detalle abajo | `registros.registro:EDITAR` (club del equipo) | RF-013, RF-107, VAL-025 | N |
 | `GET /registros-jugador/{id}/requisitos` | Documentos que exige su categoría y cuáles faltan; detalle abajo | `registros.registro:CONSULTAR` (club o persona del registro) | RF-108, VAL-001 | N |
 | `POST /registros-jugador/{id}/validacion` · `/baja` | Validar, rechazar, dar de baja | ver §2.1 | RF-109, RF-014 | N |
@@ -1208,7 +1210,7 @@ carrera sin abortar la transacción: si otra petición registró antes a la pers
 mismo `409 VAL-017` con los nombres. Si aun así llega un `23505` de ese índice, se traduce como
 `VAL-017` por su comentario (§3.2).
 
-Responde `201` **sin `Location`** (todavía no existe `GET /registros-jugador/{id}`) y con
+Responde `201` con `Location: /api/v1/registros-jugador/{id}` (DEC-109) y con
 `Cache-Control: no-store`, con referencias anidadas (§9.1) y sin CURP (§9.2):
 
 ```json
@@ -1233,6 +1235,102 @@ Responde `201` **sin `Location`** (todavía no existe `GET /registros-jugador/{i
 motivo «Alta del registro». Se audita en `M-04` como `REGISTRAR_REGISTRO_JUGADOR` (entidad
 `registros_jugador`) con `{ "personaId", "equipoId", "temporadaId", "estado": "PENDIENTE_VALIDACION" }`,
 sin datos personales.
+
+#### Consulta de registros (H-10.5, RF-017, DEC-109, DEC-110)
+
+Los dos endpoints exigen `registros.registro:CONSULTAR` y responden `200` con
+`Cache-Control: no-store`. Hoy lo tienen el Secretario y la Comisión Disciplinaria (ámbito `LIGA`),
+la Directiva de club (`CLUB`) y el jugador o su tutor (`PROPIO`). Las consultas no se auditan. Los
+usan la bandeja de validación y los documentos del registro (H-10.3) y la plantilla del club
+(H-09.4).
+
+**Listado.** `GET /registros-jugador` filtra por ámbito en el SQL con `autorizacion.alcance` y la
+**misma condición en el `WHERE` y en el `COUNT`**, así que `totalElementos` cuenta solo las filas
+visibles (§4, ADR-0007):
+
+```sql
+(:todaLaLiga OR e.club_id = ANY(:clubes) OR (:propio AND es_titular(r.persona_id)))
+```
+
+| Parámetro | Valores |
+| --- | --- |
+| `estado` | Uno o varios de `PENDIENTE_VALIDACION`, `ACTIVO`, `SUSPENDIDO`, `BAJA`, `RECHAZADO`, separados por coma. Sin él, todos. |
+| `temporadaId`, `clubId`, `equipoId` | Opcionales. Uno fuera del ámbito del usuario devuelve una página vacía, no `403` ni `404`. |
+| `orden` | `creadoEn,asc` (por defecto), `creadoEn,desc` o `nombre,asc` (apellido paterno, apellido materno y nombre). Siempre desempata por `id`. |
+| `pagina`, `tamano` | `pagina` desde 0; `tamano` 20 por defecto, de 1 a 100. |
+
+Orden de errores: sin el permiso en ningún ámbito, `403 VAL-015`; un `estado` u `orden`
+desconocido o un `tamano` o `pagina` fuera de rango, `400 VALIDACION` (lo valida el servicio
+después del permiso); un id que no es UUID, `400 VALIDACION` antes del servicio.
+
+Cada fila lleva la CURP **enmascarada** (§9.2, DEC-110) y `esMenor` calculado en la fecha de alta
+(`es_menor(persona, alta_en)`, DEC-89 y DEC-92); no lleva CURP completa, fecha de nacimiento,
+contacto, datos de validación ni avance de documentos (ese avance es
+`GET /registros-jugador/{id}/requisitos`):
+
+```json
+{
+  "contenido": [
+    {
+      "id": "…",
+      "persona": { "id": "…", "nombreCompleto": "Ana López Ruiz", "curpEnmascarada": "LORA******MMN***05" },
+      "equipo": { "id": "…", "nombre": "Halcones" },
+      "club": { "id": "…", "nombre": "Club Halcones" },
+      "categoria": { "id": "…", "nombre": "Libre" },
+      "temporada": { "id": "…", "nombre": "Temporada 2026", "estado": "ACTIVA" },
+      "estado": "PENDIENTE_VALIDACION",
+      "esMenor": false,
+      "altaEn": "2026-11-11",
+      "creadoEn": "2026-11-11T12:00:00-06:00"
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 1,
+  "totalPaginas": 1
+}
+```
+
+**Detalle.** `GET /registros-jugador/{id}`. Orden de errores, igual que los requisitos:
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. El registro no existe en la liga: `404 NO_ENCONTRADO`.
+3. El registro es de un club fuera del ámbito y de una persona de la que el usuario no es titular
+   (`ObjetivoAutorizacion.deClubesYPersonas`): `404 NO_ENCONTRADO`, igual que uno inexistente
+   (VAL-024).
+
+Responde los campos del alta (`validadoPor`, `validadoEn`, `observaciones` incluidos) más `esMenor`
+y `tutores`; `persona` lleva siempre `curpEnmascarada` y `curp` **completa solo si la sesión tiene
+`organizacion.persona:CONSULTAR` sobre el club del registro** (hoy el Secretario y la Directiva de
+ese club); si no (la Comisión, el jugador o su tutor), `curp` es `null` (DEC-110). El backend lo
+pregunta con `autorizacion.permite(...)`, que no lanza el `403` ni el `404`. `tutores` son las
+tutelas vigentes del menor por fecha de creación, solo con nombre y parentesco (sin CURP ni
+contacto); es una lista vacía si la persona no era menor en la fecha de alta. Un tutor que la sesión
+no puede ver por RLS no aparece.
+
+```json
+{
+  "id": "…",
+  "persona": {
+    "id": "…",
+    "nombreCompleto": "Luis López Ruiz",
+    "curpEnmascarada": "LORL******HMN***08",
+    "curp": "LORL150101HMNPZS08"
+  },
+  "equipo": { "id": "…", "nombre": "Halcones Infantil" },
+  "club": { "id": "…", "nombre": "Club Halcones" },
+  "categoria": { "id": "…", "nombre": "Infantil" },
+  "temporada": { "id": "…", "nombre": "Temporada 2026", "estado": "ACTIVA" },
+  "estado": "PENDIENTE_VALIDACION",
+  "esMenor": true,
+  "altaEn": "2026-11-11",
+  "creadoEn": "2026-11-11T12:00:00-06:00",
+  "validadoPor": null,
+  "validadoEn": null,
+  "observaciones": null,
+  "tutores": [ { "nombreCompleto": "María Ruiz Pérez", "parentesco": "Madre" } ]
+}
+```
 
 #### Documentos de un registro (H-10.1, RF-108, RF-109, DEC-91 a DEC-96)
 
@@ -2020,7 +2118,11 @@ solo esos botones (ERS §3.1.1).
 ### 9.2 Datos personales
 
 - La CURP solo se devuelve completa a quien tiene `organizacion.persona:CONSULTAR` en el ámbito de
-  la persona; en listados se enmascara (`GAPA******HMN***05`) **[PROPUESTA]**.
+  la persona; en listados se enmascara (`GAPA******HMN***05`) **[PROPUESTA]**: se conservan los
+  caracteres 1–4, 11–13 y 17–18 y se cambian 5–10 y 14–16 por `*`; un valor de otra longitud conserva
+  sus 4 primeros caracteres. DEC-110 lo aplica en M-04: `GET /registros-jugador` solo lleva
+  `curpEnmascarada` y `GET /registros-jugador/{id}` lleva `curp` completa solo con
+  `organizacion.persona:CONSULTAR` sobre el club del registro.
 - Fecha de nacimiento, teléfono y correo solo en el detalle de la persona, nunca en listados.
 
 ### 9.3 Textos de los enums
