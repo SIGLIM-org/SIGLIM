@@ -32,7 +32,10 @@ import org.springframework.stereotype.Repository;
  * documentos son condicionales con {@code RETURNING}: si no devuelven fila, otra petición cambió el
  * documento antes.
  *
- * <p>Refs: H-10.1, RF-108, RF-109, RNF-018, DEC-92, DEC-93, DEC-94
+ * <p>{@link RegistroJugadorService#validar} reutiliza {@link #bloquearRegistro}, {@link #requisitos} y
+ * {@link #vigentes} para calcular VAL-001 con el registro bloqueado (H-10.2, DEC-102).
+ *
+ * <p>Refs: H-10.1, H-10.2, RF-108, RF-109, RNF-018, DEC-92, DEC-93, DEC-94, DEC-102
  */
 @Repository
 class DocumentoRegistroRepository {
@@ -41,7 +44,8 @@ class DocumentoRegistroRepository {
 
     private static final String REGISTRO = """
             SELECT r.id, r.persona_id, r.alta_en, r.estado, e.club_id, t.estado AS temporada_estado,
-                   c.id AS categoria_id, c.nombre AS categoria_nombre, c.tipo AS categoria_tipo
+                   c.id AS categoria_id, c.nombre AS categoria_nombre, c.tipo AS categoria_tipo,
+                   r.equipo_id, e.estado = 'ACTIVO' AS equipo_activo, r.temporada_id, r.creado_por
               FROM registros_jugador r
               JOIN equipos e ON e.id = r.equipo_id
               JOIN clubes cl ON cl.id = e.club_id
@@ -226,7 +230,11 @@ class DocumentoRegistroRepository {
                         EstadoTemporada.valueOf(fila.getString("temporada_estado")),
                         fila.getObject("categoria_id", UUID.class),
                         fila.getString("categoria_nombre"),
-                        TipoCategoria.valueOf(fila.getString("categoria_tipo"))))
+                        TipoCategoria.valueOf(fila.getString("categoria_tipo")),
+                        fila.getObject("equipo_id", UUID.class),
+                        fila.getBoolean("equipo_activo"),
+                        fila.getObject("temporada_id", UUID.class),
+                        fila.getObject("creado_por", UUID.class)))
                 .optional();
     }
 
@@ -255,9 +263,17 @@ class DocumentoRegistroRepository {
         return momento == null ? null : momento.atZoneSameInstant(ZONA_DE_NEGOCIO).toOffsetDateTime();
     }
 
-    /** El registro dueño de los documentos, con lo necesario para autorizar y validar (DEC-91 a DEC-93). */
+    /**
+     * El registro dueño de los documentos, con lo necesario para autorizar y validar (DEC-91 a DEC-93).
+     * La validación del registro (H-10.2, DEC-97 a DEC-102) lo bloquea con {@link #bloquearRegistro} y
+     * usa además el equipo y si está activo (RF-013), la temporada (auditoría) y quién lo dio de alta
+     * (VAL-022).
+     *
+     * @param creadoPor perfil que dio de alta el registro; {@code null} si no se registró
+     */
     record RegistroDeDocumentos(UUID id, UUID personaId, UUID clubId, LocalDate altaEn, EstadoRegistro estado,
                                 EstadoTemporada temporadaEstado, UUID categoriaId, String categoriaNombre,
-                                TipoCategoria categoriaTipo) {
+                                TipoCategoria categoriaTipo, UUID equipoId, boolean equipoActivo, UUID temporadaId,
+                                UUID creadoPor) {
     }
 }

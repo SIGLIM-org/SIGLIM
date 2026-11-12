@@ -6,11 +6,13 @@ import static org.mockito.BDDMockito.given;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 import mx.tecnm.morelia.siglim.compartido.config.SeguridadPrueba;
 import mx.tecnm.morelia.siglim.compartido.error.ErroresTecnicos;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
+import mx.tecnm.morelia.siglim.registros.DocumentoDto.TipoDocumentoDto;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorDto.PersonaResumenDto;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorDto.ReferenciaDto;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorDto.TemporadaResumenDto;
@@ -32,7 +34,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
-/** Contrato HTTP del alta de un registro de jugador (convenciones de API §6.4; H-09.2). */
+/** Contrato HTTP del alta y la validación de un registro de jugador (convenciones de API §6.4; H-09.2, H-10.2). */
 @WebMvcTest(controllers = RegistroJugadorController.class, properties = {
         "SUPABASE_URL=" + SeguridadPrueba.URL_SUPABASE,
         "SIGLIM_LIGA_ID=a0000000-0000-4000-8000-000000000001",
@@ -57,7 +59,17 @@ class RegistroJugadorControllerTest {
             new ReferenciaDto(UUID.randomUUID(), "Libre"),
             new TemporadaResumenDto(UUID.randomUUID(), "Temporada 2026", EstadoTemporada.ACTIVA),
             EstadoRegistro.PENDIENTE_VALIDACION, LocalDate.parse("2026-11-11"),
-            OffsetDateTime.parse("2026-11-11T12:00:00-06:00"));
+            OffsetDateTime.parse("2026-11-11T12:00:00-06:00"), null, null, null);
+    private static final UUID SECRETARIO = UUID.fromString("30000000-0000-4000-8000-000000000007");
+    private static final String RUTA_VALIDACION = RUTA + "/{id}/validacion";
+    private static final String CUERPO_VALIDACION = """
+            {"decision":"ACTIVO"}
+            """;
+    private static final RegistroJugadorDto VALIDADO = new RegistroJugadorDto(REGISTRO,
+            CREADO.persona(), CREADO.equipo(), CREADO.club(), CREADO.categoria(), CREADO.temporada(),
+            EstadoRegistro.ACTIVO, CREADO.altaEn(), CREADO.creadoEn(),
+            new ReferenciaDto(SECRETARIO, "Secretario"), OffsetDateTime.parse("2026-11-12T10:30:00-06:00"),
+            "Documentos revisados");
 
     @Autowired
     private MockMvcTester mvc;
@@ -86,7 +98,80 @@ class RegistroJugadorControllerTest {
         assertThat(resultado).bodyJson().extractingPath("$.estado").isEqualTo("PENDIENTE_VALIDACION");
         assertThat(resultado).bodyJson().extractingPath("$.altaEn").isEqualTo("2026-11-11");
         assertThat(resultado).bodyJson().doesNotHavePath("$.persona.curp");
+        assertThat(resultado).bodyJson().hasPathSatisfying("$.validadoPor", valor -> assertThat(valor).isNull());
+        assertThat(resultado).bodyJson().hasPathSatisfying("$.validadoEn", valor -> assertThat(valor).isNull());
+        assertThat(resultado).bodyJson().hasPathSatisfying("$.observaciones", valor -> assertThat(valor).isNull());
         Mockito.verify(servicio).registrar(new CrearRegistroJugadorRequest(PERSONA, EQUIPO));
+    }
+
+    // ── Validación (H-10.2, DEC-97 a DEC-102) ──────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-109 · DEC-102: POST /registros-jugador/{id}/validacion responde 200 con no-store y quién validó")
+    void validar() {
+        given(servicio.validar(any(), any())).willReturn(VALIDADO);
+
+        MvcTestResult resultado = validarCon("""
+                {"decision":"ACTIVO","observaciones":"Documentos revisados"}
+                """);
+
+        assertThat(resultado).hasStatus(HttpStatus.OK);
+        assertThat(resultado).hasHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        assertThat(resultado).bodyJson().extractingPath("$.estado").isEqualTo("ACTIVO");
+        assertThat(resultado).bodyJson().extractingPath("$.validadoPor.id").isEqualTo(SECRETARIO.toString());
+        assertThat(resultado).bodyJson().extractingPath("$.validadoPor.nombre").isEqualTo("Secretario");
+        assertThat(resultado).bodyJson().extractingPath("$.validadoEn").isEqualTo("2026-11-12T10:30:00-06:00");
+        assertThat(resultado).bodyJson().extractingPath("$.observaciones").isEqualTo("Documentos revisados");
+        Mockito.verify(servicio).validar(REGISTRO,
+                new ValidarRegistroRequest(DecisionRegistro.ACTIVO, "Documentos revisados"));
+    }
+
+    @Test
+    @DisplayName("DEC-97: una decision fuera del enum responde 400 VALIDACION sin llegar al servicio")
+    void decisionInvalida() {
+        MvcTestResult resultado = validarCon("{\"decision\":\"APROBADO\"}");
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.VALIDACION);
+        Mockito.verifyNoInteractions(servicio);
+    }
+
+    @Test
+    @DisplayName("VAL-001 · DEC-99: 422 con la extensión faltantes (tipo, cantidad, cargados y aprobados)")
+    void faltanDocumentos() {
+        given(servicio.validar(any(), any())).willThrow(ReglaNegocioException.noProcesable("VAL-001",
+                        "El registro no se puede activar: faltan documentos aprobados de «Fotografía».")
+                .con("faltantes", List.of(new RegistroJugadorService.DocumentoFaltante(
+                        new TipoDocumentoDto(5, "FOTOGRAFIA", "Fotografía"), 2, 1, 0))));
+
+        MvcTestResult resultado = validarCon(CUERPO_VALIDACION);
+
+        assertThat(resultado).hasStatus(HttpStatus.UNPROCESSABLE_CONTENT);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo("VAL-001");
+        assertThat(resultado).bodyJson().extractingPath("$.detail").asString().contains("«Fotografía»");
+        assertThat(resultado).bodyJson().extractingPath("$.faltantes[0].tipoDocumento.id").isEqualTo(5);
+        assertThat(resultado).bodyJson().extractingPath("$.faltantes[0].tipoDocumento.codigo").isEqualTo("FOTOGRAFIA");
+        assertThat(resultado).bodyJson().extractingPath("$.faltantes[0].tipoDocumento.nombre").isEqualTo("Fotografía");
+        assertThat(resultado).bodyJson().extractingPath("$.faltantes[0].cantidad").isEqualTo(2);
+        assertThat(resultado).bodyJson().extractingPath("$.faltantes[0].cargados").isEqualTo(1);
+        assertThat(resultado).bodyJson().extractingPath("$.faltantes[0].aprobados").isEqualTo(0);
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de POST /api/v1/registros-jugador/{id}/validacion")
+    Stream<DynamicTest> seguridadValidacion() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.POST, RUTA_VALIDACION, REGISTRO)
+                .cuerpoJson(CUERPO_VALIDACION)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.validar(any(), any())).willThrow(error))
+                .pruebas();
+    }
+
+    private MvcTestResult validarCon(String cuerpo) {
+        return mvc.post().uri(RUTA_VALIDACION, REGISTRO)
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(cuerpo).exchange();
     }
 
     @Test

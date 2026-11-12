@@ -1,7 +1,7 @@
 # Diccionario de datos
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.8 · 12 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
+Versión 2.9 · 12 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
 
 > [!NOTE]
 > Este diccionario describe la migración
@@ -25,6 +25,7 @@ Versión 2.8 · 12 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alinead
 | 2.6 | 11 de noviembre de 2026 | Migración `20261111130000_personas_tutela_consentimiento.sql` (H-09.1): funciones `SECURITY DEFINER` de lectura mínima `persona_por_curp(text)` y `es_tutor_vigente(uuid, uuid)`, y `es_menor(uuid, date)` pasa a `SECURITY DEFINER` (devuelve `NULL` si la persona no existe), para que la identidad sea global aunque RLS solo muestre al club sus personas (DEC-78); las tres solo las ejecuta `siglim_app`. `avisos_privacidad` agrega `es_demo` y la migración carga el aviso v1 `SIMPLIFICADO` de demostración, rotulado «No oficial» (DEC-74, DEC-80). Pruebas nuevas en `supabase/pruebas/prueba_funciones.sql`. |
 | 2.7 | 11 de noviembre de 2026 | Migración `20261111200000_registro_alta_unicidad.sql` (H-09.2): funciones `SECURITY DEFINER` de lectura mínima `registros_en_temporada(uuid, uuid)` (club, equipo y estado de los registros no rechazados de la persona en la temporada) y `requisitos_menor(uuid)` (tutela vigente y consentimiento de un tutor vigente, la misma condición de `tg_registros_validar` al activar), ejecutables solo por `siglim_app`; comentario `VAL-017` en `ux_registros_activo` para que su `23505` se traduzca con ese código (DEC-88 a DEC-90). |
 | 2.8 | 12 de noviembre de 2026 | Migración `20261112130000_documentos_registro.sql` (H-10.1, DEC-94): la política `documentos_editar` se recrea con `USING` y `WITH CHECK` para que también actualice un documento de registro la Directiva del club del equipo (reemplazo por otro directivo del mismo club), sin abrirla al ámbito `PROPIO`; `tg_documentos_validar` agrega tres reglas: `reemplazado_por_id` no cambia una vez puesto (`RNF-018`), `estado_validacion` solo cambia desde `PENDIENTE` (`RF-109`) y solo un usuario de liga cambia `estado_validacion`, `validado_por` o `validado_en` (`VAL-015`). Sin cambios en columnas. |
+| 2.9 | 12 de noviembre de 2026 | Migración `20261112180000_validacion_registro.sql` (H-10.2, DEC-101): `tg_registros_validar` se reescribe con la misma firma y conserva todas sus reglas; agrega que solo un usuario de liga (`es_usuario_liga()`) hace la transición `PENDIENTE_VALIDACION → ACTIVO \| RECHAZADO` o cambia `validado_por` o `validado_en` (`VAL-015`), y que al activar cada requisito aplicable de `requisitos_documento` tenga al menos `cantidad` documentos vigentes `APROBADO` (`VAL-001`). Orden: `RF-017` → `VAL-015` → `RN-021` → `VAL-001` → `VAL-025`. La política `registros_editar` no cambia. Sin cambios en columnas. |
 
 ## 1. Propósito y alcance
 
@@ -860,6 +861,18 @@ Restricciones, índices y triggers:
 - Trigger `tg_registros_historial` (after insert or update) → `tg_registros_historial()`
 - Trigger `tg_registros_jugador_actualizado_en` (before update) → `tg_actualizado_en()`
 - Trigger `tg_registros_validar` (before insert or update) → `tg_registros_validar()`
+
+Reglas de `tg_registros_validar` (migración `20261112180000`, DEC-101). En el alta: equipo activo
+(`RF-013`), sin otro registro activo de la CURP en la temporada (`VAL-017`) y sin cambio de club
+(`VAL-026`). En un cambio: el registro no cambia de equipo (`RN-039`); en este orden, la transición
+es una de §4.3.3 del ERS (`RF-017`); solo un usuario de liga (`es_usuario_liga()`) pasa de
+`PENDIENTE_VALIDACION` a `ACTIVO` o `RECHAZADO`, o cambia `validado_por` o `validado_en` (`VAL-015`);
+todo cambio de estado lleva motivo (`RN-021`); y al pasar de `PENDIENTE_VALIDACION` a `ACTIVO`, cada
+requisito aplicable (`requisitos_documento` de la liga del club del equipo para el `tipo` de la
+categoría; los `solo_menores` si `es_menor(persona_id, alta_en)`) necesita al menos `cantidad`
+documentos del registro vigentes (`reemplazado_por_id IS NULL`) en `APROBADO` (`VAL-001`), y un menor
+necesita tutela vigente y consentimiento no revocado de un tutor vigente (`VAL-025`). El INE del tutor
+es un documento: su falta es `VAL-001`. Las transiciones desde `ACTIVO` y `SUSPENDIDO` no cambian.
 
 #### `requisitos_documento`
 
@@ -2103,6 +2116,7 @@ oficial**, quién es el responsable, para qué se usan los datos y cómo ejercer
 | RF-010, RF-107, VAL-017, RN-037 | CURP única; un registro activo por temporada | `personas.curp` UQ, `ux_registros_activo`, `tg_registros_validar` |
 | VAL-025, RN-055 | Menor con tutor y consentimiento antes de activarse | `tutelas`, `consentimientos`, `tg_registros_validar` |
 | VAL-026, RN-039 | Sin cambio de club dentro de la temporada | `tg_registros_validar` |
+| VAL-001, VAL-015, RF-109 | Solo la liga valida un registro y lo activa con todos sus documentos aprobados | `requisitos_documento`, `documentos`, `tg_registros_validar` (DEC-101) |
 | RF-039, VAL-003 a VAL-005 | Conflictos duros de programación | `ex_partidos_cancha_ocupada`, `tg_partidos_programacion` |
 | RF-043 a RF-046, RF-127, RN-021 | Máquina de estados del partido con motivo | `tg_partidos_estado`, `partido_estado_historial` |
 | RF-115, VAL-019 | Árbitro ajeno a los clubes del partido | `tg_designaciones_validar` |

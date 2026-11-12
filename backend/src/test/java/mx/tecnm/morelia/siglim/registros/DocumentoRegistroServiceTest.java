@@ -669,7 +669,7 @@ class DocumentoRegistroServiceTest {
 
     private static RegistroDeDocumentos registro(EstadoRegistro estado, EstadoTemporada temporada) {
         return new RegistroDeDocumentos(REGISTRO, PERSONA, CLUB, ALTA, estado, temporada, CATEGORIA, "Infantil",
-                TipoCategoria.INFANTIL);
+                TipoCategoria.INFANTIL, null, true, null, null);
     }
 
     /** Deja {@link #DOCUMENTO} (una fotografía del registro) con ese estado, autor y reemplazo. */

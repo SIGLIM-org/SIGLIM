@@ -24,7 +24,11 @@ import org.springframework.stereotype.Repository;
  * {@code registros_en_temporada} y {@code requisitos_menor} (DEC-78, DEC-90). El {@code INSERT} sí
  * está sujeto a RLS ({@code registros_crear}).
  *
- * <p>Refs: H-09.2, RF-013, RF-107, RN-037, VAL-017, VAL-025, VAL-026, DEC-88, DEC-89, DEC-90
+ * <p>La validación (H-10.2) cambia el estado con un {@code UPDATE} condicional ({@link #validar}),
+ * también sujeto a RLS ({@code registros_editar}) y a {@code tg_registros_validar} (DEC-101).
+ *
+ * <p>Refs: H-09.2, H-10.2, RF-013, RF-107, RF-109, RN-037, VAL-017, VAL-025, VAL-026, DEC-88, DEC-89, DEC-90,
+ * DEC-102
  */
 @Repository
 class RegistroJugadorRepository {
@@ -146,10 +150,36 @@ class RegistroJugadorRepository {
                 .optional();
     }
 
+    /**
+     * Guarda el dictamen de la liga si el registro sigue {@code PENDIENTE_VALIDACION}; {@code false} si
+     * otra petición lo validó antes (DEC-102). El motivo se fija antes con {@code MotivoOperacion} y el
+     * historial lo escribe {@code tg_registros_historial}.
+     */
+    boolean validar(UUID id, EstadoRegistro estado, UUID validadoPor, OffsetDateTime validadoEn,
+            String observaciones) {
+        return jdbc.sql("""
+                        UPDATE registros_jugador
+                           SET estado = CAST(:estado AS siglim.estado_registro), validado_por = :validadoPor,
+                               validado_en = :validadoEn, observaciones = :observaciones
+                         WHERE id = :id AND estado = 'PENDIENTE_VALIDACION'
+                        RETURNING id
+                        """)
+                .param("id", id)
+                .param("estado", estado.name())
+                .param("validadoPor", validadoPor)
+                .param("validadoEn", validadoEn)
+                .param("observaciones", observaciones)
+                .query(UUID.class)
+                .optional()
+                .isPresent();
+    }
+
     /** El registro con sus referencias, visible por RLS; vacío si no existe o no se ve. */
     Optional<RegistroJugadorDto> buscar(UUID id) {
         return jdbc.sql("""
                         SELECT r.id, r.estado, r.alta_en, r.creado_en,
+                               r.validado_por, pf.nombre_mostrado AS validado_por_nombre, r.validado_en,
+                               r.observaciones,
                                p.id AS persona_id,
                                concat_ws(' ', p.nombre, p.apellido_paterno, p.apellido_materno) AS persona_nombre,
                                e.id AS equipo_id, e.nombre AS equipo_nombre,
@@ -164,10 +194,13 @@ class RegistroJugadorRepository {
                           JOIN categorias_temporada ct ON ct.id = g.categoria_temporada_id
                           JOIN categorias c ON c.id = ct.categoria_id
                           JOIN temporadas t ON t.id = r.temporada_id
+                          LEFT JOIN perfiles pf ON pf.id = r.validado_por
                          WHERE r.id = :id
                         """)
                 .param("id", id)
-                .query((fila, numero) -> new RegistroJugadorDto(
+                .query((fila, numero) -> {
+                    UUID validadoPor = fila.getObject("validado_por", UUID.class);
+                    return new RegistroJugadorDto(
                         fila.getObject("id", UUID.class),
                         new PersonaResumenDto(fila.getObject("persona_id", UUID.class), fila.getString("persona_nombre")),
                         new ReferenciaDto(fila.getObject("equipo_id", UUID.class), fila.getString("equipo_nombre")),
@@ -178,9 +211,16 @@ class RegistroJugadorRepository {
                                 EstadoTemporada.valueOf(fila.getString("temporada_estado"))),
                         EstadoRegistro.valueOf(fila.getString("estado")),
                         fila.getObject("alta_en", LocalDate.class),
-                        fila.getObject("creado_en", OffsetDateTime.class)
-                                .atZoneSameInstant(ZONA_DE_NEGOCIO).toOffsetDateTime()))
+                        enZonaDeNegocio(fila.getObject("creado_en", OffsetDateTime.class)),
+                        validadoPor == null ? null : new ReferenciaDto(validadoPor, fila.getString("validado_por_nombre")),
+                        enZonaDeNegocio(fila.getObject("validado_en", OffsetDateTime.class)),
+                        fila.getString("observaciones"));
+                })
                 .optional();
+    }
+
+    private static OffsetDateTime enZonaDeNegocio(OffsetDateTime momento) {
+        return momento == null ? null : momento.atZoneSameInstant(ZONA_DE_NEGOCIO).toOffsetDateTime();
     }
 
     /** El equipo del alta con lo necesario para validar RF-003, RF-013 y RF-101. */
