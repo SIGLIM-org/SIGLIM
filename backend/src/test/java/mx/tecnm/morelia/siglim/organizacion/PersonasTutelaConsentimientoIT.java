@@ -47,19 +47,25 @@ class PersonasTutelaConsentimientoIT extends BaseDatosPrueba {
     private final List<String> datosPersonales = new ArrayList<>();
 
     @Test
-    @DisplayName("DEC-78 · RF-010: la Directiva del club B encuentra por CURP a una persona creada por el club A")
+    @DisplayName("DEC-78 · DEC-104 · RF-010: la Directiva del club B encuentra por CURP a personas del club A y sabe si son menores")
     void directivaDeOtroClubEncuentraPersonaPorCurp() {
         iniciarSesionComoAdministrador();
         UUID directivaA = perfilDeDirectiva(nuevoClub("A"), null);
         UUID directivaB = perfilDeDirectiva(nuevoClub("B"), null);
         String curp = curpAleatoria();
         UUID persona = insertarPersona(curp, ADULTO, directivaA);
+        String curpMenor = curpAleatoria();
+        UUID menor = insertarPersona(curpMenor, MENOR, directivaA);
 
         iniciarSesion(directivaB);
         PersonaDto encontrada = personas.buscarPorCurp(curp);
+        PersonaDto encontradoMenor = personas.buscarPorCurp(curpMenor);
 
         assertThat(encontrada.id()).isEqualTo(persona);
         assertThat(encontrada.curp()).isEqualTo(curp);
+        assertThat(encontrada.esMenor()).as("DEC-104: adulto").isFalse();
+        assertThat(encontradoMenor.id()).isEqualTo(menor);
+        assertThat(encontradoMenor.esMenor()).as("DEC-104: menor").isTrue();
     }
 
     @Test

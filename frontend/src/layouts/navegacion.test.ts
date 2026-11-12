@@ -57,6 +57,19 @@ describe('subsecciones', () => {
     expect(seccionDeRuta('/app/organizacion/afiliaciones/af-1')?.nombre).toBe('Organización')
   })
 
+  it('H-09.3 · DEC-108: Organización ofrece Alta de jugador con EDITAR, no con CONSULTAR', () => {
+    const organizacion = seccionesApp.find(({ nombre }) => nombre === 'Organización')
+
+    expect(organizacion?.subsecciones).toContainEqual(
+      expect.objectContaining({
+        nombre: 'Alta de jugador',
+        ruta: '/app/organizacion/jugadores/alta',
+        permiso: 'registros.registro:EDITAR',
+      }),
+    )
+    expect(seccionDeRuta('/app/organizacion/jugadores/alta')?.nombre).toBe('Organización')
+  })
+
   it('H-21.2: Administración ofrece Auditoría con su permiso y la ruta queda en la sección', () => {
     const administracion = seccionesApp.find(({ nombre }) => nombre === 'Administración')
 

@@ -44,7 +44,7 @@ class PersonaControllerTest {
     private static final UUID ID = UUID.fromString("22222222-2222-4222-8222-222222222222");
     private static final String CURP = "GODE840101HDFRNS09";
     private static final String RUTA = "/api/v1/personas?curp=" + CURP;
-    private static final PersonaDto PERSONA = new PersonaDto(ID, CURP, "Ana", "López", null);
+    private static final PersonaDto PERSONA = new PersonaDto(ID, CURP, "Ana", "López", null, true);
 
     @Autowired
     private MockMvcTester mvc;
@@ -55,7 +55,7 @@ class PersonaControllerTest {
     private final String autorizacion = "Bearer " + SeguridadPrueba.tokenValido();
 
     @Test
-    @DisplayName("RF-010: GET /personas?curp= devuelve la identidad sin datos de contacto")
+    @DisplayName("RF-010 · DEC-104: GET /personas?curp= devuelve la identidad con esMenor y sin datos de contacto")
     void buscar() {
         given(servicio.buscarPorCurp(CURP)).willReturn(PERSONA);
 
@@ -68,6 +68,8 @@ class PersonaControllerTest {
         assertThat(resultado).bodyJson().extractingPath("$.curp").isEqualTo(CURP);
         assertThat(resultado).bodyJson().extractingPath("$.nombre").isEqualTo("Ana");
         assertThat(resultado).bodyJson().doesNotHavePath("$.apellidoMaterno");
+        assertThat(resultado).bodyJson().extractingPath("$.esMenor").isEqualTo(true);
+        assertThat(resultado).bodyJson().doesNotHavePath("$.fechaNacimiento");
         Mockito.verify(servicio).buscarPorCurp(CURP);
     }
 

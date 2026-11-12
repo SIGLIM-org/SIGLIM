@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.1 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.2 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -50,6 +50,7 @@ Versión 5.1 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../r
 | 4.9 | 11 de noviembre de 2026 | H-11.1: §6.5 con el contrato de árbitros (`GET`/`POST /arbitros` y `POST /arbitros/{id}/validacion`), el estado `PROPUESTO`, la validación y el rechazo con observaciones, el `409 DUPLICADO` que solo nombra el club (DEC-88) y el `INSERT … ON CONFLICT DO NOTHING` de las carreras (DEC-90); permisos `CONSULTAR`/`PROPONER`/`VALIDAR` y auditoría `PROPONER_ARBITRO`, `VALIDAR_ARBITRO` y `RECHAZAR_ARBITRO`. |
 | 5.0 | 12 de noviembre de 2026 | H-10.1: §6.4 y §7 con los documentos de un registro: carga (`POST /registros-jugador/{id}/documentos`), reemplazo (`POST /documentos/{id}/reemplazo`, solo de `PENDIENTE` o `RECHAZADO`), requisitos (`GET /registros-jugador/{id}/requisitos`), enlace prefirmado (`GET /documentos/{id}/enlace`) y validación de un documento (`POST /documentos/{id}/validacion`), con sus permisos y ámbitos, órdenes de errores, `201` sin `Location`, `Cache-Control: no-store` y las acciones de auditoría `CARGAR_DOCUMENTO`, `REEMPLAZAR_DOCUMENTO`, `VALIDAR_DOCUMENTO` y `CONSULTAR_DOCUMENTO`; §3.2 con `RF-109` en `409` y `VAL-015` en `403` (DEC-91 a DEC-96). |
 | 5.1 | 12 de noviembre de 2026 | H-10.2: §6.4 con la validación de un registro (`POST /registros-jugador/{id}/validacion`): permiso `registros.registro:VALIDAR` sobre el club del equipo, orden de errores, `VAL-022` **[PROPUESTA]** para quien dio de alta el registro, RF-013, `422 VAL-001` con la extensión `faltantes`, VAL-025, `UPDATE` condicional con el registro bloqueado, respuesta `200` con `validadoPor`, `validadoEn` y `observaciones`, motivo del historial y auditoría `VALIDAR_REGISTRO_JUGADOR`; el alta muestra los tres campos nuevos en `null`; §2.1 con las observaciones opcionales al aprobar; §3.2 con `VAL-001` en `422` y `VAL-015` también para registros (DEC-97 a DEC-102). |
+| 5.2 | 12 de noviembre de 2026 | H-09.3: §6.3 con `esMenor` en `GET /personas?curp=` (DEC-104). |
 
 ## Índice
 
@@ -1031,16 +1032,19 @@ del cargo anterior; volver a autorizar un cambio ya autorizado o una vigencia qu
 responde `409 VAL-003`. Ambas operaciones se auditan en `M-03` como `REGISTRAR_CARGO_DIRECTIVA` y
 `AUTORIZAR_CARGO_DIRECTIVA`, sin nombres ni otros datos personales en la auditoría.
 
-**Persona por CURP (H-22.2, RF-010, RF-011).** `GET /personas?curp=` responde
-`{ "id", "curp", "nombre", "apellidoPaterno", "apellidoMaterno" }`; `apellidoMaterno` se omite si no
-existe. Es la consulta mínima que necesita F-15 para enviar el `personaId` de un cambio de directiva
-y confirmar el nombre antes de registrarlo. La CURP se normaliza a mayúsculas y debe cumplir el
+**Persona por CURP (H-22.2, H-09.3, RF-010, RF-011, DEC-104).** `GET /personas?curp=` responde
+`{ "id", "curp", "nombre", "apellidoPaterno", "apellidoMaterno", "esMenor" }`; `apellidoMaterno` se
+omite si no existe. Es la consulta mínima que necesita F-15 para enviar el `personaId` de un cambio de
+directiva y confirmar el nombre antes de registrarlo. `esMenor` (boolean) se calcula con
+`es_menor(id, fecha)` y la fecha de hoy en `America/Mexico_City`, la misma con la que el alta de un
+registro decide VAL-025 (DEC-89): con él, el asistente de alta (F-18) sabe si pide tutor y quién otorga
+el consentimiento, también para una persona de otro club. No se expone la fecha de nacimiento. La CURP se normaliza a mayúsculas y debe cumplir el
 formato de 18 caracteres de `ck_personas_curp` (`400 VALIDACION` si no); una CURP sin persona
 responde `404 NO_ENCONTRADO` (VAL-024). Exige `organizacion.persona:CONSULTAR` en **cualquier
 ámbito** (se comprueba con `autorizacion.alcance`): la identidad es global y no pertenece a un club,
 pero la consulta exige la CURP exacta y no permite listar personas. Desde H-09.1 la consulta usa la
 función `persona_por_curp` (`SECURITY DEFINER`, DEC-78), así que encuentra también a las personas que
-RLS no muestra al club (por ejemplo, quien jugó en otro club); devuelve solo estos cinco campos. La
+RLS no muestra al club (por ejemplo, quien jugó en otro club); devuelve solo estos campos. La
 respuesta lleva `Cache-Control: no-store` porque incluye datos personales (RNF-012).
 
 **Alta de una persona (H-09.1, RF-010, DEC-62, DEC-84).** `POST /personas` recibe

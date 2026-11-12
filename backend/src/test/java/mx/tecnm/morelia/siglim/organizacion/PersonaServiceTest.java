@@ -81,8 +81,9 @@ class PersonaServiceTest {
     @DisplayName("RF-010: consulta por CURP con el permiso en cualquier ámbito")
     void buscaPorCurp() {
         given(personas.buscarPorCurp(CURP)).willReturn(Optional.of(PERSONA));
+        given(personas.esMenor(ID, HOY)).willReturn(Optional.of(false));
 
-        assertThat(servicio.buscarPorCurp("  " + CURP.toLowerCase() + " ")).isEqualTo(PERSONA);
+        assertThat(servicio.buscarPorCurp("  " + CURP.toLowerCase() + " ")).isEqualTo(PERSONA.conMinoria(false));
 
         verify(autorizacion).alcance(CONSULTAR);
         verify(personas).buscarPorCurp(CURP);
@@ -103,9 +104,30 @@ class PersonaServiceTest {
         String curpX = "GODE840101XDFRNS09";
         PersonaDto persona = new PersonaDto(ID, curpX, "Ana", "López", null);
         given(personas.buscarPorCurp(curpX)).willReturn(Optional.of(persona));
+        given(personas.esMenor(ID, HOY)).willReturn(Optional.of(false));
 
-        assertThat(servicio.buscarPorCurp(curpX)).isEqualTo(persona);
+        assertThat(servicio.buscarPorCurp(curpX)).isEqualTo(persona.conMinoria(false));
         verify(personas).buscarPorCurp(curpX);
+    }
+
+    @Test
+    @DisplayName("DEC-104: la consulta por CURP dice si es menor con la fecha de Morelia")
+    void consultaPorCurpCalculaMinoriaConFechaDeMorelia() {
+        // 03:00 UTC del 12-nov son las 21:00 del 11-nov en Morelia: quien nació el 12-nov-2008 cumple
+        // 18 ese día en UTC, pero en la zona de negocio todavía es menor (DEC-89).
+        PersonaService casiMedianoche = new PersonaService(personas, autorizacion, auditoria,
+                Clock.fixed(Instant.parse("2026-11-12T03:00:00Z"), ZoneOffset.UTC),
+                new SiglimPropiedades(null, null, null, LIGA));
+        LocalDate hoyEnMorelia = LocalDate.parse("2026-11-11");
+        given(personas.buscarPorCurp(CURP)).willReturn(Optional.of(PERSONA));
+        given(personas.esMenor(ID, hoyEnMorelia)).willReturn(Optional.of(true));
+
+        PersonaDto encontrada = casiMedianoche.buscarPorCurp(CURP);
+
+        assertThat(encontrada.esMenor()).isTrue();
+        assertThat(encontrada.id()).isEqualTo(ID);
+        verify(personas).esMenor(ID, hoyEnMorelia);
+        verify(personas, never()).esMenor(ID, LocalDate.parse("2026-11-12"));
     }
 
     @Test

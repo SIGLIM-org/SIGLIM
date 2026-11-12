@@ -182,6 +182,66 @@ describe('router', () => {
     )
   })
 
+  it('H-09.3: la sección Organización enlaza a Alta de jugador solo con registros.registro:EDITAR', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('registros.registro:EDITAR', 'M-04')],
+    })
+
+    montar('/app/organizacion')
+
+    expect(await screen.findByRole('link', { name: /Alta de jugador/ })).toHaveAttribute(
+      'href',
+      '/app/organizacion/jugadores/alta',
+    )
+  })
+
+  it('H-09.3: con registros.registro:CONSULTAR no enlaza a Alta de jugador y su URL responde 403', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('registros.registro:CONSULTAR', 'M-04')],
+    })
+
+    montar('/app/organizacion')
+
+    expect(await screen.findByRole('heading', { name: 'Organización' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Alta de jugador/ })).not.toBeInTheDocument()
+  })
+
+  it('H-09.3: sin registros.registro:EDITAR, la URL del alta muestra la 403', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('registros.registro:CONSULTAR', 'M-04')],
+    })
+
+    montar('/app/organizacion/jugadores/alta')
+
+    expect(
+      await screen.findByRole('heading', { name: 'No tienes permiso para esta acción' }),
+    ).toBeInTheDocument()
+  })
+
+  it('H-09.3: con registros.registro:EDITAR, la URL del alta muestra el asistente', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('registros.registro:EDITAR', 'M-04')],
+    })
+    obtenerCatalogo.mockImplementation(async (ruta: string) =>
+      ruta.startsWith('equipos?')
+        ? { contenido: [], pagina: 0, tamano: 100, totalElementos: 0, totalPaginas: 0 }
+        : [],
+    )
+
+    montar('/app/organizacion/jugadores/alta')
+
+    expect(await screen.findByRole('heading', { name: 'Alta de jugador' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Identidad del jugador' })).toBeInTheDocument()
+  })
+
   it('H-21.2: la sección Administración enlaza a Auditoría solo con su permiso', async () => {
     iniciarSesion()
     obtenerYo.mockResolvedValue({
