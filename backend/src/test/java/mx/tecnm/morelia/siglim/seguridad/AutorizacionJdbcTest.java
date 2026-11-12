@@ -168,6 +168,63 @@ class AutorizacionJdbcTest {
         verifyNoInteractions(repositorio);
     }
 
+    // ── Pregunta sin error: permite (H-10.5, DEC-110) ───────────────────────────────────────────
+
+    @Test
+    @DisplayName("DEC-110 · RF-094: permite responde true cuando exigir autoriza")
+    void permiteCuandoAlcanza() {
+        iniciarSesion();
+        darPermiso(club(CLUB_PROPIO));
+
+        assertThat(autorizacion.permite(PERMISO, ObjetivoAutorizacion.deClubes(CLUB_PROPIO))).isTrue();
+    }
+
+    @Test
+    @DisplayName("DEC-110 · VAL-015: permite responde false sin el permiso, en lugar del 403")
+    void permiteSinElPermiso() {
+        iniciarSesion();
+        darPermiso();
+
+        assertThat(autorizacion.permite(PERMISO, ObjetivoAutorizacion.deClubes(CLUB_PROPIO))).isFalse();
+    }
+
+    @Test
+    @DisplayName("DEC-110 · VAL-024: permite responde false con el permiso fuera del ámbito, en lugar del 404")
+    void permiteFueraDeAmbito() {
+        iniciarSesion();
+        darPermiso(club(CLUB_PROPIO));
+
+        assertThat(autorizacion.permite(PERMISO, ObjetivoAutorizacion.deClubes(CLUB_AJENO))).isFalse();
+    }
+
+    @Test
+    @DisplayName("DEC-110: permite propaga cualquier otro error (sin sesión)")
+    void permiteSinSesion() {
+        assertThatThrownBy(() -> autorizacion.permite(PERMISO, ObjetivoAutorizacion.deLiga()))
+                .isInstanceOf(IllegalStateException.class);
+        verifyNoInteractions(repositorio);
+    }
+
+    @Test
+    @DisplayName("DEC-110: permite propaga un 403 que no es VAL-015")
+    void permitePropagaOtroError() {
+        Autorizacion conOtroError = new Autorizacion() {
+            @Override
+            public void exigir(String permiso, ObjetivoAutorizacion objetivo) {
+                throw ReglaNegocioException.prohibida("VAL-022", "Separación de funciones.");
+            }
+
+            @Override
+            public AlcanceAutorizacion alcance(String permiso) {
+                throw new UnsupportedOperationException();
+            }
+        };
+
+        assertThatThrownBy(() -> conOtroError.permite(PERMISO, ObjetivoAutorizacion.deLiga()))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error -> assertThat(error.codigo()).isEqualTo("VAL-022"));
+    }
+
     // ── Alcance para listados (H-02 criterio 3) ────────────────────────────────────────────────
 
     @Test

@@ -12,6 +12,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
 import mx.tecnm.morelia.siglim.auditoria.EventoAuditoria;
+import mx.tecnm.morelia.siglim.compartido.api.Pagina;
 import mx.tecnm.morelia.siglim.compartido.config.SiglimPropiedades;
 import mx.tecnm.morelia.siglim.compartido.contexto.MotivoOperacion;
 import mx.tecnm.morelia.siglim.compartido.contexto.UsuarioActual;
@@ -20,12 +21,14 @@ import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.registros.DocumentoDto.TipoDocumentoDto;
 import mx.tecnm.morelia.siglim.registros.DocumentoRegistroRepository.RegistroDeDocumentos;
+import mx.tecnm.morelia.siglim.registros.RegistroJugadorDetalleDto.TutorDto;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorRepository.EquipoDelRegistro;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorRepository.RegistroEnTemporada;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorRepository.RequisitosMenor;
 import mx.tecnm.morelia.siglim.registros.RequisitosDocumentos.Avance;
 import mx.tecnm.morelia.siglim.registros.RequisitosRegistroDto.RequisitoDto;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
+import mx.tecnm.morelia.siglim.seguridad.Autorizacion.AlcanceAutorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
 import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
 import org.springframework.stereotype.Service;
@@ -56,17 +59,25 @@ import org.springframework.transaction.annotation.Transactional;
  *       documentos (DEC-93), así que VAL-001 se calcula con {@link RequisitosDocumentos} sobre datos
  *       estables; el {@code UPDATE} es condicional. {@code tg_registros_validar} repite VAL-015,
  *       VAL-001 y VAL-025 como última garantía (DEC-101).</li>
+ *   <li><b>Consulta (H-10.5, DEC-109, DEC-110).</b> {@code registros.registro:CONSULTAR}: el listado
+ *       filtra por ámbito en el SQL ({@code alcance}) y el detalle exige el club o la persona del
+ *       registro, como los requisitos. La CURP va enmascarada en el listado y completa en el detalle
+ *       solo con {@code organizacion.persona:CONSULTAR} sobre el club ({@link Autorizacion#permite}).
+ *       Las consultas no se auditan: no cambian nada.</li>
  * </ul>
  *
- * <p>Refs: H-09.2, H-10.2, RF-003, RF-013, RF-016, RF-017, RF-018, RF-093, RF-101, RF-107, RF-109,
- * RN-021, RN-037, RN-039, RN-055, VAL-001, VAL-015, VAL-017, VAL-022, VAL-024, VAL-025, VAL-026, CU-004,
- * DEC-78, DEC-85 a DEC-90, DEC-97 a DEC-102
+ * <p>Refs: H-09.2, H-10.2, H-10.5, RF-003, RF-013, RF-016, RF-017, RF-018, RF-093, RF-101, RF-107, RF-109,
+ * RN-021, RN-037, RN-039, RN-055, RNF-012, VAL-001, VAL-015, VAL-017, VAL-022, VAL-024, VAL-025, VAL-026, CU-004,
+ * DEC-78, DEC-85 a DEC-90, DEC-97 a DEC-102, DEC-109, DEC-110
  */
 @Service
 public class RegistroJugadorService {
 
     private static final String EDITAR = "registros.registro:EDITAR";
     private static final String VALIDAR = "registros.registro:VALIDAR";
+    private static final String CONSULTAR = "registros.registro:CONSULTAR";
+    /** Permiso que deja ver la CURP completa en el detalle (convenciones §9.2, DEC-110). */
+    private static final String CONSULTAR_PERSONA = "organizacion.persona:CONSULTAR";
     private static final String MODULO = "M-04";
     private static final String ENTIDAD = "registros_jugador";
     private static final ZoneId ZONA_DE_NEGOCIO = ZoneId.of("America/Mexico_City");
@@ -252,6 +263,55 @@ public class RegistroJugadorService {
 
         return registros.buscar(registro.id())
                 .orElseThrow(() -> new IllegalStateException("El registro " + registro.id() + " no es visible tras validarlo"));
+    }
+
+    // ── Consulta (H-10.5, DEC-109, DEC-110) ────────────────────────────────────────────────────
+
+    /**
+     * Registros del ámbito del usuario con sus filtros, en una página (RF-017, DEC-109). El ámbito se
+     * aplica en el {@code WHERE} y en el {@code COUNT} con la misma condición, así que
+     * {@code totalElementos} cuenta solo las filas visibles; un filtro fuera de ámbito devuelve una
+     * página vacía. Las filas llevan la CURP enmascarada (DEC-110).
+     *
+     * <p>Orden de errores: sin {@code registros.registro:CONSULTAR} en ningún ámbito,
+     * {@code 403 VAL-015}; estado u orden desconocido, o página o tamaño fuera de rango,
+     * {@code 400 VALIDACION}.
+     */
+    @Transactional(readOnly = true)
+    public Pagina<RegistroJugadorResumenDto> listar(FiltroRegistros filtro) {
+        AlcanceAutorizacion alcance = autorizacion.alcance(CONSULTAR);
+        filtro.validar();
+        return Pagina.de(registros.listar(ligaId, filtro, alcance), filtro.pagina(), filtro.tamano(),
+                registros.contar(ligaId, filtro, alcance));
+    }
+
+    /**
+     * Detalle de un registro con {@code esMenor}, los tutores vigentes si es menor y la CURP
+     * (DEC-109, DEC-110). La CURP va completa solo si la sesión tiene
+     * {@code organizacion.persona:CONSULTAR} sobre el club del registro; si no, {@code curp} es
+     * {@code null} y solo va {@code curpEnmascarada}.
+     *
+     * <p>Orden de errores, como los requisitos ({@link DocumentoRegistroService#requisitos}):
+     * <ol>
+     *   <li>Sin {@code registros.registro:CONSULTAR} en ningún ámbito: {@code 403 VAL-015}.</li>
+     *   <li>Registro inexistente en la liga: {@code 404}.</li>
+     *   <li>Registro fuera del ámbito (ni su club ni su persona): {@code 404} igual que uno inexistente
+     *       (VAL-024).</li>
+     * </ol>
+     */
+    @Transactional(readOnly = true)
+    public RegistroJugadorDetalleDto consultar(UUID registroId) {
+        autorizacion.alcance(CONSULTAR);
+        RegistroDeDocumentos registro = documentos.buscarRegistro(ligaId, registroId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Registro " + registroId));
+        autorizacion.exigir(CONSULTAR, ObjetivoAutorizacion.deClubesYPersonas(List.of(registro.clubId()),
+                List.of(registro.personaId())));
+
+        RegistroJugadorDetalleDto detalle = registros.buscarDetalle(registro.id())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Registro " + registroId));
+        boolean mostrarCurp = autorizacion.permite(CONSULTAR_PERSONA, ObjetivoAutorizacion.deClubes(registro.clubId()));
+        List<TutorDto> tutores = detalle.esMenor() ? registros.tutoresVigentes(registro.personaId()) : List.of();
+        return detalle.con(mostrarCurp, tutores);
     }
 
     // ── Reglas ─────────────────────────────────────────────────────────────────────────────────
