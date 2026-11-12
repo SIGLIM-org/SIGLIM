@@ -32,7 +32,7 @@ public final class TablaCodigosHttp {
                     "RN-024", "RN-039", "RNF-015", "RNF-018"),
             // 422: el contenido de la petición incumple una regla.
             entradas(HttpStatus.UNPROCESSABLE_CONTENT,
-                    "VAL-018", "VAL-019", "VAL-020", "VAL-025",
+                    "VAL-001", "VAL-018", "VAL-019", "VAL-020", "VAL-025",
                     "RF-013", "RF-019", "RF-020", "RF-025", "RF-033", "RF-119", "RF-139"))
             .flatMap(s -> s)
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));

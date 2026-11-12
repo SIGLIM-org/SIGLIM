@@ -2,21 +2,29 @@ package mx.tecnm.morelia.siglim.registros;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
 import mx.tecnm.morelia.siglim.auditoria.EventoAuditoria;
 import mx.tecnm.morelia.siglim.compartido.config.SiglimPropiedades;
+import mx.tecnm.morelia.siglim.compartido.contexto.MotivoOperacion;
 import mx.tecnm.morelia.siglim.compartido.contexto.UsuarioActual;
 import mx.tecnm.morelia.siglim.compartido.error.ErroresTecnicos;
 import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
+import mx.tecnm.morelia.siglim.registros.DocumentoDto.TipoDocumentoDto;
+import mx.tecnm.morelia.siglim.registros.DocumentoRegistroRepository.RegistroDeDocumentos;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorRepository.EquipoDelRegistro;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorRepository.RegistroEnTemporada;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorRepository.RequisitosMenor;
+import mx.tecnm.morelia.siglim.registros.RequisitosDocumentos.Avance;
+import mx.tecnm.morelia.siglim.registros.RequisitosRegistroDto.RequisitoDto;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
 import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
@@ -25,7 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Alta de un registro de jugador en un equipo de su club con unicidad por CURP (RF-013, RF-107,
- * CU-004).
+ * CU-004) y su validación por la liga (RF-017, RF-018, RF-109, VAL-001).
  *
  * <ul>
  *   <li><b>Ámbito (DEC-85, ADR-0007).</b> {@code registros.registro:EDITAR} sobre el club del equipo;
@@ -40,32 +48,49 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li><b>Concurrencia (DEC-90).</b> El {@code INSERT … ON CONFLICT … DO NOTHING} sobre
  *       {@code ux_registros_activo} deja la transacción sana si otra petición registró antes a la
  *       persona: se vuelve a consultar y se responde {@code 409 VAL-017} con los nombres.</li>
- *   <li><b>Auditoría (RF-093).</b> {@code REGISTRAR_REGISTRO_JUGADOR} en M-04 con identificadores y
- *       estado, sin datos personales. El historial lo escribe {@code tg_registros_historial}.</li>
+ *   <li><b>Auditoría (RF-093).</b> {@code REGISTRAR_REGISTRO_JUGADOR} y
+ *       {@code VALIDAR_REGISTRO_JUGADOR} en M-04 con identificadores y estado, sin datos personales.
+ *       El historial lo escribe {@code tg_registros_historial}.</li>
+ *   <li><b>Validación (H-10.2, DEC-97 a DEC-102).</b> {@code registros.registro:VALIDAR} sobre el club
+ *       del equipo. El registro se bloquea con el mismo {@code bloquearRegistro} de la validación de
+ *       documentos (DEC-93), así que VAL-001 se calcula con {@link RequisitosDocumentos} sobre datos
+ *       estables; el {@code UPDATE} es condicional. {@code tg_registros_validar} repite VAL-015,
+ *       VAL-001 y VAL-025 como última garantía (DEC-101).</li>
  * </ul>
  *
- * <p>Refs: H-09.2, RF-003, RF-013, RF-016, RF-101, RF-107, RN-037, RN-039, RN-055, VAL-017, VAL-024,
- * VAL-025, VAL-026, CU-004, DEC-78, DEC-85 a DEC-90
+ * <p>Refs: H-09.2, H-10.2, RF-003, RF-013, RF-016, RF-017, RF-018, RF-093, RF-101, RF-107, RF-109,
+ * RN-021, RN-037, RN-039, RN-055, VAL-001, VAL-015, VAL-017, VAL-022, VAL-024, VAL-025, VAL-026, CU-004,
+ * DEC-78, DEC-85 a DEC-90, DEC-97 a DEC-102
  */
 @Service
 public class RegistroJugadorService {
 
     private static final String EDITAR = "registros.registro:EDITAR";
+    private static final String VALIDAR = "registros.registro:VALIDAR";
     private static final String MODULO = "M-04";
     private static final String ENTIDAD = "registros_jugador";
     private static final ZoneId ZONA_DE_NEGOCIO = ZoneId.of("America/Mexico_City");
+    private static final int MINIMO_OBSERVACIONES = 10;
+    private static final int MAXIMO_OBSERVACIONES = 500;
+    /** Motivo del historial cuando la liga activa un registro sin observaciones (DEC-98). */
+    static final String MOTIVO_APROBACION = "Registro validado por la liga";
 
     private final RegistroJugadorRepository registros;
+    private final DocumentoRegistroRepository documentos;
     private final Autorizacion autorizacion;
     private final AuditoriaService auditoria;
+    private final MotivoOperacion motivoOperacion;
     private final Clock reloj;
     private final UUID ligaId;
 
-    RegistroJugadorService(RegistroJugadorRepository registros, Autorizacion autorizacion,
-            AuditoriaService auditoria, Clock reloj, SiglimPropiedades propiedades) {
+    RegistroJugadorService(RegistroJugadorRepository registros, DocumentoRegistroRepository documentos,
+            Autorizacion autorizacion, AuditoriaService auditoria, MotivoOperacion motivoOperacion, Clock reloj,
+            SiglimPropiedades propiedades) {
         this.registros = registros;
+        this.documentos = documentos;
         this.autorizacion = autorizacion;
         this.auditoria = auditoria;
+        this.motivoOperacion = motivoOperacion;
         this.reloj = reloj;
         this.ligaId = propiedades.ligaId();
     }
@@ -126,7 +151,9 @@ public class RegistroJugadorService {
         List<RegistroEnTemporada> previos = registros.registrosEnTemporada(personaId, equipo.temporadaId());
         validarUnicidad(previos, equipo);
         if (esMenor) {
-            validarRequisitosMenor(registros.requisitosMenor(personaId));
+            validarRequisitosMenor(registros.requisitosMenor(personaId),
+                    "Registra primero a su tutor y después da de alta el registro.",
+                    "Registra el consentimiento del tutor y después da de alta el registro.");
         }
 
         UUID id = registros.insertar(personaId, equipo.id(), equipo.temporadaId(), altaEn,
@@ -143,6 +170,88 @@ public class RegistroJugadorService {
 
         return registros.buscar(id)
                 .orElseThrow(() -> new IllegalStateException("El registro " + id + " no es visible tras guardarlo"));
+    }
+
+    /**
+     * Activa o rechaza un registro {@code PENDIENTE_VALIDACION} (RF-017, RF-109, CU-004). Guarda el
+     * estado, quién y cuándo validó y las observaciones; el historial lleva como motivo las
+     * observaciones o, si se activa sin ellas, «Registro validado por la liga» (DEC-98).
+     *
+     * <p>Orden de errores (DEC-97, DEC-100 y DEC-99):
+     * <ol>
+     *   <li>Sin {@code registros.registro:VALIDAR} en ningún ámbito: {@code 403 VAL-015}.</li>
+     *   <li>Falta {@code decision}: {@code 400 VALIDACION}.</li>
+     *   <li>Observaciones de más de 500 caracteres: {@code 400 VALIDACION}.</li>
+     *   <li>Rechazo sin observaciones de al menos 10 caracteres (sin contar los espacios de los
+     *       extremos): {@code 400 RF-109}.</li>
+     *   <li>Registro inexistente en la liga o de un club fuera de ámbito: {@code 404} (VAL-024).</li>
+     *   <li>Se bloquea el registro (DEC-102).</li>
+     *   <li>Quien valida es quien dio de alta el registro: {@code 403 VAL-022} <b>[PROPUESTA]</b>.</li>
+     *   <li>Temporada {@code CERRADA}: {@code 409 RF-003}; registro que no está
+     *       {@code PENDIENTE_VALIDACION}: {@code 409 RF-017}.</li>
+     *   <li>Solo al activar: equipo en {@code BAJA} ({@code 422 RF-013}); documentos aplicables sin
+     *       aprobar ({@code 422 VAL-001} con {@code faltantes}); menor sin tutor vigente o sin
+     *       consentimiento ({@code 422 VAL-025} con {@code requisito}).</li>
+     *   <li>Otra petición lo validó entre tanto: {@code 409 RF-017}.</li>
+     * </ol>
+     */
+    @Transactional
+    public RegistroJugadorDto validar(UUID registroId, ValidarRegistroRequest peticion) {
+        autorizacion.alcance(VALIDAR);
+        DecisionRegistro decision = peticion == null ? null : peticion.decision();
+        if (decision == null) {
+            throw ReglaNegocioException.invalida(ErroresTecnicos.VALIDACION,
+                    "Indica si el registro se activa o se rechaza.");
+        }
+        String observaciones = observacionesOpcionales(peticion.observaciones());
+        if (decision == DecisionRegistro.RECHAZADO && (observaciones == null
+                || observaciones.length() < MINIMO_OBSERVACIONES)) {
+            throw ReglaNegocioException.invalida("RF-109", "Escribe observaciones de al menos "
+                    + MINIMO_OBSERVACIONES + " caracteres para rechazar el registro: el club las verá para saber "
+                    + "qué pasó.");
+        }
+
+        RegistroDeDocumentos encontrado = documentos.buscarRegistro(ligaId, registroId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Registro " + registroId));
+        autorizacion.exigir(VALIDAR, ObjetivoAutorizacion.deClubes(encontrado.clubId()));
+        RegistroDeDocumentos registro = documentos.bloquearRegistro(ligaId, registroId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Registro " + registroId));
+
+        UUID perfil = UsuarioActual.idRequerido();
+        // [PROPUESTA] DEC-97: separación de funciones, como DEC-79 y DEC-91.
+        if (perfil.equals(registro.creadoPor())) {
+            throw ReglaNegocioException.prohibida("VAL-022",
+                    "No puedes validar un registro que diste de alta tú. Pide a otra persona de la liga que lo revise.");
+        }
+        if (registro.temporadaEstado() == EstadoTemporada.CERRADA) {
+            throw ReglaNegocioException.conflicto("RF-003",
+                    "La temporada del registro está cerrada: sus registros ya no se validan.");
+        }
+        if (registro.estado() != EstadoRegistro.PENDIENTE_VALIDACION) {
+            throw ReglaNegocioException.conflicto("RF-017", "El registro ya está " + texto(registro.estado())
+                    + ": solo se valida un registro pendiente de validación.");
+        }
+        if (decision == DecisionRegistro.ACTIVO) {
+            validarActivacion(registro);
+        }
+
+        motivoOperacion.fijar(observaciones != null ? observaciones : MOTIVO_APROBACION);
+        if (!registros.validar(registro.id(), decision.estado(), perfil, OffsetDateTime.now(reloj), observaciones)) {
+            throw ReglaNegocioException.conflicto("RF-017",
+                    "Otra persona validó este registro al mismo tiempo. Actualiza la página para ver su estado.");
+        }
+
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("personaId", registro.personaId().toString());
+        detalle.put("equipoId", registro.equipoId().toString());
+        detalle.put("temporadaId", registro.temporadaId().toString());
+        detalle.put("estadoAnterior", EstadoRegistro.PENDIENTE_VALIDACION.name());
+        detalle.put("estado", decision.estado().name());
+        auditoria.registrar(new EventoAuditoria(ligaId, MODULO, "VALIDAR_REGISTRO_JUGADOR", ENTIDAD,
+                registro.id().toString(), observaciones, detalle));
+
+        return registros.buscar(registro.id())
+                .orElseThrow(() -> new IllegalStateException("El registro " + registro.id() + " no es visible tras validarlo"));
     }
 
     // ── Reglas ─────────────────────────────────────────────────────────────────────────────────
@@ -171,18 +280,59 @@ public class RegistroJugadorService {
         }
     }
 
-    /** La misma condición que {@code tg_registros_validar} al activar (VAL-025, DEC-89). */
-    private static void validarRequisitosMenor(RequisitosMenor requisitos) {
+    /** RF-013, VAL-001 y VAL-025, en ese orden, solo al activar (DEC-99, DEC-100). */
+    private void validarActivacion(RegistroDeDocumentos registro) {
+        if (!registro.equipoActivo()) {
+            throw ReglaNegocioException.noProcesable("RF-013",
+                    "El equipo del registro está dado de baja: el registro no se puede activar, solo rechazar.");
+        }
+        boolean esMenor = documentos.esMenor(registro.personaId(), registro.altaEn())
+                .orElseThrow(() -> new IllegalStateException("La persona del registro " + registro.id() + " no existe"));
+        Avance avance = RequisitosDocumentos.calcular(documentos.requisitos(ligaId, registro.categoriaTipo()), esMenor,
+                documentos.vigentes(registro.id()));
+        if (!avance.listoParaValidar()) {
+            throw faltanDocumentos(avance);
+        }
+        if (esMenor) {
+            validarRequisitosMenor(registros.requisitosMenor(registro.personaId()),
+                    "El club debe registrar a su tutor antes de activar el registro.",
+                    "El club debe registrar el consentimiento del tutor antes de activar el registro.");
+        }
+    }
+
+    /**
+     * {@code 422 VAL-001} con los requisitos aplicables sin aprobar, en su orden: el {@code detail} los
+     * nombra sin códigos y {@code faltantes} lleva el avance de cada uno (DEC-99).
+     */
+    private static ReglaNegocioException faltanDocumentos(Avance avance) {
+        List<DocumentoFaltante> faltantes = avance.requisitos().stream()
+                .filter(requisito -> requisito.aprobados() < requisito.cantidad())
+                .map(DocumentoFaltante::de)
+                .toList();
+        String nombres = faltantes.stream()
+                .map(faltante -> "«" + faltante.tipoDocumento().nombre() + "»")
+                .collect(Collectors.joining(", "));
+        return ReglaNegocioException.noProcesable("VAL-001",
+                        "El registro no se puede activar: faltan documentos aprobados de " + nombres
+                                + ". Aprueba los documentos pendientes o pide al club que cargue los que faltan.")
+                .con("faltantes", faltantes);
+    }
+
+    /**
+     * La misma condición que {@code tg_registros_validar} al activar (VAL-025, DEC-89), en el alta y en
+     * la validación; solo cambia qué hacer después.
+     */
+    private static void validarRequisitosMenor(RequisitosMenor requisitos, String siFaltaTutor,
+            String siFaltaConsentimiento) {
         if (!requisitos.tieneTutorVigente()) {
             throw ReglaNegocioException.noProcesable("VAL-025",
-                            "La persona es menor de edad y no tiene un tutor registrado. Registra primero a "
-                                    + "su tutor y después da de alta el registro.")
+                            "La persona es menor de edad y no tiene un tutor registrado. " + siFaltaTutor)
                     .con("requisito", "TUTOR");
         }
         if (!requisitos.tieneConsentimiento()) {
             throw ReglaNegocioException.noProcesable("VAL-025",
-                            "La persona es menor de edad y falta el consentimiento de su tutor. Registra el "
-                                    + "consentimiento del tutor y después da de alta el registro.")
+                            "La persona es menor de edad y falta el consentimiento de su tutor. "
+                                    + siFaltaConsentimiento)
                     .con("requisito", "CONSENTIMIENTO");
         }
     }
@@ -220,5 +370,35 @@ public class RegistroJugadorService {
         return ReglaNegocioException.conflicto("VAL-017", mensaje)
                 .con("club", previo.clubNombre())
                 .con("equipo", previo.equipoNombre());
+    }
+
+    /** Recorta los espacios; en blanco es {@code null}; más de 500 caracteres es {@code 400 VALIDACION}. */
+    private static String observacionesOpcionales(String texto) {
+        if (texto == null || texto.isBlank()) {
+            return null;
+        }
+        String valor = texto.strip();
+        if (valor.length() > MAXIMO_OBSERVACIONES) {
+            throw ReglaNegocioException.invalida(ErroresTecnicos.VALIDACION,
+                    "Las observaciones admiten hasta " + MAXIMO_OBSERVACIONES + " caracteres.");
+        }
+        return valor;
+    }
+
+    private static String texto(EstadoRegistro estado) {
+        return estado.name().toLowerCase(Locale.ROOT).replace('_', ' ');
+    }
+
+    /**
+     * Requisito aplicable sin aprobar, en la extensión {@code faltantes} de {@code 422 VAL-001}
+     * (DEC-99): {@code cargados} son los vigentes no rechazados y {@code aprobados} los vigentes
+     * {@code APROBADO}.
+     */
+    public record DocumentoFaltante(TipoDocumentoDto tipoDocumento, int cantidad, int cargados, int aprobados) {
+
+        static DocumentoFaltante de(RequisitoDto requisito) {
+            return new DocumentoFaltante(requisito.tipoDocumento(), requisito.cantidad(), requisito.cargados(),
+                    requisito.aprobados());
+        }
     }
 }

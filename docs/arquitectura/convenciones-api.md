@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.0 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.1 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -49,6 +49,7 @@ Versión 5.0 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../r
 | 4.8 | 11 de noviembre de 2026 | H-09.2: §6.4 con el contrato del alta de un registro de jugador (`POST /registros-jugador`): permiso sobre el club del equipo, orden de errores (`RF-003`, `RF-013`, `RF-101`, `REFERENCIA_INVALIDA`, `VAL-017` con `club` y `equipo`, `VAL-026`, `RN-039` y `VAL-025` con `requisito`), fecha de alta en `America/Mexico_City`, respuesta `201` sin `Location` y la acción `REGISTRAR_REGISTRO_JUGADOR` (DEC-85 a DEC-90). |
 | 4.9 | 11 de noviembre de 2026 | H-11.1: §6.5 con el contrato de árbitros (`GET`/`POST /arbitros` y `POST /arbitros/{id}/validacion`), el estado `PROPUESTO`, la validación y el rechazo con observaciones, el `409 DUPLICADO` que solo nombra el club (DEC-88) y el `INSERT … ON CONFLICT DO NOTHING` de las carreras (DEC-90); permisos `CONSULTAR`/`PROPONER`/`VALIDAR` y auditoría `PROPONER_ARBITRO`, `VALIDAR_ARBITRO` y `RECHAZAR_ARBITRO`. |
 | 5.0 | 12 de noviembre de 2026 | H-10.1: §6.4 y §7 con los documentos de un registro: carga (`POST /registros-jugador/{id}/documentos`), reemplazo (`POST /documentos/{id}/reemplazo`, solo de `PENDIENTE` o `RECHAZADO`), requisitos (`GET /registros-jugador/{id}/requisitos`), enlace prefirmado (`GET /documentos/{id}/enlace`) y validación de un documento (`POST /documentos/{id}/validacion`), con sus permisos y ámbitos, órdenes de errores, `201` sin `Location`, `Cache-Control: no-store` y las acciones de auditoría `CARGAR_DOCUMENTO`, `REEMPLAZAR_DOCUMENTO`, `VALIDAR_DOCUMENTO` y `CONSULTAR_DOCUMENTO`; §3.2 con `RF-109` en `409` y `VAL-015` en `403` (DEC-91 a DEC-96). |
+| 5.1 | 12 de noviembre de 2026 | H-10.2: §6.4 con la validación de un registro (`POST /registros-jugador/{id}/validacion`): permiso `registros.registro:VALIDAR` sobre el club del equipo, orden de errores, `VAL-022` **[PROPUESTA]** para quien dio de alta el registro, RF-013, `422 VAL-001` con la extensión `faltantes`, VAL-025, `UPDATE` condicional con el registro bloqueado, respuesta `200` con `validadoPor`, `validadoEn` y `observaciones`, motivo del historial y auditoría `VALIDAR_REGISTRO_JUGADOR`; el alta muestra los tres campos nuevos en `null`; §2.1 con las observaciones opcionales al aprobar; §3.2 con `VAL-001` en `422` y `VAL-015` también para registros (DEC-97 a DEC-102). |
 
 ## Índice
 
@@ -112,7 +113,7 @@ Versión 5.0 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../r
 | Equipo | Baja | `POST /equipos/{id}/baja` | `{ "motivo" }` | `ACTIVO → BAJA` | `organizacion.equipo:EDITAR` | RF-009, RN-005 |
 | Cuenta | Activar / desactivar | `PATCH /usuarios/{id}` | `{ "activo", "motivo"? }` | `activo` ↔ `inactivo` | `seguridad.usuario:EDITAR` | RF-094 |
 | Afiliación | Aprobar / rechazar | `POST /afiliaciones/{id}/resolucion` | `{ "decision": "APROBADA"\|"RECHAZADA", "observaciones" }` | `SOLICITADA → …` | `organizacion.afiliacion:APROBAR` | RF-101 |
-| Registro de jugador | Validar / rechazar | `POST /registros-jugador/{id}/validacion` | `{ "decision": "ACTIVO"\|"RECHAZADO", "observaciones" }` | `PENDIENTE_VALIDACION → …` | `registros.registro:VALIDAR` | RF-109 |
+| Registro de jugador | Validar / rechazar | `POST /registros-jugador/{id}/validacion` | `{ "decision": "ACTIVO"\|"RECHAZADO", "observaciones"? }` (obligatorias solo al rechazar, §6.4) | `PENDIENTE_VALIDACION → …` | `registros.registro:VALIDAR` | RF-109, VAL-001 |
 | Registro de jugador | Baja | `POST /registros-jugador/{id}/baja` | `{ "motivo" }` | `ACTIVO → BAJA` | `registros.registro:EDITAR` | RF-014 |
 | Árbitro | Validar / rechazar | `POST /arbitros/{id}/validacion` | `{ "decision": "VALIDADO"\|"RECHAZADO", "observaciones" }` | `PROPUESTO → …` | `arbitraje.arbitro:VALIDAR` | RF-113 |
 | Jornada | Enviar a aprobación | `POST /jornadas/{id}/envio` | `{}` | `BORRADOR → REVISION` | `programacion.jornada:ENVIAR` | RF-090, RF-121 |
@@ -212,9 +213,9 @@ que el mismo código responda siempre con el mismo estado. `error_negocio` arma 
 | HTTP | Códigos en `HINT` | Qué significan |
 | --- | --- | --- |
 | `400` | `RN-021` | Falta el motivo obligatorio |
-| `403` | `VAL-015` (solo la liga valida documentos); `VAL-021`, `VAL-022` | La persona no puede hacer esa acción aunque tenga el permiso |
+| `403` | `VAL-015` (la liga valida documentos y registros); `VAL-021`, `VAL-022` | La persona no puede hacer esa acción aunque tenga el permiso |
 | `409` | `VAL-003`, `VAL-005`, `VAL-017`, `VAL-026`, `VAL-028`; `RF-001`, `RF-017`, `RF-039`, `RF-046`, `RF-048`, `RF-062`, `RF-090`, `RF-100`, `RF-109`, `RF-113`, `RF-121`, `RF-122`, `RF-123`, `RF-124`, `RF-127`; `RN-024`, `RN-039`; `RNF-015`, `RNF-018` | Transición o cambio no permitido por el estado actual, o choque con otros datos |
-| `422` | `VAL-018`, `VAL-019`, `VAL-020`, `VAL-025`; `RF-013`, `RF-019`, `RF-020`, `RF-025`, `RF-033`; `RF-119` (horario de club o comodato incompatible con la cancha, o traslapado); `RF-139` (pago que no cubre el monto) | El contenido de la petición incumple una regla |
+| `422` | `VAL-001` (activar un registro sin todos sus documentos aprobados); `VAL-018`, `VAL-019`, `VAL-020`, `VAL-025`; `RF-013`, `RF-019`, `RF-020`, `RF-025`, `RF-033`; `RF-119` (horario de club o comodato incompatible con la cancha, o traslapado); `RF-139` (pago que no cubre el monto) | El contenido de la petición incumple una regla |
 
 Algunos códigos cubren más de un caso en la base (`RF-121` y `RF-123` también rechazan una
 devolución sin observaciones, y `RF-123` a quien no es el árbitro central). El servicio detecta esos
@@ -1216,10 +1217,14 @@ Responde `201` **sin `Location`** (todavía no existe `GET /registros-jugador/{i
   "temporada": { "id": "…", "nombre": "Temporada 2026", "estado": "ACTIVA" },
   "estado": "PENDIENTE_VALIDACION",
   "altaEn": "2026-11-11",
-  "creadoEn": "2026-11-11T12:00:00-06:00"
+  "creadoEn": "2026-11-11T12:00:00-06:00",
+  "validadoPor": null,
+  "validadoEn": null,
+  "observaciones": null
 }
 ```
 
+`validadoPor`, `validadoEn` y `observaciones` se llenan al validar el registro (H-10.2, abajo).
 `creado_por` es el perfil de la sesión; el historial lo escribe `tg_registros_historial` con el
 motivo «Alta del registro». Se audita en `M-04` como `REGISTRAR_REGISTRO_JUGADOR` (entidad
 `registros_jugador`) con `{ "personaId", "equipoId", "temporadaId", "estado": "PENDIENTE_VALIDACION" }`,
@@ -1347,6 +1352,95 @@ se guarda, se audita ni va a la bitácora.
 con las observaciones como motivo, y `CONSULTAR_DOCUMENTO` `{ registroId, tipoDocumento }` al generar
 el enlace. `tipoDocumento` es el código. Nunca la URL, el bucket, la clave, el SHA-256, el nombre del
 archivo ni datos personales.
+
+#### Validación de un registro (H-10.2, RF-109, VAL-001, DEC-97 a DEC-102)
+
+`POST /registros-jugador/{id}/validacion` recibe `{ "decision": "ACTIVO" | "RECHAZADO",
+"observaciones"? }` y exige `registros.registro:VALIDAR` sobre el **club del equipo** del registro
+(`ObjetivoAutorizacion.deClubes`); hoy solo el Secretario lo tiene, con ámbito `LIGA`. Nunca se
+comparan roles. Los obligatorios los valida el servicio después del permiso, así que el cuerpo no
+lleva `@Valid`. Quien aprueba los documentos y quien valida el registro pueden ser la misma persona.
+Orden de errores:
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. Falta `decision`: `400 VALIDACION`. Un valor que no es del enum no se puede leer y responde
+   `400 VALIDACION` antes del servicio.
+3. Observaciones de más de 500 caracteres: `400 VALIDACION`.
+4. Rechazo sin observaciones de al menos 10 caracteres (sin contar los espacios de los extremos):
+   `400 RF-109`. Al activar, las observaciones son opcionales.
+5. El registro no existe en la liga, o es de un club fuera del ámbito del usuario:
+   `404 NO_ENCONTRADO`, sin distinguir los dos casos (VAL-024).
+6. Se bloquea el registro (`SELECT … FOR UPDATE`, el mismo bloqueo de la validación de documentos).
+7. Quien valida es quien dio de alta el registro (`creado_por`): `403 VAL-022` **[PROPUESTA]**
+   (separación de funciones, como DEC-79 y DEC-91). Solo ocurre con alguien que tenga los dos roles;
+   un `creado_por` nulo no lo activa.
+8. Temporada `CERRADA`: `409 RF-003` (al activar y al rechazar). Registro que no está
+   `PENDIENTE_VALIDACION`: `409 RF-017`, también si ya se validó o rechazó (acción repetida, §2).
+9. Solo al activar, en este orden:
+   1. Equipo en `BAJA`: `422 RF-013`, el mismo código del alta. La baja de un equipo no da de baja a
+      sus registros, y el registro sí se puede rechazar.
+   2. VAL-001: cada requisito aplicable (los mismos de `GET /registros-jugador/{id}/requisitos`)
+      necesita, entre sus documentos vigentes, al menos `cantidad` en `APROBADO`; un documento
+      cargado pero `PENDIENTE` cuenta como faltante. Si no se cumple, `422 VAL-001`: el `detail`
+      nombra los documentos que faltan, sin códigos, y la extensión `faltantes` lleva, en el orden de
+      los requisitos, `cargados` (vigentes no rechazados) y `aprobados` (vigentes `APROBADO`). El INE
+      del tutor es un documento del registro: su falta es `VAL-001`, no `VAL-025`. Si la categoría no
+      tiene requisitos configurados, VAL-001 se cumple.
+
+      ```json
+      {
+        "status": 422,
+        "codigo": "VAL-001",
+        "detail": "El registro no se puede activar: faltan documentos aprobados de «Identificación», «Fotografía». Aprueba los documentos pendientes o pide al club que cargue los que faltan.",
+        "faltantes": [
+          { "tipoDocumento": { "id": 2, "codigo": "IDENTIFICACION", "nombre": "Identificación" },
+            "cantidad": 1, "cargados": 0, "aprobados": 0 },
+          { "tipoDocumento": { "id": 5, "codigo": "FOTOGRAFIA", "nombre": "Fotografía" },
+            "cantidad": 2, "cargados": 1, "aprobados": 0 }
+        ]
+      }
+      ```
+
+   3. La persona era menor en `alta_en` (`es_menor(persona, alta_en)`; quien cumplió 18 después del
+      alta sigue contando como menor): sin tutela vigente, `422 VAL-025` con
+      `"requisito": "TUTOR"`; con tutor pero sin consentimiento no revocado de un tutor vigente,
+      `422 VAL-025` con `"requisito": "CONSENTIMIENTO"`. Es la misma condición del alta.
+10. Otra petición validó el registro entre tanto (el `UPDATE … AND estado = 'PENDIENTE_VALIDACION'`
+    no devolvió fila): `409 RF-017`.
+
+Rechazar no exige VAL-001 ni VAL-025: se puede rechazar con documentos pendientes. La afiliación del
+club no se vuelve a revisar (`APROBADA` es final y el alta ya la exigió). `RECHAZADO` es terminal y no
+cuenta para la unicidad: el club puede dar de alta otro registro de la persona con
+`POST /registros-jugador` y cargar documentos nuevos; los del rechazado quedan como historial. Un
+documento con problemas se rechaza **como documento** y se reemplaza; el registro se rechaza por la
+identidad (persona equivocada, CURP que no corresponde).
+
+Responde `200` con `Cache-Control: no-store` y el registro, con los mismos campos del alta y la
+validación llena:
+
+```json
+{
+  "id": "…",
+  "estado": "ACTIVO",
+  "…": "…",
+  "validadoPor": { "id": "…", "nombre": "Secretario" },
+  "validadoEn": "2026-11-12T10:30:00-06:00",
+  "observaciones": null
+}
+```
+
+`validadoPor` es `{ "id", "nombre" }` con el nombre mostrado del perfil de la sesión; `observaciones`
+es `null` si no hubo. El servicio fija el motivo antes del `UPDATE` (RN-021): las observaciones o, si
+se activa sin ellas, «Registro validado por la liga»; `tg_registros_historial` lo guarda en el
+historial. Se audita en `M-04` como `VALIDAR_REGISTRO_JUGADOR` (entidad `registros_jugador`) con
+`{ "personaId", "equipoId", "temporadaId", "estadoAnterior": "PENDIENTE_VALIDACION", "estado" }` y las
+observaciones como motivo del evento (`null` si se activa sin ellas; en ese caso `AuditoriaService`
+guarda el motivo fijado en la transacción, «Registro validado por la liga»), sin datos personales.
+
+`tg_registros_validar` repite las reglas como última garantía (DEC-101): solo un usuario de liga
+cambia un registro de `PENDIENTE_VALIDACION` a `ACTIVO` o `RECHAZADO`, o su `validado_por` o
+`validado_en` (`VAL-015`), y al activar exige los documentos aprobados (`VAL-001`) antes de
+`VAL-025`.
 
 ### 6.5 M-05 Árbitros y designaciones
 
