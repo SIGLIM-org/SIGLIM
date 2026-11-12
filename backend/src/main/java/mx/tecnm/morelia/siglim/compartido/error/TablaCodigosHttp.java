@@ -23,12 +23,12 @@ public final class TablaCodigosHttp {
             // 400: falta el motivo obligatorio.
             entradas(HttpStatus.BAD_REQUEST, "RN-021"),
             // 403: la persona no puede hacer esa acción aunque tenga el permiso.
-            entradas(HttpStatus.FORBIDDEN, "VAL-021", "VAL-022"),
+            entradas(HttpStatus.FORBIDDEN, "VAL-015", "VAL-021", "VAL-022"),
             // 409: transición o cambio no permitido por el estado actual, o choque con otros datos.
             entradas(HttpStatus.CONFLICT,
                     "VAL-003", "VAL-005", "VAL-017", "VAL-026", "VAL-028",
                     "RF-001", "RF-017", "RF-039", "RF-046", "RF-048", "RF-062", "RF-090", "RF-100",
-                    "RF-113", "RF-121", "RF-122", "RF-123", "RF-124", "RF-127",
+                    "RF-109", "RF-113", "RF-121", "RF-122", "RF-123", "RF-124", "RF-127",
                     "RN-024", "RN-039", "RNF-015", "RNF-018"),
             // 422: el contenido de la petición incumple una regla.
             entradas(HttpStatus.UNPROCESSABLE_CONTENT,

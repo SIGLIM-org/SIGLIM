@@ -1,7 +1,7 @@
 # Diccionario de datos
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.7 · 11 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
+Versión 2.8 · 12 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
 
 > [!NOTE]
 > Este diccionario describe la migración
@@ -24,6 +24,7 @@ Versión 2.7 · 11 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alinead
 | 2.5 | 8 de noviembre de 2026 | Migración `20261108100000_cargo_directiva_pendiente.sql` (H-22.1): `ux_cargos_vigentes` solo considera cargos autorizados (`autorizado_por IS NOT NULL`), para que un cambio pendiente no impida mantener vigente el cargo anterior (RF-102). Sin cambios en columnas ni datos. |
 | 2.6 | 11 de noviembre de 2026 | Migración `20261111130000_personas_tutela_consentimiento.sql` (H-09.1): funciones `SECURITY DEFINER` de lectura mínima `persona_por_curp(text)` y `es_tutor_vigente(uuid, uuid)`, y `es_menor(uuid, date)` pasa a `SECURITY DEFINER` (devuelve `NULL` si la persona no existe), para que la identidad sea global aunque RLS solo muestre al club sus personas (DEC-78); las tres solo las ejecuta `siglim_app`. `avisos_privacidad` agrega `es_demo` y la migración carga el aviso v1 `SIMPLIFICADO` de demostración, rotulado «No oficial» (DEC-74, DEC-80). Pruebas nuevas en `supabase/pruebas/prueba_funciones.sql`. |
 | 2.7 | 11 de noviembre de 2026 | Migración `20261111200000_registro_alta_unicidad.sql` (H-09.2): funciones `SECURITY DEFINER` de lectura mínima `registros_en_temporada(uuid, uuid)` (club, equipo y estado de los registros no rechazados de la persona en la temporada) y `requisitos_menor(uuid)` (tutela vigente y consentimiento de un tutor vigente, la misma condición de `tg_registros_validar` al activar), ejecutables solo por `siglim_app`; comentario `VAL-017` en `ux_registros_activo` para que su `23505` se traduzca con ese código (DEC-88 a DEC-90). |
+| 2.8 | 12 de noviembre de 2026 | Migración `20261112130000_documentos_registro.sql` (H-10.1, DEC-94): la política `documentos_editar` se recrea con `USING` y `WITH CHECK` para que también actualice un documento de registro la Directiva del club del equipo (reemplazo por otro directivo del mismo club), sin abrirla al ámbito `PROPIO`; `tg_documentos_validar` agrega tres reglas: `reemplazado_por_id` no cambia una vez puesto (`RNF-018`), `estado_validacion` solo cambia desde `PENDIENTE` (`RF-109`) y solo un usuario de liga cambia `estado_validacion`, `validado_por` o `validado_en` (`VAL-015`). Sin cambios en columnas. |
 
 ## 1. Propósito y alcance
 
@@ -807,6 +808,13 @@ Restricciones, índices y triggers:
 - Índice `ix_documentos_persona`: `USING btree (persona_id) WHERE (persona_id IS NOT NULL)`
 - Índice `ix_documentos_registro`: `USING btree (registro_id) WHERE (registro_id IS NOT NULL)`
 - Trigger `tg_documentos_validar` (before update) → `tg_documentos_validar()`
+
+Reglas de `tg_documentos_validar` (migración `20261112130000`, DEC-94): el archivo (`s3_bucket`,
+`s3_clave`, `url`, `sha256`, `tamano_bytes`) no cambia (`RNF-018`); `reemplazado_por_id` no cambia
+una vez puesto (`RNF-018`); `estado_validacion` solo cambia desde `PENDIENTE` (`RF-109`: un rechazado
+se corrige con un reemplazo); y solo un usuario de liga (`es_usuario_liga()`) cambia
+`estado_validacion`, `validado_por` o `validado_en` (`VAL-015`). Un documento reemplazado conserva
+su estado y su fila (DEC-93).
 
 #### `registro_estado_historial`
 
@@ -1883,7 +1891,7 @@ evalúa el backend (ADR-0007).
 | `correos_salientes` | `correos_editar` | UPDATE | `siglim.es_usuario_liga()` |
 | `correos_salientes` | `correos_leer` | SELECT | `siglim.es_usuario_liga()` |
 | `documentos` | `documentos_crear` | INSERT | `true` |
-| `documentos` | `documentos_editar` | UPDATE | `(siglim.es_usuario_liga() OR (cargado_por = siglim.usuario_actual()))` |
+| `documentos` | `documentos_editar` | UPDATE | `USING` y `WITH CHECK`: `(siglim.es_usuario_liga() OR (cargado_por = siglim.usuario_actual()) OR ((registro_id IS NOT NULL) AND (EXISTS (SELECT 1 FROM (siglim.registros_jugador r JOIN siglim.equipos e ON ((e.id = r.equipo_id))) WHERE ((r.id = documentos.registro_id) AND (e.club_id IN (SELECT siglim.clubes_usuario()))))))` (migración `20261112130000`, DEC-94) |
 | `documentos` | `documentos_leer` | SELECT | `((cargado_por = siglim.usuario_actual()) OR ((registro_id IS NOT NULL) AND siglim.registro_visible(registro_id)) OR ((persona_id IS NOT NULL) AND siglim.persona_visible(persona_id)) OR ((afiliacion_id IS NOT NULL) AND siglim.club_visible(( SELECT afiliaciones.club_id FROM siglim.afiliaciones WHERE (afiliaciones.id = documentos.afiliacion_id)))) OR ((expediente_id IS NOT NULL) AND siglim.expediente_visible(expediente_id)) OR ((pago_id IS NOT NULL) AND siglim.cobro_visible(( SELECT pagos.cobro_id FROM siglim.pagos WHERE (pagos.id = documentos.pago_id)))))` |
 | `expediente_estado_historial` | `expediente_historial_crear` | INSERT | `true` |
 | `expediente_estado_historial` | `expediente_historial_leer` | SELECT | `siglim.expediente_visible(expediente_id)` |
