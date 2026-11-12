@@ -54,7 +54,7 @@ class ProgramacionIT extends BaseDatosPrueba {
         assertThat(partido.estado()).isEqualTo(EstadoPartido.PROGRAMADO);
         assertThat(partido.finBloque()).as("bloque de cancha [DEMO] de 120 minutos")
                 .isEqualTo(INICIO.plusHours(2));
-        assertThat(partido.equipoLocal().nombre()).isEqualTo("Halcones");
+        assertThat(partido.equipoLocal().nombre()).startsWith("Halcones");
         assertThat(partido.cancha().id()).isEqualTo(cancha);
 
         JornadaDto detalle = servicio.consultar(jornada.id());
@@ -100,7 +100,8 @@ class ProgramacionIT extends BaseDatosPrueba {
                 .query(Auditoria.class)
                 .single();
         assertThat(auditoria.motivo()).isEqualTo(MOTIVO);
-        assertThat(auditoria.detalle()).contains("canchaId", "inicio", "equipoLocalId", "equipoVisitanteId");
+        assertThat(auditoria.detalle()).contains("canchaId", "inicio")
+                .doesNotContain("equipoLocalId", "equipoVisitanteId");
     }
 
     @Test

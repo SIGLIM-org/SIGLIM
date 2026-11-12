@@ -310,6 +310,58 @@ class JornadaServiceTest {
     }
 
     @Test
+    @DisplayName("RF-040: el ajuste puede cambiar equipos y deja en la auditoría los campos que cambió")
+    void ajustarEquipos() {
+        UUID nuevoVisitante = UUID.fromString("99999999-9999-4999-8999-999999999999");
+        given(jornadas.buscarPartidoParaActualizar(LIGA, PARTIDO))
+                .willReturn(Optional.of(partido(EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, INICIO)));
+        given(jornadas.buscarEquipo(LIGA, LOCAL)).willReturn(Optional.of(equipo(LOCAL, "Halcones", GRUPO)));
+        given(jornadas.buscarEquipo(LIGA, nuevoVisitante))
+                .willReturn(Optional.of(equipo(nuevoVisitante, "Águilas", GRUPO)));
+        given(jornadas.bloquearCancha(LIGA, CANCHA)).willReturn(true);
+        given(jornadas.buscarPartido(LIGA, PARTIDO)).willReturn(Optional.of(
+                partido(EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, INICIO)));
+
+        servicio.actualizarPartido(PARTIDO,
+                new ActualizarPartidoRequest(null, nuevoVisitante, null, null, MOTIVO));
+
+        verify(jornadas).actualizarPartido(PARTIDO, LOCAL, nuevoVisitante, CANCHA, INICIO);
+        assertThat(eventoAuditado().detalle()).containsEntry("campos", List.of("equipoVisitanteId"));
+    }
+
+    @Test
+    @DisplayName("RF-040: un equipo ajeno al grupo al ajustar responde 422 RF-033 y no escribe")
+    void ajustarConEquipoDeOtroGrupo() {
+        UUID ajeno = UUID.fromString("99999999-9999-4999-8999-999999999991");
+        given(jornadas.buscarPartidoParaActualizar(LIGA, PARTIDO))
+                .willReturn(Optional.of(partido(EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, INICIO)));
+        given(jornadas.buscarEquipo(LIGA, LOCAL)).willReturn(Optional.of(equipo(LOCAL, "Halcones", GRUPO)));
+        given(jornadas.buscarEquipo(LIGA, ajeno))
+                .willReturn(Optional.of(equipo(ajeno, "Ajenos", OTRO_GRUPO)));
+
+        assertThatThrownBy(() -> servicio.actualizarPartido(PARTIDO,
+                new ActualizarPartidoRequest(null, ajeno, null, null, MOTIVO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.UNPROCESSABLE_CONTENT, "RF-033"));
+        verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any());
+        verifyNoInteractions(motivoOperacion, auditoria);
+    }
+
+    @Test
+    @DisplayName("VAL-024: una jornada y un partido de otra liga responden 404")
+    void fueraDeLaLiga() {
+        given(jornadas.buscarJornada(LIGA, JORNADA)).willReturn(Optional.empty());
+        given(jornadas.buscarPartidoParaActualizar(LIGA, PARTIDO)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.consultar(JORNADA))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        assertThatThrownBy(() -> servicio.actualizarPartido(PARTIDO,
+                new ActualizarPartidoRequest(null, null, null, INICIO.plusDays(1), MOTIVO)))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
     @DisplayName("RF-040: un PATCH sin cambios no escribe, no exige motivo ni audita")
     void ajustarSinCambios() {
         DatosPartido actual = partido(EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, INICIO);
