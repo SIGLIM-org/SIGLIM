@@ -2,7 +2,7 @@ import { AsistenteAltaJugador } from '@/features/registros/AsistenteAltaJugador'
 import { ConPermiso } from '@/features/seguridad/ConPermiso'
 import { PaginaSinPermiso } from '@/pages/PaginaSinPermiso'
 
-export const RUTA_ALTA_JUGADOR = '/app/organizacion/jugadores/alta'
+export { RUTA_ALTA_JUGADOR } from '@/features/registros/rutas'
 
 /** Permiso de la acción de alta: el Secretario consulta registros, pero no los da de alta (DEC-108). */
 export const PERMISO_ALTA_JUGADOR = 'registros.registro:EDITAR'

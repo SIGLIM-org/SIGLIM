@@ -21,7 +21,8 @@ export type DescripcionPaso = {
 
 /**
  * Orden de F-18 según DEC-103: los documentos se cargan sobre un registro que ya existe, así que
- * van al final. H-09.3 implementa los pasos 1 a 3; el 4 lo completa H-10.3.
+ * van al final. Los pasos 1 a 3 son el asistente (H-09.3); el 4 es la página de documentos del
+ * registro (H-10.3, DEC-111), que reutiliza esta lista en su indicador.
  */
 export const PASOS: readonly DescripcionPaso[] = [
   { numero: 1, titulo: 'Identidad', descripcion: 'CURP del jugador' },
