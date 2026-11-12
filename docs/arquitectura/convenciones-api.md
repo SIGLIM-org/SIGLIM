@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 4.9 · 11 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.0 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -48,6 +48,7 @@ Versión 4.9 · 11 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../r
 | 4.7 | 11 de noviembre de 2026 | H-09.1: §6.1 con el aviso de privacidad vigente (`GET /avisos-privacidad/vigente`) y el registro del consentimiento (`POST /personas/{id}/consentimientos`), su orden de errores y la acción `REGISTRAR_CONSENTIMIENTO`; §6.3 con el alta y la edición de personas (`POST`/`PATCH /personas`) y la tutela (`POST /personas/{id}/tutelas`), sus órdenes de errores y las acciones `REGISTRAR_PERSONA`, `EDITAR_PERSONA` y `REGISTRAR_TUTELA`; la consulta por CURP de H-22.2 usa `persona_por_curp` (DEC-78 a DEC-84). |
 | 4.8 | 11 de noviembre de 2026 | H-09.2: §6.4 con el contrato del alta de un registro de jugador (`POST /registros-jugador`): permiso sobre el club del equipo, orden de errores (`RF-003`, `RF-013`, `RF-101`, `REFERENCIA_INVALIDA`, `VAL-017` con `club` y `equipo`, `VAL-026`, `RN-039` y `VAL-025` con `requisito`), fecha de alta en `America/Mexico_City`, respuesta `201` sin `Location` y la acción `REGISTRAR_REGISTRO_JUGADOR` (DEC-85 a DEC-90). |
 | 4.9 | 11 de noviembre de 2026 | H-11.1: §6.5 con el contrato de árbitros (`GET`/`POST /arbitros` y `POST /arbitros/{id}/validacion`), el estado `PROPUESTO`, la validación y el rechazo con observaciones, el `409 DUPLICADO` que solo nombra el club (DEC-88) y el `INSERT … ON CONFLICT DO NOTHING` de las carreras (DEC-90); permisos `CONSULTAR`/`PROPONER`/`VALIDAR` y auditoría `PROPONER_ARBITRO`, `VALIDAR_ARBITRO` y `RECHAZAR_ARBITRO`. |
+| 5.0 | 12 de noviembre de 2026 | H-10.1: §6.4 y §7 con los documentos de un registro: carga (`POST /registros-jugador/{id}/documentos`), reemplazo (`POST /documentos/{id}/reemplazo`, solo de `PENDIENTE` o `RECHAZADO`), requisitos (`GET /registros-jugador/{id}/requisitos`), enlace prefirmado (`GET /documentos/{id}/enlace`) y validación de un documento (`POST /documentos/{id}/validacion`), con sus permisos y ámbitos, órdenes de errores, `201` sin `Location`, `Cache-Control: no-store` y las acciones de auditoría `CARGAR_DOCUMENTO`, `REEMPLAZAR_DOCUMENTO`, `VALIDAR_DOCUMENTO` y `CONSULTAR_DOCUMENTO`; §3.2 con `RF-109` en `409` y `VAL-015` en `403` (DEC-91 a DEC-96). |
 
 ## Índice
 
@@ -211,8 +212,8 @@ que el mismo código responda siempre con el mismo estado. `error_negocio` arma 
 | HTTP | Códigos en `HINT` | Qué significan |
 | --- | --- | --- |
 | `400` | `RN-021` | Falta el motivo obligatorio |
-| `403` | `VAL-021`, `VAL-022` | La persona no puede hacer esa acción aunque tenga el permiso |
-| `409` | `VAL-003`, `VAL-005`, `VAL-017`, `VAL-026`, `VAL-028`; `RF-001`, `RF-017`, `RF-039`, `RF-046`, `RF-048`, `RF-062`, `RF-090`, `RF-100`, `RF-113`, `RF-121`, `RF-122`, `RF-123`, `RF-124`, `RF-127`; `RN-024`, `RN-039`; `RNF-015`, `RNF-018` | Transición o cambio no permitido por el estado actual, o choque con otros datos |
+| `403` | `VAL-015` (solo la liga valida documentos); `VAL-021`, `VAL-022` | La persona no puede hacer esa acción aunque tenga el permiso |
+| `409` | `VAL-003`, `VAL-005`, `VAL-017`, `VAL-026`, `VAL-028`; `RF-001`, `RF-017`, `RF-039`, `RF-046`, `RF-048`, `RF-062`, `RF-090`, `RF-100`, `RF-109`, `RF-113`, `RF-121`, `RF-122`, `RF-123`, `RF-124`, `RF-127`; `RN-024`, `RN-039`; `RNF-015`, `RNF-018` | Transición o cambio no permitido por el estado actual, o choque con otros datos |
 | `422` | `VAL-018`, `VAL-019`, `VAL-020`, `VAL-025`; `RF-013`, `RF-019`, `RF-020`, `RF-025`, `RF-033`; `RF-119` (horario de club o comodato incompatible con la cancha, o traslapado); `RF-139` (pago que no cubre el monto) | El contenido de la petición incumple una regla |
 
 Algunos códigos cubren más de un caso en la base (`RF-121` y `RF-123` también rechazan una
@@ -1141,12 +1142,12 @@ Cada equipo trae referencias anidadas (§9.1):
 | --- | --- | --- | --- | --- |
 | `GET /registros-jugador?temporadaId=&equipoId=&estado=` | Registros de su ámbito | `registros.registro:CONSULTAR` | RF-017 | N |
 | `POST /registros-jugador` | Alta: `{ personaId, equipoId }`; queda `PENDIENTE_VALIDACION`. `409 VAL-017` dice club y equipo donde ya está registrada la CURP; detalle abajo | `registros.registro:EDITAR` (club del equipo) | RF-013, RF-107, VAL-025 | N |
-| `GET /registros-jugador/{id}/requisitos` | Documentos que exige su categoría y cuáles faltan | `registros.registro:CONSULTAR` | RF-108, VAL-001 | N |
+| `GET /registros-jugador/{id}/requisitos` | Documentos que exige su categoría y cuáles faltan; detalle abajo | `registros.registro:CONSULTAR` (club o persona del registro) | RF-108, VAL-001 | N |
 | `POST /registros-jugador/{id}/validacion` · `/baja` | Validar, rechazar, dar de baja | ver §2.1 | RF-109, RF-014 | N |
 | `GET /registros-jugador/{id}/historial` | Cambios de estado con usuario y motivo | `registros.registro:CONSULTAR` | RF-018 | B |
 | `GET /registros-jugador/{id}/elegibilidad?equipoId=` | `{ elegible, causas: [ { codigo, mensaje } ] }` | `registros.registro:CONSULTAR` | RF-019, RF-020, RF-110 | N |
 | `POST /registros-jugador/renovaciones` · `/transferencias` | Renovación y cambio de club entre temporadas | `registros.registro:EDITAR` | RF-015, RF-016 | B |
-| Documentos | Ver §7 | `registros.documento:*` | RF-108, RF-109 | N |
+| Documentos | Carga, reemplazo, enlace y validación de cada documento; detalle abajo y en §7 | `registros.documento:*` | RF-108, RF-109 | N |
 | `GET /mi-informacion` | Registro, documentos, elegibilidad, partidos y sanciones del jugador o de los menores que tutela | ámbito `PROPIO` | RF-144 | N |
 
 #### Alta de un registro (H-09.2, RF-013, RF-107, VAL-017, VAL-025, DEC-85 a DEC-90)
@@ -1223,6 +1224,129 @@ Responde `201` **sin `Location`** (todavía no existe `GET /registros-jugador/{i
 motivo «Alta del registro». Se audita en `M-04` como `REGISTRAR_REGISTRO_JUGADOR` (entidad
 `registros_jugador`) con `{ "personaId", "equipoId", "temporadaId", "estado": "PENDIENTE_VALIDACION" }`,
 sin datos personales.
+
+#### Documentos de un registro (H-10.1, RF-108, RF-109, DEC-91 a DEC-96)
+
+Los documentos de un registro de jugador se cargan como `multipart/form-data` y se guardan en S3 en
+la carpeta `registros` (§7, ADR-0013). Todas las respuestas llevan `Cache-Control: no-store`.
+
+| Método y ruta | Cuerpo | Éxito | Permiso y objetivo |
+| --- | --- | --- | --- |
+| `POST /registros-jugador/{id}/documentos` | `archivo` + `tipoDocumentoId` | `201` sin `Location`, documento | `registros.documento:CREAR`, club del equipo |
+| `POST /documentos/{id}/reemplazo` | `archivo` | `201` sin `Location`, documento nuevo | `registros.documento:CREAR`, club del equipo |
+| `GET /registros-jugador/{id}/requisitos` | — | `200` requisitos | `registros.registro:CONSULTAR`, club o persona del registro |
+| `GET /documentos/{id}/enlace` | — | `200 { url, expiraEn }` | `registros.documento:CONSULTAR`, club o persona del registro |
+| `POST /documentos/{id}/validacion` | JSON `{ decision, observaciones? }` | `200` documento | `registros.documento:VALIDAR`, club del equipo |
+
+Hoy carga y reemplaza la Directiva de club (ámbito `CLUB`) y valida el Secretario (ámbito `LIGA`).
+Los requisitos y el enlace se autorizan con el club **y la persona** del registro
+(`ObjetivoAutorizacion.deClubesYPersonas`), así que el jugador o su tutor (ámbito `PROPIO`) también
+llegan. Las rutas `/documentos/{id}/…` solo atienden documentos de un registro: uno de pago,
+afiliación, expediente o persona responde `404` hasta que su historia lo implemente. No hay
+`Location` porque no existe `GET /documentos/{id}`.
+
+**Orden de errores común (DEC-91):**
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. Faltan datos o tienen otro formato: `400 VALIDACION`. Los obligatorios los valida el servicio
+   después del permiso (el controlador recibe el archivo como opcional); un `tipoDocumentoId` que no
+   es número, o una `decision` que no es del enum, no se pueden leer y responden `400 VALIDACION`
+   antes del servicio.
+3. Registro o documento inexistente en la liga, o fuera de ámbito: `404 NO_ENCONTRADO`, sin
+   distinguirlos (VAL-024).
+4. Las reglas de cada endpoint (abajo).
+5. Archivo vacío (`400 VALIDACION`), mayor que 5 MB (`413 ARCHIVO_DEMASIADO_GRANDE`) o con una firma
+   que no es JPEG, PNG, WebP ni PDF (`415 TIPO_ARCHIVO_NO_PERMITIDO`). Un archivo mayor que
+   `spring.servlet.multipart.max-file-size` lo corta Spring antes del controlador, así que ese `413`
+   llega antes que el `403` o el `404`.
+
+Se guarda el MIME detectado por la firma; el nombre del archivo y su `Content-Type` declarado se
+ignoran y no se guardan ni se registran.
+
+**Carga.** Reglas, en orden: temporada `CERRADA` → `409 RF-003`; registro que no está
+`PENDIENTE_VALIDACION` → `409 RF-017`; `tipoDocumentoId` inexistente → `422 REFERENCIA_INVALIDA`; tipo
+que el registro no exige (otra categoría, `INE_TUTOR` de un adulto, `TARJETON_FIRMADO`…) →
+`422 RF-108`, con un `detail` que lo explica; cupo lleno → `409 DUPLICADO`, con un `detail` que pide
+reemplazar uno. Los requisitos son las filas de `requisitos_documento` de la liga para el `tipo` de
+la categoría del equipo; las de `solo_menores` se exigen si la persona era menor en la fecha de alta
+(`es_menor(persona, alta_en)`). El INE del tutor es un documento del registro. Un tipo admite
+`cantidad` documentos **vigentes** (sin `reemplazadoPor`) de cualquier estado: un rechazado ocupa su
+lugar hasta que se reemplaza.
+
+**Reemplazo (DEC-93).** Mismas reglas de temporada y registro; solo sobre un documento vigente
+`PENDIENTE` o `RECHAZADO` (`APROBADO` o ya reemplazado → `409 RF-109`). El nuevo queda `PENDIENTE` con
+el mismo tipo y registro; el anterior conserva su estado y su fila. Toda escritura bloquea primero el
+registro (`FOR UPDATE`) y los `UPDATE` de documentos son condicionales: si otra petición lo
+reemplazó, aprobó o rechazó antes, `409 RF-109`.
+
+**Validación de un documento (DEC-96).** `{ "decision": "APROBADO" | "RECHAZADO", "observaciones" }`.
+Sin `decision` → `400 VALIDACION`; observaciones de más de 500 caracteres → `400 VALIDACION`; rechazo
+sin observaciones de al menos 10 caracteres (sin contar los espacios de los extremos) → `400 RF-109`.
+Después del `404`: quien valida es quien cargó el documento → `403 VAL-022` **[PROPUESTA]**
+(separación de funciones, como DEC-79); temporada `CERRADA` → `409 RF-003`; registro no
+`PENDIENTE_VALIDACION` → `409 RF-017`; documento reemplazado o que ya no está `PENDIENTE` →
+`409 RF-109`. Guarda `estadoValidacion`, `validadoPor`, `validadoEn` y `observaciones`; **no** cambia
+el estado del registro (eso es `POST /registros-jugador/{id}/validacion`, H-10.2, con VAL-001).
+
+Documento (nunca `s3Bucket`, `s3Clave`, `url` ni `sha256`):
+
+```json
+{
+  "id": "…",
+  "registroId": "…",
+  "tipoDocumento": { "id": 5, "codigo": "FOTOGRAFIA", "nombre": "Fotografía" },
+  "tipoMime": "image/jpeg",
+  "tamanoBytes": 183204,
+  "estadoValidacion": "PENDIENTE",
+  "observaciones": null,
+  "validadoPor": null,
+  "validadoEn": null,
+  "reemplazaA": null,
+  "cargadoEn": "2026-11-12T12:00:00-06:00"
+}
+```
+
+`validadoPor` es `{ "id", "nombre" }` con el nombre mostrado del perfil (`null` si el usuario no
+puede ver ese perfil); `reemplazaA`, el documento al que sustituye.
+
+**Requisitos (DEC-92, DEC-96).** Solo `403` y `404`. Responde:
+
+```json
+{
+  "registroId": "…",
+  "estadoRegistro": "PENDIENTE_VALIDACION",
+  "categoria": { "id": "…", "nombre": "Infantil", "tipo": "INFANTIL" },
+  "esMenor": true,
+  "requisitos": [
+    {
+      "tipoDocumento": { "id": 5, "codigo": "FOTOGRAFIA", "nombre": "Fotografía" },
+      "cantidad": 2, "soloMenores": false, "esDemo": true,
+      "cargados": 1, "aprobados": 0, "faltan": 1,
+      "documentos": [ { "…documento vigente…": "" } ]
+    }
+  ],
+  "completo": false,
+  "listoParaValidar": false
+}
+```
+
+`cargados` cuenta los vigentes no rechazados, `aprobados` los vigentes `APROBADO` y
+`faltan = max(0, cantidad - cargados)`; `documentos` son los vigentes de cualquier estado, por fecha
+de carga, para que la Directiva vea las observaciones de un rechazo. `completo` significa todos los
+requisitos cargados y `listoParaValidar`, todos aprobados. `esDemo` marca un valor de demostración
+que la interfaz rotula «no oficial». Los requisitos van en el orden de la semilla
+(`tipo_documento_id`).
+
+**Enlace (DEC-95).** Solo `403`, `404` y `503 SERVICIO_NO_DISPONIBLE` si no se puede firmar. Un
+documento reemplazado también se consulta (es historial). La URL prefirmada vence a los 60 s y nunca
+se guarda, se audita ni va a la bitácora.
+
+**Auditoría (DEC-95).** En `M-04`, entidad `documentos`, en la misma transacción:
+`CARGAR_DOCUMENTO` `{ registroId, tipoDocumento, tipoMime, tamanoBytes }`, `REEMPLAZAR_DOCUMENTO`
+(lo mismo más `documentoAnteriorId`), `VALIDAR_DOCUMENTO` `{ registroId, tipoDocumento, decision }`
+con las observaciones como motivo, y `CONSULTAR_DOCUMENTO` `{ registroId, tipoDocumento }` al generar
+el enlace. `tipoDocumento` es el código. Nunca la URL, el bucket, la clave, el SHA-256, el nombre del
+archivo ni datos personales.
 
 ### 6.5 M-05 Árbitros y designaciones
 
@@ -1732,17 +1856,23 @@ evidencias (RF-059). Decisión completa en ADR-0013.
 
 | Método y ruta | Propósito | Permiso |
 | --- | --- | --- |
-| `POST /registros-jugador/{id}/documentos` · `/personas/{id}/documentos` · `/afiliaciones/{id}/documentos` | Cargar (`multipart/form-data`: `archivo` + `tipoDocumentoId`) | `registros.documento:CREAR` |
-| `GET /registros-jugador/{id}/documentos` | Metadatos: tipo, tamaño, estado de validación, quién y cuándo | `registros.documento:CONSULTAR` |
+| `POST /registros-jugador/{id}/documentos` | Cargar (`multipart/form-data`: `archivo` + `tipoDocumentoId`); `201` sin `Location` (H-10.1, §6.4) | `registros.documento:CREAR` |
+| `POST /personas/{id}/documentos` · `/afiliaciones/{id}/documentos` | Cargar documentos de una persona (renovación, RF-015) o de una afiliación (B) | `registros.documento:CREAR` |
+| `GET /registros-jugador/{id}/documentos` | Historial con los reemplazados; fuera mientras H-10.3 no lo necesite (los vigentes vienen en `GET /registros-jugador/{id}/requisitos`, DEC-96) | `registros.documento:CONSULTAR` |
 | `GET /documentos/{id}/enlace` | URL prefirmada de lectura | `registros.documento:CONSULTAR` |
 | `POST /documentos/{id}/validacion` | `{ "decision": "APROBADO"\|"RECHAZADO", "observaciones" }` | `registros.documento:VALIDAR` |
-| `POST /documentos/{id}/reemplazo` | Carga una versión nueva; la anterior queda con `reemplazadoPorId` | `registros.documento:CREAR` |
+| `POST /documentos/{id}/reemplazo` | Carga un documento nuevo (`multipart/form-data`: `archivo`) en lugar de uno vigente `PENDIENTE` o `RECHAZADO`; el anterior conserva su estado y queda reemplazado. `201` sin `Location` | `registros.documento:CREAR` |
 
 - Tipos aceptados por **firma binaria**: JPEG, PNG, WebP y PDF. Tamaño máximo 5 MB **[PROPUESTA]**.
 - `GET /documentos/{id}/enlace` responde `{ "url": "https://…", "expiraEn": "…" }` con vigencia de
   60 s **[PROPUESTA]**. La respuesta lleva `Cache-Control: no-store`; la interfaz abre la URL de
   inmediato y nunca la guarda.
-- Las respuestas **nunca** incluyen `s3Bucket`, `s3Clave` ni la `url` guardada en la base.
+- Las respuestas **nunca** incluyen `s3Bucket`, `s3Clave`, `sha256` ni la `url` guardada en la base.
+- El reemplazo solo procede sobre un documento vigente `PENDIENTE` o `RECHAZADO` (`409 RF-109` si
+  está `APROBADO` o ya fue reemplazado); no hay número de versión ni se borra nada en S3. Responde
+  `201` sin `Location` porque no existe `GET /documentos/{id}`.
+- `POST /personas/{id}/documentos` (carpeta `tutores`) queda para la renovación (entrega B): en
+  H-10.1 el INE del tutor es un documento del registro (DEC-92).
 
 ## 8. Portal público (`/api/v1/publico`)
 
