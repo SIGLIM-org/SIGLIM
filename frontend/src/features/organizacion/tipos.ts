@@ -83,6 +83,24 @@ export type Persona = {
   apellidoMaterno?: string
 }
 
+/** Detalle que devuelve el alta de una persona (H-09.1); incluye la fecha para reutilizarla. */
+export type PersonaDetalle = Persona & {
+  fechaNacimiento: string
+  correo?: string
+  telefono?: string
+}
+
+/** `POST /personas` (H-09.1, DEC-62): la identidad es única por CURP. */
+export type CrearPersonaPeticion = {
+  curp: string
+  nombre: string
+  apellidoPaterno: string
+  apellidoMaterno?: string
+  fechaNacimiento: string
+  correo?: string
+  telefono?: string
+}
+
 export type FiltrosClubes = {
   q?: string
   estado?: EstadoClub

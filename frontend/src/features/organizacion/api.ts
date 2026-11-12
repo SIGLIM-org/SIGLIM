@@ -7,10 +7,12 @@ import type {
   Club,
   CrearClubPeticion,
   CrearEquipoPeticion,
+  CrearPersonaPeticion,
   Equipo,
   FiltrosClubes,
   FiltrosEquipos,
   Persona,
+  PersonaDetalle,
   RegistrarCargoDirectivaPeticion,
 } from '@/features/organizacion/tipos'
 import { clavesUsuarios } from '@/features/usuarios/api'
@@ -183,6 +185,16 @@ export function useAutorizarCargoDirectiva(clubId: string) {
 export function useBuscarPersona() {
   return useMutation({
     mutationFn: (curp: string) => api.get<Persona>(`personas?curp=${encodeURIComponent(curp)}`),
+  })
+}
+
+/**
+ * Registra una persona nueva cuando su CURP no existe (H-09.1). La usa F-20 para presentar a un
+ * árbitro que aún no estaba en el sistema; la identidad sigue siendo única por CURP.
+ */
+export function useCrearPersona() {
+  return useMutation({
+    mutationFn: (peticion: CrearPersonaPeticion) => api.post<PersonaDetalle>('personas', peticion),
   })
 }
 

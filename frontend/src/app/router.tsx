@@ -19,7 +19,11 @@ import { PaginaNoEncontrada } from '@/pages/PaginaNoEncontrada'
  * (Inicio y Tesorería) se registran más abajo; el resto sigue usando `EnConstruccion` hasta que su
  * historia lo sustituya.
  */
-const RUTAS_CON_PANTALLA_PROPIA = new Set(['/app', '/app/tesoreria'])
+const RUTAS_CON_PANTALLA_PROPIA = new Set([
+  '/app',
+  '/app/tesoreria',
+  '/app/programacion/arbitros',
+])
 
 const paginasApp: RouteObject[] = seccionesApp
   .filter(({ ruta }) => !RUTAS_CON_PANTALLA_PROPIA.has(ruta))
@@ -150,6 +154,17 @@ export const rutas: RouteObject[] = [
                   )
 
                   return { Component: PantallaCanchas }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
+                path: '/app/programacion/arbitros',
+                lazy: async () => {
+                  const { PantallaArbitros } = await import(
+                    '@/features/arbitraje/PantallaArbitros'
+                  )
+
+                  return { Component: PantallaArbitros }
                 },
                 HydrateFallback: CargandoPagina,
               },
