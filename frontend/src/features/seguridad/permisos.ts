@@ -23,6 +23,17 @@ export function tieneAlgunPermiso(
 }
 
 /**
+ * ¿La sesión tiene todos los permisos indicados? Sirve para pantallas que combinan recursos de
+ * varios módulos, como la plantilla del equipo (DEC-116). Una lista vacía no concede nada.
+ */
+export function tieneTodosLosPermisos(
+  permisos: readonly Pick<Permiso, 'codigo'>[],
+  codigos: readonly string[],
+): boolean {
+  return codigos.length > 0 && codigos.every((codigo) => tienePermiso(permisos, codigo))
+}
+
+/**
  * ¿Algún permiso de esos módulos da acceso a la sección? Una sección sin
  * módulos es visible siempre (Inicio). `notificaciones.*` no cuenta para las
  * secciones: la campana de F-09 no crea una entrada del menú (H-01.3).

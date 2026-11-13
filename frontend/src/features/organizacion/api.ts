@@ -203,11 +203,16 @@ export function useCrearPersona() {
 }
 
 /** Equipos de un club (o de todo el ámbito sin `clubId`), ordenados en el backend por el orden de la categoría, grupo y nombre (RF-009, DEC-16). */
-export function useEquipos(filtros: FiltrosEquipos) {
+export function useEquipos(
+  filtros: FiltrosEquipos,
+  { habilitada = true }: { habilitada?: boolean } = {},
+) {
   return useQuery({
     queryKey: clavesOrganizacion.listaEquipos(filtros),
     queryFn: () => api.get<Pagina<Equipo>>(`equipos?${consultaDeEquipos(filtros)}`),
     placeholderData: keepPreviousData,
+    // La plantilla no pide equipos hasta elegir un club (DEC-116).
+    enabled: habilitada,
   })
 }
 

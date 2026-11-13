@@ -20,7 +20,12 @@ import { accionErrorCarga, type AccionErrorCarga } from '@/features/registros/do
 import { TarjetaRequisito } from '@/features/registros/documentos/TarjetaRequisito'
 import { VisorDocumento } from '@/features/registros/documentos/VisorDocumento'
 import { CARGAR_DOCUMENTO, usePermisosRegistros } from '@/features/registros/permisos'
-import { RUTA_ALTA_JUGADOR, RUTA_ORGANIZACION, vieneDelAlta } from '@/features/registros/rutas'
+import {
+  RUTA_ALTA_JUGADOR,
+  RUTA_JUGADORES,
+  rutaPlantilla,
+  vieneDelAlta,
+} from '@/features/registros/rutas'
 import type { DocumentoRegistro, RegistroJugadorDetalle } from '@/features/registros/tipos'
 import { ConPermiso } from '@/features/seguridad/ConPermiso'
 import { esSinPermiso } from '@/lib/api/errores'
@@ -180,7 +185,7 @@ function PaginaDocumentosRegistro() {
           >
             <CircleCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
             El registro se envió y quedó pendiente de validación. Carga ahora sus documentos o
-            vuelve más tarde desde Organización.
+            vuelve más tarde desde Jugadores.
           </p>
         </>
       )}
@@ -193,8 +198,8 @@ function PaginaDocumentosRegistro() {
             void requisitos.refetch()
           }}
           accion={
-            <Link to={RUTA_ORGANIZACION} className={clasesBoton('secundario')}>
-              Volver a Organización
+            <Link to={RUTA_JUGADORES} className={clasesBoton('secundario')}>
+              Volver a Jugadores
             </Link>
           }
         />
@@ -304,7 +309,11 @@ function PaginaDocumentosRegistro() {
       )}
 
       <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
-        <Link to={RUTA_ORGANIZACION} className={clasesBoton('secundario')}>
+        {/* Vuelve a la plantilla del equipo del registro (DEC-116). */}
+        <Link
+          to={registro ? rutaPlantilla(registro.club.id, registro.equipo.id) : RUTA_JUGADORES}
+          className={clasesBoton('secundario')}
+        >
           Volver
         </Link>
         {desdeAlta && (

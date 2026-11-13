@@ -18,8 +18,10 @@ export type EnlacePortal = {
 export type SubseccionApp = {
   nombre: string
   ruta: string
-  /** Permiso o permisos que hacen visible el enlace; basta con uno. */
+  /** Permiso o permisos que hacen visible el enlace; basta con uno salvo con `requiereTodos`. */
   permiso: string | readonly string[]
+  /** Exige todos los permisos de `permiso` en lugar de uno (DEC-116). */
+  requiereTodos?: boolean
   descripcion: string
 }
 
@@ -71,11 +73,18 @@ export const seccionesApp: SeccionApp[] = [
         descripcion: 'Tarjetón del club por temporada.',
       },
       {
-        // Pantalla de acción (DEC-108): con EDITAR, no con CONSULTAR. Con H-09.4 pasa a «Jugadores» (F-17).
-        nombre: 'Alta de jugador',
-        ruta: '/app/organizacion/jugadores/alta',
-        permiso: 'registros.registro:EDITAR',
-        descripcion: 'Registra a un jugador por CURP con su tutor y consentimiento.',
+        // Plantilla F-17 (DEC-108, DEC-116): exige consultar registros, equipos y clubes a la vez, así
+        // que la Comisión y el jugador o tutor, que solo consultan registros, no la ven. El alta ya no
+        // va en el menú: se abre desde «Registrar jugador» de la plantilla, con EDITAR.
+        nombre: 'Jugadores',
+        ruta: '/app/organizacion/jugadores',
+        permiso: [
+          'registros.registro:CONSULTAR',
+          'organizacion.equipo:CONSULTAR',
+          'organizacion.club:CONSULTAR',
+        ],
+        requiereTodos: true,
+        descripcion: 'Plantilla de cada equipo con el estado y la elegibilidad de sus jugadores.',
       },
       {
         // Bandeja de la liga (DEC-111): con VALIDAR; la Comisión consulta registros, pero no valida.

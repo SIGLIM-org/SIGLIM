@@ -68,6 +68,41 @@ describe('ConPermiso', () => {
     ).toBeInTheDocument()
   })
 
+  it('DEC-116: con todos, uno solo de los permisos no basta', () => {
+    sesion.yo.permisos = [permiso('registros.registro:CONSULTAR', 'M-04')]
+
+    render(
+      <ConPermiso
+        permiso={['registros.registro:CONSULTAR', 'organizacion.equipo:CONSULTAR']}
+        todos
+        alternativa={<p>Sin acceso a la plantilla.</p>}
+      >
+        <p>Plantilla</p>
+      </ConPermiso>,
+    )
+
+    expect(screen.getByText('Sin acceso a la plantilla.')).toBeInTheDocument()
+    expect(screen.queryByText('Plantilla')).not.toBeInTheDocument()
+  })
+
+  it('DEC-116: con todos y cada permiso indicado, muestra el contenido', () => {
+    sesion.yo.permisos = [
+      permiso('registros.registro:CONSULTAR', 'M-04'),
+      permiso('organizacion.equipo:CONSULTAR', 'M-03'),
+    ]
+
+    render(
+      <ConPermiso
+        permiso={['registros.registro:CONSULTAR', 'organizacion.equipo:CONSULTAR']}
+        todos
+      >
+        <p>Plantilla</p>
+      </ConPermiso>,
+    )
+
+    expect(screen.getByText('Plantilla')).toBeInTheDocument()
+  })
+
   it('H-02.4: muestra la alternativa cuando no hay permiso', () => {
     render(
       <ConPermiso

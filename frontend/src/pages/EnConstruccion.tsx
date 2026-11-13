@@ -18,7 +18,11 @@ export function EnConstruccion({ titulo, descripcion, subsecciones = [] }: Props
       {subsecciones.length > 0 && (
         <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {subsecciones.map((subseccion) => (
-            <ConPermiso key={subseccion.ruta} permiso={subseccion.permiso}>
+            <ConPermiso
+              key={subseccion.ruta}
+              permiso={subseccion.permiso}
+              todos={subseccion.requiereTodos}
+            >
               <li>
                 <Link
                   to={subseccion.ruta}
