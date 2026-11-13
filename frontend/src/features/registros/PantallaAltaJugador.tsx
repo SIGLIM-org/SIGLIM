@@ -1,11 +1,12 @@
 import { AsistenteAltaJugador } from '@/features/registros/AsistenteAltaJugador'
+import { EDITAR_REGISTRO } from '@/features/registros/permisos'
 import { ConPermiso } from '@/features/seguridad/ConPermiso'
 import { PaginaSinPermiso } from '@/pages/PaginaSinPermiso'
 
 export { RUTA_ALTA_JUGADOR } from '@/features/registros/rutas'
 
 /** Permiso de la acción de alta: el Secretario consulta registros, pero no los da de alta (DEC-108). */
-export const PERMISO_ALTA_JUGADOR = 'registros.registro:EDITAR'
+export const PERMISO_ALTA_JUGADOR = EDITAR_REGISTRO
 
 /**
  * Pantalla de alta de jugador (F-18 con F-06, H-09.3). Solo con `registros.registro:EDITAR`; sin él,

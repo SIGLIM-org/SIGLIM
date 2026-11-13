@@ -39,7 +39,7 @@ import {
   type ErroresPersona,
 } from '@/features/registros/asistenteAlta'
 import {
-  RUTA_ORGANIZACION,
+  RUTA_JUGADORES,
   rutaDocumentosRegistro,
   type EstadoDesdeAlta,
 } from '@/features/registros/rutas'
@@ -47,7 +47,8 @@ import type { PersonaConMinoria } from '@/features/registros/tipos'
 import { ApiError } from '@/lib/api/ApiError'
 import { esNoEncontrado } from '@/lib/api/errores'
 
-export const RUTA_SALIDA_ALTA = RUTA_ORGANIZACION
+/** Al cancelar o salir, el asistente vuelve a la plantilla (DEC-116). */
+export const RUTA_SALIDA_ALTA = RUTA_JUGADORES
 
 const MENSAJE_CURP = 'La CURP debe tener 18 caracteres y el formato oficial.'
 

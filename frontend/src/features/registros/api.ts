@@ -24,6 +24,9 @@ import type { Pagina } from '@/lib/api/tipos'
 /** Filas por página de la bandeja de validación (DEC-111). */
 export const TAMANO_REGISTROS = 20
 
+/** Filas por página de la plantilla del equipo (DEC-117); el contrato admite hasta 100. */
+export const TAMANO_PLANTILLA = 50
+
 /**
  * La lista y el detalle cuelgan de `registros`, que el alta ya invalida; los requisitos van aparte
  * para recargarlos solos cuando cambia un documento.
@@ -36,7 +39,14 @@ export const clavesRegistros = {
   avisoVigente: ['registros', 'aviso-vigente'] as const,
 }
 
-function consultaDeRegistros({ estado, clubId, orden, pagina, tamano }: FiltrosRegistros): string {
+function consultaDeRegistros({
+  estado,
+  clubId,
+  equipoId,
+  orden,
+  pagina,
+  tamano,
+}: FiltrosRegistros): string {
   const parametros = new URLSearchParams()
 
   if (estado) {
@@ -44,6 +54,9 @@ function consultaDeRegistros({ estado, clubId, orden, pagina, tamano }: FiltrosR
   }
   if (clubId) {
     parametros.set('clubId', clubId)
+  }
+  if (equipoId) {
+    parametros.set('equipoId', equipoId)
   }
   parametros.set('orden', orden)
   parametros.set('pagina', String(pagina))
@@ -104,14 +117,21 @@ export function useRegistrarAltaJugador() {
 
 // ── Consulta (H-10.5, DEC-109) ──────────────────────────────────────────────────────────────────
 
-/** Registros visibles para la sesión; el ámbito lo filtra el backend en el SQL (ADR-0007). */
-export function useRegistros(filtros: FiltrosRegistros) {
+/**
+ * Registros visibles para la sesión; el ámbito lo filtra el backend en el SQL (ADR-0007). Con
+ * `habilitada: false` no consulta, p. ej. la plantilla sin equipo elegido (DEC-117).
+ */
+export function useRegistros(
+  filtros: FiltrosRegistros,
+  { habilitada = true }: { habilitada?: boolean } = {},
+) {
   return useQuery({
     queryKey: clavesRegistros.lista(filtros),
     queryFn: () =>
       api.get<Pagina<RegistroJugadorFila>>(`registros-jugador?${consultaDeRegistros(filtros)}`),
     placeholderData: keepPreviousData,
     retry: reintentarConsulta,
+    enabled: habilitada,
   })
 }
 

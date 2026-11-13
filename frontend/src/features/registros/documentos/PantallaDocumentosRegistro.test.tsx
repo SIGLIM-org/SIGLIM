@@ -238,7 +238,11 @@ describe('PantallaDocumentosRegistro (F-18 paso 4, H-10.3)', () => {
       'href',
       '/app/organizacion/jugadores/alta',
     )
-    expect(screen.getByRole('link', { name: 'Volver' })).toHaveAttribute('href', '/app/organizacion')
+    // DEC-116: «Volver» lleva a la plantilla del club y el equipo del registro.
+    expect(screen.getByRole('link', { name: 'Volver' })).toHaveAttribute(
+      'href',
+      '/app/organizacion/jugadores?club=c1&equipo=e1',
+    )
   })
 
   it('DEC-111: sin desdeAlta (recarga o entrada posterior) no hay indicador de pasos', async () => {

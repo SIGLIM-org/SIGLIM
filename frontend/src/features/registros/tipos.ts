@@ -70,10 +70,11 @@ export type RegistroJugadorDetalle = Omit<RegistroJugador, 'persona'> & {
 
 export type OrdenRegistros = 'creadoEn,asc' | 'creadoEn,desc' | 'nombre,asc'
 
-/** Filtros de `GET /registros-jugador` que usa la bandeja (DEC-111). */
+/** Filtros de `GET /registros-jugador` que usan la bandeja (DEC-111) y la plantilla (DEC-117). */
 export type FiltrosRegistros = {
   estado?: EstadoRegistro
   clubId?: string
+  equipoId?: string
   orden: OrdenRegistros
   pagina: number
   tamano: number

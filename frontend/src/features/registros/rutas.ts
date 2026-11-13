@@ -3,7 +3,8 @@
  * la página de documentos y la bandeja se enlacen sin importarse entre sí.
  */
 
-export const RUTA_ORGANIZACION = '/app/organizacion'
+/** Plantilla del equipo (F-17, DEC-116); la selección viaja en `?club=&equipo=&estado=`. */
+export const RUTA_JUGADORES = '/app/organizacion/jugadores'
 
 export const RUTA_ALTA_JUGADOR = '/app/organizacion/jugadores/alta'
 
@@ -15,6 +16,16 @@ export const RUTA_VALIDACION_REGISTROS = '/app/organizacion/registros'
 
 export function rutaDocumentosRegistro(registroId: string): string {
   return `/app/organizacion/jugadores/${registroId}/documentos`
+}
+
+/** Plantilla con el club y el equipo ya elegidos (DEC-116). */
+export function rutaPlantilla(clubId: string, equipoId: string): string {
+  return `${RUTA_JUGADORES}?${new URLSearchParams({ club: clubId, equipo: equipoId }).toString()}`
+}
+
+/** Detalle de un registro en la bandeja de validación (DEC-111, DEC-117). */
+export function rutaValidacionRegistro(registroId: string): string {
+  return `${RUTA_VALIDACION_REGISTROS}/${registroId}`
 }
 
 /** Estado de navegación con el que el asistente llega a los documentos tras el `201`. */

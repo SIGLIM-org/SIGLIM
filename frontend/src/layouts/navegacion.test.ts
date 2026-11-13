@@ -57,17 +57,25 @@ describe('subsecciones', () => {
     expect(seccionDeRuta('/app/organizacion/afiliaciones/af-1')?.nombre).toBe('Organización')
   })
 
-  it('H-09.3 · DEC-108: Organización ofrece Alta de jugador con EDITAR, no con CONSULTAR', () => {
+  it('H-09.4 · DEC-116: Organización ofrece Jugadores con los tres permisos (requiereTodos)', () => {
     const organizacion = seccionesApp.find(({ nombre }) => nombre === 'Organización')
 
     expect(organizacion?.subsecciones).toContainEqual(
       expect.objectContaining({
-        nombre: 'Alta de jugador',
-        ruta: '/app/organizacion/jugadores/alta',
-        permiso: 'registros.registro:EDITAR',
+        nombre: 'Jugadores',
+        ruta: '/app/organizacion/jugadores',
+        permiso: [
+          'registros.registro:CONSULTAR',
+          'organizacion.equipo:CONSULTAR',
+          'organizacion.club:CONSULTAR',
+        ],
+        requiereTodos: true,
       }),
     )
+    expect(seccionDeRuta('/app/organizacion/jugadores')?.nombre).toBe('Organización')
     expect(seccionDeRuta('/app/organizacion/jugadores/alta')?.nombre).toBe('Organización')
+    // El alta ya no va en el menú: se abre desde la plantilla (DEC-116).
+    expect(organizacion?.subsecciones?.some(({ ruta }) => ruta.endsWith('/alta'))).toBe(false)
   })
 
   it('H-10.3 · DEC-111: Organización ofrece Validación de registros con VALIDAR y las rutas quedan en la sección', () => {

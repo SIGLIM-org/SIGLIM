@@ -227,7 +227,7 @@ function montar() {
     [
       { path: RUTA_ALTA_JUGADOR, element: <PantallaAltaJugador /> },
       { path: RUTA_DOCUMENTOS_REGISTRO, element: <DocumentosSimulados /> },
-      { path: '/app/organizacion', element: <p>Sección Organización</p> },
+      { path: '/app/organizacion/jugadores', element: <p>Plantilla de jugadores</p> },
     ],
     { initialEntries: [RUTA_ALTA_JUGADOR] },
   )
@@ -729,16 +729,16 @@ describe('PantallaAltaJugador (F-18, F-06, H-09.3)', () => {
     expect(dialogo).toHaveTextContent(/se conserva/)
     await user.click(within(dialogo).getByRole('button', { name: 'Salir del alta' }))
 
-    expect(await screen.findByText('Sección Organización')).toBeInTheDocument()
+    expect(await screen.findByText('Plantilla de jugadores')).toBeInTheDocument()
   })
 
-  it('sin escrituras, «Cancelar» vuelve a Organización sin preguntar', async () => {
+  it('DEC-116: sin escrituras, «Cancelar» vuelve a Jugadores sin preguntar', async () => {
     const user = usuario()
     montar()
 
     await user.click(screen.getByRole('button', { name: 'Cancelar' }))
 
-    expect(await screen.findByText('Sección Organización')).toBeInTheDocument()
+    expect(await screen.findByText('Plantilla de jugadores')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })
