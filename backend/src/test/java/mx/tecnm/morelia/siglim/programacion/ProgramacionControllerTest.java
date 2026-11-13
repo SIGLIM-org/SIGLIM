@@ -14,6 +14,7 @@ import mx.tecnm.morelia.siglim.compartido.config.SeguridadPrueba;
 import mx.tecnm.morelia.siglim.compartido.error.ErroresTecnicos;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.programacion.PartidoDto.ReferenciaDto;
+import mx.tecnm.morelia.siglim.programacion.VerificacionJornadaDto.Aviso;
 import mx.tecnm.morelia.siglim.seguridad.ArnesAutorizacionEndpoint;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.DynamicTest;
@@ -35,7 +36,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 /**
  * Contrato HTTP de la programación manual (convenciones de API §6.7) con la cadena de seguridad real.
  *
- * <p>Refs: H-12.1, RF-033, RF-036, RF-040
+ * <p>Refs: H-12.1, H-12.3, RF-033, RF-036, RF-039, RF-040
  */
 @WebMvcTest(controllers = {JornadaController.class, PartidoController.class}, properties = {
         "SUPABASE_URL=" + SeguridadPrueba.URL_SUPABASE,
@@ -215,6 +216,26 @@ class ProgramacionControllerTest {
         assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo("RN-021");
     }
 
+    @Test
+    @DisplayName("RF-039: POST /jornadas/{id}/verificacion devuelve conflictos y advertencias sin guardar")
+    void verificar() {
+        given(servicio.verificar(JORNADA)).willReturn(new VerificacionJornadaDto(
+                List.of(new Aviso(PARTIDO, "VAL-004",
+                        "La cancha «Morelos 2» ya está ocupada por el partido «Águilas vs. Pumas».")),
+                List.of()));
+
+        MvcTestResult resultado = post(BASE + "/" + JORNADA + "/verificacion", null);
+
+        assertThat(resultado).hasStatusOk();
+        assertThat(resultado).bodyJson().extractingPath("$.conflictos[0].partidoId")
+                .isEqualTo(PARTIDO.toString());
+        assertThat(resultado).bodyJson().extractingPath("$.conflictos[0].codigo").isEqualTo("VAL-004");
+        assertThat(resultado).bodyJson().extractingPath("$.conflictos[0].mensaje")
+                .asString().contains("Morelos 2", "Águilas vs. Pumas");
+        assertThat(resultado).bodyJson().extractingPath("$.advertencias").isEqualTo(List.of());
+        Mockito.verify(servicio).verificar(JORNADA);
+    }
+
     // ── 401, 403 y 404 de cada endpoint (convenciones de API §10) ───────────────────────────────
 
     @TestFactory
@@ -258,6 +279,16 @@ class ProgramacionControllerTest {
                 .dobles(servicio)
                 .simularDenegacion(error -> given(servicio.registrarPartido(eq(JORNADA),
                         any(CrearPartidoRequest.class))).willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de POST /api/v1/jornadas/{id}/verificacion")
+    Stream<DynamicTest> seguridadVerificar() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.POST, BASE + "/{id}/verificacion", JORNADA)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.verificar(JORNADA)).willThrow(error))
                 .pruebas();
     }
 
