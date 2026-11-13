@@ -158,6 +158,28 @@ export const rutas: RouteObject[] = [
                 HydrateFallback: CargandoPagina,
               },
               {
+                path: '/app/organizacion/jugadores/:registroId/documentos',
+                lazy: async () => {
+                  const { PantallaDocumentosRegistro } = await import(
+                    '@/features/registros/documentos/PantallaDocumentosRegistro'
+                  )
+
+                  return { Component: PantallaDocumentosRegistro }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
+                path: '/app/organizacion/registros/:registroId?',
+                lazy: async () => {
+                  const { PantallaValidacionRegistros } = await import(
+                    '@/features/registros/validacion/PantallaValidacionRegistros'
+                  )
+
+                  return { Component: PantallaValidacionRegistros }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
                 path: '/app/programacion/canchas/:canchaId?',
                 lazy: async () => {
                   const { PantallaCanchas } = await import(

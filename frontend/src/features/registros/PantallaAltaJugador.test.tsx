@@ -1,13 +1,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createMemoryRouter, RouterProvider } from 'react-router'
+import { createMemoryRouter, RouterProvider, useLocation, useParams } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Equipo, Persona, PersonaDetalle } from '@/features/organizacion/tipos'
 import {
   PantallaAltaJugador,
   RUTA_ALTA_JUGADOR,
 } from '@/features/registros/PantallaAltaJugador'
+import { RUTA_DOCUMENTOS_REGISTRO, vieneDelAlta } from '@/features/registros/rutas'
 import type { AvisoPrivacidad, RegistroJugador } from '@/features/registros/tipos'
 import type { Permiso } from '@/features/seguridad/tipos'
 import { ApiError } from '@/lib/api/ApiError'
@@ -208,10 +209,24 @@ function otorgar(...codigos: string[]) {
   }))
 }
 
+/** Sustituto de la página de documentos: muestra el registro y si llegó desde el alta (DEC-111). */
+function DocumentosSimulados() {
+  const { registroId } = useParams()
+  const { state } = useLocation()
+
+  return (
+    <p>
+      Documentos de {registroId}
+      {vieneDelAlta(state) ? ' desde el alta' : ''}
+    </p>
+  )
+}
+
 function montar() {
   const enrutador = createMemoryRouter(
     [
       { path: RUTA_ALTA_JUGADOR, element: <PantallaAltaJugador /> },
+      { path: RUTA_DOCUMENTOS_REGISTRO, element: <DocumentosSimulados /> },
       { path: '/app/organizacion', element: <p>Sección Organización</p> },
     ],
     { initialEntries: [RUTA_ALTA_JUGADOR] },
@@ -315,7 +330,7 @@ describe('PantallaAltaJugador (F-18, F-06, H-09.3)', () => {
     expect(get).not.toHaveBeenCalled()
   })
 
-  it('H-09 criterio 1: una CURP nueva de un adulto crea la persona, registra su consentimiento sin otorgadoPorId y queda Pendiente de validación', async () => {
+  it('H-09 criterio 1: una CURP nueva de un adulto crea la persona, registra su consentimiento sin otorgadoPorId y navega a sus documentos (DEC-111)', async () => {
     const user = usuario()
     responder({ altasPersona: { [CURP_ADULTO]: ALTA_ADULTO } })
     montar()
@@ -333,7 +348,7 @@ describe('PantallaAltaJugador (F-18, F-06, H-09.3)', () => {
     ).toHaveFocus()
     await otorgarConsentimiento(user)
 
-    expect(await screen.findByText('Pendiente de validación')).toBeInTheDocument()
+    expect(await screen.findByText('Documentos de reg-1 desde el alta')).toBeInTheDocument()
     expect(post).toHaveBeenCalledWith('personas', expect.objectContaining({
       curp: CURP_ADULTO,
       nombre: 'Ana',
@@ -346,8 +361,7 @@ describe('PantallaAltaJugador (F-18, F-06, H-09.3)', () => {
     })
     expect(post).toHaveBeenLastCalledWith('registros-jugador', { personaId: 'p-nuevo', equipoId: 'e1' })
     expect(rutasPost()).toEqual(['personas', 'personas/p-nuevo/consentimientos', 'registros-jugador'])
-    expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent('Documentos')
-    expect(screen.getByText(/La carga de documentos aún no está disponible/)).toBeInTheDocument()
+
   })
 
   it('DEC-107: un 400 de POST /personas sobre un campo que el paso 2 no dibuja muestra el detail', async () => {
@@ -389,7 +403,7 @@ describe('PantallaAltaJugador (F-18, F-06, H-09.3)', () => {
     await user.click(screen.getByRole('button', { name: 'Continuar' }))
     await otorgarConsentimiento(user)
 
-    await screen.findByText('Pendiente de validación')
+    await screen.findByText('Documentos de reg-1 desde el alta')
     expect(rutasPost()).not.toContain('personas')
     expect(post).toHaveBeenLastCalledWith('registros-jugador', { personaId: 'p-adulto', equipoId: 'e1' })
   })
@@ -410,7 +424,7 @@ describe('PantallaAltaJugador (F-18, F-06, H-09.3)', () => {
     await user.click(screen.getByRole('button', { name: 'Continuar' }))
     await otorgarConsentimiento(user)
 
-    await screen.findByText('Pendiente de validación')
+    await screen.findByText('Documentos de reg-1 desde el alta')
     expect(post).toHaveBeenCalledWith('personas/p-existe/consentimientos', expect.anything())
     expect(post).toHaveBeenLastCalledWith('registros-jugador', { personaId: 'p-existe', equipoId: 'e1' })
   })
@@ -445,7 +459,7 @@ describe('PantallaAltaJugador (F-18, F-06, H-09.3)', () => {
     expect(screen.queryByText(/VAL-025/)).not.toBeInTheDocument()
     await otorgarConsentimiento(user)
 
-    await screen.findByText('Pendiente de validación')
+    await screen.findByText('Documentos de reg-1 desde el alta')
     expect(rutasPost()).toEqual([
       'personas',
       'personas',
@@ -545,7 +559,7 @@ describe('PantallaAltaJugador (F-18, F-06, H-09.3)', () => {
     expect(screen.getByRole('checkbox', { name: 'Registro deportivo' })).not.toBeChecked()
     await otorgarConsentimiento(user)
 
-    await screen.findByText('Pendiente de validación')
+    await screen.findByText('Documentos de reg-1 desde el alta')
     expect(rutasPost().filter((ruta) => ruta.endsWith('/consentimientos'))).toHaveLength(2)
   })
 
@@ -584,7 +598,7 @@ describe('PantallaAltaJugador (F-18, F-06, H-09.3)', () => {
     await screen.findByText(/El consentimiento ya quedó registrado/)
     await user.click(screen.getByRole('button', { name: 'Enviar a validación' }))
 
-    await screen.findByText('Pendiente de validación')
+    await screen.findByText('Documentos de reg-1 desde el alta')
     expect(rutasPost()).toEqual([
       'personas',
       'personas/p-nuevo/consentimientos',

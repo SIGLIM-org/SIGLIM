@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.3 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.4 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -52,6 +52,7 @@ Versión 5.3 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../r
 | 5.1 | 12 de noviembre de 2026 | H-10.2: §6.4 con la validación de un registro (`POST /registros-jugador/{id}/validacion`): permiso `registros.registro:VALIDAR` sobre el club del equipo, orden de errores, `VAL-022` **[PROPUESTA]** para quien dio de alta el registro, RF-013, `422 VAL-001` con la extensión `faltantes`, VAL-025, `UPDATE` condicional con el registro bloqueado, respuesta `200` con `validadoPor`, `validadoEn` y `observaciones`, motivo del historial y auditoría `VALIDAR_REGISTRO_JUGADOR`; el alta muestra los tres campos nuevos en `null`; §2.1 con las observaciones opcionales al aprobar; §3.2 con `VAL-001` en `422` y `VAL-015` también para registros (DEC-97 a DEC-102). |
 | 5.2 | 12 de noviembre de 2026 | H-09.3: §6.3 con `esMenor` en `GET /personas?curp=` (DEC-104). |
 | 5.3 | 12 de noviembre de 2026 | H-10.5: §6.4 con la consulta de registros: `GET /registros-jugador` (filtros `estado`, `temporadaId`, `clubId`, `equipoId`; orden `creadoEn,asc`, `creadoEn,desc` o `nombre,asc`; ámbito en el `WHERE` y en el `COUNT`; filas con la CURP enmascarada, sin avance de documentos) y `GET /registros-jugador/{id}` (detalle con `esMenor`, tutores vigentes y la CURP completa solo con `organizacion.persona:CONSULTAR` sobre el club), ambos con `Cache-Control: no-store` y su orden de errores; el alta responde `201` con `Location`; §9.2 cita DEC-110 como la aplicación del enmascarado en M-04 (DEC-109, DEC-110). |
+| 5.4 | 12 de noviembre de 2026 | H-10.3: §7 precisa que `GET /registros-jugador/{id}/documentos` sigue fuera porque la página de documentos y la bandeja de validación no lo usan: los documentos vigentes vienen en `GET /registros-jugador/{id}/requisitos` (DEC-96, DEC-112). |
 
 ## Índice
 
@@ -2054,7 +2055,7 @@ evidencias (RF-059). Decisión completa en ADR-0013.
 | --- | --- | --- |
 | `POST /registros-jugador/{id}/documentos` | Cargar (`multipart/form-data`: `archivo` + `tipoDocumentoId`); `201` sin `Location` (H-10.1, §6.4) | `registros.documento:CREAR` |
 | `POST /personas/{id}/documentos` · `/afiliaciones/{id}/documentos` | Cargar documentos de una persona (renovación, RF-015) o de una afiliación (B) | `registros.documento:CREAR` |
-| `GET /registros-jugador/{id}/documentos` | Historial con los reemplazados; fuera mientras H-10.3 no lo necesite (los vigentes vienen en `GET /registros-jugador/{id}/requisitos`, DEC-96) | `registros.documento:CONSULTAR` |
+| `GET /registros-jugador/{id}/documentos` | Historial con los reemplazados; sigue fuera porque H-10.3 no lo usa: los vigentes vienen en `GET /registros-jugador/{id}/requisitos` (DEC-96, DEC-112) | `registros.documento:CONSULTAR` |
 | `GET /documentos/{id}/enlace` | URL prefirmada de lectura | `registros.documento:CONSULTAR` |
 | `POST /documentos/{id}/validacion` | `{ "decision": "APROBADO"\|"RECHAZADO", "observaciones" }` | `registros.documento:VALIDAR` |
 | `POST /documentos/{id}/reemplazo` | Carga un documento nuevo (`multipart/form-data`: `archivo`) en lugar de uno vigente `PENDIENTE` o `RECHAZADO`; el anterior conserva su estado y queda reemplazado. `201` sin `Location` | `registros.documento:CREAR` |

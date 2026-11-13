@@ -9,7 +9,6 @@ import { IndicadorPasos } from '@/features/registros/IndicadorPasos'
 import { ModalSalirAlta } from '@/features/registros/ModalSalirAlta'
 import { PasoConsentimiento } from '@/features/registros/PasoConsentimiento'
 import { PasoDatosTutor } from '@/features/registros/PasoDatosTutor'
-import { PasoDocumentosPendiente } from '@/features/registros/PasoDocumentosPendiente'
 import { PasoIdentidad } from '@/features/registros/PasoIdentidad'
 import {
   useAvisoVigente,
@@ -39,11 +38,16 @@ import {
   type ErroresAsistente,
   type ErroresPersona,
 } from '@/features/registros/asistenteAlta'
+import {
+  RUTA_ORGANIZACION,
+  rutaDocumentosRegistro,
+  type EstadoDesdeAlta,
+} from '@/features/registros/rutas'
 import type { PersonaConMinoria } from '@/features/registros/tipos'
 import { ApiError } from '@/lib/api/ApiError'
 import { esNoEncontrado } from '@/lib/api/errores'
 
-export const RUTA_SALIDA_ALTA = '/app/organizacion'
+export const RUTA_SALIDA_ALTA = RUTA_ORGANIZACION
 
 const MENSAJE_CURP = 'La CURP debe tener 18 caracteres y el formato oficial.'
 
@@ -70,7 +74,8 @@ function erroresPersona(contexto: 'persona' | 'tutor', errores: Record<string, s
 
 /**
  * Asistente de alta de jugador (F-18, H-09.3, CU-004) en el orden de DEC-103: identidad → datos y
- * tutor → consentimiento (F-06) → documentos. Conserva los ids ya escritos para no repetir
+ * tutor → consentimiento (F-06) → documentos. El paso 4 es la página de documentos del registro, con
+ * URL propia: tras el `201` se navega ahí con `replace` y `state.desdeAlta` (DEC-111). Conserva los ids ya escritos para no repetir
  * escrituras al volver o reintentar; la interfaz decide por `codigo` (DEC-63, DEC-107).
  *
  * Refs: RF-010, RF-011, RF-013, RF-097, RF-106, RF-107, VAL-017, VAL-025, UI-006, UI-033
@@ -376,7 +381,9 @@ export function AsistenteAltaJugador() {
       try {
         const registro = await registrarAlta.mutateAsync({ personaId: jugador.id, equipoId: estado.equipoId })
         actualizar({ registro })
-        despachar({ tipo: 'ir', paso: 4 })
+        // `replace`: «Atrás» no vuelve a un asistente que ya terminó (DEC-111).
+        const desdeAlta: EstadoDesdeAlta = { desdeAlta: true }
+        void navigate(rutaDocumentosRegistro(registro.id), { replace: true, state: desdeAlta })
       } catch (error) {
         const accion = accionDeError('alta', error)
         if (accion.tipo === 'tutor') {
@@ -487,19 +494,6 @@ export function AsistenteAltaJugador() {
             onAnterior={() => despachar({ tipo: 'ir', paso: 2 })}
             onCambiarEquipo={() => despachar({ tipo: 'ir', paso: 2 })}
             onEnviar={(finalidades) => void enviar(finalidades)}
-          />
-        )}
-
-        {estado.paso === 4 && estado.registro && (
-          <PasoDocumentosPendiente
-            enfocar={enfocar}
-            registroId={estado.registro.id}
-            registro={estado.registro}
-            rutaSalida={RUTA_SALIDA_ALTA}
-            onOtroJugador={() => {
-              setVersionConsentimiento((version) => version + 1)
-              despachar({ tipo: 'reiniciar' })
-            }}
           />
         )}
       </div>

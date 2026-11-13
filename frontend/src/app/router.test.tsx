@@ -242,6 +242,52 @@ describe('router', () => {
     expect(screen.getByRole('heading', { name: 'Identidad del jugador' })).toBeInTheDocument()
   })
 
+  it('H-10.3: la sección Organización enlaza a Validación de registros solo con registros.registro:VALIDAR', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [
+        permiso('registros.registro:VALIDAR', 'M-04'),
+        permiso('registros.registro:CONSULTAR', 'M-04'),
+      ],
+    })
+
+    montar('/app/organizacion')
+
+    expect(await screen.findByRole('link', { name: /Validación de registros/ })).toHaveAttribute(
+      'href',
+      '/app/organizacion/registros',
+    )
+  })
+
+  it('H-10.3: con registros.registro:CONSULTAR (Comisión) no enlaza a la bandeja y su URL responde 403', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('registros.registro:CONSULTAR', 'M-04')],
+    })
+
+    montar('/app/organizacion/registros')
+
+    expect(
+      await screen.findByRole('heading', { name: 'No tienes permiso para esta acción' }),
+    ).toBeInTheDocument()
+  })
+
+  it('H-10.3: sin registros.documento:CREAR, la URL de los documentos muestra la 403', async () => {
+    iniciarSesion()
+    obtenerYo.mockResolvedValue({
+      ...yoCapturista,
+      permisos: [permiso('registros.registro:CONSULTAR', 'M-04')],
+    })
+
+    montar('/app/organizacion/jugadores/reg-1/documentos')
+
+    expect(
+      await screen.findByRole('heading', { name: 'No tienes permiso para esta acción' }),
+    ).toBeInTheDocument()
+  })
+
   it('H-21.2: la sección Administración enlaza a Auditoría solo con su permiso', async () => {
     iniciarSesion()
     obtenerYo.mockResolvedValue({

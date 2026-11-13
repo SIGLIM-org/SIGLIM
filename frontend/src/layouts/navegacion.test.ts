@@ -70,6 +70,22 @@ describe('subsecciones', () => {
     expect(seccionDeRuta('/app/organizacion/jugadores/alta')?.nombre).toBe('Organización')
   })
 
+  it('H-10.3 · DEC-111: Organización ofrece Validación de registros con VALIDAR y las rutas quedan en la sección', () => {
+    const organizacion = seccionesApp.find(({ nombre }) => nombre === 'Organización')
+
+    expect(organizacion?.subsecciones).toContainEqual(
+      expect.objectContaining({
+        nombre: 'Validación de registros',
+        ruta: '/app/organizacion/registros',
+        permiso: 'registros.registro:VALIDAR',
+      }),
+    )
+    expect(seccionDeRuta('/app/organizacion/registros/reg-1')?.nombre).toBe('Organización')
+    expect(seccionDeRuta('/app/organizacion/jugadores/reg-1/documentos')?.nombre).toBe('Organización')
+    // La página de documentos no va en el menú (DEC-111).
+    expect(organizacion?.subsecciones?.some(({ ruta }) => ruta.includes('/documentos'))).toBe(false)
+  })
+
   it('H-21.2: Administración ofrece Auditoría con su permiso y la ruta queda en la sección', () => {
     const administracion = seccionesApp.find(({ nombre }) => nombre === 'Administración')
 

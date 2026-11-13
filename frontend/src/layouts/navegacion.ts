@@ -77,6 +77,13 @@ export const seccionesApp: SeccionApp[] = [
         permiso: 'registros.registro:EDITAR',
         descripcion: 'Registra a un jugador por CURP con su tutor y consentimiento.',
       },
+      {
+        // Bandeja de la liga (DEC-111): con VALIDAR; la Comisión consulta registros, pero no valida.
+        nombre: 'Validación de registros',
+        ruta: '/app/organizacion/registros',
+        permiso: 'registros.registro:VALIDAR',
+        descripcion: 'Revisión de documentos y activación de jugadores.',
+      },
     ],
   },
   {
