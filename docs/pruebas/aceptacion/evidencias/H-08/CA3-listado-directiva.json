@@ -1,0 +1,42 @@
+{
+  "status": 200,
+  "cuerpo": {
+    "contenido": [
+      {
+        "id": "e7978ba3-2f8d-46ea-8cf7-185b4481f072",
+        "folio": "AF-2026-0002",
+        "club": {
+          "id": "c2222222-2222-4222-8222-222222222222",
+          "nombre": "Club Riviera Morelia"
+        },
+        "temporada": {
+          "id": "66666666-6666-4666-8666-666666666666",
+          "nombre": "Temporada 2026-27 · aceptación H-08",
+          "estado": "ACTIVA"
+        },
+        "coloresUniformes": "Titular: rojo y blanco. Alternativo: blanco.",
+        "estado": "RECHAZADA",
+        "categorias": [
+          {
+            "id": "77777777-7777-4777-8777-777777777777",
+            "nombre": "Libre"
+          }
+        ],
+        "capturadaPor": {
+          "id": "22222222-2222-4222-8222-bbbbbbbbbbbb",
+          "nombreMostrado": "Directiva Riviera"
+        },
+        "capturadaEn": "2026-11-12T18:13:49.587417-06:00",
+        "resueltaPor": {
+          "id": "33333333-3333-4333-8333-cccccccccccc"
+        },
+        "resueltaEn": "2026-11-12T18:14:29.829988-06:00",
+        "observaciones": "Faltan las firmas del secretario y la categoría no corresponde a la convocatoria."
+      }
+    ],
+    "pagina": 0,
+    "tamano": 20,
+    "totalElementos": 1,
+    "totalPaginas": 1
+  }
+}
