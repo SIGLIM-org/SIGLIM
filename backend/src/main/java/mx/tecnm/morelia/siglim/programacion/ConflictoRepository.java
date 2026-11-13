@@ -24,8 +24,14 @@ import org.springframework.stereotype.Repository;
  * trigger). La cancha inactiva y las restricciones forman VAL-005.
  *
  * <p><b>Sanciones.</b> VAL-006 considera una sanción vigente del equipo de tipo
- * {@code SUSPENSION_PARTIDOS} o {@code BAJA}, que es la que impide jugar (RN-057). Las multas y las
- * pérdidas de puntos o de partido no bloquean la programación.
+ * {@code SUSPENSION_PARTIDOS} o {@code BAJA}, que es la que impide jugar (RN-057). Una suspensión
+ * con todos sus partidos cumplidos no bloquea aunque su {@code estado} siga en {@code VIGENTE},
+ * por si la máquina de estados no se actualizó. Las multas y las pérdidas de puntos o de partido no
+ * bloquean la programación.
+ *
+ * <p>[PENDIENTE] Las sanciones con {@code sujeto = 'CLUB'} no bloquean a los equipos del club:
+ * RN-057 solo describe el alcance de jugador, equipo y pérdida de partidos, y ni el ERS ni DEC-30
+ * precisan si una sanción de club alcanza a todos sus equipos. Se decide con M-09/H-12.3.
  *
  * <p>Refs: H-12.2, RF-039, VAL-003, VAL-004, VAL-005, VAL-006, RN-050, RN-057, DEC-25
  */
@@ -151,6 +157,8 @@ class ConflictoRepository {
     /**
      * Sanción vigente de alguno de los equipos que impide jugar: suspensión de partidos o baja
      * (RN-057). La vigencia por fechas se compara con el día del partido en la zona de negocio.
+     * Una suspensión con todos sus partidos cumplidos se excluye aunque el estado siga en
+     * {@code VIGENTE}, por si la máquina de estados no se actualizó.
      */
     Optional<SancionDeEquipo> buscarSancionVigente(UUID grupoId, UUID equipoLocalId,
             UUID equipoVisitanteId, OffsetDateTime inicio) {
@@ -163,6 +171,7 @@ class ConflictoRepository {
                            AND s.sujeto = 'EQUIPO'
                            AND s.estado = 'VIGENTE'
                            AND s.tipo IN ('SUSPENSION_PARTIDOS', 'BAJA')
+                           AND (s.partidos IS NULL OR s.partidos_cumplidos < s.partidos)
                            AND s.temporada_id = siglim.temporada_de_grupo(:grupoId)
                            AND s.vigente_desde <= (CAST(:inicio AS timestamptz)
                                                    AT TIME ZONE 'America/Mexico_City')::date

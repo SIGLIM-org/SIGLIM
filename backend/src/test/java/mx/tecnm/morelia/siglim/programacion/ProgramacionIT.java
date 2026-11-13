@@ -283,6 +283,25 @@ class ProgramacionIT extends BaseDatosPrueba {
     }
 
     @Test
+    @DisplayName("VAL-006: una suspensión ya cumplida no bloquea aunque su estado siga VIGENTE")
+    void equipoConSuspensionCumplida() {
+        UUID perfil = iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID visitante = crearEquipo(grupo, "Toros");
+        sancionarEquipo(grupo, visitante, perfil, "SUSPENSION_PARTIDOS", (short) 2, (short) 2);
+        String estado = jdbc.sql("SELECT estado::text FROM siglim.sanciones WHERE equipo_id = :equipo")
+                .param("equipo", visitante).query(String.class).single();
+        assertThat(estado).as("el estado no se actualizó: el contador de partidos decide")
+                .isEqualTo("VIGENTE");
+
+        PartidoDto programado = servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), visitante, crearCancha(), INICIO));
+
+        assertThat(programado.estado()).isEqualTo(EstadoPartido.PROGRAMADO);
+    }
+
+    @Test
     @DisplayName("RF-039, DEC-25: el bloque de cancha sale de los parámetros de la categoría")
     void bloqueDeLaCategoria() {
         iniciarSesionComoProgramador();
@@ -525,6 +544,12 @@ class ProgramacionIT extends BaseDatosPrueba {
 
     /** Sanción vigente de equipo con su expediente y resolución: lo mínimo que exigen las tablas. */
     private void sancionarEquipo(UUID grupo, UUID equipo, UUID perfil, String tipo, short partidos) {
+        sancionarEquipo(grupo, equipo, perfil, tipo, partidos, (short) 0);
+    }
+
+    /** Igual, con los partidos ya cumplidos para probar una suspensión agotada. */
+    private void sancionarEquipo(UUID grupo, UUID equipo, UUID perfil, String tipo, short partidos,
+            short partidosCumplidos) {
         UUID temporada = temporadaDe(grupo);
         UUID articulo = jdbc.sql("""
                         INSERT INTO siglim.articulos
@@ -560,15 +585,17 @@ class ProgramacionIT extends BaseDatosPrueba {
         jdbc.sql("""
                         INSERT INTO siglim.sanciones
                             (resolucion_id, tipo, sujeto, efecto, equipo_id, temporada_id, partidos,
-                             vigente_desde)
+                             partidos_cumplidos, vigente_desde)
                         VALUES (:resolucion, CAST(:tipo AS siglim.tipo_sancion), 'EQUIPO',
-                                'HACIA_ADELANTE', :equipo, :temporada, :partidos, DATE '2031-03-01')
+                                'HACIA_ADELANTE', :equipo, :temporada, :partidos,
+                                :cumplidos, DATE '2031-03-01')
                         """)
                 .param("resolucion", resolucion)
                 .param("tipo", tipo)
                 .param("equipo", equipo)
                 .param("temporada", temporada)
                 .param("partidos", partidos)
+                .param("cumplidos", partidosCumplidos)
                 .update();
     }
 
