@@ -2,7 +2,6 @@ package mx.tecnm.morelia.siglim.programacion;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.catchThrowable;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -12,19 +11,17 @@ import java.util.function.Consumer;
 import mx.tecnm.morelia.siglim.BaseDatosPrueba;
 import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
-import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.postgresql.util.PSQLException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 /**
- * H-12.1 contra PostgreSQL real: el alta de jornadas y partidos y el ajuste motivado atraviesan
- * autorización por permiso y ámbito, el trigger del bloque de cancha, el historial del partido y la
- * auditoría. Los conflictos duros los rechaza el trigger hasta que H-12.2 los explique en el servicio.
+ * H-12.1 y H-12.2 contra PostgreSQL real: el alta de jornadas y partidos y el ajuste motivado
+ * atraviesan autorización por permiso y ámbito, el validador de conflictos (VAL-003 a VAL-006), el
+ * trigger del bloque de cancha, la restricción GiST, el historial del partido y la auditoría.
  */
 class ProgramacionIT extends BaseDatosPrueba {
 
@@ -158,10 +155,10 @@ class ProgramacionIT extends BaseDatosPrueba {
         assertThat(servicio.consultar(jornada).partidos()).isEmpty();
     }
 
-    // ── El trigger como última garantía (RF-039) ───────────────────────────────────────────────
+    // ── Conflictos duros en el servicio (RF-039, VAL-003 a VAL-006) ───────────────────────────
 
     @Test
-    @DisplayName("VAL-004: la exclusión GiST rechaza dos partidos en la misma cancha y bloque")
+    @DisplayName("VAL-004: la cancha ocupada se rechaza y el mensaje nombra el otro partido y el horario")
     void canchaOcupada() {
         iniciarSesionComoProgramador();
         UUID grupo = crearGrupo();
@@ -170,26 +167,236 @@ class ProgramacionIT extends BaseDatosPrueba {
         servicio.registrarPartido(jornada, new CrearPartidoRequest(
                 crearEquipo(grupo, "Halcones"), crearEquipo(grupo, "Toros"), cancha, INICIO));
 
-        PSQLException error = errorBd(() -> servicio.registrarPartido(jornada, new CrearPartidoRequest(
-                crearEquipo(grupo, "Águilas"), crearEquipo(grupo, "Pumas"), cancha, INICIO.plusMinutes(30))));
+        assertThatThrownBy(() -> servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Águilas"), crearEquipo(grupo, "Pumas"), cancha, INICIO.plusMinutes(30))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.CONFLICT, "VAL-004"))
+                .hasMessageContaining("Halcones", "Toros", nombreDeCancha(cancha), "10/03/2031 10:00");
 
-        assertThat(error.getSQLState()).isEqualTo("23P01");
+        assertThat(servicio.consultar(jornada).partidos()).as("solo quedó el primer partido").hasSize(1);
     }
 
     @Test
-    @DisplayName("VAL-003: el trigger rechaza un equipo con otro partido en el mismo bloque")
+    @DisplayName("VAL-003: el equipo con otro partido en el bloque se rechaza y nombra el partido")
     void equipoDuplicado() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID local = crearEquipo(grupo, "Halcones");
+        UUID primeraCancha = crearCancha();
+        servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                local, crearEquipo(grupo, "Toros"), primeraCancha, INICIO));
+
+        assertThatThrownBy(() -> servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                local, crearEquipo(grupo, "Pumas"), crearCancha(), INICIO.plusHours(1))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.CONFLICT, "VAL-003"))
+                .hasMessageContaining("Halcones", "Toros", nombreDeCancha(primeraCancha),
+                        "10/03/2031 10:00");
+    }
+
+    @Test
+    @DisplayName("VAL-005: una cancha inactiva se rechaza y el mensaje dice por qué")
+    void canchaInactiva() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID cancha = crearCancha();
+        jdbc.sql("UPDATE siglim.canchas SET activa = false WHERE id = :id")
+                .param("id", cancha).update();
+
+        assertThatThrownBy(() -> servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), crearEquipo(grupo, "Toros"), cancha, INICIO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.CONFLICT, "VAL-005"))
+                .hasMessageContaining(nombreDeCancha(cancha), "inactiva");
+        assertThat(servicio.consultar(jornada).partidos()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("VAL-005: un bloqueo con motivo impide programar en la cancha")
+    void canchaBloqueada() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID cancha = crearCancha();
+        restringirCancha(cancha, "BLOQUEO", INICIO.minusHours(1), INICIO.plusHours(1),
+                "Riego del césped");
+
+        assertThatThrownBy(() -> servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), crearEquipo(grupo, "Toros"), cancha, INICIO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.CONFLICT, "VAL-005"))
+                .hasMessageContaining(nombreDeCancha(cancha), "bloqueo", "Riego del césped");
+    }
+
+    @Test
+    @DisplayName("VAL-005: un mantenimiento con motivo impide programar en la cancha")
+    void canchaEnMantenimiento() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID cancha = crearCancha();
+        restringirCancha(cancha, "MANTENIMIENTO", INICIO, INICIO.plusDays(1), "Cambio de pasto");
+
+        assertThatThrownBy(() -> servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), crearEquipo(grupo, "Toros"), cancha, INICIO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.CONFLICT, "VAL-005"))
+                .hasMessageContaining(nombreDeCancha(cancha), "mantenimiento", "Cambio de pasto");
+    }
+
+    @Test
+    @DisplayName("VAL-006: un equipo dado de baja no se puede programar")
+    void equipoDadoDeBaja() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID visitante = crearEquipo(grupo, "Toros");
+        jdbc.sql("""
+                        UPDATE siglim.equipos
+                           SET estado = 'BAJA', baja_en = DATE '2031-03-01', motivo_baja = 'Baja de prueba'
+                         WHERE id = :id
+                        """).param("id", visitante).update();
+
+        assertThatThrownBy(() -> servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), visitante, crearCancha(), INICIO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.CONFLICT, "VAL-006"))
+                .hasMessageContaining("Toros", "baja");
+    }
+
+    @Test
+    @DisplayName("VAL-006: una suspensión vigente del equipo impide programarlo")
+    void equipoSancionado() {
+        UUID perfil = iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID visitante = crearEquipo(grupo, "Toros");
+        sancionarEquipo(grupo, visitante, perfil, "SUSPENSION_PARTIDOS", (short) 2);
+
+        assertThatThrownBy(() -> servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), visitante, crearCancha(), INICIO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.CONFLICT, "VAL-006"))
+                .hasMessageContaining("Toros", "suspensión vigente de 2");
+    }
+
+    @Test
+    @DisplayName("VAL-006: una suspensión ya cumplida no bloquea aunque su estado siga VIGENTE")
+    void equipoConSuspensionCumplida() {
+        UUID perfil = iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID visitante = crearEquipo(grupo, "Toros");
+        sancionarEquipo(grupo, visitante, perfil, "SUSPENSION_PARTIDOS", (short) 2, (short) 2);
+        String estado = jdbc.sql("SELECT estado::text FROM siglim.sanciones WHERE equipo_id = :equipo")
+                .param("equipo", visitante).query(String.class).single();
+        assertThat(estado).as("el estado no se actualizó: el contador de partidos decide")
+                .isEqualTo("VIGENTE");
+
+        PartidoDto programado = servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), visitante, crearCancha(), INICIO));
+
+        assertThat(programado.estado()).isEqualTo(EstadoPartido.PROGRAMADO);
+    }
+
+    @Test
+    @DisplayName("RF-039, DEC-25: el bloque de cancha sale de los parámetros de la categoría")
+    void bloqueDeLaCategoria() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo(180);
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID cancha = crearCancha();
+        PartidoDto primero = servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), crearEquipo(grupo, "Toros"), cancha, INICIO));
+
+        assertThat(primero.finBloque()).as("bloque de la categoría: 180 minutos")
+                .isEqualTo(INICIO.plusHours(3));
+        assertThatThrownBy(() -> servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Águilas"), crearEquipo(grupo, "Pumas"), cancha, INICIO.plusHours(2))))
+                .as("con el bloque [DEMO] de 120 min no habría choque; el de la categoría sí")
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.CONFLICT, "VAL-004"));
+    }
+
+    @Test
+    @DisplayName("RF-039: dos partidos en la misma cancha en bloques contiguos no chocan")
+    void bloquesContiguos() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo(60);
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID cancha = crearCancha();
+        PartidoDto primero = servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), crearEquipo(grupo, "Toros"), cancha, INICIO));
+
+        PartidoDto segundo = servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Águilas"), crearEquipo(grupo, "Pumas"), cancha, INICIO.plusHours(1)));
+
+        assertThat(primero.finBloque()).isEqualTo(INICIO.plusHours(1));
+        assertThat(segundo.inicio()).isEqualTo(INICIO.plusHours(1));
+    }
+
+    @Test
+    @DisplayName("VAL-004: el ajuste detecta la cancha ocupada antes de escribir")
+    void ajusteConCanchaOcupada() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID ocupada = crearCancha();
+        UUID libre = crearCancha();
+        servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), crearEquipo(grupo, "Toros"), ocupada, INICIO));
+        PartidoDto ajustable = servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Águilas"), crearEquipo(grupo, "Pumas"), libre, INICIO.plusHours(3)));
+
+        assertThatThrownBy(() -> servicio.actualizarPartido(ajustable.id(), new ActualizarPartidoRequest(
+                null, null, ocupada, INICIO.plusMinutes(30), MOTIVO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.CONFLICT, "VAL-004"))
+                .hasMessageContaining(nombreDeCancha(ocupada), "10/03/2031 10:00");
+
+        PartidoDto sinCambios = servicio.consultar(jornada).partidos().stream()
+                .filter(partido -> partido.id().equals(ajustable.id()))
+                .findFirst().orElseThrow();
+        assertThat(sinCambios.cancha().id()).isEqualTo(libre);
+        assertThat(sinCambios.inicio()).isEqualTo(INICIO.plusHours(3));
+    }
+
+    @Test
+    @DisplayName("VAL-003: el ajuste no compara el partido consigo mismo")
+    void ajusteDelPropioPartido() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        PartidoDto partido = servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), crearEquipo(grupo, "Toros"), crearCancha(), INICIO));
+        OffsetDateTime nuevoInicio = INICIO.plusMinutes(30);
+
+        PartidoDto ajustado = servicio.actualizarPartido(partido.id(), new ActualizarPartidoRequest(
+                null, null, null, nuevoInicio, MOTIVO));
+
+        assertThat(ajustado.inicio()).isEqualTo(nuevoInicio);
+        assertThat(ajustado.finBloque()).isEqualTo(nuevoInicio.plusHours(2));
+    }
+
+    @Test
+    @DisplayName("VAL-003: el ajuste detecta el equipo ocupado en otro partido")
+    void ajusteConEquipoOcupado() {
         iniciarSesionComoProgramador();
         UUID grupo = crearGrupo();
         UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
         UUID local = crearEquipo(grupo, "Halcones");
         servicio.registrarPartido(jornada, new CrearPartidoRequest(
                 local, crearEquipo(grupo, "Toros"), crearCancha(), INICIO));
+        PartidoDto ajustable = servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                local, crearEquipo(grupo, "Pumas"), crearCancha(), INICIO.plusHours(3)));
 
-        PSQLException error = errorBd(() -> servicio.registrarPartido(jornada, new CrearPartidoRequest(
-                local, crearEquipo(grupo, "Pumas"), crearCancha(), INICIO.plusHours(1))));
-
-        assertThat(error.getServerErrorMessage().getHint()).isEqualTo("VAL-003");
+        assertThatThrownBy(() -> servicio.actualizarPartido(ajustable.id(), new ActualizarPartidoRequest(
+                null, null, null, INICIO.plusHours(1), MOTIVO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.CONFLICT, "VAL-003"))
+                .hasMessageContaining("Halcones", "Toros");
     }
 
     // ── Apoyo ───────────────────────────────────────────────────────────────────────────────────
@@ -239,6 +446,11 @@ class ProgramacionIT extends BaseDatosPrueba {
 
     /** Temporada con parámetros, categoría y grupo: lo mínimo para que el trigger calcule el bloque. */
     private UUID crearGrupo() {
+        return crearGrupo(null);
+    }
+
+    /** Igual, con un bloque de cancha propio de la categoría cuando {@code bloqueCategoriaMin} no es nulo. */
+    private UUID crearGrupo(Integer bloqueCategoriaMin) {
         UUID temporada = jdbc.sql("""
                         INSERT INTO siglim.temporadas (liga_id, nombre, fecha_inicio)
                         VALUES (:liga, :nombre, DATE '2031-08-01')
@@ -247,9 +459,12 @@ class ProgramacionIT extends BaseDatosPrueba {
                 .param("liga", LIGA)
                 .param("nombre", "Temporada " + UUID.randomUUID())
                 .query(UUID.class).single();
-        jdbc.sql("INSERT INTO siglim.parametros_temporada (temporada_id, version, motivo) "
-                        + "VALUES (:temporada, 1, 'Parámetros de prueba')")
-                .param("temporada", temporada).update();
+        UUID parametros = jdbc.sql("""
+                        INSERT INTO siglim.parametros_temporada (temporada_id, version, motivo)
+                        VALUES (:temporada, 1, 'Parámetros de prueba')
+                        RETURNING id
+                        """)
+                .param("temporada", temporada).query(UUID.class).single();
         UUID categoria = jdbc.sql("""
                         INSERT INTO siglim.categorias (liga_id, nombre, tipo, orden)
                         SELECT :liga, :nombre, 'LIBRE', coalesce(max(orden), 0) + 1 FROM siglim.categorias
@@ -258,6 +473,18 @@ class ProgramacionIT extends BaseDatosPrueba {
                 .param("liga", LIGA)
                 .param("nombre", "Categoría " + UUID.randomUUID())
                 .query(UUID.class).single();
+        if (bloqueCategoriaMin != null) {
+            jdbc.sql("""
+                            INSERT INTO siglim.parametros_categoria
+                                (parametros_id, categoria_id, duracion_juego_min, bloque_cancha_min)
+                            VALUES (:parametros, :categoria, :duracion, :bloque)
+                            """)
+                    .param("parametros", parametros)
+                    .param("categoria", categoria)
+                    .param("duracion", Math.min(90, bloqueCategoriaMin))
+                    .param("bloque", bloqueCategoriaMin)
+                    .update();
+        }
         UUID categoriaTemporada = jdbc.sql("""
                         INSERT INTO siglim.categorias_temporada (temporada_id, categoria_id)
                         VALUES (:temporada, :categoria)
@@ -294,6 +521,96 @@ class ProgramacionIT extends BaseDatosPrueba {
                 .query(UUID.class).single();
     }
 
+    private String nombreDeCancha(UUID cancha) {
+        return jdbc.sql("SELECT nombre FROM siglim.canchas WHERE id = :id")
+                .param("id", cancha).query(String.class).single();
+    }
+
+    private void restringirCancha(UUID cancha, String tipo, OffsetDateTime desde,
+            OffsetDateTime hasta, String motivo) {
+        jdbc.sql("""
+                        INSERT INTO siglim.disponibilidad_canchas (cancha_id, tipo, periodo, motivo)
+                        VALUES (:cancha, CAST(:tipo AS siglim.tipo_disponibilidad),
+                                tstzrange(CAST(:desde AS timestamptz), CAST(:hasta AS timestamptz), '[)'),
+                                :motivo)
+                        """)
+                .param("cancha", cancha)
+                .param("tipo", tipo)
+                .param("desde", desde)
+                .param("hasta", hasta)
+                .param("motivo", motivo)
+                .update();
+    }
+
+    /** Sanción vigente de equipo con su expediente y resolución: lo mínimo que exigen las tablas. */
+    private void sancionarEquipo(UUID grupo, UUID equipo, UUID perfil, String tipo, short partidos) {
+        sancionarEquipo(grupo, equipo, perfil, tipo, partidos, (short) 0);
+    }
+
+    /** Igual, con los partidos ya cumplidos para probar una suspensión agotada. */
+    private void sancionarEquipo(UUID grupo, UUID equipo, UUID perfil, String tipo, short partidos,
+            short partidosCumplidos) {
+        UUID temporada = temporadaDe(grupo);
+        UUID articulo = jdbc.sql("""
+                        INSERT INTO siglim.articulos
+                            (liga_id, numero, descripcion, tipo_sancion, sujeto, partidos_suspension)
+                        VALUES (:liga, :numero, 'Artículo de prueba',
+                                CAST(:tipo AS siglim.tipo_sancion), 'EQUIPO',
+                                CASE WHEN :tipo = 'SUSPENSION_PARTIDOS' THEN :partidos END)
+                        RETURNING id
+                        """)
+                .param("liga", LIGA)
+                .param("numero", "ART-" + UUID.randomUUID().toString().substring(0, 16))
+                .param("tipo", tipo)
+                .param("partidos", partidos)
+                .query(UUID.class).single();
+        UUID expediente = jdbc.sql("""
+                        INSERT INTO siglim.expedientes (liga_id, temporada_id, folio, origen, descripcion)
+                        VALUES (:liga, :temporada, :folio, 'MANUAL', 'Prueba de sanción de equipo')
+                        RETURNING id
+                        """)
+                .param("liga", LIGA)
+                .param("temporada", temporada)
+                .param("folio", "PRUEBA-" + UUID.randomUUID().toString().substring(0, 20))
+                .query(UUID.class).single();
+        UUID resolucion = jdbc.sql("""
+                        INSERT INTO siglim.resoluciones (expediente_id, articulo_id, fundamentos, resuelta_por)
+                        VALUES (:expediente, :articulo, 'Fundamentos de prueba', :perfil)
+                        RETURNING id
+                        """)
+                .param("expediente", expediente)
+                .param("articulo", articulo)
+                .param("perfil", perfil)
+                .query(UUID.class).single();
+        jdbc.sql("""
+                        INSERT INTO siglim.sanciones
+                            (resolucion_id, tipo, sujeto, efecto, equipo_id, temporada_id, partidos,
+                             partidos_cumplidos, vigente_desde)
+                        VALUES (:resolucion, CAST(:tipo AS siglim.tipo_sancion), 'EQUIPO',
+                                'HACIA_ADELANTE', :equipo, :temporada, :partidos,
+                                :cumplidos, DATE '2031-03-01')
+                        """)
+                .param("resolucion", resolucion)
+                .param("tipo", tipo)
+                .param("equipo", equipo)
+                .param("temporada", temporada)
+                .param("partidos", partidos)
+                .param("cumplidos", partidosCumplidos)
+                .update();
+    }
+
+    private UUID temporadaDe(UUID grupo) {
+        return jdbc.sql("""
+                        SELECT ct.temporada_id
+                          FROM siglim.grupos g
+                          JOIN siglim.categorias_temporada ct ON ct.id = g.categoria_temporada_id
+                         WHERE g.id = :grupo
+                        """)
+                .param("grupo", grupo)
+                .query(UUID.class)
+                .single();
+    }
+
     private List<Historial> historialDelPartido(UUID partido) {
         return jdbc.sql("""
                         SELECT estado_nuevo, motivo, cambiado_por
@@ -324,16 +641,6 @@ class ProgramacionIT extends BaseDatosPrueba {
             assertThat(excepcion.estado()).isEqualTo(estado);
             assertThat(excepcion.codigo()).isEqualTo(codigo);
         };
-    }
-
-    private static PSQLException errorBd(ThrowingCallable operacion) {
-        Throwable error = catchThrowable(operacion);
-        for (Throwable causa = error; causa != null; causa = causa.getCause()) {
-            if (causa instanceof PSQLException psql) {
-                return psql;
-            }
-        }
-        throw new AssertionError("Se esperaba un error de PostgreSQL y se obtuvo: " + error, error);
     }
 
     private record Historial(String estadoNuevo, String motivo, UUID cambiadoPor) {
