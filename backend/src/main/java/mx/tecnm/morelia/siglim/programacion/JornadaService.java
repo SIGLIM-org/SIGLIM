@@ -16,6 +16,7 @@ import mx.tecnm.morelia.siglim.compartido.contexto.UsuarioActual;
 import mx.tecnm.morelia.siglim.compartido.error.ErroresTecnicos;
 import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
+import mx.tecnm.morelia.siglim.programacion.JornadaRepository.CanchaDeLiga;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.DatosJornada;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.DatosPartido;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.EquipoDeLiga;
@@ -41,9 +42,11 @@ import org.springframework.transaction.annotation.Transactional;
  *       motivo de al menos 10 caracteres ({@code 400 RN-021}); queda en la auditoría y el servicio
  *       fija el motivo de la operación para los triggers. Un {@code PATCH} sin cambios no escribe ni
  *       audita.</li>
- *   <li><b>Conflictos duros (RF-039).</b> La validación explicada de VAL-003 a VAL-006 llega en
- *       H-12.2. Mientras tanto, el trigger {@code tg_partidos_programacion} y la restricción GiST son
- *       la garantía: rechazan el traslape de equipo y de cancha con el código del ERS.</li>
+ *   <li><b>Conflictos duros (RF-039, VAL-003 a VAL-006).</b> {@link ValidadorConflictos} rechaza,
+ *       antes de escribir, el equipo duplicado, la cancha ocupada, la cancha inactiva o restringida y
+ *       el equipo dado de baja o sancionado, con un mensaje que nombra el otro partido, la cancha y
+ *       el horario. El trigger {@code tg_partidos_programacion} y la restricción GiST siguen siendo
+ *       la última garantía ante una carrera entre dos peticiones.</li>
  *   <li><b>Auditoría (RF-093).</b> {@code REGISTRAR_JORNADA}, {@code REGISTRAR_PARTIDO} y
  *       {@code AJUSTAR_PARTIDO} en M-07, con identificadores y sin datos personales.</li>
  * </ul>
@@ -64,14 +67,16 @@ public class JornadaService {
     private static final int MINIMO_MOTIVO = 10;
 
     private final JornadaRepository jornadas;
+    private final ValidadorConflictos validador;
     private final Autorizacion autorizacion;
     private final AuditoriaService auditoria;
     private final MotivoOperacion motivoOperacion;
     private final UUID ligaId;
 
-    JornadaService(JornadaRepository jornadas, Autorizacion autorizacion, AuditoriaService auditoria,
-            MotivoOperacion motivoOperacion, SiglimPropiedades propiedades) {
+    JornadaService(JornadaRepository jornadas, ValidadorConflictos validador, Autorizacion autorizacion,
+            AuditoriaService auditoria, MotivoOperacion motivoOperacion, SiglimPropiedades propiedades) {
         this.jornadas = jornadas;
+        this.validador = validador;
         this.autorizacion = autorizacion;
         this.auditoria = auditoria;
         this.motivoOperacion = motivoOperacion;
@@ -161,9 +166,8 @@ public class JornadaService {
      * Registra un partido {@code PROGRAMADO} en una jornada en {@code BORRADOR} (RF-033, RF-036).
      *
      * <p>Orden: permiso → jornada existe ({@code 404}) → jornada en borrador ({@code 409 RF-090}) →
-     * cuerpo ({@code 400}) → equipos del grupo ({@code 422 RF-033}) → cancha de la liga ({@code 422}).
-     * El bloque de cancha lo calcula la base y el trigger rechaza los choques que H-12.2 explicará
-     * antes de escribir.
+     * cuerpo ({@code 400}) → equipos del grupo ({@code 422 RF-033}) → cancha de la liga ({@code 422})
+     * → conflictos duros ({@code 409 VAL-003} a {@code VAL-006}).
      */
     @Transactional
     public PartidoDto registrarPartido(UUID jornadaId, CrearPartidoRequest peticion) {
@@ -182,9 +186,9 @@ public class JornadaService {
         if (peticion.inicio() == null) {
             throw invalida("La fecha y hora de inicio son obligatorias.");
         }
-        if (peticion.canchaId() == null || !jornadas.bloquearCancha(ligaId, peticion.canchaId())) {
-            throw referenciaInvalida("La cancha indicada no existe en la liga.");
-        }
+        CanchaDeLiga cancha = bloquearCancha(peticion.canchaId());
+
+        validador.validar(jornada.grupoId(), null, local, visitante, cancha, peticion.inicio());
 
         UUID id = jornadas.insertarPartido(jornada.id(), local.id(), visitante.id(), peticion.canchaId(),
                 peticion.inicio(), UsuarioActual.idRequerido());
@@ -203,7 +207,9 @@ public class JornadaService {
      *
      * <p>Un campo ausente conserva su valor. Si hay cambios, el motivo es obligatorio
      * ({@code 400 RN-021}) y se registra en la auditoría (RN-018); sin cambios, la petición es
-     * inocua. Un partido finalizado o cancelado no se modifica ({@code 409 RF-046}).
+     * inocua. Un partido finalizado o cancelado no se modifica ({@code 409 RF-046}). Antes de
+     * escribir se repiten los conflictos duros ({@code 409 VAL-003} a {@code VAL-006}), sin contar
+     * el propio partido.
      */
     @Transactional
     public PartidoDto actualizarPartido(UUID id, ActualizarPartidoRequest peticion) {
@@ -240,9 +246,9 @@ public class JornadaService {
         String motivo = motivoValido(peticion == null ? null : peticion.motivo());
         EquipoDeLiga local = equipoDelGrupo(actual.grupoId(), localId);
         EquipoDeLiga visitante = equipoDelGrupo(actual.grupoId(), visitanteId);
-        if (!jornadas.bloquearCancha(ligaId, canchaId)) {
-            throw referenciaInvalida("La cancha indicada no existe en la liga.");
-        }
+        CanchaDeLiga cancha = bloquearCancha(canchaId);
+
+        validador.validar(actual.grupoId(), id, local, visitante, cancha, inicio);
 
         motivoOperacion.fijar(motivo);
         jornadas.actualizarPartido(id, local.id(), visitante.id(), canchaId, inicio);
@@ -292,6 +298,19 @@ public class JornadaService {
                     "El equipo «" + equipo.nombre() + "» no pertenece al grupo de la jornada.");
         }
         return equipo;
+    }
+
+    /**
+     * Bloquea la cancha de la liga y la devuelve con su nombre y estado para VAL-005.
+     *
+     * @throws ReglaNegocioException 422 {@code REFERENCIA_INVALIDA} si falta o no existe en la liga
+     */
+    private CanchaDeLiga bloquearCancha(UUID canchaId) {
+        if (canchaId == null) {
+            throw referenciaInvalida("La cancha indicada no existe en la liga.");
+        }
+        return jornadas.bloquearCancha(ligaId, canchaId)
+                .orElseThrow(() -> referenciaInvalida("La cancha indicada no existe en la liga."));
     }
 
     private static int numeroValido(Integer numero) {

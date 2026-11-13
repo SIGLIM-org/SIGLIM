@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
@@ -24,6 +25,7 @@ import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
 import mx.tecnm.morelia.siglim.compartido.contexto.MotivoOperacion;
 import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
+import mx.tecnm.morelia.siglim.programacion.JornadaRepository.CanchaDeLiga;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.DatosJornada;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.DatosPartido;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.EquipoDeLiga;
@@ -59,10 +61,11 @@ class JornadaServiceTest {
     private static final String MOTIVO = "Cambio de cancha por lluvia";
 
     private final JornadaRepository jornadas = mock(JornadaRepository.class);
+    private final ValidadorConflictos validador = mock(ValidadorConflictos.class);
     private final Autorizacion autorizacion = mock(Autorizacion.class);
     private final AuditoriaService auditoria = mock(AuditoriaService.class);
     private final MotivoOperacion motivoOperacion = mock(MotivoOperacion.class);
-    private final JornadaService servicio = new JornadaService(jornadas, autorizacion, auditoria,
+    private final JornadaService servicio = new JornadaService(jornadas, validador, autorizacion, auditoria,
             motivoOperacion, new SiglimPropiedades(null, null, null, LIGA));
 
     @BeforeEach
@@ -91,6 +94,10 @@ class JornadaServiceTest {
 
     private static EquipoDeLiga equipo(UUID id, String nombre, UUID grupo) {
         return new EquipoDeLiga(id, nombre, grupo, UUID.randomUUID(), "ACTIVO");
+    }
+
+    private static CanchaDeLiga cancha(boolean activa) {
+        return new CanchaDeLiga(CANCHA, "Morelos 2", activa);
     }
 
     private static Consumer<ReglaNegocioException> error(HttpStatus estado, String codigo) {
@@ -231,7 +238,7 @@ class JornadaServiceTest {
                 .willReturn(Optional.of(jornada(EstadoJornada.BORRADOR)));
         given(jornadas.buscarEquipo(LIGA, LOCAL)).willReturn(Optional.of(equipo(LOCAL, "Halcones", GRUPO)));
         given(jornadas.buscarEquipo(LIGA, VISITANTE)).willReturn(Optional.of(equipo(VISITANTE, "Toros", GRUPO)));
-        given(jornadas.bloquearCancha(LIGA, CANCHA)).willReturn(true);
+        given(jornadas.bloquearCancha(LIGA, CANCHA)).willReturn(Optional.of(cancha(true)));
         given(jornadas.insertarPartido(JORNADA, LOCAL, VISITANTE, CANCHA, INICIO, PERFIL)).willReturn(PARTIDO);
         given(jornadas.buscarPartido(LIGA, PARTIDO))
                 .willReturn(Optional.of(partido(EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, INICIO)));
@@ -241,6 +248,7 @@ class JornadaServiceTest {
         assertThat(creado.estado()).isEqualTo(EstadoPartido.PROGRAMADO);
         assertThat(creado.finBloque()).as("el bloque de 120 min lo calcula la base")
                 .isEqualTo(INICIO.plusHours(2));
+        verify(validador).validar(eq(GRUPO), any(), any(), any(), eq(cancha(true)), eq(INICIO));
         EventoAuditoria evento = eventoAuditado();
         assertThat(evento.accion()).isEqualTo("REGISTRAR_PARTIDO");
         assertThat(evento.entidad()).isEqualTo("partidos");
@@ -260,12 +268,31 @@ class JornadaServiceTest {
 
         given(jornadas.buscarEquipo(LIGA, LOCAL)).willReturn(Optional.of(equipo(LOCAL, "Halcones", GRUPO)));
         given(jornadas.buscarEquipo(LIGA, VISITANTE)).willReturn(Optional.of(equipo(VISITANTE, "Toros", GRUPO)));
-        given(jornadas.bloquearCancha(LIGA, CANCHA)).willReturn(false);
+        given(jornadas.bloquearCancha(LIGA, CANCHA)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> servicio.registrarPartido(JORNADA, peticionPartido(CANCHA)))
                 .isInstanceOfSatisfying(ReglaNegocioException.class,
                         error(HttpStatus.UNPROCESSABLE_CONTENT, "REFERENCIA_INVALIDA"));
         verify(jornadas, never()).insertarPartido(any(), any(), any(), any(), any(), any());
+        verifyNoInteractions(validador, auditoria);
+    }
+
+    @Test
+    @DisplayName("VAL-004: un conflicto detectado antes de escribir evita el alta y la auditoría")
+    void registrarPartidoConConflicto() {
+        given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.BORRADOR)));
+        given(jornadas.buscarEquipo(LIGA, LOCAL)).willReturn(Optional.of(equipo(LOCAL, "Halcones", GRUPO)));
+        given(jornadas.buscarEquipo(LIGA, VISITANTE)).willReturn(Optional.of(equipo(VISITANTE, "Toros", GRUPO)));
+        given(jornadas.bloquearCancha(LIGA, CANCHA)).willReturn(Optional.of(cancha(true)));
+        willThrow(ReglaNegocioException.conflicto("VAL-004",
+                "La cancha ya está ocupada por el partido «Águilas vs. Pumas»."))
+                .given(validador).validar(any(), any(), any(), any(), any(), any());
+
+        assertThatThrownBy(() -> servicio.registrarPartido(JORNADA, peticionPartido(CANCHA)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "VAL-004"));
+        verify(jornadas, never()).insertarPartido(any(), any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
     }
 
     // ── Ajuste del partido (RF-040, RN-018) ─────────────────────────────────────────────────
@@ -283,7 +310,7 @@ class JornadaServiceTest {
                 new ActualizarPartidoRequest(null, null, null, INICIO.plusHours(3), "Corto")))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "RN-021"));
         verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any());
-        verifyNoInteractions(motivoOperacion, auditoria);
+        verifyNoInteractions(validador, motivoOperacion, auditoria);
     }
 
     @Test
@@ -294,13 +321,14 @@ class JornadaServiceTest {
                 .willReturn(Optional.of(partido(EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, INICIO)));
         given(jornadas.buscarEquipo(LIGA, LOCAL)).willReturn(Optional.of(equipo(LOCAL, "Halcones", GRUPO)));
         given(jornadas.buscarEquipo(LIGA, VISITANTE)).willReturn(Optional.of(equipo(VISITANTE, "Toros", GRUPO)));
-        given(jornadas.bloquearCancha(LIGA, CANCHA)).willReturn(true);
+        given(jornadas.bloquearCancha(LIGA, CANCHA)).willReturn(Optional.of(cancha(true)));
         given(jornadas.buscarPartido(LIGA, PARTIDO)).willReturn(Optional.of(
                 partido(EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, nuevoInicio)));
 
         servicio.actualizarPartido(PARTIDO, new ActualizarPartidoRequest(null, null, null, nuevoInicio,
                 "  " + MOTIVO + "  "));
 
+        verify(validador).validar(eq(GRUPO), eq(PARTIDO), any(), any(), eq(cancha(true)), eq(nuevoInicio));
         verify(jornadas).actualizarPartido(PARTIDO, LOCAL, VISITANTE, CANCHA, nuevoInicio);
         verify(motivoOperacion).fijar(MOTIVO);
         EventoAuditoria evento = eventoAuditado();
@@ -318,7 +346,7 @@ class JornadaServiceTest {
         given(jornadas.buscarEquipo(LIGA, LOCAL)).willReturn(Optional.of(equipo(LOCAL, "Halcones", GRUPO)));
         given(jornadas.buscarEquipo(LIGA, nuevoVisitante))
                 .willReturn(Optional.of(equipo(nuevoVisitante, "Águilas", GRUPO)));
-        given(jornadas.bloquearCancha(LIGA, CANCHA)).willReturn(true);
+        given(jornadas.bloquearCancha(LIGA, CANCHA)).willReturn(Optional.of(cancha(true)));
         given(jornadas.buscarPartido(LIGA, PARTIDO)).willReturn(Optional.of(
                 partido(EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, INICIO)));
 
@@ -344,7 +372,7 @@ class JornadaServiceTest {
                 .isInstanceOfSatisfying(ReglaNegocioException.class,
                         error(HttpStatus.UNPROCESSABLE_CONTENT, "RF-033"));
         verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any());
-        verifyNoInteractions(motivoOperacion, auditoria);
+        verifyNoInteractions(validador, motivoOperacion, auditoria);
     }
 
     @Test
@@ -372,7 +400,7 @@ class JornadaServiceTest {
 
         assertThat(resultado.id()).isEqualTo(PARTIDO);
         verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any());
-        verifyNoInteractions(motivoOperacion, auditoria);
+        verifyNoInteractions(validador, motivoOperacion, auditoria);
     }
 
     @Test

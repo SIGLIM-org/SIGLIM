@@ -109,19 +109,26 @@ class JornadaRepository {
     }
 
     /**
-     * Bloquea la cancha de la liga para que el partido no se cruce con un bloqueo o una
-     * desactivación. Devuelve {@code false} si no existe en la liga.
+     * Bloquea la cancha de la liga y devuelve su nombre y estado, para que el validador de
+     * conflictos explique VAL-005. Vacío si no existe en la liga.
      *
      * <p>[PROPUESTA] El ERS no fija si una cancha de otra liga es un 404 o una referencia inválida;
      * se trata como referencia inválida porque el identificador llega en el cuerpo.
      */
-    boolean bloquearCancha(UUID ligaId, UUID canchaId) {
-        return jdbc.sql("SELECT id FROM canchas WHERE id = :id AND liga_id = :ligaId FOR UPDATE")
+    Optional<CanchaDeLiga> bloquearCancha(UUID ligaId, UUID canchaId) {
+        return jdbc.sql("""
+                        SELECT id, nombre, activa
+                          FROM canchas
+                         WHERE id = :id AND liga_id = :ligaId
+                         FOR UPDATE
+                        """)
                 .param("id", canchaId)
                 .param("ligaId", ligaId)
-                .query(UUID.class)
-                .optional()
-                .isPresent();
+                .query((fila, numero) -> new CanchaDeLiga(
+                        fila.getObject("id", UUID.class),
+                        fila.getString("nombre"),
+                        fila.getBoolean("activa")))
+                .optional();
     }
 
     // ── Jornadas ────────────────────────────────────────────────────────────────────────────────
@@ -292,8 +299,12 @@ class JornadaRepository {
     record GrupoDeLiga(UUID id, UUID categoriaTemporadaId) {
     }
 
-    /** Equipo de la liga con lo necesario para validar grupo y club. */
+    /** Equipo de la liga con lo necesario para validar grupo, club y si está dado de baja. */
     record EquipoDeLiga(UUID id, String nombre, UUID grupoId, UUID clubId, String estado) {
+    }
+
+    /** Cancha de la liga con el nombre y el estado que VAL-005 necesita explicar. */
+    record CanchaDeLiga(UUID id, String nombre, boolean activa) {
     }
 
     /** Fila de {@code jornadas} con las fechas en la zona de negocio. */
