@@ -1,0 +1,6 @@
+    folio     |             club              |              temporada              |  estado   |                  colores_uniforme                  |   capturada_por    |         capturada_en          |      resuelta_por      |          resuelta_en          |                                   observaciones                                   
+--------------+-------------------------------+-------------------------------------+-----------+----------------------------------------------------+--------------------+-------------------------------+------------------------+-------------------------------+-----------------------------------------------------------------------------------
+ AF-2026-0001 | Deportivo Halcones de Morelia | Temporada 2026-27 · aceptación H-08 | APROBADA  | Titular: verde y blanco. Alternativo: azul marino. | Directiva Halcones | 2026-11-13 00:13:43.83858+00  | Presidencia del Comité | 2026-11-13 00:13:55.561823+00 | Cumple los requisitos de la convocatoria.
+ AF-2026-0002 | Club Riviera Morelia          | Temporada 2026-27 · aceptación H-08 | RECHAZADA | Titular: rojo y blanco. Alternativo: blanco.       | Directiva Riviera  | 2026-11-13 00:13:49.587417+00 | Presidencia del Comité | 2026-11-13 00:14:29.829988+00 | Faltan las firmas del secretario y la categoría no corresponde a la convocatoria.
+(2 rows)
+

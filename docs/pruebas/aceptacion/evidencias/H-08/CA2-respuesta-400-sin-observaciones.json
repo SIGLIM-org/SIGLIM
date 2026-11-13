@@ -1,0 +1,11 @@
+{
+  "status": 400,
+  "cuerpo": {
+    "detail": "Escribe observaciones de al menos 10 caracteres para rechazar la afiliación.",
+    "instance": "/api/v1/afiliaciones/6da98bf4-8d9b-4b59-a1e5-c216affd9455/resolucion",
+    "status": 400,
+    "title": "Solicitud inválida",
+    "type": "https://siglim.mx/errores/rf-101",
+    "codigo": "RF-101"
+  }
+}
