@@ -34,13 +34,18 @@ import org.springframework.stereotype.Repository;
  * <p>La validación (H-10.2) cambia el estado con un {@code UPDATE} condicional ({@link #validar}),
  * también sujeto a RLS ({@code registros_editar}) y a {@code tg_registros_validar} (DEC-101).
  *
+ * <p>La baja (H-23.1) también es un {@code UPDATE} condicional ({@link #darDeBaja}) sujeto a
+ * {@code registros_editar} y a {@code tg_registros_validar}, que acepta {@code ACTIVO → BAJA} con
+ * motivo. {@link #buscar} y {@link #buscarDetalle} leen {@code baja_en} y el motivo de la baja del
+ * historial (DEC-122, DEC-124).
+ *
  * <p>La consulta (H-10.5) filtra por ámbito en el {@code WHERE} y en el {@code COUNT} con la misma
  * condición ({@link #listar}, {@link #contar}), además de RLS ({@code registros_leer},
  * {@code personas_leer}). La CURP se lee para enmascararla ({@link EnmascaradoCurp}); el servicio
  * decide si el detalle la lleva completa (DEC-110).
  *
- * <p>Refs: H-09.2, H-10.2, H-10.5, RF-013, RF-017, RF-107, RF-109, RN-037, VAL-017, VAL-025, VAL-026, DEC-88,
- * DEC-89, DEC-90, DEC-102, DEC-109, DEC-110
+ * <p>Refs: H-09.2, H-10.2, H-10.5, H-23.1, RF-013, RF-014, RF-017, RF-107, RF-109, RN-037, VAL-017, VAL-025,
+ * VAL-026, DEC-88, DEC-89, DEC-90, DEC-102, DEC-109, DEC-110, DEC-122, DEC-124
  */
 @Repository
 class RegistroJugadorRepository {
@@ -81,6 +86,20 @@ class RegistroJugadorRepository {
                AND (CAST(:temporadaId AS uuid) IS NULL OR r.temporada_id = CAST(:temporadaId AS uuid))
                AND (CAST(:clubId AS uuid) IS NULL OR e.club_id = CAST(:clubId AS uuid))
                AND (CAST(:equipoId AS uuid) IS NULL OR r.equipo_id = CAST(:equipoId AS uuid))
+            """;
+
+    /**
+     * {@code bajaEn} y {@code motivoBaja} del registro, {@code null} salvo en {@code BAJA}: no hay columna
+     * de motivo, así que se lee del último cambio a {@code BAJA} del historial (DEC-124). Empieza con
+     * coma para ir después de otras columnas.
+     */
+    private static final String COLUMNAS_BAJA = """
+                   , r.baja_en,
+                   CASE WHEN r.estado = 'BAJA' THEN
+                        (SELECT h.motivo FROM registro_estado_historial h
+                          WHERE h.registro_id = r.id AND h.estado_nuevo = 'BAJA'
+                          ORDER BY h.cambiado_en DESC, h.id DESC LIMIT 1)
+                   END AS motivo_baja
             """;
 
     private final JdbcClient jdbc;
@@ -222,6 +241,25 @@ class RegistroJugadorRepository {
                 .isPresent();
     }
 
+    /**
+     * Da de baja el registro si sigue {@code ACTIVO}; {@code false} si otra petición cambió su estado
+     * antes (DEC-122). El motivo se fija antes con {@code MotivoOperacion} y el historial lo escribe
+     * {@code tg_registros_historial}; {@code baja_en} satisface {@code ck_registros_baja}.
+     */
+    boolean darDeBaja(UUID id, LocalDate bajaEn) {
+        return jdbc.sql("""
+                        UPDATE registros_jugador
+                           SET estado = 'BAJA', baja_en = :bajaEn
+                         WHERE id = :id AND estado = 'ACTIVO'
+                        RETURNING id
+                        """)
+                .param("id", id)
+                .param("bajaEn", bajaEn)
+                .query(UUID.class)
+                .optional()
+                .isPresent();
+    }
+
     /** El registro con sus referencias, visible por RLS; vacío si no existe o no se ve. */
     Optional<RegistroJugadorDto> buscar(UUID id) {
         return jdbc.sql("""
@@ -234,6 +272,7 @@ class RegistroJugadorRepository {
                                cl.id AS club_id, cl.nombre AS club_nombre,
                                c.id AS categoria_id, c.nombre AS categoria_nombre,
                                t.id AS temporada_id, t.nombre AS temporada_nombre, t.estado AS temporada_estado
+                        """ + COLUMNAS_BAJA + """
                           FROM registros_jugador r
                           JOIN personas p ON p.id = r.persona_id
                           JOIN equipos e ON e.id = r.equipo_id
@@ -262,7 +301,9 @@ class RegistroJugadorRepository {
                         enZonaDeNegocio(fila.getObject("creado_en", OffsetDateTime.class)),
                         validadoPor == null ? null : new ReferenciaDto(validadoPor, fila.getString("validado_por_nombre")),
                         enZonaDeNegocio(fila.getObject("validado_en", OffsetDateTime.class)),
-                        fila.getString("observaciones"));
+                        fila.getString("observaciones"),
+                        fila.getObject("baja_en", LocalDate.class),
+                        fila.getString("motivo_baja"));
                 })
                 .optional();
     }
@@ -308,7 +349,7 @@ class RegistroJugadorRepository {
     Optional<RegistroJugadorDetalleDto> buscarDetalle(UUID id) {
         return jdbc.sql(SELECCION_LISTADO + """
                         , r.validado_por, pf.nombre_mostrado AS validado_por_nombre, r.validado_en, r.observaciones
-                        """ + DESDE_LISTADO + """
+                        """ + COLUMNAS_BAJA + DESDE_LISTADO + """
                          LEFT JOIN perfiles pf ON pf.id = r.validado_por
                          WHERE r.id = :id
                         """)
@@ -333,6 +374,8 @@ class RegistroJugadorRepository {
                                     : new ReferenciaDto(validadoPor, fila.getString("validado_por_nombre")),
                             enZonaDeNegocio(fila.getObject("validado_en", OffsetDateTime.class)),
                             fila.getString("observaciones"),
+                            fila.getObject("baja_en", LocalDate.class),
+                            fila.getString("motivo_baja"),
                             List.of());
                 })
                 .optional();

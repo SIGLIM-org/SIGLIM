@@ -36,7 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Alta de un registro de jugador en un equipo de su club con unicidad por CURP (RF-013, RF-107,
- * CU-004) y su validación por la liga (RF-017, RF-018, RF-109, VAL-001).
+ * CU-004), su validación por la liga (RF-017, RF-018, RF-109, VAL-001) y su baja (RF-014, RN-021).
  *
  * <ul>
  *   <li><b>Ámbito (DEC-85, ADR-0007).</b> {@code registros.registro:EDITAR} sobre el club del equipo;
@@ -64,11 +64,17 @@ import org.springframework.transaction.annotation.Transactional;
  *       registro, como los requisitos. La CURP va enmascarada en el listado y completa en el detalle
  *       solo con {@code organizacion.persona:CONSULTAR} sobre el club ({@link Autorizacion#permite}).
  *       Las consultas no se auditan: no cambian nada.</li>
+ *   <li><b>Baja (H-23.1, DEC-118 a DEC-124).</b> {@code registros.registro:EDITAR} sobre el club del
+ *       equipo, sin separación de funciones; solo un registro {@code ACTIVO} se da de baja, con motivo
+ *       de 10 a 500 caracteres que va al historial y a la auditoría ({@code DAR_BAJA_REGISTRO_JUGADOR}).
+ *       {@code baja_en} es la fecha de México. Se bloquea el registro con {@code bloquearRegistro} y el
+ *       {@code UPDATE} es condicional. Un equipo en {@code BAJA} no la impide.
+ *       {@code SUSPENDIDO → BAJA} queda para la sanción de M-09.</li>
  * </ul>
  *
- * <p>Refs: H-09.2, H-10.2, H-10.5, RF-003, RF-013, RF-016, RF-017, RF-018, RF-093, RF-101, RF-107, RF-109,
- * RN-021, RN-037, RN-039, RN-055, RNF-012, VAL-001, VAL-015, VAL-017, VAL-022, VAL-024, VAL-025, VAL-026, CU-004,
- * DEC-78, DEC-85 a DEC-90, DEC-97 a DEC-102, DEC-109, DEC-110
+ * <p>Refs: H-09.2, H-10.2, H-10.5, H-23.1, RF-003, RF-013, RF-014, RF-016, RF-017, RF-018, RF-093, RF-101,
+ * RF-107, RF-109, RN-021, RN-037, RN-039, RN-055, RNF-012, VAL-001, VAL-015, VAL-017, VAL-022, VAL-024, VAL-025,
+ * VAL-026, CU-004, DEC-78, DEC-85 a DEC-90, DEC-97 a DEC-102, DEC-109, DEC-110, DEC-118 a DEC-124
  */
 @Service
 public class RegistroJugadorService {
@@ -265,6 +271,65 @@ public class RegistroJugadorService {
                 .orElseThrow(() -> new IllegalStateException("El registro " + registro.id() + " no es visible tras validarlo"));
     }
 
+    /**
+     * Da de baja un registro {@code ACTIVO} con motivo: pasa a {@code BAJA} con {@code baja_en} de hoy
+     * en {@code America/Mexico_City} y conserva su historial (RF-014, RN-021). El motivo va solo al
+     * historial y a la auditoría; las observaciones y la validación no cambian (DEC-121).
+     *
+     * <p>Orden de errores (DEC-118 a DEC-122):
+     * <ol>
+     *   <li>Sin {@code registros.registro:EDITAR} en ningún ámbito: {@code 403 VAL-015}.</li>
+     *   <li>Sin motivo o con menos de 10 caracteres (sin contar los espacios de los extremos):
+     *       {@code 400 RN-021}; con más de 500: {@code 400 VALIDACION}.</li>
+     *   <li>Registro inexistente en la liga o de un club fuera de ámbito: {@code 404} (VAL-024).</li>
+     *   <li>Se bloquea el registro (DEC-122).</li>
+     *   <li>Temporada {@code CERRADA}: {@code 409 RF-003}.</li>
+     *   <li>Registro que no está {@code ACTIVO}: {@code 409 RF-017} con un {@code detail} según su
+     *       estado (DEC-118).</li>
+     *   <li>Otra petición cambió su estado entre tanto: {@code 409 RF-017}.</li>
+     * </ol>
+     */
+    @Transactional
+    public RegistroJugadorDto darDeBaja(UUID registroId, BajaRegistroRequest peticion) {
+        autorizacion.alcance(EDITAR);
+        String motivo = motivoDeBaja(peticion == null ? null : peticion.motivo());
+
+        RegistroDeDocumentos encontrado = documentos.buscarRegistro(ligaId, registroId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Registro " + registroId));
+        autorizacion.exigir(EDITAR, ObjetivoAutorizacion.deClubes(encontrado.clubId()));
+        RegistroDeDocumentos registro = documentos.bloquearRegistro(ligaId, registroId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Registro " + registroId));
+
+        if (registro.temporadaEstado() == EstadoTemporada.CERRADA) {
+            throw ReglaNegocioException.conflicto("RF-003",
+                    "La temporada del registro está cerrada: sus registros ya no cambian.");
+        }
+        if (registro.estado() != EstadoRegistro.ACTIVO) {
+            throw ReglaNegocioException.conflicto("RF-017", sinBaja(registro.estado()));
+        }
+
+        motivoOperacion.fijar(motivo);
+        LocalDate bajaEn = LocalDate.now(reloj.withZone(ZONA_DE_NEGOCIO));
+        if (!registros.darDeBaja(registro.id(), bajaEn)) {
+            throw ReglaNegocioException.conflicto("RF-017",
+                    "Otra persona cambió el estado de este registro al mismo tiempo. Actualiza la página para ver "
+                            + "su estado.");
+        }
+
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("personaId", registro.personaId().toString());
+        detalle.put("equipoId", registro.equipoId().toString());
+        detalle.put("temporadaId", registro.temporadaId().toString());
+        detalle.put("estadoAnterior", EstadoRegistro.ACTIVO.name());
+        detalle.put("estado", EstadoRegistro.BAJA.name());
+        detalle.put("bajaEn", bajaEn.toString());
+        auditoria.registrar(new EventoAuditoria(ligaId, MODULO, "DAR_BAJA_REGISTRO_JUGADOR", ENTIDAD,
+                registro.id().toString(), motivo, detalle));
+
+        return registros.buscar(registro.id())
+                .orElseThrow(() -> new IllegalStateException("El registro " + registro.id() + " no es visible tras darlo de baja"));
+    }
+
     // ── Consulta (H-10.5, DEC-109, DEC-110) ────────────────────────────────────────────────────
 
     /**
@@ -443,6 +508,36 @@ public class RegistroJugadorService {
                     "Las observaciones admiten hasta " + MAXIMO_OBSERVACIONES + " caracteres.");
         }
         return valor;
+    }
+
+    /**
+     * El motivo de la baja recortado; falta o con menos de 10 caracteres es {@code 400 RN-021} y con más
+     * de 500, {@code 400 VALIDACION} (DEC-121).
+     */
+    private static String motivoDeBaja(String texto) {
+        String valor = texto == null ? "" : texto.strip();
+        if (valor.length() < MINIMO_OBSERVACIONES) {
+            throw ReglaNegocioException.invalida("RN-021", "Escribe un motivo de al menos " + MINIMO_OBSERVACIONES
+                    + " caracteres para dar de baja el registro.");
+        }
+        if (valor.length() > MAXIMO_OBSERVACIONES) {
+            throw ReglaNegocioException.invalida(ErroresTecnicos.VALIDACION,
+                    "El motivo admite hasta " + MAXIMO_OBSERVACIONES + " caracteres.");
+        }
+        return valor;
+    }
+
+    /** El {@code detail} de {@code 409 RF-017} cuando el registro no está {@code ACTIVO} (DEC-118). */
+    private static String sinBaja(EstadoRegistro estado) {
+        return switch (estado) {
+            case PENDIENTE_VALIDACION ->
+                    "El registro aún no está validado: si no procede, pide a la liga que lo rechace.";
+            case SUSPENDIDO ->
+                    "El registro tiene una sanción vigente: no se puede dar de baja mientras esté suspendido.";
+            case BAJA -> "El registro ya está dado de baja.";
+            case RECHAZADO -> "El registro fue rechazado: no está activo.";
+            case ACTIVO -> throw new IllegalArgumentException("Un registro ACTIVO sí admite baja");
+        };
     }
 
     private static String texto(EstadoRegistro estado) {

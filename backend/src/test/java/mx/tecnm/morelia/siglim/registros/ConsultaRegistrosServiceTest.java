@@ -246,7 +246,7 @@ class ConsultaRegistrosServiceTest {
                 new ReferenciaDto(CATEGORIA, "Libre"),
                 new TemporadaResumenDto(TEMPORADA, "Temporada 2026", EstadoTemporada.ACTIVA),
                 EstadoRegistro.PENDIENTE_VALIDACION, menor, HOY, OffsetDateTime.parse("2026-11-11T12:00:00-06:00"),
-                null, null, null, List.of());
+                null, null, null, null, null, List.of());
     }
 
     private static RegistroJugadorResumenDto resumen() {

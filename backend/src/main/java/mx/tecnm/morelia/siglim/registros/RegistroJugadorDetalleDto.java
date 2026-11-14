@@ -13,7 +13,7 @@ import mx.tecnm.morelia.siglim.registros.RegistroJugadorDto.TemporadaResumenDto;
  * persona, completa solo para quien tiene {@code organizacion.persona:CONSULTAR} sobre el club del
  * registro (DEC-110).
  *
- * <p>Refs: H-10.5, RF-017, RNF-012, DEC-109, DEC-110
+ * <p>Refs: H-10.5, H-23.1, RF-014, RF-017, RNF-012, DEC-109, DEC-110, DEC-124
  *
  * @param esMenor       si la persona era menor en la fecha de alta (DEC-89 y DEC-92)
  * @param altaEn        fecha de alta en {@code America/Mexico_City}
@@ -21,6 +21,9 @@ import mx.tecnm.morelia.siglim.registros.RegistroJugadorDto.TemporadaResumenDto;
  * @param validadoPor   perfil de la liga que validó o rechazó; {@code null} si sigue pendiente
  * @param validadoEn    fecha y hora de la validación en la zona de negocio; {@code null} si sigue pendiente
  * @param observaciones observaciones de la validación; {@code null} si no hubo
+ * @param bajaEn        fecha de la baja en {@code America/Mexico_City}; {@code null} salvo en {@code BAJA}
+ * @param motivoBaja    motivo de la baja, del último cambio a {@code BAJA} del historial; {@code null}
+ *                      salvo en {@code BAJA} (DEC-124)
  * @param tutores       tutelas vigentes del menor por fecha de creación; vacía si no es menor
  */
 public record RegistroJugadorDetalleDto(
@@ -37,6 +40,8 @@ public record RegistroJugadorDetalleDto(
         ReferenciaDto validadoPor,
         OffsetDateTime validadoEn,
         String observaciones,
+        LocalDate bajaEn,
+        String motivoBaja,
         List<TutorDto> tutores) {
 
     public RegistroJugadorDetalleDto {
@@ -48,7 +53,7 @@ public record RegistroJugadorDetalleDto(
         PersonaDetalleDto personaVisible = mostrarCurp ? persona
                 : new PersonaDetalleDto(persona.id(), persona.nombreCompleto(), persona.curpEnmascarada(), null);
         return new RegistroJugadorDetalleDto(id, personaVisible, equipo, club, categoria, temporada, estado, esMenor,
-                altaEn, creadoEn, validadoPor, validadoEn, observaciones, tutoresVigentes);
+                altaEn, creadoEn, validadoPor, validadoEn, observaciones, bajaEn, motivoBaja, tutoresVigentes);
     }
 
     /**

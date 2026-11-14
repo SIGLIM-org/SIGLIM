@@ -96,7 +96,7 @@ class RegistroJugadorServiceTest {
             new ReferenciaDto(UUID.randomUUID(), "Libre"),
             new TemporadaResumenDto(TEMPORADA, "Temporada 2026", EstadoTemporada.ACTIVA),
             EstadoRegistro.PENDIENTE_VALIDACION, HOY, OffsetDateTime.parse("2026-11-11T12:00:00-06:00"),
-            null, null, null);
+            null, null, null, null, null);
     private static final RegistroJugadorDto VALIDADO = new RegistroJugadorDto(REGISTRO,
             new PersonaResumenDto(PERSONA, "Ana López"),
             new ReferenciaDto(EQUIPO, "Halcones"),
@@ -104,7 +104,12 @@ class RegistroJugadorServiceTest {
             new ReferenciaDto(CATEGORIA, "Segunda"),
             new TemporadaResumenDto(TEMPORADA, "Temporada 2026", EstadoTemporada.ACTIVA),
             EstadoRegistro.ACTIVO, HOY, OffsetDateTime.parse("2026-11-11T12:00:00-06:00"),
-            new ReferenciaDto(PERFIL, "Secretario"), OffsetDateTime.parse("2026-11-11T12:00:00-06:00"), null);
+            new ReferenciaDto(PERFIL, "Secretario"), OffsetDateTime.parse("2026-11-11T12:00:00-06:00"), null,
+            null, null);
+    private static final String MOTIVO_BAJA = "El jugador se mudó de ciudad";
+    private static final RegistroJugadorDto DE_BAJA = new RegistroJugadorDto(REGISTRO, VALIDADO.persona(),
+            VALIDADO.equipo(), VALIDADO.club(), VALIDADO.categoria(), VALIDADO.temporada(), EstadoRegistro.BAJA, HOY,
+            VALIDADO.creadoEn(), VALIDADO.validadoPor(), VALIDADO.validadoEn(), null, HOY, MOTIVO_BAJA);
 
     private final RegistroJugadorRepository registros = mock(RegistroJugadorRepository.class);
     private final DocumentoRegistroRepository documentos = mock(DocumentoRegistroRepository.class);
@@ -745,7 +750,229 @@ class RegistroJugadorServiceTest {
         verify(registros, never()).buscar(any());
     }
 
+    // ── Baja del registro (H-23.1, DEC-118 a DEC-124) ───────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-014 · RN-021: da de baja un registro ACTIVO con el motivo antes del UPDATE, la fecha de México y auditoría")
+    void daDeBaja() {
+        // 15 nov 2026 a las 00:30 UTC: en Morelia todavía es 14 de noviembre (DEC-121).
+        servicio = conReloj(Instant.parse("2026-11-15T00:30:00Z"));
+        prepararBaja(registro(EstadoRegistro.ACTIVO, EstadoTemporada.ACTIVA, true, PERFIL));
+
+        assertThat(servicio.darDeBaja(REGISTRO, new BajaRegistroRequest("  " + MOTIVO_BAJA + "  "))).isEqualTo(DE_BAJA);
+
+        LocalDate catorce = LocalDate.parse("2026-11-14");
+        InOrder orden = inOrder(autorizacion, documentos, motivo, registros, auditoria);
+        orden.verify(autorizacion).alcance(EDITAR);
+        orden.verify(documentos).buscarRegistro(LIGA, REGISTRO);
+        orden.verify(autorizacion).exigir(EDITAR, ObjetivoAutorizacion.deClubes(CLUB));
+        orden.verify(documentos).bloquearRegistro(LIGA, REGISTRO);
+        orden.verify(motivo).fijar(MOTIVO_BAJA);
+        orden.verify(registros).darDeBaja(REGISTRO, catorce);
+        orden.verify(auditoria).registrar(any());
+        orden.verify(registros).buscar(REGISTRO);
+        verify(registros, never()).validar(any(), any(), any(), any(), any());
+
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.ligaId()).isEqualTo(LIGA);
+        assertThat(evento.modulo()).isEqualTo("M-04");
+        assertThat(evento.accion()).isEqualTo("DAR_BAJA_REGISTRO_JUGADOR");
+        assertThat(evento.entidad()).isEqualTo("registros_jugador");
+        assertThat(evento.entidadId()).isEqualTo(REGISTRO.toString());
+        assertThat(evento.motivo()).isEqualTo(MOTIVO_BAJA);
+        assertThat(evento.detalle()).containsExactly(
+                Map.entry("personaId", PERSONA.toString()),
+                Map.entry("equipoId", EQUIPO.toString()),
+                Map.entry("temporadaId", TEMPORADA.toString()),
+                Map.entry("estadoAnterior", "ACTIVO"),
+                Map.entry("estado", "BAJA"),
+                Map.entry("bajaEn", "2026-11-14"));
+        assertThat(evento.detalle().toString()).doesNotContain("Ana", "López", "curp");
+    }
+
+    @Test
+    @DisplayName("DEC-120: con el equipo en BAJA, un registro ACTIVO sí se da de baja")
+    void daDeBajaConEquipoDeBaja() {
+        prepararBaja(registro(EstadoRegistro.ACTIVO, EstadoTemporada.ACTIVA, false, OTRO_PERFIL));
+
+        assertThat(servicio.darDeBaja(REGISTRO, new BajaRegistroRequest(MOTIVO_BAJA))).isEqualTo(DE_BAJA);
+
+        verify(registros).darDeBaja(REGISTRO, HOY);
+    }
+
+    @Test
+    @DisplayName("DEC-120: se acepta la temporada en CONFIGURACION")
+    void daDeBajaEnConfiguracion() {
+        prepararBaja(registro(EstadoRegistro.ACTIVO, EstadoTemporada.CONFIGURACION, true, OTRO_PERFIL));
+
+        assertThat(servicio.darDeBaja(REGISTRO, new BajaRegistroRequest(MOTIVO_BAJA))).isEqualTo(DE_BAJA);
+    }
+
+    @Test
+    @DisplayName("VAL-015 · DEC-119: sin registros.registro:EDITAR en ningún ámbito responde 403 sin leer el registro")
+    void bajaSinPermiso() {
+        given(autorizacion.alcance(EDITAR)).willThrow(Autorizacion.sinPermiso());
+
+        esperar(() -> servicio.darDeBaja(REGISTRO, new BajaRegistroRequest(MOTIVO_BAJA)), HttpStatus.FORBIDDEN,
+                "VAL-015");
+
+        verifyNoInteractions(documentos, registros, auditoria, motivo);
+    }
+
+    @Test
+    @DisplayName("RN-021 · DEC-121: sin motivo, en blanco o de 9 caracteres responde 400 RN-021 antes de buscar el registro")
+    void bajaSinMotivo() {
+        esperar(() -> servicio.darDeBaja(REGISTRO, null), HttpStatus.BAD_REQUEST, "RN-021");
+        esperar(() -> servicio.darDeBaja(REGISTRO, new BajaRegistroRequest(null)), HttpStatus.BAD_REQUEST, "RN-021");
+        esperar(() -> servicio.darDeBaja(REGISTRO, new BajaRegistroRequest("   ")), HttpStatus.BAD_REQUEST, "RN-021");
+        assertThatThrownBy(() -> servicio.darDeBaja(REGISTRO, new BajaRegistroRequest("  123456789  ")))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(error.codigo()).isEqualTo("RN-021");
+                    assertThat(error.getMessage())
+                            .isEqualTo("Escribe un motivo de al menos 10 caracteres para dar de baja el registro.");
+                });
+
+        verifyNoInteractions(documentos, registros, auditoria, motivo);
+    }
+
+    @Test
+    @DisplayName("DEC-121: un motivo de 501 caracteres responde 400 VALIDACION; de 500, recortado, se acepta")
+    void bajaMotivoLargo() {
+        esperar(() -> servicio.darDeBaja(REGISTRO, new BajaRegistroRequest("x".repeat(501))), HttpStatus.BAD_REQUEST,
+                "VALIDACION");
+        verifyNoInteractions(documentos, registros);
+
+        prepararBaja(registro(EstadoRegistro.ACTIVO, EstadoTemporada.ACTIVA, true, OTRO_PERFIL));
+        servicio.darDeBaja(REGISTRO, new BajaRegistroRequest(" " + "x".repeat(500) + " "));
+        verify(motivo).fijar("x".repeat(500));
+    }
+
+    @Test
+    @DisplayName("DEC-121 · DEC-122: el 400 del motivo gana al 404 de un registro inexistente")
+    void motivoAntesQueNoEncontrado() {
+        given(documentos.buscarRegistro(LIGA, REGISTRO)).willReturn(Optional.empty());
+
+        esperar(() -> servicio.darDeBaja(REGISTRO, new BajaRegistroRequest("corto")), HttpStatus.BAD_REQUEST, "RN-021");
+
+        verifyNoInteractions(documentos);
+    }
+
+    @Test
+    @DisplayName("VAL-024 · DEC-119: un registro inexistente responde 404 sin exigir el permiso sobre un club")
+    void bajaRegistroInexistente() {
+        given(documentos.buscarRegistro(LIGA, REGISTRO)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.darDeBaja(REGISTRO, new BajaRegistroRequest(MOTIVO_BAJA)))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+
+        verify(autorizacion, never()).exigir(any(), any());
+        verify(documentos, never()).bloquearRegistro(any(), any());
+        verifyNoInteractions(motivo, auditoria);
+    }
+
+    @Test
+    @DisplayName("VAL-024 · DEC-119: un registro de un club fuera de ámbito responde 404 igual y no se bloquea")
+    void bajaFueraDeAmbito() {
+        given(documentos.buscarRegistro(LIGA, REGISTRO)).willReturn(
+                Optional.of(registro(EstadoRegistro.ACTIVO, EstadoTemporada.ACTIVA, true, OTRO_PERFIL)));
+        willThrow(Autorizacion.fueraDeAmbito(EDITAR))
+                .given(autorizacion).exigir(EDITAR, ObjetivoAutorizacion.deClubes(CLUB));
+
+        assertThatThrownBy(() -> servicio.darDeBaja(REGISTRO, new BajaRegistroRequest(MOTIVO_BAJA)))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+
+        verify(documentos, never()).bloquearRegistro(any(), any());
+        verifyNoInteractions(motivo, auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-003 · DEC-120: la temporada CERRADA responde 409 antes de revisar el estado")
+    void bajaTemporadaCerrada() {
+        prepararBaja(registro(EstadoRegistro.PENDIENTE_VALIDACION, EstadoTemporada.CERRADA, true, OTRO_PERFIL));
+
+        assertThatThrownBy(() -> servicio.darDeBaja(REGISTRO, new BajaRegistroRequest(MOTIVO_BAJA)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(error.codigo()).isEqualTo("RF-003");
+                    assertThat(error.getMessage())
+                            .isEqualTo("La temporada del registro está cerrada: sus registros ya no cambian.");
+                });
+
+        verify(documentos).bloquearRegistro(LIGA, REGISTRO);
+        verifyNoInteractions(motivo, auditoria);
+        verify(registros, never()).darDeBaja(any(), any());
+    }
+
+    @Test
+    @DisplayName("RF-017 · DEC-118: un registro PENDIENTE_VALIDACION responde 409 y remite al rechazo de la liga")
+    void bajaDePendiente() {
+        esperarSinBaja(EstadoRegistro.PENDIENTE_VALIDACION,
+                "El registro aún no está validado: si no procede, pide a la liga que lo rechace.");
+    }
+
+    @Test
+    @DisplayName("RF-017 · DEC-118: un registro SUSPENDIDO responde 409 (la baja por sanción es de M-09)")
+    void bajaDeSuspendido() {
+        esperarSinBaja(EstadoRegistro.SUSPENDIDO,
+                "El registro tiene una sanción vigente: no se puede dar de baja mientras esté suspendido.");
+    }
+
+    @Test
+    @DisplayName("RF-017 · DEC-118: un registro ya en BAJA responde 409 (acción repetida)")
+    void bajaDeBaja() {
+        esperarSinBaja(EstadoRegistro.BAJA, "El registro ya está dado de baja.");
+    }
+
+    @Test
+    @DisplayName("RF-017 · DEC-118: un registro RECHAZADO responde 409")
+    void bajaDeRechazado() {
+        esperarSinBaja(EstadoRegistro.RECHAZADO, "El registro fue rechazado: no está activo.");
+    }
+
+    @Test
+    @DisplayName("RF-017 · DEC-122: si el UPDATE condicional no devuelve fila responde 409 y no audita")
+    void otraPeticionCambioElEstado() {
+        prepararBaja(registro(EstadoRegistro.ACTIVO, EstadoTemporada.ACTIVA, true, OTRO_PERFIL));
+        given(registros.darDeBaja(any(), any())).willReturn(false);
+
+        assertThatThrownBy(() -> servicio.darDeBaja(REGISTRO, new BajaRegistroRequest(MOTIVO_BAJA)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(error.codigo()).isEqualTo("RF-017");
+                    assertThat(error.getMessage()).isEqualTo("Otra persona cambió el estado de este registro al "
+                            + "mismo tiempo. Actualiza la página para ver su estado.");
+                });
+
+        verifyNoInteractions(auditoria);
+        verify(registros, never()).buscar(any());
+    }
+
     // ── Apoyo ──────────────────────────────────────────────────────────────────────────────────
+
+    /** Registro encontrado y, con el bloqueo, {@code bloqueado}; un {@code UPDATE} que sí actualiza. */
+    private void prepararBaja(RegistroDeDocumentos bloqueado) {
+        given(documentos.buscarRegistro(LIGA, REGISTRO)).willReturn(Optional.of(bloqueado));
+        given(documentos.bloquearRegistro(LIGA, REGISTRO)).willReturn(Optional.of(bloqueado));
+        given(registros.darDeBaja(any(), any())).willReturn(true);
+        given(registros.buscar(REGISTRO)).willReturn(Optional.of(DE_BAJA));
+    }
+
+    /** {@code 409 RF-017} con el {@code detail} del estado, después del bloqueo y sin tocar nada (DEC-118). */
+    private void esperarSinBaja(EstadoRegistro estado, String mensaje) {
+        prepararBaja(registro(estado, EstadoTemporada.ACTIVA, true, OTRO_PERFIL));
+
+        assertThatThrownBy(() -> servicio.darDeBaja(REGISTRO, new BajaRegistroRequest(MOTIVO_BAJA)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(error.codigo()).isEqualTo("RF-017");
+                    assertThat(error.getMessage()).isEqualTo(mensaje);
+                });
+
+        verify(documentos).bloquearRegistro(LIGA, REGISTRO);
+        verify(registros, never()).darDeBaja(any(), any());
+        verifyNoInteractions(motivo, auditoria);
+    }
 
     private RegistroJugadorService conReloj(Instant instante) {
         return new RegistroJugadorService(registros, documentos, autorizacion, auditoria, motivo,
