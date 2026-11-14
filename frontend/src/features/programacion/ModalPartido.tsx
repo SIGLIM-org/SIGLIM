@@ -1,5 +1,5 @@
 import { useId, useMemo, useState, type FormEvent } from 'react'
-import { CalendarClock, CircleAlert, RotateCw } from 'lucide-react'
+import { CalendarClock, CircleAlert, RotateCw, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { CampoSeleccion } from '@/components/ui/CampoSeleccion'
 import { CampoTexto } from '@/components/ui/CampoTexto'
@@ -126,7 +126,9 @@ function opcionesDe(
  */
 export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) {
   const dialogoRef = useDialogoModal()
-  const equipos = useEquipos({ grupoId: jornada.grupoId, estado: 'ACTIVO' })
+  // Al ajustar se piden todos los estados para poder mostrar y explicar al equipo actual si quedó
+  // de baja; en el alta solo se ofrecen activos (VAL-006).
+  const equipos = useEquipos({ grupoId: jornada.grupoId })
   const canchas = useCanchas({ pagina: 0, tamano: 100, activa: true })
   const crear = useCrearPartido(jornada.id)
   const actualizar = useActualizarPartido(partido?.id ?? '')
@@ -148,16 +150,25 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
   const motivoLimpio = valores.motivo.trim()
   const motivoValido = motivoLimpio.length >= MINIMO_MOTIVO
 
+  const equiposDelGrupo = useMemo(() => equipos.data?.contenido ?? [], [equipos.data])
   const opcionesEquipos = useMemo(
     () =>
       opcionesDe(
-        (equipos.data?.contenido ?? []).map(({ id: equipoId, nombre }) => ({
-          id: equipoId,
-          nombre,
-        })),
+        equiposDelGrupo
+          .filter(
+            ({ id: equipoId, estado }) =>
+              estado === 'ACTIVO' ||
+              equipoId === partido?.equipoLocal.id ||
+              equipoId === partido?.equipoVisitante.id,
+          )
+          .map(({ id: equipoId, nombre }) => ({ id: equipoId, nombre })),
         [partido?.equipoLocal, partido?.equipoVisitante],
       ),
-    [equipos.data, partido],
+    [equiposDelGrupo, partido],
+  )
+  const estadoDeEquipo = useMemo(
+    () => new Map(equiposDelGrupo.map(({ id: equipoId, estado }) => [equipoId, estado])),
+    [equiposDelGrupo],
   )
   const opcionesCanchas = useMemo(
     () =>
@@ -178,13 +189,19 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
   const canchaElegida = canchas.data?.contenido.find(
     ({ id: canchaId }) => canchaId === valores.canchaId,
   )
-  const faltanEquipos = equipos.isSuccess && opcionesEquipos.length < 2
+  const equiposActivos = equiposDelGrupo.filter(({ estado }) => estado === 'ACTIVO').length
+  const faltanEquipos = equipos.isSuccess && equiposActivos < 2
   const faltanCanchas = canchas.isSuccess && opcionesCanchas.length === 0
   const catalogoIncompleto = Boolean(errorCatalogos) || faltanEquipos || faltanCanchas
+  const equiposDeBaja = [equipoLocal, equipoVisitante].filter(
+    (equipo): equipo is Referencia =>
+      equipo !== undefined && estadoDeEquipo.get(equipo.id) === 'BAJA',
+  )
   const puedeGuardar =
     !guardando &&
     !cargandoCatalogos &&
     !catalogoIncompleto &&
+    equiposDeBaja.length === 0 &&
     (partido ? hayCambios && motivoValido : true)
 
   const cambiar = (campo: keyof Valores, valor: string) => {
@@ -286,6 +303,20 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
           </p>
         </div>
 
+        {equiposDeBaja.length > 0 && (
+          <p
+            role="alert"
+            className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 p-3 text-body-md text-warning-strong"
+          >
+            <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <span>
+              {equiposDeBaja.length === 1
+                ? `El equipo «${equiposDeBaja[0].nombre}» está dado de baja y no puede jugar. Elige un equipo activo para guardar el ajuste.`
+                : `Los equipos «${equiposDeBaja[0].nombre}» y «${equiposDeBaja[1].nombre}» están dados de baja y no pueden jugar. Elige equipos activos para guardar el ajuste.`}
+            </span>
+          </p>
+        )}
+
         {errorCatalogos ? (
           <div
             role="alert"
@@ -316,15 +347,23 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
               onChange={(evento) => cambiar('equipoLocalId', evento.target.value)}
             >
               <option value="">{cargandoCatalogos ? 'Cargando equipos…' : 'Elige un equipo'}</option>
-              {opcionesEquipos.map((equipo) => (
-                <option
-                  key={equipo.id}
-                  value={equipo.id}
-                  disabled={equipo.id === valores.equipoVisitanteId}
-                >
-                  {equipo.nombre}
-                </option>
-              ))}
+              {opcionesEquipos.map((equipo) => {
+                const deBaja = estadoDeEquipo.get(equipo.id) === 'BAJA'
+
+                return (
+                  <option
+                    key={equipo.id}
+                    value={equipo.id}
+                    disabled={
+                      equipo.id === valores.equipoVisitanteId ||
+                      (deBaja && equipo.id !== valores.equipoLocalId)
+                    }
+                  >
+                    {equipo.nombre}
+                    {deBaja ? ' · Equipo dado de baja' : ''}
+                  </option>
+                )
+              })}
             </CampoSeleccion>
 
             <CampoSeleccion
@@ -337,15 +376,23 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
               onChange={(evento) => cambiar('equipoVisitanteId', evento.target.value)}
             >
               <option value="">{cargandoCatalogos ? 'Cargando equipos…' : 'Elige un equipo'}</option>
-              {opcionesEquipos.map((equipo) => (
-                <option
-                  key={equipo.id}
-                  value={equipo.id}
-                  disabled={equipo.id === valores.equipoLocalId}
-                >
-                  {equipo.nombre}
-                </option>
-              ))}
+              {opcionesEquipos.map((equipo) => {
+                const deBaja = estadoDeEquipo.get(equipo.id) === 'BAJA'
+
+                return (
+                  <option
+                    key={equipo.id}
+                    value={equipo.id}
+                    disabled={
+                      equipo.id === valores.equipoLocalId ||
+                      (deBaja && equipo.id !== valores.equipoVisitanteId)
+                    }
+                  >
+                    {equipo.nombre}
+                    {deBaja ? ' · Equipo dado de baja' : ''}
+                  </option>
+                )
+              })}
             </CampoSeleccion>
 
             <CampoSeleccion

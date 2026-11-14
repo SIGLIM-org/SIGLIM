@@ -178,6 +178,7 @@ type Respuestas = {
   categorias?: CategoriaTemporada[]
   jornadas?: Pagina<Jornada>
   detalle?: Jornada
+  equipos?: Pagina<Equipo>
   verificacion?: VerificacionJornada
 }
 
@@ -186,6 +187,7 @@ function responder({
   categorias = CATEGORIAS,
   jornadas = pagina([{ ...JORNADA, partidos: undefined }]),
   detalle = JORNADA,
+  equipos = pagina(EQUIPOS),
   verificacion = CONFLICTOS,
 }: Respuestas = {}) {
   get.mockImplementation(async (ruta: string) => {
@@ -202,7 +204,7 @@ function responder({
       return detalle
     }
     if (ruta.startsWith('equipos?')) {
-      return pagina(EQUIPOS)
+      return equipos
     }
     if (ruta.startsWith('canchas?')) {
       return pagina(CANCHAS)
@@ -350,5 +352,46 @@ describe('PantallaProgramacion (F-22, H-12.4)', () => {
     expect(
       await screen.findByText('Partido ajustado. El cambio quedó en el historial y la auditoría.'),
     ).toBeInTheDocument()
+  })
+
+  it('conserva al equipo actual del partido aunque ya no esté activo', async () => {
+    otorgar(CONSULTAR, EDITAR, ENVIAR)
+    const equipoDeBaja: Equipo = {
+      ...EQUIPOS[0],
+      id: 'e9',
+      nombre: 'Baja FC',
+      estado: 'BAJA',
+      bajaEn: '2026-10-01',
+      motivoBaja: 'Adeudo',
+    }
+    const partidoConBaja: Partido = {
+      ...PARTIDO_UNO,
+      equipoLocal: { id: 'e9', nombre: 'Baja FC' },
+    }
+
+    responder({
+      equipos: pagina([...EQUIPOS, equipoDeBaja]),
+      detalle: { ...JORNADA, partidos: [partidoConBaja, PARTIDO_DOS] },
+      verificacion: { conflictos: [], advertencias: [] },
+    })
+    montarPantalla()
+
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Editar el partido Baja FC vs. Toros',
+      }),
+    )
+
+    const dialogo = await screen.findByRole('dialog', { name: 'Ajustar partido' })
+    const local = within(dialogo).getByLabelText(/Equipo local/) as HTMLSelectElement
+
+    expect(local.value).toBe('e9')
+    expect(within(local).getByRole('option', { name: /Baja FC/ })).toHaveTextContent(
+      'Equipo dado de baja',
+    )
+    expect(
+      within(dialogo).getByText(/El equipo «Baja FC» está dado de baja/),
+    ).toBeInTheDocument()
+    expect(within(dialogo).getByRole('button', { name: 'Guardar cambios' })).toBeDisabled()
   })
 })
