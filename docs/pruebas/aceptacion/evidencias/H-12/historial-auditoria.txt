@@ -1,0 +1,47 @@
+Prueba de aceptación H-12.5 · historial, auditoría y verificación sin escritura
+==============================================================================
+Base local efímera (PostgreSQL 17.11). Consultas ejecutadas al cerrar la corrida.
+
+PARTIDO AJUSTADO (CA-5)
+Partido f906c0a0-da66-47ab-9536-b5ad68f0b2b7 (Coyotes vs. Mapaches)
+
+  id                                    | inicio                    | fin_bloque                | estado
+  --------------------------------------+---------------------------+---------------------------+-----------
+  f906c0a0-da66-47ab-9536-b5ad68f0b2b7  | 2026-11-25 10:00:00-06    | 2026-11-25 12:00:00-06    | PROGRAMADO
+
+  estado_anterior | estado_nuevo | motivo                  | cambiado_por
+  ----------------+--------------+-------------------------+--------------------------------------
+  null            | PROGRAMADO   | Programación del partido| 22222222-2222-4222-8222-222222222222
+
+  El historial de estados solo registra el alta: el ajuste de horario no cambia el estado del
+  partido (RF-045, RN-021). La traza del ajuste vive en la auditoría:
+
+  accion           | motivo                                                              | detalle
+  -----------------+---------------------------------------------------------------------+----------------------------------------------
+  REGISTRAR_PARTIDO| null                                                                | {"canchaId": "...004", "jornadaId": "bc2879f0-...", "equipoLocalId": "...003", "equipoVisitanteId": "...004"}
+  AJUSTAR_PARTIDO  | Cambio de fecha solicitado por la Liga para evitar el mantenimiento | {"campos": ["inicio"], "jornadaId": "bc2879f0-..."}
+                   | de la cancha.                                                       |
+  AJUSTAR_PARTIDO  | Reprogramación de prueba de la aceptación H-12.5                    | {"campos": ["inicio"], "jornadaId": "bc2879f0-..."}
+
+VERIFICACIÓN SIN ESCRITURA (CA-4)
+Jornada d772c6b9-cbc7-4463-ac2a-eadfb7dbf3c4
+
+  Antes de POST /jornadas/{id}/verificacion:
+    partidos de la jornada: 2
+    filas de auditoría de la jornada y sus dos partidos: 3
+
+  Después de POST /jornadas/{id}/verificacion:
+    partidos de la jornada: 2
+    filas de auditoría de la jornada y sus dos partidos: 3
+
+  La verificación devolvió 3 conflictos (2 de cancha y 1 de equipo) y ninguna escritura.
+  Respuesta completa en verificacion-conflictos.json.
+
+LECTURA DE LA AUDITORÍA (RF-093)
+  accion            | entidad      | entidad_id                             | motivo
+  ------------------+--------------+----------------------------------------+---------
+  REGISTRAR_JORNADA | jornadas     | d772c6b9-cbc7-4463-ac2a-eadfb7dbf3c4   | null
+  REGISTRAR_PARTIDO | partidos     | d3540a91-a7cf-4337-96e1-a2d39730417c   | null
+  REGISTRAR_PARTIDO | partidos     | 343da7fe-fbe5-4106-a1be-5f6eb313d874   | null
+
+  Los identificadores son UUID de la base local; no hay datos personales en el detalle.

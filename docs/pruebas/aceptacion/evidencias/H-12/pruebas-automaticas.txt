@@ -1,0 +1,24 @@
+Prueba de aceptación H-12.5 · pruebas automáticas de la misma versión
+=====================================================================
+Versión: develop en 53cc39b
+Comandos: ./mvnw verify (backend) y npm test (frontend)
+
+BACKEND — ./mvnw verify
+  ProgramacionIT                 22 pruebas, 0 fallos, 0 omitidas
+  ProgramacionControllerTest     39 pruebas, 0 fallos, 0 omitidas
+  ValidadorConflictosTest        16 pruebas, 0 fallos, 0 omitidas
+  JornadaServiceTest             26 pruebas, 0 fallos, 0 omitidas
+  Resultado global del backend   269 pruebas, 0 fallos, 1 omitida
+                                 (AlmacenamientoDocumentosAwsIT, sin credenciales de AWS)
+  Resultado: BUILD SUCCESS
+
+FRONTEND — npm test
+  PantallaProgramacion.test.tsx   8 pruebas, 0 fallos
+  Resultado global del frontend 741 pruebas en 82 archivos, 0 fallos
+
+  npm run lint   → 0 advertencias, 0 errores (378 archivos)
+  npm run build  → compilación correcta (tsc -b && vite build)
+
+Las pruebas de integración del backend corrieron con Testcontainers y PostgreSQL 17, la misma
+versión que usa Supabase. ProgramacionIT cubre las reglas VAL-003 a VAL-006, la verificación sin
+escritura, el ajuste con motivo y el respaldo del trigger.
