@@ -85,6 +85,8 @@ class ArbitrosIT extends BaseDatosPrueba {
         assertThat(eventos(propuesto.id())).extracting(Evento::accion)
                 .containsExactly("PROPONER_ARBITRO", "VALIDAR_ARBITRO");
         assertThat(eventos(propuesto.id()).getLast().perfilId()).isEqualTo(comision);
+        assertThat(eventos(propuesto.id()).getLast().detalle())
+                .contains("\"observaciones\": \"Cumple los requisitos\"");
 
         assertThatThrownBy(() -> arbitros.validar(propuesto.id(),
                 new ValidarArbitroRequest(DecisionArbitro.RECHAZADO, OBSERVACIONES)))
@@ -256,14 +258,15 @@ class ArbitrosIT extends BaseDatosPrueba {
 
     private List<Evento> eventos(UUID arbitro) {
         return jdbc.sql("""
-                        SELECT accion, perfil_id, motivo
+                        SELECT accion, perfil_id, motivo, CAST(detalle AS text) AS detalle
                           FROM siglim.auditoria
                          WHERE modulo = 'M-05' AND entidad = 'arbitros' AND entidad_id = :id
                          ORDER BY id
                         """)
                 .param("id", arbitro.toString())
                 .query((fila, numero) -> new Evento(fila.getString("accion"),
-                        fila.getObject("perfil_id", UUID.class), fila.getString("motivo")))
+                        fila.getObject("perfil_id", UUID.class), fila.getString("motivo"),
+                        fila.getString("detalle")))
                 .list();
     }
 
@@ -277,6 +280,6 @@ class ArbitrosIT extends BaseDatosPrueba {
     private record Club(UUID id, String nombre) {
     }
 
-    private record Evento(String accion, UUID perfilId, String motivo) {
+    private record Evento(String accion, UUID perfilId, String motivo, String detalle) {
     }
 }

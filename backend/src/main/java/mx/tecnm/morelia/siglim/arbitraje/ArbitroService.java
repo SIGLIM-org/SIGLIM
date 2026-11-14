@@ -45,7 +45,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       registran el perfil y la fecha de validación. Solo los {@code VALIDADO} pueden designarse:
  *       lo garantiza el trigger de {@code designaciones} ({@code RF-113}).</li>
  *   <li><b>Auditoría (RF-093).</b> Alta, validación y rechazo se registran en {@code M-05} sobre
- *       {@code arbitros}, con club, persona, estado y observaciones; nunca con nombres ni CURP.</li>
+ *       {@code arbitros}, con club, persona y estado; la nota de la validación va en el detalle y
+ *       las observaciones del rechazo, como motivo. Nunca con nombres ni CURP.</li>
  * </ul>
  *
  * <p>Refs: H-11.1, RF-021, RF-112, RF-113, UI-007, RF-093, RF-010, DEC-10, DEC-17, ADR-0007
@@ -172,6 +173,9 @@ public class ArbitroService {
         detalle.put("personaId", actual.persona().id().toString());
         detalle.put("estadoAnterior", EstadoArbitro.PROPUESTO.name());
         detalle.put("estado", decision.estado().name());
+        if (decision == DecisionArbitro.VALIDADO && observaciones != null) {
+            detalle.put("observaciones", observaciones);
+        }
         auditar(decision == DecisionArbitro.VALIDADO ? "VALIDAR_ARBITRO" : "RECHAZAR_ARBITRO", id,
                 decision == DecisionArbitro.RECHAZADO ? observaciones : null, detalle);
         return buscar(id);
