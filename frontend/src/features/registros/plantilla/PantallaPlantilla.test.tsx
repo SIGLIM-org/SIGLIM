@@ -4,14 +4,15 @@ import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Club, Equipo } from '@/features/organizacion/tipos'
-import { fila, pagina, permisos } from '@/features/registros/datosPruebaRegistros'
+import { detalle, error, fila, pagina, permisos } from '@/features/registros/datosPruebaRegistros'
 import { PantallaPlantilla } from '@/features/registros/plantilla/PantallaPlantilla'
 import { RUTA_JUGADORES } from '@/features/registros/rutas'
-import type { RegistroJugadorFila } from '@/features/registros/tipos'
+import type { RegistroJugador, RegistroJugadorFila } from '@/features/registros/tipos'
 import type { Permiso } from '@/features/seguridad/tipos'
 
-const { get, sesion } = vi.hoisted(() => ({
+const { get, post, sesion } = vi.hoisted(() => ({
   get: vi.fn(),
+  post: vi.fn(),
   sesion: {
     yo: {
       perfil: { id: 'perfil-1', nombreMostrado: 'Directiva Halcones', correo: null },
@@ -21,12 +22,13 @@ const { get, sesion } = vi.hoisted(() => ({
   },
 }))
 
-vi.mock('@/lib/api/cliente', () => ({ api: { get } }))
+vi.mock('@/lib/api/cliente', () => ({ api: { get, post } }))
 vi.mock('@/features/seguridad/ProveedorSesionActual', () => ({
   useSesionActual: () => sesion,
 }))
 
 const CONSULTAR_REGISTRO = 'registros.registro:CONSULTAR'
+const EDITAR_REGISTRO = 'registros.registro:EDITAR'
 const PLANTILLA = [CONSULTAR_REGISTRO, 'organizacion.equipo:CONSULTAR', 'organizacion.club:CONSULTAR']
 
 function club(id: string, nombre: string): Club {
@@ -109,6 +111,7 @@ async function tabla() {
 describe('PantallaPlantilla (F-17, H-09.4)', () => {
   beforeEach(() => {
     get.mockReset()
+    post.mockReset()
     sesion.yo.permisos = permisos(...PLANTILLA)
     responder()
   })
@@ -302,5 +305,175 @@ describe('PantallaPlantilla (F-17, H-09.4)', () => {
     montar(`${RUTA_JUGADORES}?club=c1&equipo=e1&estado=RECHAZADO`)
 
     expect(await screen.findByText('No hay jugadores en «Rechazados»')).toBeInTheDocument()
+  })
+
+  describe('baja de un registro (H-23.2)', () => {
+    const MOTIVO = 'Se cambió de domicilio a otra ciudad.'
+
+    function registroDeBaja(): RegistroJugador {
+      const { persona, equipo: deEquipo, club: deClub, categoria, temporada } = LUIS
+      return {
+        ...detalle({ id: LUIS.id, estado: 'BAJA', bajaEn: '2026-11-14', motivoBaja: MOTIVO }),
+        persona: { id: persona.id, nombreCompleto: persona.nombreCompleto },
+        equipo: deEquipo,
+        club: deClub,
+        categoria,
+        temporada,
+      }
+    }
+
+    async function abrirModal() {
+      const user = userEvent.setup()
+      await user.click(
+        (await tabla()).getByRole('button', { name: 'Dar de baja a Luis Mora Vega' }),
+      )
+      const modal = within(screen.getByRole('dialog', { name: 'Dar de baja a Luis Mora Vega' }))
+      return { user, modal }
+    }
+
+    async function confirmar(
+      modal: ReturnType<typeof within>,
+      user: ReturnType<typeof userEvent.setup>,
+      motivo = MOTIVO,
+    ) {
+      await user.type(modal.getByLabelText(/Motivo/), motivo)
+      await user.click(modal.getByRole('button', { name: 'Dar de baja' }))
+    }
+
+    beforeEach(() => {
+      sesion.yo.permisos = permisos(...PLANTILLA, EDITAR_REGISTRO)
+    })
+
+    it('DEC-125: «Dar de baja» solo en la fila ACTIVO y con registros.registro:EDITAR', async () => {
+      montar()
+
+      const filas = await tabla()
+      expect(filas.getByRole('button', { name: 'Dar de baja a Luis Mora Vega' })).toBeInTheDocument()
+      expect(filas.getAllByRole('button', { name: /Dar de baja/ })).toHaveLength(1)
+    })
+
+    it('DEC-125: sin registros.registro:EDITAR no ofrece «Dar de baja» y las acciones pendientes siguen igual', async () => {
+      sesion.yo.permisos = permisos(...PLANTILLA, 'registros.registro:VALIDAR')
+      montar()
+
+      const filas = await tabla()
+      expect(filas.queryByRole('button', { name: /Dar de baja/ })).not.toBeInTheDocument()
+      expect(
+        filas.getByRole('link', { name: 'Revisar el registro de Ana López Ruiz' }),
+      ).toBeInTheDocument()
+    })
+
+    it('DEC-125: con la temporada de la fila CERRADA no ofrece «Dar de baja»', async () => {
+      responder({
+        registros: [ANA, { ...LUIS, temporada: { ...LUIS.temporada, estado: 'CERRADA' } }],
+      })
+      montar()
+
+      expect((await tabla()).queryByRole('button', { name: /Dar de baja/ })).not.toBeInTheDocument()
+    })
+
+    it('DEC-126: el modal muestra el título, el registro y los cuatro puntos del aviso', async () => {
+      montar()
+      const { modal } = await abrirModal()
+
+      expect(
+        modal.getByText('El registro en Halcones (Libre, Temporada 2026) pasará a Baja.'),
+      ).toBeInTheDocument()
+      expect(modal.getAllByRole('listitem').map((punto) => punto.textContent)).toEqual([
+        'Dejará de ser elegible desde hoy. La baja no se puede deshacer.',
+        'El registro y su historial se conservan; el motivo queda en el historial.',
+        'Para que vuelva a jugar en este equipo, el club tendrá que darlo de alta de nuevo y la liga validar sus documentos otra vez.',
+        'En esta temporada no podrá registrarse en otro equipo ni en otro club.',
+      ])
+    })
+
+    it('RN-021: con un motivo de menos de 10 caracteres no hace el POST', async () => {
+      montar()
+      const { user, modal } = await abrirModal()
+
+      await confirmar(modal, user, 'Se fue')
+
+      expect(post).not.toHaveBeenCalled()
+      expect(modal.getByRole('alert')).toHaveTextContent('al menos 10 caracteres')
+    })
+
+    it('DEC-127: envía el motivo recortado, anuncia la baja con el foco y vuelve a consultar la lista', async () => {
+      post.mockImplementation(async () => {
+        servidor.registros = [ANA, { ...LUIS, estado: 'BAJA' }]
+        return registroDeBaja()
+      })
+      montar()
+      const { user, modal } = await abrirModal()
+      const consultasAntes = rutasRegistros().length
+
+      await confirmar(modal, user, `   ${MOTIVO}  `)
+
+      expect(post).toHaveBeenCalledWith('registros-jugador/reg-2/baja', { motivo: MOTIVO })
+      const aviso = await screen.findByRole('status')
+      expect(aviso).toHaveTextContent('Luis Mora Vega quedó dado de baja. Su historial se conserva.')
+      await waitFor(() => expect(aviso).toHaveFocus())
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      await waitFor(() => expect(rutasRegistros().length).toBeGreaterThan(consultasAntes))
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('button', { name: 'Dar de baja a Luis Mora Vega' }),
+        ).not.toBeInTheDocument(),
+      )
+      expect(aviso).toHaveFocus()
+    })
+
+    it('DEC-127: el aviso se borra al cambiar de pestaña', async () => {
+      post.mockResolvedValue(registroDeBaja())
+      montar()
+      const { user, modal } = await abrirModal()
+
+      await confirmar(modal, user)
+      await screen.findByRole('status')
+      await user.click(screen.getByRole('tab', { name: 'Pendientes' }))
+
+      expect(screen.queryByText(/quedó dado de baja/)).not.toBeInTheDocument()
+    })
+
+    it('DEC-129: un 409 RF-017 cierra el modal, muestra el detail en la página y recarga la lista', async () => {
+      post.mockRejectedValue(error(409, 'RF-017', 'El registro ya está dado de baja.'))
+      montar()
+      const { user, modal } = await abrirModal()
+      const consultasAntes = rutasRegistros().length
+
+      await confirmar(modal, user)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('El registro ya está dado de baja.')
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      await waitFor(() => expect(rutasRegistros().length).toBeGreaterThan(consultasAntes))
+    })
+
+    it('DEC-129: un 403 se muestra en la página sin llevar a la página sin permiso', async () => {
+      post.mockRejectedValue(error(403, 'VAL-015', 'No tienes permiso para dar de baja registros.'))
+      montar()
+      const { user, modal } = await abrirModal()
+
+      await confirmar(modal, user)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'No tienes permiso para dar de baja registros.',
+      )
+      expect(screen.getByRole('heading', { name: 'Jugadores' })).toBeInTheDocument()
+      expect(screen.getByRole('table')).toBeInTheDocument()
+    })
+
+    it('DEC-129: un 400 RN-021 deja el modal abierto con el detail', async () => {
+      post.mockRejectedValue(
+        error(400, 'RN-021', 'Escribe un motivo de al menos 10 caracteres para dar de baja el registro.'),
+      )
+      montar()
+      const { user, modal } = await abrirModal()
+
+      await confirmar(modal, user)
+
+      expect(await modal.findByRole('alert')).toHaveTextContent(
+        'Escribe un motivo de al menos 10 caracteres para dar de baja el registro.',
+      )
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
   })
 })

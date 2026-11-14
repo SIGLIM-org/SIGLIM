@@ -12,12 +12,13 @@ import { formatearFecha } from '@/features/temporadas/fechas'
 type Props = {
   registro: RegistroJugadorFila
   permisos: PermisosAccionesPlantilla
+  onDarDeBaja: (registro: RegistroJugadorFila) => void
 }
 
 const CELDA = 'px-4 py-3 align-middle'
 
 /** Fila de la tabla de la plantilla en escritorio (F-17, DEC-117). */
-export function FilaPlantilla({ registro, permisos }: Props) {
+export function FilaPlantilla({ registro, permisos, onDarDeBaja }: Props) {
   const estado = etiquetaEstadoRegistro[registro.estado]
 
   return (
@@ -50,7 +51,11 @@ export function FilaPlantilla({ registro, permisos }: Props) {
         {formatearFecha(registro.altaEn)}
       </td>
       <td className={`${CELDA} text-right`}>
-        <AccionesRegistroPlantilla registro={registro} permisos={permisos} />
+        <AccionesRegistroPlantilla
+          registro={registro}
+          permisos={permisos}
+          onDarDeBaja={onDarDeBaja}
+        />
       </td>
     </tr>
   )

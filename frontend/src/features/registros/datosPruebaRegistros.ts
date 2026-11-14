@@ -89,6 +89,8 @@ export function detalle(cambios: Partial<RegistroJugadorDetalle> = {}): Registro
     validadoPor: null,
     validadoEn: null,
     observaciones: null,
+    bajaEn: null,
+    motivoBaja: null,
     tutores: [],
     ...cambios,
   }

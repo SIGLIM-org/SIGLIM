@@ -32,6 +32,10 @@ export type RegistroJugador = {
   validadoPor: { id: string; nombre: string } | null
   validadoEn: string | null
   observaciones: string | null
+  /** Día `AAAA-MM-DD` de la baja en la zona de negocio; `null` salvo en `BAJA` (DEC-121, DEC-124). */
+  bajaEn: string | null
+  /** Motivo del último cambio a `BAJA` del historial; `null` salvo en `BAJA` (DEC-124). */
+  motivoBaja: string | null
 }
 
 /**
@@ -154,6 +158,11 @@ export type ValidarDocumentoPeticion = {
 export type ValidarRegistroPeticion = {
   decision: 'ACTIVO' | 'RECHAZADO'
   observaciones?: string
+}
+
+/** `POST /registros-jugador/{id}/baja` (DEC-121): de 10 a 500 caracteres tras recortarlo. */
+export type BajaRegistroPeticion = {
+  motivo: string
 }
 
 /** `POST /registros-jugador`: la temporada es la del grupo del equipo (DEC-85). */
