@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { clavesOrganizacion } from '@/features/organizacion/api'
 import type {
   AvisoPrivacidad,
+  BajaRegistroPeticion,
   Consentimiento,
   CrearRegistroPeticion,
   DocumentoRegistro,
@@ -233,6 +234,22 @@ export function useValidarRegistro(id: string) {
   return useMutation({
     mutationFn: (peticion: ValidarRegistroPeticion) =>
       api.post<RegistroJugador>(`registros-jugador/${id}/validacion`, peticion),
+    onSuccess: () => recargar.todo(id),
+  })
+}
+
+/**
+ * Da de baja un registro `ACTIVO` con motivo (DEC-118 a DEC-124). Recarga el detalle, la lista y
+ * los requisitos; los equipos no, porque `Equipo` no trae conteos de jugadores (DEC-130).
+ *
+ * Refs: RF-014, DEC-118 a DEC-124, DEC-130
+ */
+export function useDarDeBajaRegistro(id: string) {
+  const recargar = useRecargarRegistro()
+
+  return useMutation({
+    mutationFn: (peticion: BajaRegistroPeticion) =>
+      api.post<RegistroJugador>(`registros-jugador/${id}/baja`, peticion),
     onSuccess: () => recargar.todo(id),
   })
 }

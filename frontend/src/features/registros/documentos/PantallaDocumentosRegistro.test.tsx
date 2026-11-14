@@ -222,6 +222,42 @@ describe('PantallaDocumentosRegistro (F-18 paso 4, H-10.3)', () => {
     expect(screen.getByRole('button', { name: 'Ver Acta de nacimiento' })).toBeInTheDocument()
   })
 
+  it('DEC-128: un registro en BAJA muestra la fecha y el motivo de la baja y queda de consulta', async () => {
+    responder({
+      registro: detalle({
+        estado: 'BAJA',
+        bajaEn: '2026-11-14',
+        motivoBaja: 'Se cambió de domicilio a otra ciudad.',
+      }),
+    })
+    montar()
+
+    expect(
+      await screen.findByText('El registro está dado de baja: sus documentos quedan como consulta.'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Fecha de baja')).toBeInTheDocument()
+    expect(screen.getByText('Motivo de la baja')).toBeInTheDocument()
+    expect(screen.getByText('Se cambió de domicilio a otra ciudad.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Cargar/ })).not.toBeInTheDocument()
+  })
+
+  it('DEC-128: un registro en BAJA sin fecha lo dice', async () => {
+    responder({ registro: detalle({ estado: 'BAJA', bajaEn: null, motivoBaja: null }) })
+    montar()
+
+    expect(await screen.findByText('Sin fecha registrada')).toBeInTheDocument()
+    expect(screen.queryByText('Motivo de la baja')).not.toBeInTheDocument()
+  })
+
+  it('DEC-128: un registro ACTIVO no muestra datos de baja', async () => {
+    responder({ registro: detalle({ estado: 'ACTIVO' }) })
+    montar()
+
+    expect(await screen.findByText(/La liga ya validó este registro/)).toBeInTheDocument()
+    expect(screen.queryByText('Fecha de baja')).not.toBeInTheDocument()
+    expect(screen.queryByText('Motivo de la baja')).not.toBeInTheDocument()
+  })
+
   it('DEC-112: una categoría sin requisitos lo dice', async () => {
     responder({ requisitos: requisitos([]) })
     montar()

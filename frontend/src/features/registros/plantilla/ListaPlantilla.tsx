@@ -38,6 +38,8 @@ type Props = {
   onFiltro: (filtro: FiltroEstadoRegistro) => void
   onPagina: (pagina: number) => void
   onReintentar: () => void
+  /** Abre el modal de baja de la plantilla (DEC-125). */
+  onDarDeBaja: (registro: RegistroJugadorFila) => void
 }
 
 /**
@@ -57,6 +59,7 @@ export function ListaPlantilla({
   onFiltro,
   onPagina,
   onReintentar,
+  onDarDeBaja,
 }: Props) {
   const id = useId()
   const totalPaginas = datos?.totalPaginas ?? 0
@@ -177,7 +180,12 @@ export function ListaPlantilla({
               </thead>
               <tbody>
                 {registros.map((registro) => (
-                  <FilaPlantilla key={registro.id} registro={registro} permisos={permisos} />
+                  <FilaPlantilla
+                    key={registro.id}
+                    registro={registro}
+                    permisos={permisos}
+                    onDarDeBaja={onDarDeBaja}
+                  />
                 ))}
               </tbody>
             </table>
@@ -187,7 +195,12 @@ export function ListaPlantilla({
               className="divide-y divide-border lg:hidden"
             >
               {registros.map((registro) => (
-                <TarjetaPlantilla key={registro.id} registro={registro} permisos={permisos} />
+                <TarjetaPlantilla
+                  key={registro.id}
+                  registro={registro}
+                  permisos={permisos}
+                  onDarDeBaja={onDarDeBaja}
+                />
               ))}
             </ul>
           </div>

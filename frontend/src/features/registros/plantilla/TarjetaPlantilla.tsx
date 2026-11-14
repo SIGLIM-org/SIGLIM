@@ -12,13 +12,14 @@ import { formatearFecha } from '@/features/temporadas/fechas'
 type Props = {
   registro: RegistroJugadorFila
   permisos: PermisosAccionesPlantilla
+  onDarDeBaja: (registro: RegistroJugadorFila) => void
 }
 
 /**
  * Registro de la plantilla en móvil y tableta (F-17, DEC-117): los mismos datos que la fila de la
  * tabla, apilados para no desplazar en horizontal desde 360 px (RNF-007).
  */
-export function TarjetaPlantilla({ registro, permisos }: Props) {
+export function TarjetaPlantilla({ registro, permisos, onDarDeBaja }: Props) {
   const estado = etiquetaEstadoRegistro[registro.estado]
 
   return (
@@ -47,7 +48,11 @@ export function TarjetaPlantilla({ registro, permisos }: Props) {
         <CalendarDays aria-hidden="true" className="size-3.5 shrink-0" />
         Alta el {formatearFecha(registro.altaEn)}
       </p>
-      <AccionesRegistroPlantilla registro={registro} permisos={permisos} />
+      <AccionesRegistroPlantilla
+        registro={registro}
+        permisos={permisos}
+        onDarDeBaja={onDarDeBaja}
+      />
     </li>
   )
 }

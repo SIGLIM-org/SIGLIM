@@ -111,6 +111,8 @@ function registro(persona: string, eq: Equipo = HALCONES): RegistroJugador {
     validadoPor: null,
     validadoEn: null,
     observaciones: null,
+    bajaEn: null,
+    motivoBaja: null,
   }
 }
 

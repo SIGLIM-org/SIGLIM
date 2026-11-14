@@ -1,18 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { Building2, Shield, UserRoundPlus, UsersRound } from 'lucide-react'
+import { Building2, CircleCheck, Shield, UserRoundPlus, UsersRound } from 'lucide-react'
 import { ErrorConsulta } from '@/components/ui/ErrorConsulta'
 import { EstadoCarga } from '@/components/ui/EstadoCarga'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { clasesBoton } from '@/components/ui/estilosBoton'
 import { useClubesActivosTodos, useEquipos } from '@/features/organizacion/api'
-import { TAMANO_PLANTILLA, useRegistros } from '@/features/registros/api'
+import { TAMANO_PLANTILLA, useRecargarRegistro, useRegistros } from '@/features/registros/api'
 import { agruparEquipos } from '@/features/registros/asistenteAlta'
 import type { FiltroEstadoRegistro } from '@/features/registros/documentos/etiquetas'
 import { PERMISOS_PLANTILLA, usePermisosRegistros } from '@/features/registros/permisos'
 import { FILTROS_PLANTILLA, ListaPlantilla } from '@/features/registros/plantilla/ListaPlantilla'
+import { ModalBajaRegistro } from '@/features/registros/plantilla/ModalBajaRegistro'
 import { SelectoresPlantilla } from '@/features/registros/plantilla/SelectoresPlantilla'
 import { RUTA_ALTA_JUGADOR } from '@/features/registros/rutas'
+import type { RegistroJugador, RegistroJugadorFila } from '@/features/registros/tipos'
 import { ConPermiso } from '@/features/seguridad/ConPermiso'
 import { esSinPermiso } from '@/lib/api/errores'
 import { PaginaSinPermiso } from '@/pages/PaginaSinPermiso'
@@ -43,15 +45,25 @@ function textoJugadores(total: number): string {
   return total === 1 ? '1 jugador' : `${formatoEntero.format(total)} jugadores`
 }
 
+/** Resultado de la baja que se muestra arriba de la lista (DEC-127, DEC-129). */
+type Aviso = { tipo: 'exito' | 'error'; mensaje: string }
+
 /**
  * La selección vive en `?club=&equipo=&estado=` para conservarla al volver (DEC-116). Un club o un
  * equipo de la URL que no está en las opciones cuenta como «sin elegir» y no se consultan registros.
+ * La baja de un registro abre un modal desde la fila (DEC-125, DEC-126); su resultado se anuncia
+ * arriba de la lista y recibe el foco, porque el botón que lo abrió desaparece (DEC-127, DEC-129).
  *
- * Refs: RF-017, RF-019 (consulta), UI-006, DEC-108, DEC-109, DEC-111, DEC-116, DEC-117
+ * Refs: RF-014, RF-017, RF-019 (consulta), UI-006, DEC-108, DEC-109, DEC-111, DEC-116, DEC-117,
+ * DEC-125 a DEC-129
  */
 function PaginaPlantilla() {
   const [parametros, setParametros] = useSearchParams()
   const [pagina, setPagina] = useState(0)
+  const [registroEnBaja, setRegistroEnBaja] = useState<RegistroJugadorFila | null>(null)
+  const [aviso, setAviso] = useState<Aviso | null>(null)
+  const avisoRef = useRef<HTMLParagraphElement>(null)
+  const recargar = useRecargarRegistro()
   const { registrar, cargar, validarRegistro } = usePermisosRegistros()
 
   const clubes = useClubesActivosTodos()
@@ -90,23 +102,41 @@ function PaginaPlantilla() {
     }
   }, [unicoClub, unicoEquipo, clubId, equipo, setParametros])
 
+  // El aviso de la baja recibe el foco: el botón que abrió el modal ya no está (DEC-127).
+  useEffect(() => {
+    if (aviso) {
+      avisoRef.current?.focus()
+    }
+  }, [aviso])
+
+  // Si la baja vació la última página, se regresa a la anterior (DEC-127).
+  const totalPaginas = lista.data && !lista.isPlaceholderData ? lista.data.totalPaginas : undefined
+  useEffect(() => {
+    if (totalPaginas !== undefined && pagina > 0 && pagina >= totalPaginas) {
+      setPagina(pagina - 1)
+    }
+  }, [pagina, totalPaginas])
+
   if (esSinPermiso(lista.error) || esSinPermiso(clubes.error)) {
     return <PaginaSinPermiso rutaInicio="/app" />
   }
 
   const elegirClub = (nuevo: string) => {
     setPagina(0)
+    setAviso(null)
     // Cambiar de club borra el equipo y la pestaña (DEC-116).
     setParametros(nuevo ? { club: nuevo } : {})
   }
 
   const elegirEquipo = (nuevo: string) => {
     setPagina(0)
+    setAviso(null)
     setParametros(nuevo ? { club: clubId, equipo: nuevo } : { club: clubId })
   }
 
   const elegirFiltro = (nuevo: FiltroEstadoRegistro) => {
     setPagina(0)
+    setAviso(null)
     setParametros((actuales) => {
       const siguientes = new URLSearchParams(actuales)
       if (nuevo === 'TODOS') {
@@ -116,6 +146,27 @@ function PaginaPlantilla() {
       }
       return siguientes
     })
+  }
+
+  const abrirBaja = (registro: RegistroJugadorFila) => {
+    setAviso(null)
+    setRegistroEnBaja(registro)
+  }
+
+  const alDarDeBaja = (registro: RegistroJugador) => {
+    setRegistroEnBaja(null)
+    setAviso({
+      tipo: 'exito',
+      mensaje: `${registro.persona.nombreCompleto} quedó dado de baja. Su historial se conserva.`,
+    })
+  }
+
+  const alFallarBaja = (mensaje: string, recargarLista: boolean) => {
+    if (recargarLista && registroEnBaja) {
+      void recargar.todo(registroEnBaja.id)
+    }
+    setRegistroEnBaja(null)
+    setAviso({ tipo: 'error', mensaje })
   }
 
   const botonRegistrar = registrar ? (
@@ -175,11 +226,12 @@ function PaginaPlantilla() {
         cargando={lista.isFetching}
         actualizando={lista.isPlaceholderData}
         error={lista.error}
-        permisos={{ cargar, validar: validarRegistro }}
+        permisos={{ cargar, validar: validarRegistro, darBaja: registrar }}
         accionRegistrar={botonRegistrar}
         onFiltro={elegirFiltro}
         onPagina={setPagina}
         onReintentar={() => void lista.refetch()}
+        onDarDeBaja={abrirBaja}
       />
     )
   }
@@ -229,7 +281,38 @@ function PaginaPlantilla() {
         )}
       </section>
 
+      {aviso?.tipo === 'exito' && (
+        <p
+          ref={avisoRef}
+          role="status"
+          tabIndex={-1}
+          className="flex items-center gap-2 text-label-md text-success-strong focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          <CircleCheck aria-hidden="true" className="size-4 shrink-0" />
+          {aviso.mensaje}
+        </p>
+      )}
+      {aviso?.tipo === 'error' && (
+        <p
+          ref={avisoRef}
+          role="alert"
+          tabIndex={-1}
+          className="rounded-md bg-error/8 p-3 text-body-md text-error-strong focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          {aviso.mensaje}
+        </p>
+      )}
+
       {contenido()}
+
+      {registroEnBaja && (
+        <ModalBajaRegistro
+          registro={registroEnBaja}
+          onCerrar={() => setRegistroEnBaja(null)}
+          onDadoDeBaja={alDarDeBaja}
+          onErrorPagina={alFallarBaja}
+        />
+      )}
     </div>
   )
 }

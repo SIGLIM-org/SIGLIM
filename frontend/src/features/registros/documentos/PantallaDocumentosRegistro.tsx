@@ -54,6 +54,9 @@ function motivoSoloLectura(registro: RegistroJugadorDetalle): string | null {
   if (registro.estado === 'ACTIVO') {
     return 'La liga ya validó este registro. Sus documentos quedan como consulta.'
   }
+  if (registro.estado === 'BAJA') {
+    return 'El registro está dado de baja: sus documentos quedan como consulta.'
+  }
   if (registro.estado === 'RECHAZADO') {
     return 'La liga rechazó este registro. Para registrar de nuevo a la persona, da de alta otro registro.'
   }
@@ -68,7 +71,7 @@ function motivoSoloLectura(registro: RegistroJugadorDetalle): string | null {
  * las observaciones de cada uno. Tras el `201` del alta, el asistente llega aquí con
  * `state.desdeAlta` y la página muestra el paso 4 (DEC-111); al recargar, ya sin indicador.
  *
- * Refs: RF-108, RF-109, RF-017, RF-003, RNF-018, DEC-111, DEC-112, DEC-113, DEC-114
+ * Refs: RF-108, RF-109, RF-017, RF-003, RNF-018, DEC-111, DEC-112, DEC-113, DEC-114, DEC-128
  */
 function PaginaDocumentosRegistro() {
   const { registroId = '' } = useParams()
