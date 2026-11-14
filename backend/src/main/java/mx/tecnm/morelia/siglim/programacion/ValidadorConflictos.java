@@ -3,6 +3,8 @@ package mx.tecnm.morelia.siglim.programacion;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.programacion.ConflictoRepository.BloqueCancha;
@@ -32,13 +34,20 @@ import org.springframework.stereotype.Component;
  * trigger {@code tg_partidos_programacion} siguen siendo la última garantía ante una carrera entre
  * dos peticiones.
  *
- * <p>Refs: H-12.2, RF-039, VAL-003, VAL-004, VAL-005, VAL-006, RN-050, RN-057, DEC-25
+ * <p><b>Guardar y verificar.</b> {@link #evaluar} devuelve todos los conflictos de un partido para
+ * la verificación sin guardar (H-12.3) y {@link #validar} usa esa misma evaluación para rechazar
+ * el alta o el ajuste con el primero, de modo que las dos operaciones nunca discrepen.
+ *
+ * <p>Refs: H-12.2, H-12.3, RF-039, VAL-003, VAL-004, VAL-005, VAL-006, RN-050, RN-057, DEC-25
  */
 @Component
 class ValidadorConflictos {
 
     private static final ZoneId ZONA_DE_NEGOCIO = ZoneId.of("America/Mexico_City");
     private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final String MENSAJE_SIN_PARAMETROS =
+            "La temporada no tiene parámetros deportivos: no se puede calcular el bloque de cancha. "
+                    + "Configúralos y vuelve a intentar.";
 
     private final ConflictoRepository conflictos;
 
@@ -48,7 +57,8 @@ class ValidadorConflictos {
 
     /**
      * Valida el partido antes de escribirlo y lanza el primer conflicto duro con un mensaje
-     * explicativo.
+     * explicativo. Usa {@link #evaluar} para que el alta, el ajuste y la verificación compartan
+     * exactamente las mismas reglas.
      *
      * @param grupoId   grupo de la jornada, para ubicar la temporada y la categoría
      * @param partidoId partido que se ajusta, o {@code null} si se registra uno nuevo
@@ -61,56 +71,64 @@ class ValidadorConflictos {
      */
     void validar(UUID grupoId, UUID partidoId, EquipoDeLiga local, EquipoDeLiga visitante,
             CanchaDeLiga cancha, OffsetDateTime inicio) {
-        exigirEquiposJugables(grupoId, local, visitante, inicio);
+        List<Conflicto> encontrados = evaluar(grupoId, partidoId, local, visitante, cancha, inicio);
+        if (!encontrados.isEmpty()) {
+            Conflicto primero = encontrados.getFirst();
+            throw ReglaNegocioException.conflicto(primero.codigo(), primero.mensaje());
+        }
+    }
+
+    /**
+     * Evalúa un partido y devuelve <b>todos</b> sus conflictos, en el orden en que se explican:
+     * equipos no jugables, cancha inactiva, parámetros de temporada, restricciones, cancha ocupada
+     * y equipo ocupado. No escribe nada; lo usa la verificación de la jornada (H-12.3).
+     *
+     * <p>Si la temporada no tiene parámetros se devuelve {@code RF-100} y se omiten los traslapes,
+     * porque sin bloque de cancha no hay intervalo que comparar.
+     *
+     * @return lista vacía si el partido no tiene conflictos
+     */
+    List<Conflicto> evaluar(UUID grupoId, UUID partidoId, EquipoDeLiga local, EquipoDeLiga visitante,
+            CanchaDeLiga cancha, OffsetDateTime inicio) {
+        List<Conflicto> encontrados = new ArrayList<>();
+        if ("BAJA".equals(local.estado())) {
+            encontrados.add(new Conflicto("VAL-006", mensajeEquipoDeBaja(local)));
+        }
+        if ("BAJA".equals(visitante.estado())) {
+            encontrados.add(new Conflicto("VAL-006", mensajeEquipoDeBaja(visitante)));
+        }
+        conflictos.buscarSancionVigente(grupoId, local.id(), visitante.id(), inicio)
+                .ifPresent(sancion -> encontrados.add(new Conflicto("VAL-006", mensajeSancion(sancion))));
         if (!cancha.activa()) {
-            throw ReglaNegocioException.conflicto("VAL-005",
-                    "La cancha «" + cancha.nombre() + "» está inactiva y no se puede asignar.");
+            encontrados.add(new Conflicto("VAL-005",
+                    "La cancha «" + cancha.nombre() + "» está inactiva y no se puede asignar."));
         }
 
         BloqueCancha bloque = conflictos.calcularBloque(grupoId, local.id(), inicio);
         if (!bloque.definido()) {
-            throw ReglaNegocioException.conflicto("RF-100",
-                    "La temporada no tiene parámetros deportivos: no se puede calcular el bloque de "
-                            + "cancha. Configúralos y vuelve a intentar.");
+            encontrados.add(new Conflicto("RF-100", MENSAJE_SIN_PARAMETROS));
+            return encontrados;
         }
         OffsetDateTime finBloque = bloque.finBloque();
-
         conflictos.buscarRestriccion(cancha.id(), inicio, finBloque)
-                .ifPresent(restriccion -> {
-                    throw ReglaNegocioException.conflicto("VAL-005", mensajeRestriccion(cancha, restriccion));
-                });
+                .ifPresent(restriccion -> encontrados.add(
+                        new Conflicto("VAL-005", mensajeRestriccion(cancha, restriccion))));
         conflictos.buscarCanchaOcupada(cancha.id(), inicio, finBloque, partidoId)
-                .ifPresent(otro -> {
-                    throw ReglaNegocioException.conflicto("VAL-004",
-                            "La cancha «" + cancha.nombre() + "» ya está ocupada por el partido "
-                                    + describirPartido(otro) + ".");
-                });
+                .ifPresent(otro -> encontrados.add(new Conflicto("VAL-004",
+                        "La cancha «" + cancha.nombre() + "» ya está ocupada por el partido "
+                                + describirPartido(otro) + ".")));
         conflictos.buscarEquipoOcupado(local.id(), visitante.id(), inicio, finBloque, partidoId)
-                .ifPresent(choque -> {
-                    throw ReglaNegocioException.conflicto("VAL-003",
-                            "El equipo «" + choque.equipoNombre() + "» ya tiene el partido "
-                                    + describirPartido(choque.partido()) + " en la cancha «"
-                                    + choque.partido().canchaNombre() + "».");
-                });
+                .ifPresent(choque -> encontrados.add(new Conflicto("VAL-003",
+                        "El equipo «" + choque.equipoNombre() + "» ya tiene el partido "
+                                + describirPartido(choque.partido()) + " en la cancha «"
+                                + choque.partido().canchaNombre() + "».")));
+        return encontrados;
     }
 
     // ── VAL-006: equipos elegibles ──────────────────────────────────────────────────────────────
 
-    private void exigirEquiposJugables(UUID grupoId, EquipoDeLiga local, EquipoDeLiga visitante,
-            OffsetDateTime inicio) {
-        exigirEquipoActivo(local);
-        exigirEquipoActivo(visitante);
-        conflictos.buscarSancionVigente(grupoId, local.id(), visitante.id(), inicio)
-                .ifPresent(sancion -> {
-                    throw ReglaNegocioException.conflicto("VAL-006", mensajeSancion(sancion));
-                });
-    }
-
-    private static void exigirEquipoActivo(EquipoDeLiga equipo) {
-        if ("BAJA".equals(equipo.estado())) {
-            throw ReglaNegocioException.conflicto("VAL-006",
-                    "El equipo «" + equipo.nombre() + "» está dado de baja y no se puede programar.");
-        }
+    private static String mensajeEquipoDeBaja(EquipoDeLiga equipo) {
+        return "El equipo «" + equipo.nombre() + "» está dado de baja y no se puede programar.";
     }
 
     private static String mensajeSancion(SancionDeEquipo sancion) {
@@ -141,5 +159,9 @@ class ValidadorConflictos {
     private static String periodo(OffsetDateTime desde, OffsetDateTime hasta) {
         return desde.atZoneSameInstant(ZONA_DE_NEGOCIO).format(FORMATO) + " a "
                 + hasta.atZoneSameInstant(ZONA_DE_NEGOCIO).format(FORMATO);
+    }
+
+    /** Conflicto duro de un partido, listo para la verificación o para lanzarlo como excepción. */
+    record Conflicto(String codigo, String mensaje) {
     }
 }

@@ -22,6 +22,7 @@ import mx.tecnm.morelia.siglim.programacion.JornadaRepository.DatosPartido;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.EquipoDeLiga;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.GrupoDeLiga;
 import mx.tecnm.morelia.siglim.programacion.PartidoDto.ReferenciaDto;
+import mx.tecnm.morelia.siglim.programacion.VerificacionJornadaDto.Aviso;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
 import org.springframework.stereotype.Service;
@@ -47,12 +48,16 @@ import org.springframework.transaction.annotation.Transactional;
  *       el equipo dado de baja o sancionado, con un mensaje que nombra el otro partido, la cancha y
  *       el horario. El trigger {@code tg_partidos_programacion} y la restricción GiST siguen siendo
  *       la última garantía ante una carrera entre dos peticiones.</li>
+ *   <li><b>Verificación sin guardar (H-12.3).</b> {@code POST /jornadas/{id}/verificacion} revisa
+ *       todos los partidos con la misma regla del alta y el ajuste y devuelve cada conflicto con su
+ *       partido. Las advertencias de localía (RF-120, VAL-027) son backlog B-15; hasta entonces la
+ *       lista de advertencias va vacía.</li>
  *   <li><b>Auditoría (RF-093).</b> {@code REGISTRAR_JORNADA}, {@code REGISTRAR_PARTIDO} y
  *       {@code AJUSTAR_PARTIDO} en M-07, con identificadores y sin datos personales.</li>
  * </ul>
  *
- * <p>Refs: H-12.1, RF-033, RF-036, RF-039, RF-040, RF-093, RN-018, RN-021, VAL-003 a VAL-006,
- * ADR-0007, ADR-0011
+ * <p>Refs: H-12.1, H-12.3, RF-033, RF-036, RF-039, RF-040, RF-093, RF-120, RN-018, RN-021,
+ * VAL-003 a VAL-006, ADR-0007, ADR-0011
  */
 @Service
 public class JornadaService {
@@ -120,6 +125,45 @@ public class JornadaService {
         autorizacion.exigir(CONSULTAR, ObjetivoAutorizacion.deLiga());
         DatosJornada jornada = jornadas.buscarJornada(ligaId, id).orElseThrow(() -> noExisteJornada(id));
         return aDto(jornada, jornadas.listarPartidos(id).stream().map(JornadaService::aDto).toList());
+    }
+
+    /**
+     * Revisa todos los partidos de la jornada y devuelve los conflictos duros sin escribir nada
+     * (H-12.3, RF-039).
+     *
+     * <p>Usa {@link ValidadorConflictos#evaluar}, la misma regla que el alta y el ajuste, para que
+     * la verificación y el guardado no discrepen. Los partidos cancelados no se revisan: no ocupan
+     * cancha ni bloquean equipos. No exige que la jornada esté en {@code BORRADOR} porque es de
+     * solo lectura; el alta y el ajuste sí lo exigen.
+     *
+     * @return los conflictos de todos los partidos y la lista de advertencias, vacía hasta que el
+     *         backlog B-15 implemente la localía (RF-120, VAL-027)
+     * @throws RecursoNoEncontradoException si la jornada no existe en la liga
+     */
+    @Transactional(readOnly = true)
+    public VerificacionJornadaDto verificar(UUID id) {
+        autorizacion.exigir(EDITAR, ObjetivoAutorizacion.deLiga());
+        jornadas.buscarJornada(ligaId, id).orElseThrow(() -> noExisteJornada(id));
+
+        List<Aviso> conflictos = new ArrayList<>();
+        for (DatosPartido partido : jornadas.listarPartidos(id)) {
+            if (partido.estado() == EstadoPartido.CANCELADO) {
+                continue;
+            }
+            EquipoDeLiga local = new EquipoDeLiga(partido.equipoLocalId(),
+                    partido.equipoLocalNombre(), partido.grupoId(), partido.clubLocalId(),
+                    partido.equipoLocalEstado());
+            EquipoDeLiga visitante = new EquipoDeLiga(partido.equipoVisitanteId(),
+                    partido.equipoVisitanteNombre(), partido.grupoId(), partido.clubVisitanteId(),
+                    partido.equipoVisitanteEstado());
+            CanchaDeLiga cancha = new CanchaDeLiga(partido.canchaId(), partido.canchaNombre(),
+                    partido.canchaActiva());
+            for (ValidadorConflictos.Conflicto conflicto : validador.evaluar(partido.grupoId(),
+                    partido.id(), local, visitante, cancha, partido.inicio())) {
+                conflictos.add(new Aviso(partido.id(), conflicto.codigo(), conflicto.mensaje()));
+            }
+        }
+        return new VerificacionJornadaDto(conflictos, List.of());
     }
 
     /**

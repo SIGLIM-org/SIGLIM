@@ -7,9 +7,9 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
@@ -26,7 +26,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
-/** Reglas de {@link ValidadorConflictos} (RF-039, VAL-003 a VAL-006) sin Spring ni BD. */
+/**
+ * Reglas de {@link ValidadorConflictos} (RF-039, VAL-003 a VAL-006) sin Spring ni BD: la validación
+ * que rechaza el guardado y la evaluación que acumula conflictos para la verificación (H-12.3).
+ */
 class ValidadorConflictosTest {
 
     private static final UUID GRUPO = UUID.fromString("33333333-3333-4333-8333-333333333333");
@@ -94,7 +97,6 @@ class ValidadorConflictosTest {
 
         assertConflicto(() -> validador.validar(GRUPO, PARTIDO_ID, LOCAL, VISITANTE, CANCHA, INICIO),
                 "VAL-004", "Morelos 2", "Águilas vs. Pumas", "10/03/2031 10:00", "11:30");
-        verify(conflictos, never()).buscarEquipoOcupado(any(), any(), any(), any(), any());
     }
 
     // ── VAL-005: cancha inactiva o restringida ────────────────────────────────────────────────
@@ -106,7 +108,6 @@ class ValidadorConflictosTest {
 
         assertConflicto(() -> validador.validar(GRUPO, PARTIDO_ID, LOCAL, VISITANTE, inactiva, INICIO),
                 "VAL-005", "Morelos 2", "inactiva");
-        verify(conflictos, never()).calcularBloque(any(), any(), any());
     }
 
     @Test
@@ -118,7 +119,6 @@ class ValidadorConflictosTest {
 
         assertConflicto(() -> validador.validar(GRUPO, PARTIDO_ID, LOCAL, VISITANTE, CANCHA, INICIO),
                 "VAL-005", "Morelos 2", "bloqueo", "Riego del césped", "09:00", "11:00");
-        verify(conflictos, never()).buscarCanchaOcupada(any(), any(), any(), any());
     }
 
     @Test
@@ -141,7 +141,6 @@ class ValidadorConflictosTest {
 
         assertConflicto(() -> validador.validar(GRUPO, PARTIDO_ID, LOCAL, baja, CANCHA, INICIO),
                 "VAL-006", "Toros", "baja");
-        verify(conflictos, never()).calcularBloque(any(), any(), any());
     }
 
     @Test
@@ -164,6 +163,59 @@ class ValidadorConflictosTest {
 
         assertConflicto(() -> validador.validar(GRUPO, PARTIDO_ID, LOCAL, VISITANTE, CANCHA, INICIO),
                 "VAL-006", "Halcones", "sanción vigente de baja");
+    }
+
+    // ── Verificación sin guardar (H-12.3) ───────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-039: evaluar sin conflictos devuelve la lista vacía")
+    void evaluarSinConflictos() {
+        assertThat(validador.evaluar(GRUPO, PARTIDO_ID, LOCAL, VISITANTE, CANCHA, INICIO)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("RF-039: evaluar acumula la cancha ocupada y el equipo ocupado del mismo partido")
+    void evaluarAcumulaConflictos() {
+        given(conflictos.buscarCanchaOcupada(CANCHA_ID, INICIO, FIN, PARTIDO_ID))
+                .willReturn(Optional.of(otroPartido()));
+        given(conflictos.buscarEquipoOcupado(LOCAL_ID, VISITANTE_ID, INICIO, FIN, PARTIDO_ID))
+                .willReturn(Optional.of(new EquipoEnConflicto(LOCAL_ID, "Halcones", otroPartido())));
+
+        List<ValidadorConflictos.Conflicto> encontrados =
+                validador.evaluar(GRUPO, PARTIDO_ID, LOCAL, VISITANTE, CANCHA, INICIO);
+
+        assertThat(encontrados).extracting(ValidadorConflictos.Conflicto::codigo)
+                .containsExactly("VAL-004", "VAL-003");
+        assertThat(encontrados.getFirst().mensaje()).contains("Morelos 2", "Águilas vs. Pumas");
+    }
+
+    @Test
+    @DisplayName("VAL-006: evaluar explica por separado a los dos equipos dados de baja")
+    void evaluarAcumulaEquiposDeBaja() {
+        EquipoDeLiga localBaja = new EquipoDeLiga(LOCAL_ID, "Halcones", GRUPO, UUID.randomUUID(), "BAJA");
+        EquipoDeLiga visitanteBaja =
+                new EquipoDeLiga(VISITANTE_ID, "Toros", GRUPO, UUID.randomUUID(), "BAJA");
+
+        List<ValidadorConflictos.Conflicto> encontrados =
+                validador.evaluar(GRUPO, PARTIDO_ID, localBaja, visitanteBaja, CANCHA, INICIO);
+
+        assertThat(encontrados).extracting(ValidadorConflictos.Conflicto::codigo)
+                .containsExactly("VAL-006", "VAL-006");
+        assertThat(encontrados).extracting(ValidadorConflictos.Conflicto::mensaje)
+                .anySatisfy(mensaje -> assertThat(mensaje).contains("Halcones"))
+                .anySatisfy(mensaje -> assertThat(mensaje).contains("Toros"));
+    }
+
+    @Test
+    @DisplayName("RF-039: validar rechaza con el primer conflicto aunque la evaluación encuentre más")
+    void validarLanzaElPrimeroDeVarios() {
+        given(conflictos.buscarCanchaOcupada(CANCHA_ID, INICIO, FIN, PARTIDO_ID))
+                .willReturn(Optional.of(otroPartido()));
+        given(conflictos.buscarEquipoOcupado(LOCAL_ID, VISITANTE_ID, INICIO, FIN, PARTIDO_ID))
+                .willReturn(Optional.of(new EquipoEnConflicto(LOCAL_ID, "Halcones", otroPartido())));
+
+        assertConflicto(() -> validador.validar(GRUPO, PARTIDO_ID, LOCAL, VISITANTE, CANCHA, INICIO),
+                "VAL-004", "Morelos 2");
     }
 
     // ── RF-100: sin parámetros no hay bloque ──────────────────────────────────────────────────

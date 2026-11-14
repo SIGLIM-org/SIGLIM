@@ -31,9 +31,13 @@ import org.springframework.stereotype.Repository;
  *
  * <p>[PENDIENTE] Las sanciones con {@code sujeto = 'CLUB'} no bloquean a los equipos del club:
  * RN-057 solo describe el alcance de jugador, equipo y pérdida de partidos, y ni el ERS ni DEC-30
- * precisan si una sanción de club alcanza a todos sus equipos. Se decide con M-09/H-12.3.
+ * precisan si una sanción de club alcanza a todos sus equipos. Se decide con M-09; H-12.3 no lo
+ * implementa.
  *
- * <p>Refs: H-12.2, RF-039, VAL-003, VAL-004, VAL-005, VAL-006, RN-050, RN-057, DEC-25
+ * <p>Las mismas consultas alimentan el alta, el ajuste y la verificación de la jornada (H-12.2,
+ * H-12.3), para que las tres operaciones expliquen el mismo conflicto.
+ *
+ * <p>Refs: H-12.2, H-12.3, RF-039, VAL-003, VAL-004, VAL-005, VAL-006, RN-050, RN-057, DEC-25
  */
 @Repository
 class ConflictoRepository {

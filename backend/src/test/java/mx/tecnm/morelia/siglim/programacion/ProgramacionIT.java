@@ -2,6 +2,7 @@ package mx.tecnm.morelia.siglim.programacion;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -10,18 +11,23 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import mx.tecnm.morelia.siglim.BaseDatosPrueba;
 import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
+import mx.tecnm.morelia.siglim.compartido.error.ErrorTraducido;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
+import mx.tecnm.morelia.siglim.compartido.error.TraductorErroresBd;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * H-12.1 y H-12.2 contra PostgreSQL real: el alta de jornadas y partidos y el ajuste motivado
+ * H-12.1 a H-12.3 contra PostgreSQL real: el alta de jornadas y partidos y el ajuste motivado
  * atraviesan autorización por permiso y ámbito, el validador de conflictos (VAL-003 a VAL-006), el
- * trigger del bloque de cancha, la restricción GiST, el historial del partido y la auditoría.
+ * trigger del bloque de cancha, la restricción GiST, el historial del partido y la auditoría. La
+ * verificación lista los conflictos posteriores sin escribir y el trigger respalda al servicio.
  */
 class ProgramacionIT extends BaseDatosPrueba {
 
@@ -31,6 +37,15 @@ class ProgramacionIT extends BaseDatosPrueba {
 
     @Autowired
     private JornadaService servicio;
+
+    @Autowired
+    private JornadaRepository repositorio;
+
+    @Autowired
+    private TraductorErroresBd traductor;
+
+    @Autowired
+    private PlatformTransactionManager transacciones;
 
     // ── Registro y ajuste (RF-033, RF-036, RF-040) ─────────────────────────────────────────────
 
@@ -399,6 +414,94 @@ class ProgramacionIT extends BaseDatosPrueba {
                 .hasMessageContaining("Halcones", "Toros");
     }
 
+    // ── Verificación sin guardar y respaldo del trigger (H-12.3, RF-039) ───────────────────────
+
+    @Test
+    @DisplayName("RF-039: verificar lista los conflictos posteriores de todos los partidos sin escribir")
+    void verificarListaConflictosSinEscribir() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID canchaBloqueada = crearCancha();
+        UUID canchaLibre = crearCancha();
+        UUID visitanteDeBaja = crearEquipo(grupo, "Toros");
+        PartidoDto primero = servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), crearEquipo(grupo, "Pumas"), canchaBloqueada, INICIO));
+        PartidoDto segundo = servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Águilas"), visitanteDeBaja, canchaLibre, INICIO.plusHours(3)));
+
+        // Después de programar: se bloquea la cancha y el equipo causa baja. La base ya lo permite,
+        // así que la verificación es la que debe revelar ambos conflictos.
+        restringirCancha(canchaBloqueada, "BLOQUEO", INICIO.minusMinutes(30), INICIO.plusMinutes(30),
+                "Riego del césped");
+        jdbc.sql("""
+                        UPDATE siglim.equipos
+                           SET estado = 'BAJA', baja_en = DATE '2031-03-01', motivo_baja = 'Baja de prueba'
+                         WHERE id = :id
+                        """).param("id", visitanteDeBaja).update();
+        long partidosAntes = contarPartidos(jornada);
+        long auditoriaAntes = contarAuditoriaDe(jornada, primero.id(), segundo.id());
+
+        VerificacionJornadaDto verificacion = servicio.verificar(jornada);
+
+        assertThat(verificacion.conflictos()).extracting(VerificacionJornadaDto.Aviso::partidoId)
+                .containsExactly(primero.id(), segundo.id());
+        assertThat(verificacion.conflictos()).extracting(VerificacionJornadaDto.Aviso::codigo)
+                .containsExactly("VAL-005", "VAL-006");
+        assertThat(verificacion.conflictos().getFirst().mensaje())
+                .contains(nombreDeCancha(canchaBloqueada), "bloqueo", "Riego del césped");
+        assertThat(verificacion.conflictos().getLast().mensaje()).contains("Toros", "baja");
+        assertThat(verificacion.advertencias()).as("la localía es backlog B-15").isEmpty();
+        assertThat(contarPartidos(jornada)).as("verificar no guarda nada").isEqualTo(partidosAntes);
+        assertThat(contarAuditoriaDe(jornada, primero.id(), segundo.id()))
+                .as("verificar no audita").isEqualTo(auditoriaAntes);
+    }
+
+    @Test
+    @DisplayName("VAL-004: la restricción GiST respalda al servicio y su error se traduce a 409 VAL-004")
+    void triggerRespaldaCanchaOcupada() {
+        UUID programador = iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID cancha = crearCancha();
+        servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), crearEquipo(grupo, "Toros"), cancha, INICIO));
+        UUID local = crearEquipo(grupo, "Águilas");
+        UUID visitante = crearEquipo(grupo, "Pumas");
+
+        // Se salta el validador del servicio a propósito: el INSERT directo llega a la base.
+        Throwable error = catchThrowable(() -> new TransactionTemplate(transacciones)
+                .executeWithoutResult(estado -> repositorio.insertarPartido(jornada, local, visitante,
+                        cancha, INICIO.plusMinutes(30), programador)));
+
+        assertThat(error).as("la restricción GiST debía rechazar la cancha ocupada").isNotNull();
+        assertThat(traductor.traducir(error, false)).isEqualTo(new ErrorTraducido(
+                HttpStatus.CONFLICT, "VAL-004", "La cancha ya está ocupada en ese horario."));
+    }
+
+    @Test
+    @DisplayName("VAL-003: el trigger respalda al servicio y su error se traduce a 409 VAL-003")
+    void triggerRespaldaEquipoOcupado() {
+        UUID programador = iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID local = crearEquipo(grupo, "Halcones");
+        servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                local, crearEquipo(grupo, "Toros"), crearCancha(), INICIO));
+        UUID visitante = crearEquipo(grupo, "Pumas");
+        UUID otraCancha = crearCancha();
+
+        Throwable error = catchThrowable(() -> new TransactionTemplate(transacciones)
+                .executeWithoutResult(estado -> repositorio.insertarPartido(jornada, local, visitante,
+                        otraCancha, INICIO.plusMinutes(30), programador)));
+
+        assertThat(error).as("el trigger debía rechazar el equipo repetido").isNotNull();
+        ErrorTraducido traducido = traductor.traducir(error, false);
+        assertThat(traducido.estado()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(traducido.codigo()).isEqualTo("VAL-003");
+        assertThat(traducido.detalle()).contains("Halcones", "se traslapa");
+    }
+
     // ── Apoyo ───────────────────────────────────────────────────────────────────────────────────
 
     private UUID iniciarSesionComoProgramador() {
@@ -623,6 +726,20 @@ class ProgramacionIT extends BaseDatosPrueba {
                         fila.getString("estado_nuevo"), fila.getString("motivo"),
                         fila.getObject("cambiado_por", UUID.class)))
                 .list();
+    }
+
+    private long contarPartidos(UUID jornada) {
+        return jdbc.sql("SELECT count(*) FROM siglim.partidos WHERE jornada_id = :id")
+                .param("id", jornada).query(Long.class).single();
+    }
+
+    private long contarAuditoriaDe(UUID... entidades) {
+        long total = 0;
+        for (UUID entidad : entidades) {
+            total += jdbc.sql("SELECT count(*) FROM siglim.auditoria WHERE entidad_id = :id")
+                    .param("id", entidad.toString()).query(Long.class).single();
+        }
+        return total;
     }
 
     private List<String> accionesAuditadas(UUID entidadId) {

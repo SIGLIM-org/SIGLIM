@@ -87,9 +87,15 @@ class JornadaServiceTest {
     }
 
     private static DatosPartido partido(EstadoPartido estado, EstadoJornada estadoJornada, OffsetDateTime inicio) {
-        return new DatosPartido(PARTIDO, JORNADA, GRUPO, estadoJornada, LOCAL, "Halcones",
+        return partido(PARTIDO, estado, estadoJornada, inicio);
+    }
+
+    private static DatosPartido partido(UUID id, EstadoPartido estado, EstadoJornada estadoJornada,
+            OffsetDateTime inicio) {
+        return new DatosPartido(id, JORNADA, GRUPO, estadoJornada, LOCAL, "Halcones",
                 UUID.randomUUID(), VISITANTE, "Toros", UUID.randomUUID(), CANCHA, "Morelos 2",
-                inicio, inicio.plusHours(2), estado, null, CREADO_EN, CREADO_EN);
+                inicio, inicio.plusHours(2), estado, null, CREADO_EN, CREADO_EN,
+                "ACTIVO", "ACTIVO", true);
     }
 
     private static EquipoDeLiga equipo(UUID id, String nombre, UUID grupo) {
@@ -200,6 +206,85 @@ class JornadaServiceTest {
         assertThatThrownBy(() -> servicio.consultar(JORNADA))
                 .isInstanceOf(RecursoNoEncontradoException.class);
         verify(jornadas, never()).listarPartidos(any());
+    }
+
+    // ── Verificación de conflictos (H-12.3, RF-039) ─────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-039: verificar devuelve los conflictos de todos los partidos sin escribir ni auditar")
+    void verificarAcumulaConflictosDeTodosLosPartidos() {
+        UUID segundo = UUID.fromString("99999999-9999-4999-8999-999999999999");
+        given(jornadas.buscarJornada(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.BORRADOR)));
+        given(jornadas.listarPartidos(JORNADA)).willReturn(List.of(
+                partido(PARTIDO, EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, INICIO),
+                partido(segundo, EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, INICIO.plusHours(3))));
+        given(validador.evaluar(eq(GRUPO), eq(PARTIDO), any(), any(), any(), any()))
+                .willReturn(List.of(new ValidadorConflictos.Conflicto("VAL-004", "Cancha ocupada.")));
+        given(validador.evaluar(eq(GRUPO), eq(segundo), any(), any(), any(), any()))
+                .willReturn(List.of(new ValidadorConflictos.Conflicto("VAL-003", "Equipo ocupado.")));
+
+        VerificacionJornadaDto resultado = servicio.verificar(JORNADA);
+
+        assertThat(resultado.conflictos()).containsExactly(
+                new VerificacionJornadaDto.Aviso(PARTIDO, "VAL-004", "Cancha ocupada."),
+                new VerificacionJornadaDto.Aviso(segundo, "VAL-003", "Equipo ocupado."));
+        assertThat(resultado.advertencias()).as("la localía es backlog B-15").isEmpty();
+        verify(autorizacion).exigir(EDITAR, ObjetivoAutorizacion.deLiga());
+        verify(jornadas, never()).insertarPartido(any(), any(), any(), any(), any(), any());
+        verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-039: una jornada sin partidos no consulta conflictos ni escribe")
+    void verificarJornadaVacia() {
+        given(jornadas.buscarJornada(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.BORRADOR)));
+        given(jornadas.listarPartidos(JORNADA)).willReturn(List.of());
+
+        VerificacionJornadaDto resultado = servicio.verificar(JORNADA);
+
+        assertThat(resultado.conflictos()).isEmpty();
+        assertThat(resultado.advertencias()).isEmpty();
+        verifyNoInteractions(validador, auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-039: verificar omite los partidos cancelados porque ya no ocupan cancha")
+    void verificarOmitePartidosCancelados() {
+        given(jornadas.buscarJornada(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.BORRADOR)));
+        given(jornadas.listarPartidos(JORNADA)).willReturn(List.of(
+                partido(PARTIDO, EstadoPartido.CANCELADO, EstadoJornada.BORRADOR, INICIO)));
+
+        VerificacionJornadaDto resultado = servicio.verificar(JORNADA);
+
+        assertThat(resultado.conflictos()).isEmpty();
+        verifyNoInteractions(validador, auditoria);
+    }
+
+    @Test
+    @DisplayName("VAL-024: verificar una jornada de otra liga responde 404 y no lee partidos")
+    void verificarInexistente() {
+        given(jornadas.buscarJornada(LIGA, JORNADA)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.verificar(JORNADA))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        verify(jornadas, never()).listarPartidos(any());
+        verifyNoInteractions(validador, auditoria);
+    }
+
+    @Test
+    @DisplayName("VAL-015: sin programacion.jornada:EDITAR no se verifica la jornada")
+    void verificarSinPermiso() {
+        willThrow(Autorizacion.sinPermiso()).given(autorizacion)
+                .exigir(EDITAR, ObjetivoAutorizacion.deLiga());
+
+        assertThatThrownBy(() -> servicio.verificar(JORNADA))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.FORBIDDEN, "VAL-015"));
+        verifyNoInteractions(jornadas, validador, auditoria);
     }
 
     // ── Registro de partidos (RF-036) ───────────────────────────────────────────────────────

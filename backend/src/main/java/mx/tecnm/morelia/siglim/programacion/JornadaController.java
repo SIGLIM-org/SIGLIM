@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
  * de negocio: el permiso, el estado {@code BORRADOR} de la jornada y los conflictos los valida el
  * servicio y, en última instancia, el trigger.
  *
- * <p>Refs: H-12.1, RF-033, RF-036
+ * <p>Refs: H-12.1, H-12.3, RF-033, RF-036, RF-039
  */
 @RestController
 @RequestMapping("/api/v1/jornadas")
@@ -54,5 +54,11 @@ class JornadaController {
             @Valid @RequestBody CrearPartidoRequest peticion) {
         PartidoDto partido = servicio.registrarPartido(id, peticion);
         return ResponseEntity.created(URI.create("/api/v1/partidos/" + partido.id())).body(partido);
+    }
+
+    /** Verifica todos los partidos sin guardar (H-12.3, RF-039, convenciones de API §6.7). */
+    @PostMapping("/{id}/verificacion")
+    VerificacionJornadaDto verificar(@PathVariable UUID id) {
+        return servicio.verificar(id);
     }
 }

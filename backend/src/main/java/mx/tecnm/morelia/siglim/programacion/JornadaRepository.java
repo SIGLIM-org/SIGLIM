@@ -41,8 +41,10 @@ class JornadaRepository {
     private static final String SELECCION_PARTIDO = """
             SELECT p.id, p.jornada_id, j.grupo_id, j.estado_publicacion,
                    p.equipo_local_id, l.nombre AS local_nombre, l.club_id AS local_club_id,
+                   l.estado AS local_estado,
                    p.equipo_visitante_id, v.nombre AS visitante_nombre, v.club_id AS visitante_club_id,
-                   p.cancha_id, c.nombre AS cancha_nombre,
+                   v.estado AS visitante_estado,
+                   p.cancha_id, c.nombre AS cancha_nombre, c.activa AS cancha_activa,
                    p.inicio, p.fin_bloque, p.estado, p.motivo_localia,
                    p.creado_en, p.actualizado_en
               FROM partidos p
@@ -312,13 +314,17 @@ class JornadaRepository {
                         OffsetDateTime creadoEn, OffsetDateTime actualizadoEn) {
     }
 
-    /** Fila de {@code partidos} con los nombres, los clubes y el estado de su jornada. */
+    /**
+     * Fila de {@code partidos} con los nombres, los clubes y el estado de su jornada. Los estados de
+     * los equipos y de la cancha los usa la verificación de conflictos (H-12.3).
+     */
     record DatosPartido(UUID id, UUID jornadaId, UUID grupoId, EstadoJornada estadoJornada,
                         UUID equipoLocalId, String equipoLocalNombre, UUID clubLocalId,
                         UUID equipoVisitanteId, String equipoVisitanteNombre, UUID clubVisitanteId,
                         UUID canchaId, String canchaNombre, OffsetDateTime inicio, OffsetDateTime finBloque,
                         EstadoPartido estado, String motivoLocalia, OffsetDateTime creadoEn,
-                        OffsetDateTime actualizadoEn) {
+                        OffsetDateTime actualizadoEn, String equipoLocalEstado,
+                        String equipoVisitanteEstado, boolean canchaActiva) {
     }
 
     private static DatosJornada aJornada(ResultSet fila, int numero) throws SQLException {
@@ -351,7 +357,10 @@ class JornadaRepository {
                 EstadoPartido.valueOf(fila.getString("estado")),
                 fila.getString("motivo_localia"),
                 aZona(fila.getObject("creado_en", OffsetDateTime.class)),
-                aZona(fila.getObject("actualizado_en", OffsetDateTime.class)));
+                aZona(fila.getObject("actualizado_en", OffsetDateTime.class)),
+                fila.getString("local_estado"),
+                fila.getString("visitante_estado"),
+                fila.getBoolean("cancha_activa"));
     }
 
     private static OffsetDateTime aZona(OffsetDateTime valor) {
