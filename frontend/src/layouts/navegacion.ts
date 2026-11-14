@@ -102,6 +102,12 @@ export const seccionesApp: SeccionApp[] = [
     modulos: ['M-05', 'M-06', 'M-07', 'M-10'],
     subsecciones: [
       {
+        nombre: 'Jornadas',
+        ruta: '/app/programacion/jornadas',
+        permiso: 'programacion.jornada:CONSULTAR',
+        descripcion: 'Programación manual y validación de conflictos.',
+      },
+      {
         nombre: 'Canchas',
         ruta: '/app/programacion/canchas',
         permiso: 'canchas.cancha:CONSULTAR',

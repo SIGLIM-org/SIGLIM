@@ -47,11 +47,15 @@ function consultaDeClubes({ q, estado, pagina, tamano }: FiltrosClubes): string 
   return parametros.toString()
 }
 
-function consultaDeEquipos({ clubId, estado }: FiltrosEquipos): string {
+function consultaDeEquipos({ clubId, grupoId, estado }: FiltrosEquipos): string {
   const parametros = new URLSearchParams()
 
   if (clubId) {
     parametros.set('clubId', clubId)
+  }
+
+  if (grupoId) {
+    parametros.set('grupoId', grupoId)
   }
 
   if (estado) {

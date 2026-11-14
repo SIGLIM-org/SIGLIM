@@ -119,6 +119,8 @@ export type FiltrosClubes = {
  */
 export type FiltrosEquipos = {
   clubId?: string
+  /** Equipos de un grupo concreto; lo usa la programación de jornadas (F-22). */
+  grupoId?: string
   estado?: EstadoEquipo
 }
 

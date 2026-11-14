@@ -38,7 +38,8 @@ import org.springframework.stereotype.Component;
  * la verificación sin guardar (H-12.3) y {@link #validar} usa esa misma evaluación para rechazar
  * el alta o el ajuste con el primero, de modo que las dos operaciones nunca discrepen.
  *
- * <p>Refs: H-12.2, H-12.3, RF-039, VAL-003, VAL-004, VAL-005, VAL-006, RN-050, RN-057, DEC-25
+ * <p>Refs: H-12.2, H-12.3, H-12.4, RF-039, VAL-003, VAL-004, VAL-005, VAL-006, RN-050, RN-057,
+ * DEC-25
  */
 @Component
 class ValidadorConflictos {
@@ -80,8 +81,10 @@ class ValidadorConflictos {
 
     /**
      * Evalúa un partido y devuelve <b>todos</b> sus conflictos, en el orden en que se explican:
-     * equipos no jugables, cancha inactiva, parámetros de temporada, restricciones, cancha ocupada
-     * y equipo ocupado. No escribe nada; lo usa la verificación de la jornada (H-12.3).
+     * equipos no jugables (baja o sanción), cancha inactiva, parámetros de temporada, restricciones,
+     * cancha ocupada y equipos ocupados. Si los dos equipos están sancionados u ocupados, se
+     * devuelve un conflicto por cada uno (H-12.4). No escribe nada; lo usa la verificación de la
+     * jornada (H-12.3).
      *
      * <p>Si la temporada no tiene parámetros se devuelve {@code RF-100} y se omiten los traslapes,
      * porque sin bloque de cancha no hay intervalo que comparar.
@@ -97,8 +100,10 @@ class ValidadorConflictos {
         if ("BAJA".equals(visitante.estado())) {
             encontrados.add(new Conflicto("VAL-006", mensajeEquipoDeBaja(visitante)));
         }
-        conflictos.buscarSancionVigente(grupoId, local.id(), visitante.id(), inicio)
-                .ifPresent(sancion -> encontrados.add(new Conflicto("VAL-006", mensajeSancion(sancion))));
+        for (SancionDeEquipo sancion :
+                conflictos.buscarSancionVigente(grupoId, local.id(), visitante.id(), inicio)) {
+            encontrados.add(new Conflicto("VAL-006", mensajeSancion(sancion)));
+        }
         if (!cancha.activa()) {
             encontrados.add(new Conflicto("VAL-005",
                     "La cancha «" + cancha.nombre() + "» está inactiva y no se puede asignar."));
@@ -117,11 +122,13 @@ class ValidadorConflictos {
                 .ifPresent(otro -> encontrados.add(new Conflicto("VAL-004",
                         "La cancha «" + cancha.nombre() + "» ya está ocupada por el partido "
                                 + describirPartido(otro) + ".")));
-        conflictos.buscarEquipoOcupado(local.id(), visitante.id(), inicio, finBloque, partidoId)
-                .ifPresent(choque -> encontrados.add(new Conflicto("VAL-003",
-                        "El equipo «" + choque.equipoNombre() + "» ya tiene el partido "
-                                + describirPartido(choque.partido()) + " en la cancha «"
-                                + choque.partido().canchaNombre() + "».")));
+        for (EquipoEnConflicto choque :
+                conflictos.buscarEquipoOcupado(local.id(), visitante.id(), inicio, finBloque, partidoId)) {
+            encontrados.add(new Conflicto("VAL-003",
+                    "El equipo «" + choque.equipoNombre() + "» ya tiene el partido "
+                            + describirPartido(choque.partido()) + " en la cancha «"
+                            + choque.partido().canchaNombre() + "»."));
+        }
         return encontrados;
     }
 

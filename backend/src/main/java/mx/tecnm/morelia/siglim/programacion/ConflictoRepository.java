@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -35,9 +36,11 @@ import org.springframework.stereotype.Repository;
  * implementa.
  *
  * <p>Las mismas consultas alimentan el alta, el ajuste y la verificación de la jornada (H-12.2,
- * H-12.3), para que las tres operaciones expliquen el mismo conflicto.
+ * H-12.3), para que las tres operaciones expliquen el mismo conflicto. Las consultas de sanciones y
+ * de equipos ocupados devuelven <b>todas</b> las filas que coinciden: si los dos equipos del partido
+ * están sancionados u ocupados, la verificación explica cada uno por separado (H-12.4).
  *
- * <p>Refs: H-12.2, H-12.3, RF-039, VAL-003, VAL-004, VAL-005, VAL-006, RN-050, RN-057, DEC-25
+ * <p>Refs: H-12.2, H-12.3, H-12.4, RF-039, VAL-003, VAL-004, VAL-005, VAL-006, RN-050, RN-057, DEC-25
  */
 @Repository
 class ConflictoRepository {
@@ -107,8 +110,12 @@ class ConflictoRepository {
                 .optional();
     }
 
-    /** Primer partido no cancelado de cualquiera de los dos equipos que se traslapa. */
-    Optional<EquipoEnConflicto> buscarEquipoOcupado(UUID equipoLocalId, UUID equipoVisitanteId,
+    /**
+     * Todos los partidos no cancelados de cualquiera de los dos equipos que se traslapan, con el
+     * equipo que choca en cada fila. Sin {@code LIMIT}: si ambos equipos ya tienen partido, se
+     * devuelven las dos filas para explicar cada choque (H-12.4).
+     */
+    List<EquipoEnConflicto> buscarEquipoOcupado(UUID equipoLocalId, UUID equipoVisitanteId,
             OffsetDateTime inicio, OffsetDateTime finBloque, UUID partidoId) {
         return jdbc.sql("""
                         SELECT e.id AS equipo_id, e.nombre AS equipo_nombre,
@@ -121,7 +128,7 @@ class ConflictoRepository {
                           JOIN equipos l ON l.id = p.equipo_local_id
                           JOIN equipos v ON v.id = p.equipo_visitante_id
                          WHERE e.id IN (:localId, :visitanteId)
-                        """ + TRASLAPE + " ORDER BY p.inicio, e.id LIMIT 1")
+                        """ + TRASLAPE + " ORDER BY p.inicio, e.nombre, e.id")
                 .param("localId", equipoLocalId)
                 .param("visitanteId", equipoVisitanteId)
                 .param("inicio", inicio)
@@ -131,7 +138,7 @@ class ConflictoRepository {
                         fila.getObject("equipo_id", UUID.class),
                         fila.getString("equipo_nombre"),
                         aPartido(fila, numero)))
-                .optional();
+                .list();
     }
 
     /** Primer bloqueo o mantenimiento de la cancha que se traslapa con el bloque del partido. */
@@ -159,12 +166,13 @@ class ConflictoRepository {
     }
 
     /**
-     * Sanción vigente de alguno de los equipos que impide jugar: suspensión de partidos o baja
+     * Todas las sanciones vigentes de los equipos que impiden jugar: suspensión de partidos o baja
      * (RN-057). La vigencia por fechas se compara con el día del partido en la zona de negocio.
      * Una suspensión con todos sus partidos cumplidos se excluye aunque el estado siga en
-     * {@code VIGENTE}, por si la máquina de estados no se actualizó.
+     * {@code VIGENTE}, por si la máquina de estados no se actualizó. Sin {@code LIMIT}: si ambos
+     * equipos están sancionados, se devuelven las dos sanciones (H-12.4).
      */
-    Optional<SancionDeEquipo> buscarSancionVigente(UUID grupoId, UUID equipoLocalId,
+    List<SancionDeEquipo> buscarSancionVigente(UUID grupoId, UUID equipoLocalId,
             UUID equipoVisitanteId, OffsetDateTime inicio) {
         return jdbc.sql("""
                         SELECT s.equipo_id, e.nombre AS equipo_nombre, s.tipo,
@@ -182,8 +190,7 @@ class ConflictoRepository {
                            AND (s.vigente_hasta IS NULL
                                 OR s.vigente_hasta >= (CAST(:inicio AS timestamptz)
                                                        AT TIME ZONE 'America/Mexico_City')::date)
-                         ORDER BY s.vigente_desde, s.id
-                         LIMIT 1
+                         ORDER BY s.vigente_desde, e.nombre, s.id
                         """)
                 .param("grupoId", grupoId)
                 .param("localId", equipoLocalId)
@@ -197,7 +204,7 @@ class ConflictoRepository {
                         fila.getObject("partidos_cumplidos", Short.class),
                         fila.getObject("vigente_desde", LocalDate.class),
                         fila.getObject("vigente_hasta", LocalDate.class)))
-                .optional();
+                .list();
     }
 
     // ── Filas ───────────────────────────────────────────────────────────────────────────────────
