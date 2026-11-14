@@ -24,10 +24,11 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * H-12.1 a H-12.3 contra PostgreSQL real: el alta de jornadas y partidos y el ajuste motivado
+ * H-12.1 a H-12.4 contra PostgreSQL real: el alta de jornadas y partidos y el ajuste motivado
  * atraviesan autorización por permiso y ámbito, el validador de conflictos (VAL-003 a VAL-006), el
  * trigger del bloque de cancha, la restricción GiST, el historial del partido y la auditoría. La
- * verificación lista los conflictos posteriores sin escribir y el trigger respalda al servicio.
+ * verificación lista los conflictos posteriores de ambos equipos sin escribir y el trigger respalda
+ * al servicio.
  */
 class ProgramacionIT extends BaseDatosPrueba {
 
@@ -455,6 +456,33 @@ class ProgramacionIT extends BaseDatosPrueba {
         assertThat(contarPartidos(jornada)).as("verificar no guarda nada").isEqualTo(partidosAntes);
         assertThat(contarAuditoriaDe(jornada, primero.id(), segundo.id()))
                 .as("verificar no audita").isEqualTo(auditoriaAntes);
+    }
+
+    @Test
+    @DisplayName("H-12.4, VAL-006: verificar explica la sanción de cada equipo cuando ambos lo están")
+    void verificarSancionesDeAmbosEquipos() {
+        UUID perfil = iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID local = crearEquipo(grupo, "Halcones");
+        UUID visitante = crearEquipo(grupo, "Toros");
+        PartidoDto partido = servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                local, visitante, crearCancha(), INICIO));
+
+        // Las sanciones llegan después de programar: la verificación debe revelar las dos.
+        sancionarEquipo(grupo, local, perfil, "SUSPENSION_PARTIDOS", (short) 2);
+        sancionarEquipo(grupo, visitante, perfil, "SUSPENSION_PARTIDOS", (short) 1);
+
+        VerificacionJornadaDto verificacion = servicio.verificar(jornada);
+
+        assertThat(verificacion.conflictos()).hasSize(2)
+                .extracting(VerificacionJornadaDto.Aviso::partidoId)
+                .containsOnly(partido.id());
+        assertThat(verificacion.conflictos()).extracting(VerificacionJornadaDto.Aviso::codigo)
+                .containsOnly("VAL-006");
+        assertThat(verificacion.conflictos()).extracting(VerificacionJornadaDto.Aviso::mensaje)
+                .anySatisfy(mensaje -> assertThat(mensaje).contains("Halcones", "suspensión"))
+                .anySatisfy(mensaje -> assertThat(mensaje).contains("Toros", "suspensión"));
     }
 
     @Test

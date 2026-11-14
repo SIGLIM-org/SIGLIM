@@ -15,6 +15,19 @@ describe('subsecciones', () => {
     expect(seccionDeRuta('/app/programacion/canchas/c1')?.nombre).toBe('Programación')
   })
 
+  it('H-12.4: Programación ofrece Jornadas con su permiso y la ruta queda en la sección', () => {
+    const programacion = seccionesApp.find(({ nombre }) => nombre === 'Programación')
+
+    expect(programacion?.subsecciones).toContainEqual(
+      expect.objectContaining({
+        nombre: 'Jornadas',
+        ruta: '/app/programacion/jornadas',
+        permiso: 'programacion.jornada:CONSULTAR',
+      }),
+    )
+    expect(seccionDeRuta('/app/programacion/jornadas')?.nombre).toBe('Programación')
+  })
+
   it('H-11.2: Programación ofrece Árbitros con su permiso y la ruta queda en la sección', () => {
     const programacion = seccionesApp.find(({ nombre }) => nombre === 'Programación')
 

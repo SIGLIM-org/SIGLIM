@@ -28,7 +28,8 @@ import org.springframework.http.HttpStatus;
 
 /**
  * Reglas de {@link ValidadorConflictos} (RF-039, VAL-003 a VAL-006) sin Spring ni BD: la validación
- * que rechaza el guardado y la evaluación que acumula conflictos para la verificación (H-12.3).
+ * que rechaza el guardado y la evaluación que acumula conflictos para la verificación (H-12.3,
+ * H-12.4).
  */
 class ValidadorConflictosTest {
 
@@ -53,14 +54,14 @@ class ValidadorConflictosTest {
     @BeforeEach
     void prepararSinConflictos() {
         given(conflictos.buscarSancionVigente(GRUPO, LOCAL_ID, VISITANTE_ID, INICIO))
-                .willReturn(Optional.empty());
+                .willReturn(List.of());
         given(conflictos.calcularBloque(GRUPO, LOCAL_ID, INICIO))
                 .willReturn(new BloqueCancha(true, FIN));
         given(conflictos.buscarRestriccion(CANCHA_ID, INICIO, FIN)).willReturn(Optional.empty());
         given(conflictos.buscarCanchaOcupada(CANCHA_ID, INICIO, FIN, PARTIDO_ID))
                 .willReturn(Optional.empty());
         given(conflictos.buscarEquipoOcupado(LOCAL_ID, VISITANTE_ID, INICIO, FIN, PARTIDO_ID))
-                .willReturn(Optional.empty());
+                .willReturn(List.of());
     }
 
     // ── Camino sin conflictos ─────────────────────────────────────────────────────────────────
@@ -81,7 +82,8 @@ class ValidadorConflictosTest {
     @DisplayName("VAL-003: un equipo con otro partido en el bloque se rechaza y nombra el partido")
     void equipoOcupado() {
         given(conflictos.buscarEquipoOcupado(LOCAL_ID, VISITANTE_ID, INICIO, FIN, PARTIDO_ID))
-                .willReturn(Optional.of(new EquipoEnConflicto(LOCAL_ID, "Halcones", otroPartido())));
+                .willReturn(List.of(
+                        new EquipoEnConflicto(LOCAL_ID, "Halcones", otroPartido())));
 
         assertConflicto(() -> validador.validar(GRUPO, PARTIDO_ID, LOCAL, VISITANTE, CANCHA, INICIO),
                 "VAL-003", "Halcones", "Águilas vs. Pumas", "Morelos 1", "10/03/2031 10:00");
@@ -147,7 +149,7 @@ class ValidadorConflictosTest {
     @DisplayName("VAL-006: una suspensión vigente de partidos impide jugar y dice cuántos")
     void equipoSuspendido() {
         given(conflictos.buscarSancionVigente(GRUPO, LOCAL_ID, VISITANTE_ID, INICIO))
-                .willReturn(Optional.of(new SancionDeEquipo(VISITANTE_ID, "Toros",
+                .willReturn(List.of(new SancionDeEquipo(VISITANTE_ID, "Toros",
                         "SUSPENSION_PARTIDOS", (short) 2, (short) 0, null, null)));
 
         assertConflicto(() -> validador.validar(GRUPO, PARTIDO_ID, LOCAL, VISITANTE, CANCHA, INICIO),
@@ -158,7 +160,7 @@ class ValidadorConflictosTest {
     @DisplayName("VAL-006: una sanción vigente de baja impide jugar")
     void equipoConSancionDeBaja() {
         given(conflictos.buscarSancionVigente(GRUPO, LOCAL_ID, VISITANTE_ID, INICIO))
-                .willReturn(Optional.of(new SancionDeEquipo(LOCAL_ID, "Halcones",
+                .willReturn(List.of(new SancionDeEquipo(LOCAL_ID, "Halcones",
                         "BAJA", null, (short) 0, null, null)));
 
         assertConflicto(() -> validador.validar(GRUPO, PARTIDO_ID, LOCAL, VISITANTE, CANCHA, INICIO),
@@ -179,7 +181,8 @@ class ValidadorConflictosTest {
         given(conflictos.buscarCanchaOcupada(CANCHA_ID, INICIO, FIN, PARTIDO_ID))
                 .willReturn(Optional.of(otroPartido()));
         given(conflictos.buscarEquipoOcupado(LOCAL_ID, VISITANTE_ID, INICIO, FIN, PARTIDO_ID))
-                .willReturn(Optional.of(new EquipoEnConflicto(LOCAL_ID, "Halcones", otroPartido())));
+                .willReturn(List.of(
+                        new EquipoEnConflicto(LOCAL_ID, "Halcones", otroPartido())));
 
         List<ValidadorConflictos.Conflicto> encontrados =
                 validador.evaluar(GRUPO, PARTIDO_ID, LOCAL, VISITANTE, CANCHA, INICIO);
@@ -187,6 +190,48 @@ class ValidadorConflictosTest {
         assertThat(encontrados).extracting(ValidadorConflictos.Conflicto::codigo)
                 .containsExactly("VAL-004", "VAL-003");
         assertThat(encontrados.getFirst().mensaje()).contains("Morelos 2", "Águilas vs. Pumas");
+    }
+
+    @Test
+    @DisplayName("VAL-006: evaluar explica la sanción de cada equipo cuando ambos están sancionados")
+    void evaluarAcumulaSancionesDeAmbosEquipos() {
+        given(conflictos.buscarSancionVigente(GRUPO, LOCAL_ID, VISITANTE_ID, INICIO))
+                .willReturn(List.of(
+                        new SancionDeEquipo(LOCAL_ID, "Halcones", "SUSPENSION_PARTIDOS",
+                                (short) 2, (short) 0, null, null),
+                        new SancionDeEquipo(VISITANTE_ID, "Toros", "BAJA",
+                                null, (short) 0, null, null)));
+
+        List<ValidadorConflictos.Conflicto> encontrados =
+                validador.evaluar(GRUPO, PARTIDO_ID, LOCAL, VISITANTE, CANCHA, INICIO);
+
+        assertThat(encontrados).extracting(ValidadorConflictos.Conflicto::codigo)
+                .containsExactly("VAL-006", "VAL-006");
+        assertThat(encontrados).extracting(ValidadorConflictos.Conflicto::mensaje)
+                .anySatisfy(mensaje -> assertThat(mensaje).contains("Halcones", "suspensión"))
+                .anySatisfy(mensaje -> assertThat(mensaje).contains("Toros", "baja"));
+    }
+
+    @Test
+    @DisplayName("VAL-003: evaluar explica el choque de cada equipo cuando ambos ya tienen partido")
+    void evaluarAcumulaEquiposOcupados() {
+        PartidoEnConflicto partidoLocal = otroPartido();
+        PartidoEnConflicto partidoVisitante = new PartidoEnConflicto(UUID.randomUUID(), "Morelos 3",
+                VISITANTE_ID, "Toros", UUID.randomUUID(), "Pumas", INICIO.plusHours(2),
+                INICIO.plusHours(3));
+        given(conflictos.buscarEquipoOcupado(LOCAL_ID, VISITANTE_ID, INICIO, FIN, PARTIDO_ID))
+                .willReturn(List.of(
+                        new EquipoEnConflicto(LOCAL_ID, "Halcones", partidoLocal),
+                        new EquipoEnConflicto(VISITANTE_ID, "Toros", partidoVisitante)));
+
+        List<ValidadorConflictos.Conflicto> encontrados =
+                validador.evaluar(GRUPO, PARTIDO_ID, LOCAL, VISITANTE, CANCHA, INICIO);
+
+        assertThat(encontrados).extracting(ValidadorConflictos.Conflicto::codigo)
+                .containsExactly("VAL-003", "VAL-003");
+        assertThat(encontrados).extracting(ValidadorConflictos.Conflicto::mensaje)
+                .anySatisfy(mensaje -> assertThat(mensaje).contains("Halcones", "Morelos 1"))
+                .anySatisfy(mensaje -> assertThat(mensaje).contains("Toros", "Morelos 3"));
     }
 
     @Test
@@ -212,7 +257,8 @@ class ValidadorConflictosTest {
         given(conflictos.buscarCanchaOcupada(CANCHA_ID, INICIO, FIN, PARTIDO_ID))
                 .willReturn(Optional.of(otroPartido()));
         given(conflictos.buscarEquipoOcupado(LOCAL_ID, VISITANTE_ID, INICIO, FIN, PARTIDO_ID))
-                .willReturn(Optional.of(new EquipoEnConflicto(LOCAL_ID, "Halcones", otroPartido())));
+                .willReturn(List.of(
+                        new EquipoEnConflicto(LOCAL_ID, "Halcones", otroPartido())));
 
         assertConflicto(() -> validador.validar(GRUPO, PARTIDO_ID, LOCAL, VISITANTE, CANCHA, INICIO),
                 "VAL-004", "Morelos 2");
