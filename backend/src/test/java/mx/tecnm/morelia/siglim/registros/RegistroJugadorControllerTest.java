@@ -66,17 +66,21 @@ class RegistroJugadorControllerTest {
             new ReferenciaDto(UUID.randomUUID(), "Libre"),
             new TemporadaResumenDto(UUID.randomUUID(), "Temporada 2026", EstadoTemporada.ACTIVA),
             EstadoRegistro.PENDIENTE_VALIDACION, LocalDate.parse("2026-11-11"),
-            OffsetDateTime.parse("2026-11-11T12:00:00-06:00"), null, null, null);
+            OffsetDateTime.parse("2026-11-11T12:00:00-06:00"), null, null, null, null, null);
     private static final UUID SECRETARIO = UUID.fromString("30000000-0000-4000-8000-000000000007");
     private static final String RUTA_VALIDACION = RUTA + "/{id}/validacion";
     private static final String CUERPO_VALIDACION = """
             {"decision":"ACTIVO"}
             """;
+    private static final String RUTA_BAJA = RUTA + "/{id}/baja";
+    private static final String CUERPO_BAJA = """
+            {"motivo":"El jugador se mudó de ciudad"}
+            """;
     private static final RegistroJugadorDto VALIDADO = new RegistroJugadorDto(REGISTRO,
             CREADO.persona(), CREADO.equipo(), CREADO.club(), CREADO.categoria(), CREADO.temporada(),
             EstadoRegistro.ACTIVO, CREADO.altaEn(), CREADO.creadoEn(),
             new ReferenciaDto(SECRETARIO, "Secretario"), OffsetDateTime.parse("2026-11-12T10:30:00-06:00"),
-            "Documentos revisados");
+            "Documentos revisados", null, null);
 
     private static final RegistroJugadorResumenDto FILA = new RegistroJugadorResumenDto(REGISTRO,
             new PersonaListadoDto(PERSONA, "Ana López", "GAPA******HMN***05"),
@@ -86,7 +90,7 @@ class RegistroJugadorControllerTest {
             new PersonaDetalleDto(PERSONA, "Ana López", "GAPA******HMN***05", "GAPA750101HMNRRS05"),
             CREADO.equipo(), CREADO.club(), CREADO.categoria(), CREADO.temporada(),
             EstadoRegistro.PENDIENTE_VALIDACION, true, CREADO.altaEn(), CREADO.creadoEn(), null, null, null,
-            List.of(new TutorDto("María López", "Madre")));
+            null, null, List.of(new TutorDto("María López", "Madre")));
 
     @Autowired
     private MockMvcTester mvc;
@@ -189,6 +193,38 @@ class RegistroJugadorControllerTest {
         return mvc.post().uri(RUTA_VALIDACION, REGISTRO)
                 .header(HttpHeaders.AUTHORIZATION, autorizacion)
                 .contentType(MediaType.APPLICATION_JSON).content(cuerpo).exchange();
+    }
+
+    @Test
+    @DisplayName("RF-014 · DEC-124: POST /registros-jugador/{id}/baja responde 200 con no-store, bajaEn y motivoBaja")
+    void darDeBaja() {
+        RegistroJugadorDto deBaja = new RegistroJugadorDto(REGISTRO, CREADO.persona(), CREADO.equipo(), CREADO.club(),
+                CREADO.categoria(), CREADO.temporada(), EstadoRegistro.BAJA, CREADO.altaEn(), CREADO.creadoEn(),
+                VALIDADO.validadoPor(), VALIDADO.validadoEn(), VALIDADO.observaciones(), LocalDate.parse("2026-11-14"),
+                "El jugador se mudó de ciudad");
+        given(servicio.darDeBaja(any(), any())).willReturn(deBaja);
+
+        MvcTestResult resultado = mvc.post().uri(RUTA_BAJA, REGISTRO)
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(CUERPO_BAJA).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.OK);
+        assertThat(resultado).hasHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        assertThat(resultado).bodyJson().extractingPath("$.estado").isEqualTo("BAJA");
+        assertThat(resultado).bodyJson().extractingPath("$.bajaEn").isEqualTo("2026-11-14");
+        assertThat(resultado).bodyJson().extractingPath("$.motivoBaja").isEqualTo("El jugador se mudó de ciudad");
+        Mockito.verify(servicio).darDeBaja(REGISTRO, new BajaRegistroRequest("El jugador se mudó de ciudad"));
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de POST /api/v1/registros-jugador/{id}/baja")
+    Stream<DynamicTest> seguridadBaja() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.POST, RUTA_BAJA, REGISTRO)
+                .cuerpoJson(CUERPO_BAJA)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.darDeBaja(any(), any())).willThrow(error))
+                .pruebas();
     }
 
     @Test

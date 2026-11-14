@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.4 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.5 · 14 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -53,6 +53,7 @@ Versión 5.4 · 12 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../r
 | 5.2 | 12 de noviembre de 2026 | H-09.3: §6.3 con `esMenor` en `GET /personas?curp=` (DEC-104). |
 | 5.3 | 12 de noviembre de 2026 | H-10.5: §6.4 con la consulta de registros: `GET /registros-jugador` (filtros `estado`, `temporadaId`, `clubId`, `equipoId`; orden `creadoEn,asc`, `creadoEn,desc` o `nombre,asc`; ámbito en el `WHERE` y en el `COUNT`; filas con la CURP enmascarada, sin avance de documentos) y `GET /registros-jugador/{id}` (detalle con `esMenor`, tutores vigentes y la CURP completa solo con `organizacion.persona:CONSULTAR` sobre el club), ambos con `Cache-Control: no-store` y su orden de errores; el alta responde `201` con `Location`; §9.2 cita DEC-110 como la aplicación del enmascarado en M-04 (DEC-109, DEC-110). |
 | 5.4 | 12 de noviembre de 2026 | H-10.3: §7 precisa que `GET /registros-jugador/{id}/documentos` sigue fuera porque la página de documentos y la bandeja de validación no lo usan: los documentos vigentes vienen en `GET /registros-jugador/{id}/requisitos` (DEC-96, DEC-112). |
+| 5.5 | 14 de noviembre de 2026 | H-23.1: §6.4 con la baja de un registro (`POST /registros-jugador/{id}/baja`): permiso `registros.registro:EDITAR` sobre el club del equipo, motivo obligatorio de 10 a 500 caracteres (`400 RN-021`), solo desde `ACTIVO` con un `409 RF-017` por estado de origen, `409 RF-003` con la temporada cerrada, `UPDATE` condicional con el registro bloqueado, `baja_en` en `America/Mexico_City`, motivo solo en el historial, respuesta `200` con `bajaEn` y `motivoBaja` y auditoría `DAR_BAJA_REGISTRO_JUGADOR`; el alta y el detalle muestran los dos campos nuevos (`null` salvo en `BAJA`) (DEC-118 a DEC-124). |
 
 ## Índice
 
@@ -1151,7 +1152,8 @@ Cada equipo trae referencias anidadas (§9.1):
 | `GET /registros-jugador/{id}` | Detalle con `esMenor`, tutores vigentes del menor y la CURP completa solo con `organizacion.persona:CONSULTAR` sobre el club; detalle abajo | `registros.registro:CONSULTAR` (club o persona del registro) | RF-017 | N |
 | `POST /registros-jugador` | Alta: `{ personaId, equipoId }`; queda `PENDIENTE_VALIDACION`. `409 VAL-017` dice club y equipo donde ya está registrada la CURP; detalle abajo | `registros.registro:EDITAR` (club del equipo) | RF-013, RF-107, VAL-025 | N |
 | `GET /registros-jugador/{id}/requisitos` | Documentos que exige su categoría y cuáles faltan; detalle abajo | `registros.registro:CONSULTAR` (club o persona del registro) | RF-108, VAL-001 | N |
-| `POST /registros-jugador/{id}/validacion` · `/baja` | Validar, rechazar, dar de baja | ver §2.1 | RF-109, RF-014 | N |
+| `POST /registros-jugador/{id}/validacion` | Validar o rechazar; detalle abajo | `registros.registro:VALIDAR` (club del equipo) | RF-109 | N |
+| `POST /registros-jugador/{id}/baja` | Dar de baja un registro `ACTIVO` con motivo; detalle abajo | `registros.registro:EDITAR` (club del equipo) | RF-014 | N |
 | `GET /registros-jugador/{id}/historial` | Cambios de estado con usuario y motivo | `registros.registro:CONSULTAR` | RF-018 | B |
 | `GET /registros-jugador/{id}/elegibilidad?equipoId=` | `{ elegible, causas: [ { codigo, mensaje } ] }` | `registros.registro:CONSULTAR` | RF-019, RF-020, RF-110 | N |
 | `POST /registros-jugador/renovaciones` · `/transferencias` | Renovación y cambio de club entre temporadas | `registros.registro:EDITAR` | RF-015, RF-016 | B |
@@ -1227,11 +1229,14 @@ Responde `201` con `Location: /api/v1/registros-jugador/{id}` (DEC-109) y con
   "creadoEn": "2026-11-11T12:00:00-06:00",
   "validadoPor": null,
   "validadoEn": null,
-  "observaciones": null
+  "observaciones": null,
+  "bajaEn": null,
+  "motivoBaja": null
 }
 ```
 
-`validadoPor`, `validadoEn` y `observaciones` se llenan al validar el registro (H-10.2, abajo).
+`validadoPor`, `validadoEn` y `observaciones` se llenan al validar el registro (H-10.2, abajo);
+`bajaEn` y `motivoBaja`, al darlo de baja (H-23.1, abajo).
 `creado_por` es el perfil de la sesión; el historial lo escribe `tg_registros_historial` con el
 motivo «Alta del registro». Se audita en `M-04` como `REGISTRAR_REGISTRO_JUGADOR` (entidad
 `registros_jugador`) con `{ "personaId", "equipoId", "temporadaId", "estado": "PENDIENTE_VALIDACION" }`,
@@ -1300,9 +1305,10 @@ contacto, datos de validación ni avance de documentos (ese avance es
    (`ObjetivoAutorizacion.deClubesYPersonas`): `404 NO_ENCONTRADO`, igual que uno inexistente
    (VAL-024).
 
-Responde los campos del alta (`validadoPor`, `validadoEn`, `observaciones` incluidos) más `esMenor`
-y `tutores`; `persona` lleva siempre `curpEnmascarada` y `curp` **completa solo si la sesión tiene
-`organizacion.persona:CONSULTAR` sobre el club del registro** (hoy el Secretario y la Directiva de
+Responde los campos del alta (`validadoPor`, `validadoEn`, `observaciones`, `bajaEn` y `motivoBaja`
+incluidos) más `esMenor` y `tutores`; `persona` lleva siempre `curpEnmascarada` y `curp` **completa
+solo si la sesión tiene `organizacion.persona:CONSULTAR` sobre el club del registro** (hoy el
+Secretario y la Directiva de
 ese club); si no (la Comisión, el jugador o su tutor), `curp` es `null` (DEC-110). El backend lo
 pregunta con `autorizacion.permite(...)`, que no lanza el `403` ni el `404`. `tutores` son las
 tutelas vigentes del menor por fecha de creación, solo con nombre y parentesco (sin CURP ni
@@ -1329,6 +1335,8 @@ no puede ver por RLS no aparece.
   "validadoPor": null,
   "validadoEn": null,
   "observaciones": null,
+  "bajaEn": null,
+  "motivoBaja": null,
   "tutores": [ { "nombreCompleto": "María Ruiz Pérez", "parentesco": "Madre" } ]
 }
 ```
@@ -1544,6 +1552,69 @@ guarda el motivo fijado en la transacción, «Registro validado por la liga»), 
 cambia un registro de `PENDIENTE_VALIDACION` a `ACTIVO` o `RECHAZADO`, o su `validado_por` o
 `validado_en` (`VAL-015`), y al activar exige los documentos aprobados (`VAL-001`) antes de
 `VAL-025`.
+
+#### Baja de un registro (H-23.1, RF-014, RN-021, DEC-118 a DEC-124)
+
+`POST /registros-jugador/{id}/baja` recibe `{ "motivo" }` y pasa un registro `ACTIVO` a `BAJA`
+conservando su historial (RF-014, RN-005). Exige `registros.registro:EDITAR` sobre el **club del
+equipo** del registro (`ObjetivoAutorizacion.deClubes`); hoy solo la Directiva de club lo tiene,
+con ámbito `CLUB`. Nunca se comparan roles y no hay separación de funciones: quien dio de alta el
+registro puede darlo de baja. Que el Secretario también pueda (RF-014) queda **[PROPUESTA]**:
+darle `EDITAR` le daría también el alta, así que, si hace falta, será un permiso propio con su
+migración en otra historia (DEC-119). El motivo lo valida el servicio después del permiso, así que
+el cuerpo no lleva `@Valid`. Orden de errores:
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. Sin motivo, o con menos de 10 caracteres sin contar los espacios de los extremos: `400 RN-021`
+   («Escribe un motivo de al menos 10 caracteres para dar de baja el registro.»). Con más de 500:
+   `400 VALIDACION`.
+3. El registro no existe en la liga, o es de un club fuera del ámbito del usuario:
+   `404 NO_ENCONTRADO`, sin distinguir los dos casos (VAL-024).
+4. Se bloquea el registro (`SELECT … FOR UPDATE`, el mismo bloqueo de la validación).
+5. Temporada `CERRADA`: `409 RF-003` («La temporada del registro está cerrada: sus registros ya no
+   cambian.»). Se aceptan `CONFIGURACION` y `ACTIVA`.
+6. Registro que no está `ACTIVO`: `409 RF-017`, con un `detail` según su estado (DEC-118); una
+   segunda baja es una acción repetida (§2):
+
+   | Estado | `detail` |
+   | --- | --- |
+   | `PENDIENTE_VALIDACION` | El registro aún no está validado: si no procede, pide a la liga que lo rechace. |
+   | `SUSPENDIDO` | El registro tiene una sanción vigente: no se puede dar de baja mientras esté suspendido. |
+   | `BAJA` | El registro ya está dado de baja. |
+   | `RECHAZADO` | El registro fue rechazado: no está activo. |
+
+7. Otra petición cambió el estado entre tanto (el `UPDATE … AND estado = 'ACTIVO'` no devolvió
+   fila): `409 RF-017` («Otra persona cambió el estado de este registro al mismo tiempo. Actualiza la
+   página para ver su estado.»).
+
+Un equipo en `BAJA` no impide la baja del registro (DEC-120). `SUSPENDIDO → BAJA`, que el trigger sí
+acepta, queda para la sanción de tipo baja de M-09 (DEC-118).
+
+`baja_en` es la fecha de hoy en `America/Mexico_City`, calculada con el `Clock` del servicio
+(`current_date` de la base es UTC); `ck_registros_baja` la exige con el estado `BAJA`. El motivo,
+recortado, se fija antes del `UPDATE` (RN-021) y **solo va al historial**: `tg_registros_historial`
+lo guarda con el usuario de la sesión. No hay columna de motivo de baja, y `observaciones`,
+`validado_por` y `validado_en` no cambian (DEC-121).
+
+Responde `200` con `Cache-Control: no-store` y el registro, con los mismos campos del alta:
+
+```json
+{
+  "id": "…",
+  "estado": "BAJA",
+  "…": "…",
+  "validadoPor": { "id": "…", "nombre": "Secretario" },
+  "validadoEn": "2026-11-12T10:30:00-06:00",
+  "observaciones": "Documentos revisados en ventanilla",
+  "bajaEn": "2026-11-14",
+  "motivoBaja": "El jugador se mudó de ciudad"
+}
+```
+
+`bajaEn` y `motivoBaja` son `null` salvo en `BAJA`; `motivoBaja` es el motivo del último cambio a
+`BAJA` del historial (DEC-124). Se audita en `M-04` como `DAR_BAJA_REGISTRO_JUGADOR` (entidad
+`registros_jugador`) con `{ "personaId", "equipoId", "temporadaId", "estadoAnterior": "ACTIVO",
+"estado": "BAJA", "bajaEn" }` y el motivo como motivo del evento, sin datos personales (DEC-123).
 
 ### 6.5 M-05 Árbitros y designaciones
 

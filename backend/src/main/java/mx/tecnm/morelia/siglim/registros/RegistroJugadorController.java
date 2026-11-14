@@ -21,10 +21,11 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>El alta responde {@code 201} con {@code Location: /api/v1/registros-jugador/{id}} (DEC-109). Todas
  * las respuestas llevan {@code Cache-Control: no-store} porque incluyen el nombre de la persona y, en
- * el detalle, su CURP (RNF-012). La validación responde {@code 200} con el registro (DEC-102).
+ * el detalle, su CURP (RNF-012). La validación (DEC-102) y la baja (DEC-124) responden {@code 200}
+ * con el registro.
  *
- * <p>Refs: H-09.2, H-10.2, H-10.5, RF-013, RF-017, RF-107, RF-109, DEC-85, DEC-90, DEC-97, DEC-102, DEC-109,
- * DEC-110
+ * <p>Refs: H-09.2, H-10.2, H-10.5, H-23.1, RF-013, RF-014, RF-017, RF-107, RF-109, DEC-85, DEC-90, DEC-97,
+ * DEC-102, DEC-109, DEC-110, DEC-121, DEC-124
  */
 @RestController
 @RequestMapping("/api/v1/registros-jugador")
@@ -74,5 +75,13 @@ class RegistroJugadorController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(servicio.validar(id, peticion));
+    }
+
+    /** El club da de baja un registro activo con motivo: {@code 200} con el registro (H-23.1, RF-014, DEC-124). */
+    @PostMapping("/{id}/baja")
+    ResponseEntity<RegistroJugadorDto> darDeBaja(@PathVariable UUID id, @RequestBody BajaRegistroRequest peticion) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(servicio.darDeBaja(id, peticion));
     }
 }
