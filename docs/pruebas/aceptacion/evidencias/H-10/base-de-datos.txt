@@ -1,0 +1,85 @@
+=== 1. Registros de la aceptación H-10.4 ===
+                  id                  |        curp        |    persona     |  estado   |          validado_en          |                             observaciones                              |  alta_en   
+--------------------------------------+--------------------+----------------+-----------+-------------------------------+------------------------------------------------------------------------+------------
+ 1668f816-eb2b-4389-b6b6-73e71d7f3c7d | MAHL920202MMCRRN05 | María Martínez | ACTIVO    | 2026-11-15 00:09:51.649624+00 | Documentos de identidad revisados en ventanilla.                       | 2026-11-14
+ 15dd8585-6b3a-4244-a7e1-a4c7591bdb1d | SAHL950303HMCRRN04 | Sergio Sánchez | RECHAZADO | 2026-11-15 00:10:19.075624+00 | La CURP no corresponde a la persona y falta la identificación oficial. | 2026-11-14
+(2 rows)
+
+Registro de apoyo usado por CA-1 y por los errores 401/403/415, fuera del filtro de la consulta anterior:
+  93e5b80f-d53c-4bda-89c1-832715f1c4d9 | LOHJ900101HMCJRN09 | Juan López | PENDIENTE_VALIDACION | — | — | 2026-11-14
+  (persona c0a21e5d-d0a6-4902-8272-501d481c3613; sin validar y sin observaciones)
+
+
+=== 2. Documentos del registro activo: tipo, tamaño, hash y clave en S3 ===
+     codigo     | tipo_mime  | tamano_bytes |                              sha256                              |                                                             s3_clave                                                              | estado_validacion 
+----------------+------------+--------------+------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+-------------------
+ IDENTIFICACION | image/jpeg |        25056 | 29d8389451d03b604d2ce1671b4f377085fc120ebb05ebc709d4fdd2e1a2dae5 | liga/a0000000-0000-4000-8000-000000000001/registros/1668f816-eb2b-4389-b6b6-73e71d7f3c7d/bb0f7a16-27e8-4031-91dd-6e3f4a55ea15.jpg | APROBADO
+ FOTOGRAFIA     | image/jpeg |        22885 | 34069f28705028a16b9c17c2c9b4fc9cdf1d823f15853e948c64ea4c3b3fed49 | liga/a0000000-0000-4000-8000-000000000001/registros/1668f816-eb2b-4389-b6b6-73e71d7f3c7d/42d9ae25-c763-4e82-af2c-73e461c2589e.jpg | APROBADO
+ FOTOGRAFIA     | image/jpeg |        21031 | be4cd877c3bc5ca448a403797c197be5d9456288a7a64009612f0153e9559112 | liga/a0000000-0000-4000-8000-000000000001/registros/1668f816-eb2b-4389-b6b6-73e71d7f3c7d/4a13cdc1-40f0-441e-9480-3cafba85ab82.jpg | APROBADO
+(3 rows)
+
+
+
+=== 2b. Documento PENDIENTE del registro de apoyo de Juan (CA-1) ===
+     codigo     | tipo_mime  | tamano_bytes |                              sha256                              | estado_validacion 
+----------------+------------+--------------+------------------------------------------------------------------+-------------------
+ IDENTIFICACION | image/jpeg |        25056 | 29d8389451d03b604d2ce1671b4f377085fc120ebb05ebc709d4fdd2e1a2dae5 | PENDIENTE
+(1 row)
+
+=== 3. La columna documentos.url guarda el objeto, no la URL prefirmada (DEC-95) ===
+                  id                  |                                                                                          url                                                                                           
+--------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ bb0f7a16-27e8-4031-91dd-6e3f4a55ea15 | https://siglim-aceptacion.s3.us-east-2.amazonaws.com/liga/a0000000-0000-4000-8000-000000000001/registros/1668f816-eb2b-4389-b6b6-73e71d7f3c7d/bb0f7a16-27e8-4031-91dd-6e3f4a55ea15.jpg
+ 42d9ae25-c763-4e82-af2c-73e461c2589e | https://siglim-aceptacion.s3.us-east-2.amazonaws.com/liga/a0000000-0000-4000-8000-000000000001/registros/1668f816-eb2b-4389-b6b6-73e71d7f3c7d/42d9ae25-c763-4e82-af2c-73e461c2589e.jpg
+ 4a13cdc1-40f0-441e-9480-3cafba85ab82 | https://siglim-aceptacion.s3.us-east-2.amazonaws.com/liga/a0000000-0000-4000-8000-000000000001/registros/1668f816-eb2b-4389-b6b6-73e71d7f3c7d/4a13cdc1-40f0-441e-9480-3cafba85ab82.jpg
+(3 rows)
+
+ urls_con_firma_o_vencimiento 
+------------------------------
+                            0
+(1 row)
+
+ columnas_con_url_firmada 
+--------------------------
+                        0
+(1 row)
+
+
+=== 4. Auditoría de las operaciones de la historia (sin URL, sin hash) ===
+          accion          |      entidad      |              entidad_id              |                                 motivo                                 |                                                                                                              detalle                                                                                                              
+--------------------------+-------------------+--------------------------------------+------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ CARGAR_DOCUMENTO         | documentos        | bb0f7a16-27e8-4031-91dd-6e3f4a55ea15 | (sin motivo)                                                           | {"tipoMime": "image/jpeg", "registroId": "1668f816-eb2b-4389-b6b6-73e71d7f3c7d", "tamanoBytes": 25056, "tipoDocumento": "IDENTIFICACION"}
+ CARGAR_DOCUMENTO         | documentos        | 42d9ae25-c763-4e82-af2c-73e461c2589e | (sin motivo)                                                           | {"tipoMime": "image/jpeg", "registroId": "1668f816-eb2b-4389-b6b6-73e71d7f3c7d", "tamanoBytes": 22885, "tipoDocumento": "FOTOGRAFIA"}
+ CARGAR_DOCUMENTO         | documentos        | 4a13cdc1-40f0-441e-9480-3cafba85ab82 | (sin motivo)                                                           | {"tipoMime": "image/jpeg", "registroId": "1668f816-eb2b-4389-b6b6-73e71d7f3c7d", "tamanoBytes": 21031, "tipoDocumento": "FOTOGRAFIA"}
+ CONSULTAR_DOCUMENTO      | documentos        | bb0f7a16-27e8-4031-91dd-6e3f4a55ea15 | (sin motivo)                                                           | {"registroId": "1668f816-eb2b-4389-b6b6-73e71d7f3c7d", "tipoDocumento": "IDENTIFICACION"}
+ CONSULTAR_DOCUMENTO      | documentos        | bb0f7a16-27e8-4031-91dd-6e3f4a55ea15 | (sin motivo)                                                           | {"registroId": "1668f816-eb2b-4389-b6b6-73e71d7f3c7d", "tipoDocumento": "IDENTIFICACION"}
+ CONSULTAR_DOCUMENTO      | documentos        | bb0f7a16-27e8-4031-91dd-6e3f4a55ea15 | (sin motivo)                                                           | {"registroId": "1668f816-eb2b-4389-b6b6-73e71d7f3c7d", "tipoDocumento": "IDENTIFICACION"}
+ VALIDAR_DOCUMENTO        | documentos        | bb0f7a16-27e8-4031-91dd-6e3f4a55ea15 | (sin motivo)                                                           | {"decision": "APROBADO", "registroId": "1668f816-eb2b-4389-b6b6-73e71d7f3c7d", "tipoDocumento": "IDENTIFICACION"}
+ CONSULTAR_DOCUMENTO      | documentos        | 42d9ae25-c763-4e82-af2c-73e461c2589e | (sin motivo)                                                           | {"registroId": "1668f816-eb2b-4389-b6b6-73e71d7f3c7d", "tipoDocumento": "FOTOGRAFIA"}
+ VALIDAR_DOCUMENTO        | documentos        | 42d9ae25-c763-4e82-af2c-73e461c2589e | (sin motivo)                                                           | {"decision": "APROBADO", "registroId": "1668f816-eb2b-4389-b6b6-73e71d7f3c7d", "tipoDocumento": "FOTOGRAFIA"}
+ CONSULTAR_DOCUMENTO      | documentos        | 42d9ae25-c763-4e82-af2c-73e461c2589e | (sin motivo)                                                           | {"registroId": "1668f816-eb2b-4389-b6b6-73e71d7f3c7d", "tipoDocumento": "FOTOGRAFIA"}
+ CONSULTAR_DOCUMENTO      | documentos        | 4a13cdc1-40f0-441e-9480-3cafba85ab82 | (sin motivo)                                                           | {"registroId": "1668f816-eb2b-4389-b6b6-73e71d7f3c7d", "tipoDocumento": "FOTOGRAFIA"}
+ VALIDAR_DOCUMENTO        | documentos        | 4a13cdc1-40f0-441e-9480-3cafba85ab82 | (sin motivo)                                                           | {"decision": "APROBADO", "registroId": "1668f816-eb2b-4389-b6b6-73e71d7f3c7d", "tipoDocumento": "FOTOGRAFIA"}
+ VALIDAR_REGISTRO_JUGADOR | registros_jugador | 1668f816-eb2b-4389-b6b6-73e71d7f3c7d | Documentos de identidad revisados en ventanilla.                       | {"estado": "ACTIVO", "equipoId": "61000000-0000-4000-8000-000000000001", "personaId": "0c2d4299-5e4f-41cb-a10c-3dd9c23fe535", "temporadaId": "50000000-0000-4000-8000-000000000001", "estadoAnterior": "PENDIENTE_VALIDACION"}
+ VALIDAR_REGISTRO_JUGADOR | registros_jugador | 15dd8585-6b3a-4244-a7e1-a4c7591bdb1d | La CURP no corresponde a la persona y falta la identificación oficial. | {"estado": "RECHAZADO", "equipoId": "61000000-0000-4000-8000-000000000001", "personaId": "360cf6ad-70f9-440d-a2b4-2afa7c96a03e", "temporadaId": "50000000-0000-4000-8000-000000000001", "estadoAnterior": "PENDIENTE_VALIDACION"}
+ CARGAR_DOCUMENTO         | documentos        | ec470233-5bea-48bd-9473-a7de146ed406 | (sin motivo)                                                           | {"tipoMime": "image/jpeg", "registroId": "93e5b80f-d53c-4bda-89c1-832715f1c4d9", "tamanoBytes": 25056, "tipoDocumento": "IDENTIFICACION"}
+ CONSULTAR_DOCUMENTO      | documentos        | bb0f7a16-27e8-4031-91dd-6e3f4a55ea15 | (sin motivo)                                                           | {"registroId": "1668f816-eb2b-4389-b6b6-73e71d7f3c7d", "tipoDocumento": "IDENTIFICACION"}
+(16 rows)
+
+
+=== 5. Filas de auditoría con URL, firma o hash (debe ser 0) ===
+ filas_con_url_o_hash 
+----------------------
+                    0
+(1 row)
+
+
+=== 6. Historial de estados de los dos registros ===
+             registro_id              |   estado_anterior    |     estado_nuevo     |                                 motivo                                 |          cambiado_en          
+--------------------------------------+----------------------+----------------------+------------------------------------------------------------------------+-------------------------------
+ 1668f816-eb2b-4389-b6b6-73e71d7f3c7d |                      | PENDIENTE_VALIDACION | Alta del registro                                                      | 2026-11-15 00:07:38.692317+00
+ 1668f816-eb2b-4389-b6b6-73e71d7f3c7d | PENDIENTE_VALIDACION | ACTIVO               | Documentos de identidad revisados en ventanilla.                       | 2026-11-15 00:09:51.619177+00
+ 15dd8585-6b3a-4244-a7e1-a4c7591bdb1d |                      | PENDIENTE_VALIDACION | Alta del registro                                                      | 2026-11-15 00:10:04.73574+00
+ 15dd8585-6b3a-4244-a7e1-a4c7591bdb1d | PENDIENTE_VALIDACION | RECHAZADO            | La CURP no corresponde a la persona y falta la identificación oficial. | 2026-11-15 00:10:19.056496+00
+(4 rows)
+

@@ -1,0 +1,14 @@
+[
+    {
+        "metodo": "POST",
+        "ruta": "/api/v1/documentos/4a13cdc1-40f0-441e-9480-3cafba85ab82/validacion",
+        "status": 200,
+        "cuerpo": "{\"id\":\"4a13cdc1-40f0-441e-9480-3cafba85ab82\",\"registroId\":\"1668f816-eb2b-4389-b6b6-73e71d7f3c7d\",\"tipoDocumento\":{\"id\":5,\"codigo\":\"FOTOGRAFIA\",\"nombre\":\"Fotograf\u00eda\"},\"tipoMime\":\"image/jpeg\",\"tamanoBytes\":21031,\"estadoValidacion\":\"APROBADO\",\"observaciones\":null,\"validadoPor\":{\"id\":\"d2222222-2222-4222-8222-222222222222\",\"nombre\":\"Secretario de la Liga\"},\"validadoEn\":\"2026-11-14T18:09:48.391341-06:00\",\"reemplazaA\":null,\"cargadoEn\":\"2026-11-14T18:08:11.255778-06:00\"}"
+    },
+    {
+        "metodo": "POST",
+        "ruta": "/api/v1/registros-jugador/1668f816-eb2b-4389-b6b6-73e71d7f3c7d/validacion",
+        "status": 200,
+        "cuerpo": "{\"id\":\"1668f816-eb2b-4389-b6b6-73e71d7f3c7d\",\"persona\":{\"id\":\"0c2d4299-5e4f-41cb-a10c-3dd9c23fe535\",\"nombreCompleto\":\"Mar\u00eda Mart\u00ednez Hern\u00e1ndez\"},\"equipo\":{\"id\":\"61000000-0000-4000-8000-000000000001\",\"nombre\":\"Halcones\"},\"club\":{\"id\":\"51000000-0000-4000-8000-000000000001\",\"nombre\":\"Deportivo Halcones\"},\"categoria\":{\"id\":\"50000000-0000-4000-8000-000000000002\",\"nombre\":\"Libre\"},\"temporada\":{\"id\":\"50000000-0000-4000-8000-000000000001\",\"nombre\":\"Temporada 2026-2027\",\"estado\":\"ACTIVA\"},\"estado\":\"ACTIVO\",\"altaEn\":\"2026-11-14\",\"creadoEn\":\"2026-11-14T18:07:38.692317-06:00\",\"validadoPor\":{\"id\":\"d2222222-2222-4222-8222-222222222222\",\"nombre\":\"Secretario de la Liga\"},\"validadoEn\":\"2026-11-14T18:09:51.649624-06:00\",\"observaciones\":\"Documentos de identidad revisados en ventanilla.\",\"bajaEn\":null,\"motivoBaja\":null}"
+    }
+]
