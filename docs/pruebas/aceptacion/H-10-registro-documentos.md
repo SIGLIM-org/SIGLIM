@@ -8,7 +8,7 @@
 | Implementó | H-10.1 (#122), H-10.2 (#123) y H-10.3 (#127): Leonardo López |
 | Versión probada | `develop` en `53cc39b` (base de la rama `test/m04-h10.4-aceptacion-registro`) |
 | Fecha | 2026-11-14 |
-| Ejecutó | Agente de IA; revisión y prueba cruzada de DEC-73 pendientes |
+| Ejecutó | Geovani, con un agente de IA (prueba cruzada de DEC-73) |
 | Resultado global | **Aprobado** (5 de 5 criterios y verificaciones complementarias) |
 
 ## 1. Entorno
@@ -27,9 +27,11 @@ Supabase ni el bucket de AWS del equipo. El arnés (JWKS local, datos de siembra
 Playwright) vive fuera del repositorio; aquí quedan las capturas y las respuestas crudas. El doble de S3 se
 usó solo como almacenamiento: el backend firmó y validó los enlaces con el mismo código de producción.
 
-> La prueba no sustituye a las pruebas automáticas: las complementa. La integración con AWS real y con el
-> Supabase compartido se cubre con `DocumentosRegistroIT`, `ValidacionRegistroIT` y las pruebas de
-> controlador; aquí se comprobó que las piezas funcionan juntas desde la interfaz.
+> La prueba no sustituye a las pruebas automáticas: las complementa. `DocumentosRegistroIT` y
+> `ValidacionRegistroIT` cubren las reglas con PostgreSQL 17 en Testcontainers y el doble de S3 en memoria
+> (DEC-56); las pruebas de controlador cubren el contrato HTTP. La integración con AWS real no se ejecutó:
+> `AlmacenamientoDocumentosAwsIT` se omite sin credenciales. El Supabase compartido tampoco se usó en esta
+> aceptación.
 
 ## 2. Cuentas y datos de prueba
 
@@ -47,9 +49,19 @@ Datos ficticios sembrados en la base local:
 - Aviso de privacidad vigente **v1** y requisitos de la categoría tomados de `siglim.requisitos_documento`:
   **Identificación** (1 archivo) y **Fotografía** (2 archivos). No hay requisitos para menores porque la
   persona de la prueba es adulta.
-- Persona **María Martínez Hernández**, CURP ficticia `MAHL920202MMCRRN05`, 1992-02-02.
-- Persona de apoyo **Sergio Sánchez Herrera**, CURP ficticia `SAHL950303HMCRRN04`, para el rechazo y la
-  captura de la respuesta de un documento recién cargado.
+- Persona **María Martínez Hernández**, CURP ficticia `MAHL920202MMCRRN05`, 1992-02-02, registro
+  `1668f816-eb2b-4389-b6b6-73e71d7f3c7d` (ACTIVO).
+- Persona de apoyo **Juan López Hernández**, CURP ficticia `LOHJ900101HMCJRN09`, registro
+  `93e5b80f-d53c-4bda-89c1-832715f1c4d9` (`PENDIENTE_VALIDACION`, sin validar), con una Identificación
+  cargada. Se usó para capturar la respuesta cruda de una carga PENDIENTE, los requisitos incompletos y
+  los errores 401/403/415, sin tocar los documentos del registro de María.
+- Persona **Sergio Sánchez Herrera**, CURP ficticia `SAHL950303HMCRRN04`, registro
+  `15dd8585-6b3a-4244-a7e1-a4c7591bdb1d`, sin documentos: se usa para el rechazo y VAL-001.
+
+Las CURP son ficticias y el sistema solo valida su formato, no que las iniciales coincidan con el nombre.
+Por eso `MAHL…` y `SAHL…` no se derivan de «María» y «Sergio»; se conservaron tal como se capturaron en la
+corrida. El rechazo de Sergio usa el motivo del escenario («la CURP no corresponde a la persona»), no un
+error de captura de la prueba.
 
 ## 3. Escenarios
 
@@ -85,9 +97,10 @@ archivos (ver §2 de `base-de-datos.txt`). El DTO de la API omite el hash y la U
 se comprobó en la base.
 
 La respuesta cruda de una carga recién hecha se conserva en `CA1-carga-documento.json` y los requisitos de
-ese mismo registro de apoyo en `CA1-requisitos-pendiente.json`: el documento aparece `PENDIENTE` con
-`image/jpeg`, `25056` bytes y la lista de requisitos con `cargados: 1`, `aprobados: 0` y las dos fotografías
-pendientes. La fila correspondiente en `base-de-datos.txt` (§2b) muestra su `sha256` completo.
+ese mismo registro en `CA1-requisitos-pendiente.json`, ambos del **registro de apoyo de Juan**
+(`93e5b80f…`), no del de María: el documento aparece `PENDIENTE` con `image/jpeg`, `25056` bytes y la lista
+de requisitos con `cargados: 1`, `aprobados: 0` y las dos fotografías pendientes. La fila correspondiente en
+`base-de-datos.txt` (§2b) muestra su `sha256` completo.
 
 **Evidencia**
 
@@ -113,25 +126,29 @@ pendientes. La fila correspondiente en `base-de-datos.txt` (§2b) muestra su `sh
 
 **Pasos**
 
-1. En la misma página de documentos, pulsar **Reemplazar** en una fotografía.
+1. En la página de documentos de María, pulsar **Reemplazar** en una fotografía.
 2. Elegir `firma-falsa.png`: un archivo con extensión `.png` y `Content-Type: image/png` que en realidad
    contiene texto, no la firma binaria de un PNG.
-3. Pulsar **Subir**.
+3. Pulsar **Subir** (la captura `CA2-error-415.png` es de esta ejecución sobre María).
+4. Para conservar la respuesta cruda sin tocar el cupo de María, se repitió el mismo reemplazo por API sobre
+   la Identificación del registro de apoyo (`ec470233-…`, de Juan). El `CA2-error-415.json` adjunto es de esa
+   segunda ejecución, no de la fotografía de María.
 
 **Resultado esperado**
 
 - La revisión del navegador no basta: el servidor detecta la firma y responde `415`.
 - El documento anterior no se modifica y no se inserta una fila nueva.
 
-**Resultado obtenido:** **Aprobado.** El panel mostró «El tipo de archivo no está permitido. Usa JPG, PNG,
-WebP o PDF.» y la API respondió `415 TIPO_ARCHIVO_NO_PERMITIDO`. El archivo real sigue en el cupo y la
-fotografía conserva su estado; no se creó una fila nueva en `siglim.documentos`.
+**Resultado obtenido:** **Aprobado.** En María, el panel mostró «El tipo de archivo no está permitido. Usa
+JPG, PNG, WebP o PDF.» y la fotografía conservó su estado. La API respondió `415
+TIPO_ARCHIVO_NO_PERMITIDO`; en el registro de apoyo no se creó una fila nueva en `siglim.documentos`. La
+misma regla se cubre en `DocumentoRegistroServiceTest` y `DocumentosRegistroIT`.
 
 **Evidencia**
 
-- [`CA2-error-415.png`](evidencias/H-10/CA2-error-415.png): mensaje del servidor en el panel de reemplazo.
-- [`CA2-error-415.json`](evidencias/H-10/CA2-error-415.json): problema RFC 9457 con `codigo`.
-- [`respuestas-401-403-404-415.json`](evidencias/H-10/respuestas-401-403-404-415.json): incluye el mismo 415 junto con los errores de seguridad.
+- [`CA2-error-415.png`](evidencias/H-10/CA2-error-415.png): mensaje del servidor en el panel de reemplazo de María.
+- [`CA2-error-415.json`](evidencias/H-10/CA2-error-415.json): problema RFC 9457 del mismo caso ejecutado por API sobre la Identificación del registro de apoyo.
+- [`respuestas-401-403-404-415.json`](evidencias/H-10/respuestas-401-403-404-415.json): mismos códigos ejecutados sobre el registro de apoyo, junto con los errores de seguridad.
 
 **Pruebas automáticas relacionadas**
 
@@ -292,14 +309,17 @@ trigger de la base (DEC-101), que también impide activar sin documentos.
 | Firma inválida | `POST /documentos/{id}/reemplazo` con un `.png` falso | `415 TIPO_ARCHIVO_NO_PERMITIDO` |
 
 Las respuestas crudas están en
-[`respuestas-401-403-404-415.json`](evidencias/H-10/respuestas-401-403-404-415.json). La Directiva no puede
-validar y el Secretario no puede cargar: los permisos son `registros.registro:VALIDAR` y
+[`respuestas-401-403-404-415.json`](evidencias/H-10/respuestas-401-403-404-415.json). Las peticiones
+401/403/404 y el 415 crudo se hicieron sobre el registro de apoyo `93e5b80f…` (Juan) para no alterar los dos
+registros del flujo principal; el 415 de la interfaz se probó además sobre María (CA-2). La Directiva no
+puede validar y el Secretario no puede cargar: los permisos son `registros.registro:VALIDAR` y
 `registros.documento:CREAR`, respectivamente (VAL-015).
 
 ### 4.2 Auditoría de operaciones críticas (RF-093)
 
-La auditoría de la corrida tiene las acciones `CARGAR_DOCUMENTO` (3), `VALIDAR_DOCUMENTO` (3),
-`VALIDAR_REGISTRO_JUGADOR` (2: ACTIVO y RECHAZADO) y `CONSULTAR_DOCUMENTO` (7). El detalle lleva solo
+La auditoría de la corrida tiene las acciones `CARGAR_DOCUMENTO` (4: tres de María y una del registro de
+apoyo), `VALIDAR_DOCUMENTO` (3, todas de María), `VALIDAR_REGISTRO_JUGADOR` (2: ACTIVO y RECHAZADO) y
+`CONSULTAR_DOCUMENTO` (7). El detalle lleva solo
 identificadores, tipo de documento, MIME, tamaño, decisión y estados; **no** lleva nombres, CURP, URL, bucket,
 clave S3 ni hash. La consulta que cuenta las filas con URL, firma o hash devuelve **0** (§4 y §5 de
 `base-de-datos.txt`).
@@ -334,5 +354,5 @@ H-10 cumple sus cinco criterios de aceptación y las verificaciones complementar
 auditoría. El flujo **alta → documentos → validación** funciona de punta a punta en F-18 y F-19: los
 documentos quedan pendientes con tipo, tamaño y hash; un archivo con firma no permitida responde 415; el
 Secretario activa o rechaza con observaciones; el enlace vence a los 60 s y no se persiste; y sin los
-documentos aprobados la activación responde VAL-001. H-10.4 queda terminada; el cierre de H-10 depende de la
-prueba cruzada de DEC-73 y de la aprobación del PR.
+documentos aprobados la activación responde VAL-001. H-10.4 queda terminada. La prueba cruzada de DEC-73 la
+realizó Geovani con un agente de IA; el cierre de H-10 depende de la aprobación del PR.

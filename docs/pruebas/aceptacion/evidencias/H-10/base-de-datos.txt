@@ -5,6 +5,10 @@
  15dd8585-6b3a-4244-a7e1-a4c7591bdb1d | SAHL950303HMCRRN04 | Sergio Sánchez | RECHAZADO | 2026-11-15 00:10:19.075624+00 | La CURP no corresponde a la persona y falta la identificación oficial. | 2026-11-14
 (2 rows)
 
+Registro de apoyo usado por CA-1 y por los errores 401/403/415, fuera del filtro de la consulta anterior:
+  93e5b80f-d53c-4bda-89c1-832715f1c4d9 | LOHJ900101HMCJRN09 | Juan López | PENDIENTE_VALIDACION | — | — | 2026-11-14
+  (persona c0a21e5d-d0a6-4902-8272-501d481c3613; sin validar y sin observaciones)
+
 
 === 2. Documentos del registro activo: tipo, tamaño, hash y clave en S3 ===
      codigo     | tipo_mime  | tamano_bytes |                              sha256                              |                                                             s3_clave                                                              | estado_validacion 
@@ -16,7 +20,7 @@
 
 
 
-=== 2b. Documento PENDIENTE del registro de apoyo (CA-1) ===
+=== 2b. Documento PENDIENTE del registro de apoyo de Juan (CA-1) ===
      codigo     | tipo_mime  | tamano_bytes |                              sha256                              | estado_validacion 
 ----------------+------------+--------------+------------------------------------------------------------------+-------------------
  IDENTIFICACION | image/jpeg |        25056 | 29d8389451d03b604d2ce1671b4f377085fc120ebb05ebc709d4fdd2e1a2dae5 | PENDIENTE
