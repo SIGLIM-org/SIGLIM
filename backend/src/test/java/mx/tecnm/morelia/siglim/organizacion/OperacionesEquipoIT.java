@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -12,7 +13,10 @@ import mx.tecnm.morelia.siglim.BaseDatosPrueba;
 import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
 import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
+import mx.tecnm.morelia.siglim.temporadas.CerrarTemporadaRequest;
 import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
+import mx.tecnm.morelia.siglim.temporadas.TemporadaDto;
+import mx.tecnm.morelia.siglim.temporadas.TemporadaService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,13 +24,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * B-05.1 contra PostgreSQL real, con {@link OperacionEquipoService} completo: autorización con la
  * matriz de la migración, SQL, restricciones y auditoría. Demuestra la venta y la conservación de
  * plaza como operaciones independientes, el dictamen del Presidente con su perfil y fecha, el
  * rechazo con observaciones, el 404 para el equipo de otro club y que el equipo no cambia de club al
- * autorizar (RF-103, RF-104, RN-040, VAL-024).
+ * autorizar (RF-103, RF-104, RN-040, VAL-024). B-05.2 agrega el cierre de la temporada: las
+ * operaciones AUTORIZADA pasan a APLICADA, la venta mueve el equipo y la SOLICITADA no se aplica.
  *
  * <p>La temporada, la categoría y el grupo se crean por SQL como dueño del esquema: su CRUD es de
  * M-02. Antes de cada prueba se cierra cualquier temporada activa para respetar RN-058.
@@ -44,6 +51,12 @@ class OperacionesEquipoIT extends BaseDatosPrueba {
 
     @Autowired
     private EquipoService equipos;
+
+    @Autowired
+    private TemporadaService temporadas;
+
+    @Autowired
+    private PlatformTransactionManager transacciones;
 
     @BeforeEach
     void cerrarTemporadasActivas() {
@@ -165,6 +178,125 @@ class OperacionesEquipoIT extends BaseDatosPrueba {
                 .param("id", venta.id()).query(String.class).single())
                 .as("la conservación rechazada no toca la venta")
                 .isEqualTo("SOLICITADA");
+    }
+
+    @Test
+    @DisplayName("B-05.2 · RF-103, RF-104, RN-040: el cierre aplica las AUTORIZADA, mueve el equipo y deja las SOLICITADA")
+    void cierreAplicaLasOperacionesAutorizadas() {
+        UUID temporada = temporada();
+        UUID grupo = grupo(temporada, "A");
+        jdbc.sql("UPDATE siglim.temporadas SET estado = 'ACTIVA' WHERE id = :id")
+                .param("id", temporada).update();
+
+        UUID administrador = iniciarSesionComoAdministrador();
+        ClubDto origen = clubes.crear(new CrearClubRequest("Origen " + UUID.randomUUID()));
+        ClubDto destino = clubes.crear(new CrearClubRequest("Destino " + UUID.randomUUID()));
+        EquipoDto vendido = equipos.crear(new CrearEquipoRequest(origen.id(), grupo, "Vendido"));
+        EquipoDto conservado = equipos.crear(new CrearEquipoRequest(origen.id(), grupo, "Conservado"));
+        EquipoDto solicitado = equipos.crear(new CrearEquipoRequest(origen.id(), grupo, "Solicitado"));
+        UUID directiva = perfilDeDirectiva(origen.id());
+        UUID presidente = perfilConRol("PRESIDENTE");
+
+        iniciarSesion(directiva);
+        OperacionEquipoDto venta = operaciones.crear(new RegistrarOperacionEquipoRequest(
+                TipoOperacionEquipo.VENTA, vendido.id(), destino.id(), null));
+        OperacionEquipoDto plaza = operaciones.crear(new RegistrarOperacionEquipoRequest(
+                TipoOperacionEquipo.CONSERVACION_PLAZA, conservado.id(), null, null));
+        OperacionEquipoDto pendiente = operaciones.crear(new RegistrarOperacionEquipoRequest(
+                TipoOperacionEquipo.VENTA, solicitado.id(), destino.id(), null));
+
+        iniciarSesion(presidente);
+        operaciones.resolver(venta.id(),
+                new ResolverOperacionEquipoRequest(DecisionOperacionEquipo.AUTORIZADA, null));
+        operaciones.resolver(plaza.id(),
+                new ResolverOperacionEquipoRequest(DecisionOperacionEquipo.AUTORIZADA, null));
+
+        iniciarSesion(administrador);
+        TemporadaDto cerrada = temporadas.cerrar(temporada,
+                new CerrarTemporadaRequest("Fin del calendario deportivo"));
+
+        assertThat(cerrada.estado()).isEqualTo(EstadoTemporada.CERRADA);
+        assertThat(estadoDe(venta.id()))
+                .as("la venta AUTORIZADA pasa a APLICADA")
+                .isEqualTo("APLICADA");
+        assertThat(aplicadaEnDe(venta.id())).isNotNull();
+        assertThat(estadoDe(plaza.id()))
+                .as("la conservación AUTORIZADA pasa a APLICADA")
+                .isEqualTo("APLICADA");
+        assertThat(aplicadaEnDe(plaza.id())).isNotNull();
+        assertThat(estadoDe(pendiente.id()))
+                .as("una SOLICITADA no se aplica al cerrar")
+                .isEqualTo("SOLICITADA");
+        assertThat(aplicadaEnDe(pendiente.id())).isNull();
+
+        assertThat(clubDe(vendido.id()))
+                .as("RN-040: la venta mueve el equipo al club destino")
+                .isEqualTo(destino.id());
+        assertThat(clubDe(conservado.id()))
+                .as("RF-104: la conservación de plaza no mueve el equipo")
+                .isEqualTo(origen.id());
+        assertThat(clubDe(solicitado.id())).isEqualTo(origen.id());
+        assertThat(jdbc.sql("SELECT club_origen_id FROM siglim.operaciones_equipo WHERE id = :id")
+                .param("id", venta.id()).query(UUID.class).single())
+                .as("el historial de propietarios conserva el club de origen")
+                .isEqualTo(origen.id());
+        assertThat(eventos(venta.id())).extracting(Evento::accion)
+                .containsExactly("SOLICITAR_OPERACION_EQUIPO", "AUTORIZAR_OPERACION_EQUIPO",
+                        "APLICAR_OPERACION_EQUIPO");
+        assertThat(eventos(venta.id()).getLast().perfilId())
+                .as("la aplicación queda auditada con quien cerró la temporada")
+                .isEqualTo(administrador);
+        assertThat(jdbc.sql("""
+                        SELECT detalle ->> 'operacionesAplicadas'
+                          FROM siglim.auditoria
+                         WHERE accion = 'CERRAR_TEMPORADA' AND entidad_id = :id
+                        """).param("id", temporada.toString()).query(String.class).single())
+                .as("el cierre registra cuántas operaciones aplicó")
+                .isEqualTo("2");
+    }
+
+    @Test
+    @DisplayName("B-05.2, RN-040: el cierre y la aplicación de operaciones se revierten juntos")
+    void cierreYAplicacionCompartenLaTransaccion() {
+        UUID temporada = temporada();
+        UUID grupo = grupo(temporada, "A");
+        jdbc.sql("UPDATE siglim.temporadas SET estado = 'ACTIVA' WHERE id = :id")
+                .param("id", temporada).update();
+
+        UUID administrador = iniciarSesionComoAdministrador();
+        ClubDto origen = clubes.crear(new CrearClubRequest("Origen " + UUID.randomUUID()));
+        ClubDto destino = clubes.crear(new CrearClubRequest("Destino " + UUID.randomUUID()));
+        EquipoDto equipo = equipos.crear(new CrearEquipoRequest(origen.id(), grupo, "Vendido"));
+
+        iniciarSesion(perfilDeDirectiva(origen.id()));
+        OperacionEquipoDto venta = operaciones.crear(new RegistrarOperacionEquipoRequest(
+                TipoOperacionEquipo.VENTA, equipo.id(), destino.id(), null));
+        iniciarSesion(perfilConRol("PRESIDENTE"));
+        operaciones.resolver(venta.id(),
+                new ResolverOperacionEquipoRequest(DecisionOperacionEquipo.AUTORIZADA, null));
+
+        iniciarSesion(administrador);
+        new TransactionTemplate(transacciones).executeWithoutResult(estado -> {
+            temporadas.cerrar(temporada, new CerrarTemporadaRequest("Fin del calendario deportivo"));
+            estado.setRollbackOnly();
+        });
+
+        assertThat(estadoTemporadaDe(temporada))
+                .as("la temporada vuelve a ACTIVA si el cierre no se confirma")
+                .isEqualTo("ACTIVA");
+        assertThat(estadoDe(venta.id()))
+                .as("la operación no pasa a APLICADA sin el cierre")
+                .isEqualTo("AUTORIZADA");
+        assertThat(aplicadaEnDe(venta.id())).isNull();
+        assertThat(clubDe(equipo.id()))
+                .as("el equipo conserva a su propietario")
+                .isEqualTo(origen.id());
+        assertThat(jdbc.sql("""
+                        SELECT count(*) FROM siglim.auditoria
+                         WHERE accion = 'APLICAR_OPERACION_EQUIPO' AND entidad_id = :id
+                        """).param("id", venta.id().toString()).query(Long.class).single())
+                .as("la auditoría de la aplicación también se revierte")
+                .isZero();
     }
 
     // ── Observaciones de la solicitud y operaciones duplicadas (DEC-132) ──────────────────
@@ -310,6 +442,26 @@ class OperacionesEquipoIT extends BaseDatosPrueba {
     }
 
     // ── Apoyo ─────────────────────────────────────────────────────────────────────────────────
+
+    private String estadoDe(UUID operacion) {
+        return jdbc.sql("SELECT estado FROM siglim.operaciones_equipo WHERE id = :id")
+                .param("id", operacion).query(String.class).single();
+    }
+
+    private OffsetDateTime aplicadaEnDe(UUID operacion) {
+        return jdbc.sql("SELECT aplicada_en FROM siglim.operaciones_equipo WHERE id = :id")
+                .param("id", operacion).query(OffsetDateTime.class).optional().orElse(null);
+    }
+
+    private UUID clubDe(UUID equipo) {
+        return jdbc.sql("SELECT club_id FROM siglim.equipos WHERE id = :id")
+                .param("id", equipo).query(UUID.class).single();
+    }
+
+    private String estadoTemporadaDe(UUID temporada) {
+        return jdbc.sql("SELECT estado FROM siglim.temporadas WHERE id = :id")
+                .param("id", temporada).query(String.class).single();
+    }
 
     /** Grupo «A» de una temporada nueva en {@code ACTIVA}. */
     private UUID grupoEnTemporada() {

@@ -5,8 +5,8 @@ package mx.tecnm.morelia.siglim.organizacion;
  *
  * <p>Máquina de estados (RN-040): {@code SOLICITADA → AUTORIZADA} o {@code SOLICITADA → RECHAZADA}
  * por el Presidente; una operación {@code AUTORIZADA} pasa a {@code APLICADA} al cerrar la
- * temporada, sin perder el historial de propietarios. La aplicación al cierre es de H-04.1; esta
- * subtarea solo registra y resuelve la solicitud.
+ * temporada, sin perder el historial de propietarios. La aplicación al cierre la implementa B-05.2
+ * en la misma transacción de H-04.1.
  *
  * <p>Refs: B-05.1, RF-103, RF-104, RN-040
  */

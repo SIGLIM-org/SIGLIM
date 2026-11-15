@@ -26,9 +26,9 @@ import org.springframework.transaction.annotation.Transactional;
  * <ul>
  *   <li><b>Estados (RN-040).</b> La operación nace {@code SOLICITADA}; solo el Presidente la
  *       resuelve a {@code AUTORIZADA} o {@code RECHAZADA}, y esos dos estados son terminales aquí.
- *       {@code APLICADA} la fija el cierre de la temporada (H-04.1), que también mueve el equipo de
- *       club; esta subtarea no lo aplica. Repetir la resolución responde {@code 409} con el código
- *       del tipo ({@code RF-103} venta, {@code RF-104} conservación).</li>
+ *       {@code APLICADA} la fija el cierre de la temporada (H-04.1, B-05.2), que también mueve el
+ *       equipo de club; esta subtarea no lo aplica. Repetir la resolución responde {@code 409} con
+ *       el código del tipo ({@code RF-103} venta, {@code RF-104} conservación).</li>
  *   <li><b>Venta.</b> Exige un {@code clubDestinoId} distinto del club actual del equipo. La
  *       conservación de plaza es una operación <b>independiente</b> y no lleva club destino: se
  *       registran por separado, sin bloquearse entre sí (DEC-14).</li>

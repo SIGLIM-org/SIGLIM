@@ -178,6 +178,64 @@ class OperacionEquipoRepository {
                 .update();
     }
 
+    /**
+     * Operaciones {@code AUTORIZADA} de la temporada, bloqueadas para aplicarlas al cierre
+     * (B-05.2, RN-040). El candado serializa el cierre con cualquier otra aplicación de la misma
+     * temporada.
+     */
+    List<OperacionAplicable> listarAutorizadas(UUID temporadaId) {
+        return jdbc.sql("""
+                        SELECT o.id, o.tipo, o.equipo_id, o.club_origen_id, o.club_destino_id
+                          FROM operaciones_equipo o
+                          JOIN equipos e ON e.id = o.equipo_id
+                          JOIN grupos g ON g.id = e.grupo_id
+                          JOIN categorias_temporada ct ON ct.id = g.categoria_temporada_id
+                         WHERE ct.temporada_id = :temporadaId
+                           AND o.estado = 'AUTORIZADA'
+                         ORDER BY o.autorizada_en, o.id
+                           FOR UPDATE OF o
+                        """)
+                .param("temporadaId", temporadaId)
+                .query((fila, numero) -> new OperacionAplicable(
+                        fila.getObject("id", UUID.class),
+                        TipoOperacionEquipo.valueOf(fila.getString("tipo")),
+                        fila.getObject("equipo_id", UUID.class),
+                        fila.getObject("club_origen_id", UUID.class),
+                        fila.getObject("club_destino_id", UUID.class)))
+                .list();
+    }
+
+    /**
+     * Cambia el club del equipo solo si sigue siendo el de origen de la venta. Devuelve 0 si el
+     * equipo ya no pertenece a ese club, para que el cierre no aplique una venta inconsistente.
+     */
+    int cambiarClub(UUID equipoId, UUID clubOrigenId, UUID clubDestinoId) {
+        return jdbc.sql("""
+                        UPDATE equipos
+                           SET club_id = :clubDestinoId
+                         WHERE id = :equipoId
+                           AND club_id = :clubOrigenId
+                        """)
+                .param("equipoId", equipoId)
+                .param("clubOrigenId", clubOrigenId)
+                .param("clubDestinoId", clubDestinoId)
+                .update();
+    }
+
+    /** Marca la operación {@code APLICADA} con la fecha del cierre; devuelve 0 si ya no lo estaba. */
+    int marcarAplicada(UUID id, OffsetDateTime aplicadaEn) {
+        return jdbc.sql("""
+                        UPDATE operaciones_equipo
+                           SET estado = 'APLICADA',
+                               aplicada_en = :aplicadaEn
+                         WHERE id = :id
+                           AND estado = 'AUTORIZADA'
+                        """)
+                .param("id", id)
+                .param("aplicadaEn", aplicadaEn)
+                .update();
+    }
+
     private static OperacionEquipoDto aDto(ResultSet fila, int numero) throws SQLException {
         UUID destinoId = fila.getObject("destino_id", UUID.class);
         UUID autorizadaPorId = fila.getObject("autorizada_por_id", UUID.class);
@@ -203,6 +261,14 @@ class OperacionEquipoRepository {
 
     private static OffsetDateTime aZona(OffsetDateTime valor) {
         return valor == null ? null : valor.atZoneSameInstant(ZONA_DE_NEGOCIO).toOffsetDateTime();
+    }
+
+    /**
+     * Operación autorizada lista para aplicarse al cierre: su tipo, equipo y los clubes de la venta.
+     * {@code clubDestinoId} es nulo en una conservación de plaza (RF-104).
+     */
+    record OperacionAplicable(UUID id, TipoOperacionEquipo tipo, UUID equipoId, UUID clubOrigenId,
+                              UUID clubDestinoId) {
     }
 
     /**
