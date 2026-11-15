@@ -1,0 +1,6 @@
+{
+    "urlSinFirma": "http://127.0.0.1:9090/siglim-aceptacion/liga/a0000000-0000-4000-8000-000000000001/registros/1668f816-eb2b-4389-b6b6-73e71d7f3c7d/bb0f7a16-27e8-4031-91dd-6e3f4a55ea15.jpg",
+    "expiraEn": "2026-11-15T00:11:55.246521114Z",
+    "vigenciaAlRecibirSegundos": 60.0,
+    "nota": "Los par\u00e1metros de firma de la URL se omiten de esta evidencia (RNF-018). La respuesta HTTP incluye Cache-Control: no-store."
+}

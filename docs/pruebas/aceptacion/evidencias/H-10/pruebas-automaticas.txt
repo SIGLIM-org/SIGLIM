@@ -1,0 +1,41 @@
+Prueba de aceptación H-10.4 · pruebas automáticas de la misma versión
+=====================================================================
+Versión: develop en 53cc39b (base de la rama test/m04-h10.4-aceptacion-registro)
+Comandos: ./mvnw verify (backend) y npm test / npm run lint / npm run build (frontend)
+
+BACKEND — ./mvnw verify
+  DocumentoRegistroServiceTest       28 pruebas, 0 fallos
+  DocumentoRegistroControllerTest    38 pruebas, 0 fallos
+  RequisitosDocumentosTest            5 pruebas, 0 fallos
+  DocumentosRegistroIT                2 pruebas, 0 fallos
+  ValidacionRegistroIT                4 pruebas, 0 fallos
+  RegistrosJugadorIT                  6 pruebas, 0 fallos
+  Resultado global                  1742 pruebas unitarias + 269 de integración = 2011,
+                                     0 fallos, 1 omitida (AlmacenamientoDocumentosAwsIT,
+                                     sin credenciales de AWS)
+  Resultado: BUILD SUCCESS
+
+  Las pruebas de integración corrieron con Testcontainers y PostgreSQL 17, la misma versión
+  que usa Supabase. La aceptación manual usó PostgreSQL 17 local y S3Mock (ver el documento).
+
+FRONTEND — npm test
+  PantallaDocumentosRegistro.test.tsx   (F-18 paso 4: carga, requisitos y visor)
+  PantallaValidacionRegistros.test.tsx  (F-19: aprobar/rechazar y activar)
+  VisorDocumento.test.tsx               (RNF-018: enlace temporal y cuenta regresiva)
+  Resultado global                   741 pruebas en 82 archivos, 0 fallos
+
+  npm run lint   → 0 advertencias, 0 errores (378 archivos)
+  npm run build  → compilación correcta (tsc -b && vite build)
+
+Cobertura de los criterios de H-10 en la automatización
+  CA-1  DocumentoRegistroServiceTest (carga PENDIENTE con MIME, tamaño y hash; auditoría)
+        DocumentosRegistroIT (documento PENDIENTE en PostgreSQL con RLS)
+  CA-2  DocumentoRegistroServiceTest (415 por firma, sin fila ni auditoría)
+        DocumentosRegistroIT (un PDF con extensión .jpg se detecta por firma; texto → 415)
+  CA-3  ValidacionRegistroIT (ACTIVO con todos aprobados; RECHAZADO con observaciones)
+        DocumentoRegistroServiceTest (aprobar y rechazar un documento)
+  CA-4  DocumentoRegistroServiceTest (expiraEn = reloj + 60 s; auditoría sin URL)
+        DocumentosRegistroIT (el enlace no se audita con URL, bucket, clave ni hash)
+        VisorDocumento.test.tsx (cuenta regresiva y descarte del enlace)
+  CA-5  ValidacionRegistroIT (422 VAL-001 con faltantes; el trigger también lo impide)
+        PantallaValidacionRegistros.test.tsx (activación deshabilitada y lista de faltantes)

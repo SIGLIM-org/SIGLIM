@@ -1,0 +1,60 @@
+{
+    "registroId": "93e5b80f-d53c-4bda-89c1-832715f1c4d9",
+    "estadoRegistro": "PENDIENTE_VALIDACION",
+    "categoria": {
+        "id": "50000000-0000-4000-8000-000000000002",
+        "nombre": "Libre",
+        "tipo": "LIBRE"
+    },
+    "esMenor": false,
+    "requisitos": [
+        {
+            "tipoDocumento": {
+                "id": 2,
+                "codigo": "IDENTIFICACION",
+                "nombre": "Identificaci\u00f3n"
+            },
+            "cantidad": 1,
+            "soloMenores": false,
+            "esDemo": false,
+            "cargados": 1,
+            "aprobados": 0,
+            "faltan": 0,
+            "documentos": [
+                {
+                    "id": "ec470233-5bea-48bd-9473-a7de146ed406",
+                    "registroId": "93e5b80f-d53c-4bda-89c1-832715f1c4d9",
+                    "tipoDocumento": {
+                        "id": 2,
+                        "codigo": "IDENTIFICACION",
+                        "nombre": "Identificaci\u00f3n"
+                    },
+                    "tipoMime": "image/jpeg",
+                    "tamanoBytes": 25056,
+                    "estadoValidacion": "PENDIENTE",
+                    "observaciones": null,
+                    "validadoPor": null,
+                    "validadoEn": null,
+                    "reemplazaA": null,
+                    "cargadoEn": "2026-11-14T18:10:49.728502-06:00"
+                }
+            ]
+        },
+        {
+            "tipoDocumento": {
+                "id": 5,
+                "codigo": "FOTOGRAFIA",
+                "nombre": "Fotograf\u00eda"
+            },
+            "cantidad": 2,
+            "soloMenores": false,
+            "esDemo": false,
+            "cargados": 0,
+            "aprobados": 0,
+            "faltan": 2,
+            "documentos": []
+        }
+    ],
+    "completo": false,
+    "listoParaValidar": false
+}

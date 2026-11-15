@@ -1,0 +1,8 @@
+[
+    {
+        "metodo": "POST",
+        "ruta": "/api/v1/registros-jugador/15dd8585-6b3a-4244-a7e1-a4c7591bdb1d/validacion",
+        "status": 200,
+        "cuerpo": "{\"id\":\"15dd8585-6b3a-4244-a7e1-a4c7591bdb1d\",\"persona\":{\"id\":\"360cf6ad-70f9-440d-a2b4-2afa7c96a03e\",\"nombreCompleto\":\"Sergio S\u00e1nchez Herrera\"},\"equipo\":{\"id\":\"61000000-0000-4000-8000-000000000001\",\"nombre\":\"Halcones\"},\"club\":{\"id\":\"51000000-0000-4000-8000-000000000001\",\"nombre\":\"Deportivo Halcones\"},\"categoria\":{\"id\":\"50000000-0000-4000-8000-000000000002\",\"nombre\":\"Libre\"},\"temporada\":{\"id\":\"50000000-0000-4000-8000-000000000001\",\"nombre\":\"Temporada 2026-2027\",\"estado\":\"ACTIVA\"},\"estado\":\"RECHAZADO\",\"altaEn\":\"2026-11-14\",\"creadoEn\":\"2026-11-14T18:10:04.73574-06:00\",\"validadoPor\":{\"id\":\"d2222222-2222-4222-8222-222222222222\",\"nombre\":\"Secretario de la Liga\"},\"validadoEn\":\"2026-11-14T18:10:19.075624-06:00\",\"observaciones\":\"La CURP no corresponde a la persona y falta la identificaci\u00f3n oficial.\",\"bajaEn\":null,\"motivoBaja\":null}"
+    }
+]
