@@ -207,9 +207,10 @@ conteos en [`historial-auditoria.txt`](evidencias/H-12/historial-auditoria.txt).
 **Resultado obtenido:** **Aprobado.** Sin motivo, **Guardar cambios** quedó deshabilitado y la API
 respondió `400` `RN-021` («Escribe un motivo de al menos 10 caracteres para ajustar el partido.»).
 Con motivo, la pantalla mostró «Partido ajustado. El cambio quedó en el historial y la auditoría.»
-y la API respondió `200`. La auditoría registró dos `AJUSTAR_PARTIDO` con su motivo y
-`{"campos":["inicio"]}`; `partido_estado_historial` conserva solo el alta porque el ajuste no cambia
-de estado (RF-045 reserva esa tabla a las transiciones). La traza de RF-040 es la auditoría.
+y la API respondió `200`; el partido quedó el 23/11/2026. La auditoría registró **un**
+`AJUSTAR_PARTIDO` con su motivo y `{"campos":["inicio"]}`; `partido_estado_historial` conserva
+solo el alta porque el ajuste no cambia de estado (RF-045 reserva esa tabla a las transiciones).
+La traza de RF-040 es la auditoría.
 
 **Evidencia:** [`CA5-sin-motivo.png`](evidencias/H-12/CA5-sin-motivo.png),
 [`CA5-con-motivo.png`](evidencias/H-12/CA5-con-motivo.png);
