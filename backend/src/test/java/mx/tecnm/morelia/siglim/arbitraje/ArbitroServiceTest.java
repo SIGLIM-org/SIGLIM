@@ -263,7 +263,7 @@ class ArbitroServiceTest {
                 arbitro(EstadoArbitro.VALIDADO, PERFIL, "Todo en orden")));
 
         ArbitroDto validado = servicio.validar(ID,
-                new ValidarArbitroRequest(DecisionArbitro.VALIDADO, "Todo en orden"));
+                new ValidarArbitroRequest(DecisionArbitro.VALIDADO, "  Todo en orden  "));
 
         assertThat(validado.estado()).isEqualTo(EstadoArbitro.VALIDADO);
         assertThat(validado.validadoPor().id()).isEqualTo(PERFIL);
@@ -271,7 +271,25 @@ class ArbitroServiceTest {
         verify(autorizacion).exigir(VALIDAR, ObjetivoAutorizacion.deClubes(CLUB));
         verify(arbitros).resolver(ID, EstadoArbitro.VALIDADO, PERFIL, VALIDADO_EN, "Todo en orden");
         verify(motivoOperacion, never()).fijar(any());
-        assertThat(eventoAuditado().accion()).isEqualTo("VALIDAR_ARBITRO");
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.accion()).isEqualTo("VALIDAR_ARBITRO");
+        assertThat(evento.motivo()).isNull();
+        assertThat(evento.detalle()).containsEntry("observaciones", "Todo en orden");
+    }
+
+    @Test
+    @DisplayName("DEF-09 · RF-093: validar sin nota no agrega observaciones al detalle de auditoría")
+    void validarSinNotaNoAgregaObservaciones() {
+        given(arbitros.buscarParaActualizar(LIGA, ID)).willReturn(Optional.of(propuesto()));
+        given(arbitros.buscar(LIGA, ID)).willReturn(Optional.of(
+                arbitro(EstadoArbitro.VALIDADO, PERFIL, null)));
+
+        servicio.validar(ID, new ValidarArbitroRequest(DecisionArbitro.VALIDADO, null));
+
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.accion()).isEqualTo("VALIDAR_ARBITRO");
+        assertThat(evento.motivo()).isNull();
+        assertThat(evento.detalle()).doesNotContainKey("observaciones");
     }
 
     @Test
