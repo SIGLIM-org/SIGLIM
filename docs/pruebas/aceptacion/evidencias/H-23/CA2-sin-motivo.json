@@ -1,0 +1,64 @@
+[
+  {
+    "caso": "CA-2 · motivo vacío (Directiva Halcones, Luis ACTIVO)",
+    "peticion": "POST /api/v1/registros-jugador/80000000-0000-4000-8000-000000000002/baja",
+    "cuerpoEnviado": {
+      "motivo": ""
+    },
+    "estado": 400,
+    "respuesta": {
+      "detail": "Escribe un motivo de al menos 10 caracteres para dar de baja el registro.",
+      "instance": "/api/v1/registros-jugador/80000000-0000-4000-8000-000000000002/baja",
+      "status": 400,
+      "title": "Solicitud inválida",
+      "type": "https://siglim.mx/errores/rn-021",
+      "codigo": "RN-021"
+    }
+  },
+  {
+    "caso": "CA-2 · motivo solo con espacios (Directiva Halcones, Luis ACTIVO)",
+    "peticion": "POST /api/v1/registros-jugador/80000000-0000-4000-8000-000000000002/baja",
+    "cuerpoEnviado": {
+      "motivo": "   "
+    },
+    "estado": 400,
+    "respuesta": {
+      "detail": "Escribe un motivo de al menos 10 caracteres para dar de baja el registro.",
+      "instance": "/api/v1/registros-jugador/80000000-0000-4000-8000-000000000002/baja",
+      "status": 400,
+      "title": "Solicitud inválida",
+      "type": "https://siglim.mx/errores/rn-021",
+      "codigo": "RN-021"
+    }
+  },
+  {
+    "caso": "CA-2 · sin el campo motivo (Directiva Halcones, Luis ACTIVO)",
+    "peticion": "POST /api/v1/registros-jugador/80000000-0000-4000-8000-000000000002/baja",
+    "cuerpoEnviado": {},
+    "estado": 400,
+    "respuesta": {
+      "detail": "Escribe un motivo de al menos 10 caracteres para dar de baja el registro.",
+      "instance": "/api/v1/registros-jugador/80000000-0000-4000-8000-000000000002/baja",
+      "status": 400,
+      "title": "Solicitud inválida",
+      "type": "https://siglim.mx/errores/rn-021",
+      "codigo": "RN-021"
+    }
+  },
+  {
+    "caso": "CA-2 · motivo de menos de 10 caracteres (Directiva Halcones, Luis ACTIVO)",
+    "peticion": "POST /api/v1/registros-jugador/80000000-0000-4000-8000-000000000002/baja",
+    "cuerpoEnviado": {
+      "motivo": "Se fue"
+    },
+    "estado": 400,
+    "respuesta": {
+      "detail": "Escribe un motivo de al menos 10 caracteres para dar de baja el registro.",
+      "instance": "/api/v1/registros-jugador/80000000-0000-4000-8000-000000000002/baja",
+      "status": 400,
+      "title": "Solicitud inválida",
+      "type": "https://siglim.mx/errores/rn-021",
+      "codigo": "RN-021"
+    }
+  }
+]

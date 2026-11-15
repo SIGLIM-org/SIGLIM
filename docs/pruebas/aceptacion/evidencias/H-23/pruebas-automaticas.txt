@@ -1,0 +1,18 @@
+Pruebas automáticas ejecutadas sobre develop en fc3a52e (rama test/m04-h23.3-aceptacion-baja), 2026-11-15
+
+── Backend: ./mvnw verify
+Tests run: 1756, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 275, Failures: 0, Errors: 0, Skipped: 1
+BUILD SUCCESS
+Omitida: AlmacenamientoDocumentosAwsIT (sin credenciales de AWS)
+
+Clases de H-23:
+Tests run: 40, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.registros.RegistroJugadorControllerTest
+Tests run: 60, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.registros.RegistroJugadorServiceTest
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.registros.BajaRegistroIT
+
+── Frontend: npm run lint && npm test && npm run build
+oxlint: sin advertencias ni errores
+ Test Files  82 passed (82)
+      Tests  741 passed (741)
+✓ built in 1.00s
