@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.5 · 14 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.6 · 14 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -54,7 +54,7 @@ Versión 5.5 · 14 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../r
 | 5.3 | 12 de noviembre de 2026 | H-10.5: §6.4 con la consulta de registros: `GET /registros-jugador` (filtros `estado`, `temporadaId`, `clubId`, `equipoId`; orden `creadoEn,asc`, `creadoEn,desc` o `nombre,asc`; ámbito en el `WHERE` y en el `COUNT`; filas con la CURP enmascarada, sin avance de documentos) y `GET /registros-jugador/{id}` (detalle con `esMenor`, tutores vigentes y la CURP completa solo con `organizacion.persona:CONSULTAR` sobre el club), ambos con `Cache-Control: no-store` y su orden de errores; el alta responde `201` con `Location`; §9.2 cita DEC-110 como la aplicación del enmascarado en M-04 (DEC-109, DEC-110). |
 | 5.4 | 12 de noviembre de 2026 | H-10.3: §7 precisa que `GET /registros-jugador/{id}/documentos` sigue fuera porque la página de documentos y la bandeja de validación no lo usan: los documentos vigentes vienen en `GET /registros-jugador/{id}/requisitos` (DEC-96, DEC-112). |
 | 5.5 | 14 de noviembre de 2026 | H-23.1: §6.4 con la baja de un registro (`POST /registros-jugador/{id}/baja`): permiso `registros.registro:EDITAR` sobre el club del equipo, motivo obligatorio de 10 a 500 caracteres (`400 RN-021`), solo desde `ACTIVO` con un `409 RF-017` por estado de origen, `409 RF-003` con la temporada cerrada, `UPDATE` condicional con el registro bloqueado, `baja_en` en `America/Mexico_City`, motivo solo en el historial, respuesta `200` con `bajaEn` y `motivoBaja` y auditoría `DAR_BAJA_REGISTRO_JUGADOR`; el alta y el detalle muestran los dos campos nuevos (`null` salvo en `BAJA`) (DEC-118 a DEC-124). |
-| 5.6 | 14 de noviembre de 2026 | B-05.1: §6.3 con el contrato de la venta y la conservación de plaza (`POST /operaciones-equipo` y `POST /operaciones-equipo/{id}/resolucion`), la conservación como operación independiente (RF-104), el dictamen del Presidente, las reglas del club destino, los permisos `organizacion.venta:SOLICITAR`/`APROBAR` y las acciones `SOLICITAR_OPERACION_EQUIPO`, `AUTORIZAR_OPERACION_EQUIPO` y `RECHAZAR_OPERACION_EQUIPO`; §2.1 con la transición. |
+| 5.6 | 14 de noviembre de 2026 | B-05.1: §6.3 con el contrato de la venta y la conservación de plaza (`POST /operaciones-equipo` y `POST /operaciones-equipo/{id}/resolucion`), la conservación como operación independiente (RF-104), el dictamen del Presidente, las reglas del club destino, los permisos `organizacion.venta:SOLICITAR`/`APROBAR` y las acciones `SOLICITAR_OPERACION_EQUIPO` (con las observaciones de la solicitud), `AUTORIZAR_OPERACION_EQUIPO` y `RECHAZAR_OPERACION_EQUIPO`; una sola operación vigente por equipo y tipo (`409 RF-103`/`RF-104`, DEC-132); autorizar sin nota conserva las observaciones y revalida la temporada y el club destino; §2.1 con la transición. |
 
 ## Índice
 
@@ -1159,13 +1159,22 @@ del equipo. Un equipo o una operación de otro club responde `404` igual que uno
   `400 VALIDACION`. **CONSERVACION_PLAZA** es una operación independiente de la venta (RF-104) y no
   lleva club destino; si lo lleva, `400 VALIDACION`. Las dos pueden convivir para el mismo equipo y
   no se bloquean entre sí.
+- **Una vigente por tipo (DEC-132).** Un equipo no puede tener dos operaciones del mismo tipo en
+  `SOLICITADA` o `AUTORIZADA`: otra venta responde `409 RF-103` y otra conservación de plaza
+  `409 RF-104`. Las `RECHAZADA` y `APLICADA` no cuentan. El equipo se lee con su candado, así que
+  dos solicitudes simultáneas se serializan.
 - Orden de errores al registrar: sin `tipo` o `equipoId`, `400 VALIDACION`; equipo inexistente o
   fuera de ámbito, `404`; sin permiso, `403 VAL-015`; temporada `CERRADA`, `409 RF-003`; equipo
-  `BAJA`, `409 RF-009`; club destino inexistente, `422 REFERENCIA_INVALIDA`; club destino `CERRADO`,
-  `409 RN-041`; reglas del tipo, `400 VALIDACION`.
+  `BAJA`, `409 RF-009`; reglas del tipo (venta sin club destino o con el de origen, conservación con
+  club destino), `400 VALIDACION`; club destino inexistente, `422 REFERENCIA_INVALIDA`; club destino
+  `CERRADO`, `409 RN-041`; observaciones de más de 500 caracteres, `400 VALIDACION`; operación
+  vigente del mismo tipo, `409 RF-103` o `RF-104`.
 - Resolver: operación inexistente o de otro club, `404`; sin permiso, `403 VAL-015`; ya resuelta,
-  `409 RF-103` (venta) o `RF-104` (conservación); rechazo sin observaciones de 10 a 500 caracteres,
-  `400 RN-021`. La autorización admite una nota opcional. Solo `SOLICITADA` se resuelve: una
+  `409 RF-103` (venta) o `RF-104` (conservación); sin `decision` u observaciones de más de 500
+  caracteres, `400 VALIDACION`; al autorizar, temporada `CERRADA`, `409 RF-003`, y club destino de
+  la venta `CERRADO`, `409 RN-041` (lo que pudo cambiar desde la solicitud); al rechazar sin
+  observaciones de 10 a 500 caracteres, `400 RN-021`. La autorización admite una nota opcional que
+  reemplaza las observaciones; sin nota se conservan las de la solicitud. Solo `SOLICITADA` se resuelve: una
   operación `AUTORIZADA` pasa a `APLICADA` al cerrar la temporada (H-04.1), que es cuando el equipo
   cambia de club; hasta entonces conserva a su propietario.
 - Respuesta `201` sin `Location` (todavía no hay `GET` del recurso, DEC-92) y `200` con la operación
@@ -1173,7 +1182,8 @@ del equipo. Un equipo o una operación de otro club responde `404` igual que uno
   `temporada`, `solicitadaPor`, `solicitadaEn`, `autorizadaPor`, `autorizadaEn`, `aplicadaEn` y
   `observaciones`.
 - Se audita en `M-03` sobre `operaciones_equipo`: `SOLICITAR_OPERACION_EQUIPO` con tipo, equipo,
-  clubes y estado; `AUTORIZAR_OPERACION_EQUIPO` y `RECHAZAR_OPERACION_EQUIPO` con el estado anterior
+  clubes, estado y, si las lleva, las observaciones de la solicitud (quedan aunque el dictamen las
+  reemplace en la fila); `AUTORIZAR_OPERACION_EQUIPO` y `RECHAZAR_OPERACION_EQUIPO` con el estado anterior
   y el nuevo, y el rechazo con las observaciones como motivo. La fila nunca se borra: es el
   historial de propietarios (RN-040).
 

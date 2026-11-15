@@ -23,9 +23,12 @@ import org.springframework.stereotype.Repository;
  *       devuelven en la zona de negocio.</li>
  *   <li><b>Historial de propietarios (RN-040).</b> {@code club_origen_id} no se reescribe nunca: la
  *       fila queda como historial cuando el cierre de la temporada mueva el equipo.</li>
- *   <li><b>Candados.</b> La resolución lee la operación con {@code FOR UPDATE}; el alta lee el club
- *       destino con {@code FOR SHARE} en {@link ClubRepository} para no recibir un club que se está
- *       cerrando por cambio de nombre (B-04).</li>
+ *   <li><b>Candados.</b> La resolución lee la operación con {@code FOR UPDATE}; el alta lee el
+ *       equipo con {@code FOR NO KEY UPDATE} para serializar dos solicitudes del mismo equipo
+ *       (DEC-132), y el club destino con {@code FOR SHARE} en {@link ClubRepository} para no
+ *       recibir un club que se está cerrando por cambio de nombre (B-04).</li>
+ *   <li><b>Observaciones.</b> El dictamen solo reemplaza {@code observaciones} si trae texto:
+ *       autorizar sin nota conserva las de la solicitud.</li>
  * </ul>
  *
  * <p>Refs: B-05.1, RF-103, RF-104, RN-040, ADR-0007, ADR-0011
@@ -61,7 +64,11 @@ class OperacionEquipoRepository {
         this.jdbc = jdbc;
     }
 
-    /** Equipo de la liga con su club y la temporada de su grupo, para validar la solicitud. */
+    /**
+     * Equipo de la liga con su club y la temporada de su grupo, para validar la solicitud. Toma el
+     * candado del equipo ({@code FOR NO KEY UPDATE}): dos solicitudes simultáneas del mismo equipo
+     * se serializan y la segunda ve la primera al revisar duplicados (DEC-132).
+     */
     Optional<EquipoOperable> buscarEquipo(UUID ligaId, UUID equipoId) {
         return jdbc.sql("""
                         SELECT e.id, e.nombre, e.estado, e.club_id, cl.nombre AS club_nombre,
@@ -73,6 +80,7 @@ class OperacionEquipoRepository {
                           JOIN categorias_temporada ct ON ct.id = g.categoria_temporada_id
                           JOIN temporadas t ON t.id = ct.temporada_id
                          WHERE e.id = :equipoId AND cl.liga_id = :ligaId
+                           FOR NO KEY UPDATE OF e
                         """)
                 .param("equipoId", equipoId)
                 .param("ligaId", ligaId)
@@ -105,6 +113,27 @@ class OperacionEquipoRepository {
                 .optional();
     }
 
+    /**
+     * Estado de la operación vigente ({@code SOLICITADA} o {@code AUTORIZADA}) del mismo tipo para
+     * el equipo, si la hay (DEC-132). Las {@code RECHAZADA} y {@code APLICADA} no cuentan.
+     */
+    Optional<EstadoOperacionEquipo> estadoVigente(UUID equipoId, TipoOperacionEquipo tipo) {
+        List<String> estados = jdbc.sql("""
+                        SELECT estado
+                          FROM operaciones_equipo
+                         WHERE equipo_id = :equipoId
+                           AND tipo = CAST(:tipo AS tipo_operacion_equipo)
+                           AND estado IN ('SOLICITADA', 'AUTORIZADA')
+                         ORDER BY solicitada_en
+                         LIMIT 1
+                        """)
+                .param("equipoId", equipoId)
+                .param("tipo", tipo.name())
+                .query(String.class)
+                .list();
+        return estados.stream().findFirst().map(EstadoOperacionEquipo::valueOf);
+    }
+
     /** Alta en {@code SOLICITADA}; el estado inicial lo pone el predeterminado de la tabla. */
     UUID insertar(TipoOperacionEquipo tipo, UUID equipoId, UUID clubOrigenId, UUID clubDestinoId,
             UUID solicitadaPor, String observaciones) {
@@ -126,7 +155,10 @@ class OperacionEquipoRepository {
                 .single();
     }
 
-    /** Aplica el dictamen: estado final, perfil y fecha, y observaciones. */
+    /**
+     * Aplica el dictamen: estado final, perfil y fecha. Las observaciones solo se reemplazan si el
+     * dictamen trae texto; si no, se conservan las de la solicitud.
+     */
     void resolver(UUID id, EstadoOperacionEquipo estado, UUID autorizadaPor,
             OffsetDateTime autorizadaEn, String observaciones) {
         jdbc.sql("""
@@ -134,7 +166,7 @@ class OperacionEquipoRepository {
                            SET estado = CAST(:estado AS estado_operacion_equipo),
                                autorizada_por = CAST(:autorizadaPor AS uuid),
                                autorizada_en = CAST(:autorizadaEn AS timestamptz),
-                               observaciones = CAST(:observaciones AS text)
+                               observaciones = COALESCE(CAST(:observaciones AS text), observaciones)
                          WHERE id = :id
                         """)
                 .param("id", id)

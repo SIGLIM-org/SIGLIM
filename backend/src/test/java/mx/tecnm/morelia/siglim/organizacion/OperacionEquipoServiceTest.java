@@ -149,7 +149,9 @@ class OperacionEquipoServiceTest {
                 .containsEntry("equipoId", EQUIPO.toString())
                 .containsEntry("clubOrigenId", CLUB.toString())
                 .containsEntry("clubDestinoId", OTRO_CLUB.toString())
-                .containsEntry("estado", "SOLICITADA");
+                .containsEntry("estado", "SOLICITADA")
+                .as("las observaciones de la solicitud quedan en la auditoría")
+                .containsEntry("observaciones", "Acuerdo de asamblea");
     }
 
     @Test
@@ -182,7 +184,47 @@ class OperacionEquipoServiceTest {
                 PERFIL, null);
         assertThat(eventoAuditado().detalle())
                 .containsEntry("tipo", "CONSERVACION_PLAZA")
-                .doesNotContainKey("clubDestinoId");
+                .doesNotContainKey("clubDestinoId")
+                .doesNotContainKey("observaciones");
+    }
+
+    @Test
+    @DisplayName("RF-103, DEC-132: una segunda venta vigente del mismo equipo responde 409 RF-103")
+    void ventaDuplicada() {
+        given(operaciones.estadoVigente(EQUIPO, TipoOperacionEquipo.VENTA))
+                .willReturn(Optional.of(EstadoOperacionEquipo.AUTORIZADA));
+
+        assertThatThrownBy(() -> servicio.crear(new RegistrarOperacionEquipoRequest(
+                TipoOperacionEquipo.VENTA, EQUIPO, OTRO_CLUB, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-103"))
+                .hasMessageContaining("autorizada");
+        verify(operaciones, never()).insertar(any(), any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-104, DEC-132: una segunda conservación de plaza vigente responde 409 RF-104")
+    void conservacionDuplicada() {
+        given(operaciones.estadoVigente(EQUIPO, TipoOperacionEquipo.CONSERVACION_PLAZA))
+                .willReturn(Optional.of(EstadoOperacionEquipo.SOLICITADA));
+
+        assertThatThrownBy(() -> servicio.crear(new RegistrarOperacionEquipoRequest(
+                TipoOperacionEquipo.CONSERVACION_PLAZA, EQUIPO, null, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-104"));
+        verify(operaciones, never()).insertar(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("DEC-14, DEC-132: una venta vigente no impide registrar la conservación de plaza")
+    void ventaVigenteNoBloqueaConservacion() {
+        given(operaciones.estadoVigente(EQUIPO, TipoOperacionEquipo.VENTA))
+                .willReturn(Optional.of(EstadoOperacionEquipo.SOLICITADA));
+
+        servicio.crear(new RegistrarOperacionEquipoRequest(TipoOperacionEquipo.CONSERVACION_PLAZA,
+                EQUIPO, null, null));
+
+        verify(operaciones).insertar(TipoOperacionEquipo.CONSERVACION_PLAZA, EQUIPO, CLUB, null,
+                PERFIL, null);
     }
 
     @Test
@@ -272,6 +314,60 @@ class OperacionEquipoServiceTest {
                 "Revisado en sesión");
         verify(motivoOperacion, never()).fijar(any());
         assertThat(eventoAuditado().accion()).isEqualTo("AUTORIZAR_OPERACION_EQUIPO");
+    }
+
+    @Test
+    @DisplayName("RN-040: autorizar sin nota no envía observaciones, para conservar las de la solicitud")
+    void autorizarSinNota() {
+        given(operaciones.buscarParaActualizar(LIGA, ID))
+                .willReturn(Optional.of(operacion(EstadoOperacionEquipo.SOLICITADA, "Acuerdo de asamblea")));
+
+        servicio.resolver(ID, new ResolverOperacionEquipoRequest(DecisionOperacionEquipo.AUTORIZADA, "   "));
+
+        verify(operaciones).resolver(ID, EstadoOperacionEquipo.AUTORIZADA, PERFIL, RESUELTA_EN, null);
+    }
+
+    @Test
+    @DisplayName("RF-003: no se autoriza una operación de una temporada que ya cerró (409)")
+    void autorizarConTemporadaCerrada() {
+        OperacionEquipoDto solicitada = operacion(EstadoOperacionEquipo.SOLICITADA, null);
+        given(operaciones.buscarParaActualizar(LIGA, ID)).willReturn(Optional.of(new OperacionEquipoDto(
+                solicitada.id(), solicitada.tipo(), solicitada.estado(), solicitada.equipo(),
+                solicitada.clubOrigen(), solicitada.clubDestino(),
+                new TemporadaResumenDto(TEMPORADA, "Temporada 2031", EstadoTemporada.CERRADA),
+                solicitada.solicitadaPor(), solicitada.solicitadaEn(), null, null, null, null)));
+
+        assertThatThrownBy(() -> servicio.resolver(ID,
+                new ResolverOperacionEquipoRequest(DecisionOperacionEquipo.AUTORIZADA, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-003"));
+        verify(operaciones, never()).resolver(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("RN-041: no se autoriza la venta si el club destino cerró después de la solicitud (409)")
+    void autorizarConDestinoCerrado() {
+        given(operaciones.buscarParaActualizar(LIGA, ID))
+                .willReturn(Optional.of(operacion(EstadoOperacionEquipo.SOLICITADA, null)));
+        given(clubes.buscarParaCompartir(LIGA, OTRO_CLUB)).willReturn(Optional.of(CLUB_DESTINO_CERRADO));
+
+        assertThatThrownBy(() -> servicio.resolver(ID,
+                new ResolverOperacionEquipoRequest(DecisionOperacionEquipo.AUTORIZADA, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RN-041"));
+        verify(operaciones, never()).resolver(any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RN-021: el rechazo no revisa el club destino aunque haya cerrado")
+    void rechazarConDestinoCerrado() {
+        given(operaciones.buscarParaActualizar(LIGA, ID))
+                .willReturn(Optional.of(operacion(EstadoOperacionEquipo.SOLICITADA, null)));
+        given(clubes.buscarParaCompartir(LIGA, OTRO_CLUB)).willReturn(Optional.of(CLUB_DESTINO_CERRADO));
+
+        servicio.resolver(ID, new ResolverOperacionEquipoRequest(DecisionOperacionEquipo.RECHAZADA,
+                OBSERVACIONES));
+
+        verify(operaciones).resolver(ID, EstadoOperacionEquipo.RECHAZADA, PERFIL, RESUELTA_EN, OBSERVACIONES);
     }
 
     @Test

@@ -21,7 +21,8 @@ import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
  * @param temporada      temporada del equipo, cuyo estado decide si el cierre ya la aplicó
  * @param solicitadaPor  perfil que registró la solicitud
  * @param autorizadaPor  perfil del Presidente que la resolvió
- * @param observaciones  motivo del rechazo o nota de la autorización
+ * @param observaciones  de la solicitud, o las del dictamen que las reemplaza (motivo del rechazo o
+ *                       nota de la autorización); autorizar sin nota conserva las de la solicitud
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record OperacionEquipoDto(

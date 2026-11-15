@@ -167,6 +167,82 @@ class OperacionesEquipoIT extends BaseDatosPrueba {
                 .isEqualTo("SOLICITADA");
     }
 
+    // ── Observaciones de la solicitud y operaciones duplicadas (DEC-132) ──────────────────
+
+    @Test
+    @DisplayName("RN-040: autorizar sin nota conserva las observaciones de la solicitud, que también quedan en la auditoría")
+    void autorizarSinNotaConservaLasObservaciones() {
+        UUID grupo = grupoEnTemporada();
+        iniciarSesionComoAdministrador();
+        ClubDto origen = clubes.crear(new CrearClubRequest("Origen " + UUID.randomUUID()));
+        ClubDto destino = clubes.crear(new CrearClubRequest("Destino " + UUID.randomUUID()));
+        EquipoDto equipo = equipos.crear(new CrearEquipoRequest(origen.id(), grupo, "Halcones"));
+
+        iniciarSesion(perfilDeDirectiva(origen.id()));
+        OperacionEquipoDto venta = operaciones.crear(new RegistrarOperacionEquipoRequest(
+                TipoOperacionEquipo.VENTA, equipo.id(), destino.id(), "Acuerdo de asamblea del 1 de agosto"));
+
+        iniciarSesion(perfilConRol("PRESIDENTE"));
+        OperacionEquipoDto autorizada = operaciones.resolver(venta.id(),
+                new ResolverOperacionEquipoRequest(DecisionOperacionEquipo.AUTORIZADA, null));
+
+        assertThat(autorizada.estado()).isEqualTo(EstadoOperacionEquipo.AUTORIZADA);
+        assertThat(autorizada.observaciones()).isEqualTo("Acuerdo de asamblea del 1 de agosto");
+        assertThat(jdbc.sql("""
+                        SELECT detalle ->> 'observaciones' FROM siglim.auditoria
+                         WHERE modulo = 'M-03' AND accion = 'SOLICITAR_OPERACION_EQUIPO'
+                           AND entidad_id = :id
+                        """).param("id", venta.id().toString()).query(String.class).single())
+                .isEqualTo("Acuerdo de asamblea del 1 de agosto");
+    }
+
+    @Test
+    @DisplayName("RF-103, RF-104, DEC-132: un equipo no tiene dos operaciones vigentes del mismo tipo")
+    void operacionesVigentesDuplicadas() {
+        UUID grupo = grupoEnTemporada();
+        iniciarSesionComoAdministrador();
+        ClubDto origen = clubes.crear(new CrearClubRequest("Origen " + UUID.randomUUID()));
+        ClubDto destino = clubes.crear(new CrearClubRequest("Destino " + UUID.randomUUID()));
+        ClubDto otroDestino = clubes.crear(new CrearClubRequest("Otro destino " + UUID.randomUUID()));
+        EquipoDto equipo = equipos.crear(new CrearEquipoRequest(origen.id(), grupo, "Halcones"));
+        UUID directiva = perfilDeDirectiva(origen.id());
+        UUID presidente = perfilConRol("PRESIDENTE");
+
+        iniciarSesion(directiva);
+        OperacionEquipoDto venta = operaciones.crear(new RegistrarOperacionEquipoRequest(
+                TipoOperacionEquipo.VENTA, equipo.id(), destino.id(), null));
+        assertThatThrownBy(() -> operaciones.crear(new RegistrarOperacionEquipoRequest(
+                TipoOperacionEquipo.VENTA, equipo.id(), otroDestino.id(), null)))
+                .as("venta SOLICITADA")
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-103"));
+
+        iniciarSesion(presidente);
+        operaciones.resolver(venta.id(),
+                new ResolverOperacionEquipoRequest(DecisionOperacionEquipo.AUTORIZADA, null));
+        iniciarSesion(directiva);
+        assertThatThrownBy(() -> operaciones.crear(new RegistrarOperacionEquipoRequest(
+                TipoOperacionEquipo.VENTA, equipo.id(), otroDestino.id(), null)))
+                .as("venta AUTORIZADA")
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-103"));
+
+        OperacionEquipoDto plaza = operaciones.crear(new RegistrarOperacionEquipoRequest(
+                TipoOperacionEquipo.CONSERVACION_PLAZA, equipo.id(), null, null));
+        assertThatThrownBy(() -> operaciones.crear(new RegistrarOperacionEquipoRequest(
+                TipoOperacionEquipo.CONSERVACION_PLAZA, equipo.id(), null, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-104"));
+
+        iniciarSesion(presidente);
+        operaciones.resolver(plaza.id(),
+                new ResolverOperacionEquipoRequest(DecisionOperacionEquipo.RECHAZADA, OBSERVACIONES));
+        iniciarSesion(directiva);
+        assertThat(operaciones.crear(new RegistrarOperacionEquipoRequest(
+                TipoOperacionEquipo.CONSERVACION_PLAZA, equipo.id(), null, null)).estado())
+                .as("una conservación RECHAZADA ya no cuenta como vigente")
+                .isEqualTo(EstadoOperacionEquipo.SOLICITADA);
+        assertThat(jdbc.sql("SELECT count(*) FROM siglim.operaciones_equipo WHERE equipo_id = :id")
+                .param("id", equipo.id()).query(Long.class).single()).isEqualTo(3);
+    }
+
     // ── Criterio 5: ámbito de club ──────────────────────────────────────────────────────────
 
     @Test

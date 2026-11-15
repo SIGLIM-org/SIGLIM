@@ -32,6 +32,12 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li><b>Venta.</b> Exige un {@code clubDestinoId} distinto del club actual del equipo. La
  *       conservación de plaza es una operación <b>independiente</b> y no lleva club destino: se
  *       registran por separado, sin bloquearse entre sí (DEC-14).</li>
+ *   <li><b>Una vigente por tipo (DEC-132).</b> Un equipo no puede tener dos operaciones del mismo
+ *       tipo en {@code SOLICITADA} o {@code AUTORIZADA}: la segunda responde {@code 409} con el
+ *       código del tipo. Así el cierre de la temporada (H-04.1) sabe a qué club pasa el equipo.</li>
+ *   <li><b>Autorización.</b> Al autorizar se vuelve a comprobar que la temporada siga abierta
+ *       ({@code 409 RF-003}) y, en la venta, que el club destino siga {@code ACTIVO}
+ *       ({@code 409 RN-041}); el rechazo no lo exige.</li>
  *   <li><b>Ámbito (ADR-0007).</b> Registrar usa {@code organizacion.venta:SOLICITAR} sobre el club
  *       actual del equipo; resolver usa {@code organizacion.venta:APROBAR}. Un equipo o una
  *       operación de otro club responde {@code 404} igual que uno inexistente (VAL-024); nunca se
@@ -40,11 +46,12 @@ import org.springframework.transaction.annotation.Transactional;
  *       temporada {@code CERRADA} ({@code 409 RF-003}). El club destino debe existir en la liga
  *       ({@code 422 REFERENCIA_INVALIDA}) y estar {@code ACTIVO} ({@code 409 RN-041}).</li>
  *   <li><b>Auditoría (RF-093).</b> Solicitud y dictamen se registran en {@code M-03} sobre
- *       {@code operaciones_equipo}, solo con identificadores, tipo y estados; el rechazo deja las
- *       observaciones como motivo.</li>
+ *       {@code operaciones_equipo}, con identificadores, tipo y estados; la solicitud agrega sus
+ *       observaciones al detalle cuando las lleva (el dictamen puede reemplazarlas en la fila) y el
+ *       rechazo deja las suyas como motivo.</li>
  * </ul>
  *
- * <p>Refs: B-05.1, H-06, RF-103, RF-104, CU-026, RN-040, DEC-14, RN-021, RN-041, VAL-024, ADR-0007
+ * <p>Refs: B-05.1, H-06, RF-103, RF-104, CU-026, RN-040, DEC-14, DEC-132, RN-021, RN-041, VAL-024, ADR-0007
  */
 @Service
 public class OperacionEquipoService {
@@ -84,11 +91,15 @@ public class OperacionEquipoService {
      *
      * <p>Orden: sin tipo o equipo, {@code 400 VALIDACION}; equipo inexistente o fuera de ámbito,
      * {@code 404}; sin permiso, {@code 403}; temporada {@code CERRADA}, {@code 409 RF-003}; equipo
-     * {@code BAJA}, {@code 409 RF-009}; reglas del club destino, {@code 400 VALIDACION}, {@code 422
-     * REFERENCIA_INVALIDA} o {@code 409 RN-041}.
+     * {@code BAJA}, {@code 409 RF-009}; reglas del tipo (venta sin club destino o con el de origen,
+     * conservación con club destino), {@code 400 VALIDACION}; club destino inexistente, {@code 422
+     * REFERENCIA_INVALIDA}; club destino cerrado, {@code 409 RN-041}; observaciones de más de 500
+     * caracteres, {@code 400 VALIDACION}; operación vigente del mismo tipo, {@code 409 RF-103} o
+     * {@code RF-104} (DEC-132).
      *
      * @throws ReglaNegocioException 400 si la venta no indica un club destino o repite el de origen,
-     *                               o si la conservación de plaza lleva club destino
+     *                               o si la conservación de plaza lleva club destino; 409 si el
+     *                               equipo ya tiene una operación vigente del mismo tipo
      */
     @Transactional
     public OperacionEquipoDto crear(RegistrarOperacionEquipoRequest peticion) {
@@ -111,6 +122,7 @@ public class OperacionEquipoService {
 
         UUID clubDestinoId = clubDestinoValido(peticion, equipo);
         String observaciones = textoOpcional(peticion.observaciones());
+        exigirSinOperacionVigente(peticion.tipo(), equipo);
 
         UUID perfil = UsuarioActual.idRequerido();
         UUID id = operaciones.insertar(peticion.tipo(), equipo.id(), equipo.clubId(), clubDestinoId,
@@ -124,6 +136,9 @@ public class OperacionEquipoService {
             detalle.put("clubDestinoId", clubDestinoId.toString());
         }
         detalle.put("estado", EstadoOperacionEquipo.SOLICITADA.name());
+        if (observaciones != null) {
+            detalle.put("observaciones", observaciones);
+        }
         auditar("SOLICITAR_OPERACION_EQUIPO", id, null, detalle);
         return buscar(id);
     }
@@ -131,10 +146,19 @@ public class OperacionEquipoService {
     /**
      * Aplica el dictamen del Presidente sobre una operación {@code SOLICITADA} (criterio 2 de B-05,
      * RN-040). La autorización admite una nota; el rechazo exige observaciones de 10 a 500
-     * caracteres, que se guardan como motivo (RN-021).
+     * caracteres, que se guardan como motivo (RN-021). Autorizar sin nota conserva las observaciones
+     * de la solicitud.
      *
-     * @throws ReglaNegocioException 409 {@code RF-103} o {@code RF-104} si ya está resuelta; 400
-     *                               {@code RN-021} si rechaza sin observaciones suficientes
+     * <p>Orden: inexistente o de otro club, {@code 404}; sin permiso, {@code 403}; ya resuelta,
+     * {@code 409 RF-103} o {@code RF-104}; sin decisión u observaciones de más de 500 caracteres,
+     * {@code 400 VALIDACION}; al autorizar, temporada {@code CERRADA}, {@code 409 RF-003}, y club
+     * destino de la venta {@code CERRADO}, {@code 409 RN-041}; al rechazar sin observaciones
+     * suficientes, {@code 400 RN-021}.
+     *
+     * @throws ReglaNegocioException 409 {@code RF-103} o {@code RF-104} si ya está resuelta, 409
+     *                               {@code RF-003} o {@code RN-041} si al autorizar la temporada o el
+     *                               club destino ya están cerrados; 400 {@code RN-021} si rechaza sin
+     *                               observaciones suficientes
      */
     @Transactional
     public OperacionEquipoDto resolver(UUID id, ResolverOperacionEquipoRequest peticion) {
@@ -155,6 +179,8 @@ public class OperacionEquipoService {
         if (decision == DecisionOperacionEquipo.RECHAZADA) {
             observaciones = observacionesValidas(observaciones);
             motivoOperacion.fijar(observaciones);
+        } else {
+            exigirVigenteAlAutorizar(actual);
         }
 
         UUID perfil = UsuarioActual.idRequerido();
@@ -204,6 +230,41 @@ public class OperacionEquipoService {
                     "El club «" + destino.nombre() + "» está cerrado: no puede recibir equipos.");
         }
         return destino.id();
+    }
+
+    /**
+     * Un equipo solo tiene una operación vigente ({@code SOLICITADA} o {@code AUTORIZADA}) de cada
+     * tipo (DEC-132). El candado del equipo, tomado al leerlo, serializa dos solicitudes simultáneas.
+     */
+    private void exigirSinOperacionVigente(TipoOperacionEquipo tipo, EquipoOperable equipo) {
+        operaciones.estadoVigente(equipo.id(), tipo).ifPresent(estado -> {
+            throw ReglaNegocioException.conflicto(tipo.requisito(),
+                    "El equipo «" + equipo.nombre() + "» ya tiene una "
+                            + (tipo == TipoOperacionEquipo.VENTA ? "venta" : "conservación de plaza")
+                            + " " + estado.texto() + ": espera a que se resuelva o se aplique antes "
+                            + "de registrar otra.");
+        });
+    }
+
+    /**
+     * Lo que pudo cambiar entre la solicitud y la autorización: la temporada debe seguir abierta y,
+     * en la venta, el club destino debe seguir {@code ACTIVO} (RF-003, RN-041).
+     */
+    private void exigirVigenteAlAutorizar(OperacionEquipoDto actual) {
+        if (actual.temporada().estado() == EstadoTemporada.CERRADA) {
+            throw ReglaNegocioException.conflicto("RF-003",
+                    "La temporada «" + actual.temporada().nombre() + "» está cerrada: la operación "
+                            + "ya no se puede autorizar.");
+        }
+        if (actual.tipo() == TipoOperacionEquipo.VENTA && actual.clubDestino() != null) {
+            ClubDto destino = clubes.buscarParaCompartir(ligaId, actual.clubDestino().id())
+                    .orElse(null);
+            if (destino == null || destino.estado() == EstadoClub.CERRADO) {
+                throw ReglaNegocioException.conflicto("RN-041",
+                        "El club «" + actual.clubDestino().nombre() + "» está cerrado: no puede "
+                                + "recibir equipos, así que la venta no se puede autorizar.");
+            }
+        }
     }
 
     private static void exigirTemporadaAbierta(EquipoOperable equipo) {
