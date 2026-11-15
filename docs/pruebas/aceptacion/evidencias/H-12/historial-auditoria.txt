@@ -1,0 +1,52 @@
+Prueba de aceptación H-12.5 · historial, auditoría y verificación sin escritura
+==============================================================================
+Base local efímera (PostgreSQL 17.11 en contenedor). Consultas ejecutadas al cerrar la corrida.
+
+PARTIDO AJUSTADO (CA-5)
+Partido 9a96c4ea-5b0f-4968-bab3-45cd8312cab8 (Coyotes vs. Mapaches, Jornada 2)
+
+  id                                    | inicio               | fin_bloque           | estado
+  --------------------------------------+----------------------+----------------------+-----------
+  9a96c4ea-5b0f-4968-bab3-45cd8312cab8  | 2026-11-23 10:00 -06 | 2026-11-23 12:00 -06 | PROGRAMADO
+
+  El ajuste sin motivo respondió 400 RN-021 y no cambió el partido. El ajuste con motivo
+  respondió 200 y lo dejó en el 23/11/2026; es el único AJUSTAR_PARTIDO de la corrida.
+
+  estado_anterior | estado_nuevo | motivo                   | cambiado_por
+  ----------------+--------------+--------------------------+--------------------------------------
+  null            | PROGRAMADO   | Programación del partido | 22222222-2222-4222-8222-222222222222
+
+  El historial de estados solo registra el alta: el ajuste de horario no cambia el estado del
+  partido (RF-045, RN-021). La traza del ajuste vive en la auditoría:
+
+  accion            | motivo                                                                              | detalle
+  ------------------+-------------------------------------------------------------------------------------+--------------------------------------------------------------
+  REGISTRAR_PARTIDO | null                                                                                | {"canchaId": "...004", "jornadaId": "4aeac593-...", "equipoLocalId": "...003", "equipoVisitanteId": "...004"}
+  AJUSTAR_PARTIDO   | Cambio de fecha solicitado por la Liga para evitar el mantenimiento de la cancha.   | {"campos": ["inicio"], "jornadaId": "4aeac593-..."}
+
+VERIFICACIÓN SIN ESCRITURA (CA-4)
+Jornada 1048f0cf-d11f-4c64-bf29-10ecb1ca3e52 (Jornada 1)
+
+  Antes de POST /jornadas/{id}/verificacion:
+    partidos de la jornada: 2
+    filas de auditoría de la jornada y sus dos partidos: 3
+
+  Después de POST /jornadas/{id}/verificacion:
+    partidos de la jornada: 2
+    filas de auditoría de la jornada y sus dos partidos: 3
+
+  La verificación devolvió 3 conflictos (2 de cancha y 1 de equipo) y ninguna escritura.
+  Respuesta completa en verificacion-conflictos.json.
+
+LECTURA DE LA AUDITORÍA (RF-093)
+  accion            | entidad      | entidad_id                             | motivo
+  ------------------+--------------+----------------------------------------+---------
+  REGISTRAR_JORNADA | jornadas     | 1048f0cf-d11f-4c64-bf29-10ecb1ca3e52   | null
+  REGISTRAR_JORNADA | jornadas     | 4aeac593-04d7-4d4f-8571-bf6626bf0179   | null
+  REGISTRAR_PARTIDO | partidos     | 4b206e62-e8a6-43a6-99be-9b7f17859e1a   | null
+  REGISTRAR_PARTIDO | partidos     | 4ee7a751-feea-4334-abbc-fbc352e93d41   | null
+  REGISTRAR_PARTIDO | partidos     | 9a96c4ea-5b0f-4968-bab3-45cd8312cab8   | null
+  REGISTRAR_PARTIDO | partidos     | 21d90ba7-6054-412c-b137-cc18299abe6f   | null
+  AJUSTAR_PARTIDO   | partidos     | 9a96c4ea-5b0f-4968-bab3-45cd8312cab8   | Cambio de fecha solicitado por la Liga...
+
+  Los identificadores son UUID de la base local; no hay datos personales en el detalle.

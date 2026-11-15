@@ -1,0 +1,216 @@
+Prueba de aceptación H-12.5 · respuestas crudas de la API
+==============================================================================
+Base: http://127.0.0.1:8080/api/v1
+Jornada 2 (conflictos y ajuste): 4aeac593-04d7-4d4f-8571-bf6626bf0179
+Jornada 1 (verificación sin escritura): 1048f0cf-d11f-4c64-bf29-10ecb1ca3e52
+Partido ajustado: 9a96c4ea-5b0f-4968-bab3-45cd8312cab8
+
+Todas las peticiones se hicieron con el token del Programador de prueba, salvo la
+petición sin token y la del Tesorero del bloque complementario. La Jornada 1 solo se
+usa en CA-4; los conflictos y el ajuste se comprobaron sobre la Jornada 2, igual que
+en las capturas del documento.
+
+──────────────────────────────────────────────────────────────────────────────
+CA-1 · POST /api/v1/jornadas/{id}/partidos con la cancha ya ocupada en el bloque (VAL-004)
+HTTP 409
+Petición: POST /api/v1/jornadas/4aeac593-04d7-4d4f-8571-bf6626bf0179/partidos
+Cuerpo: {"equipoLocalId":"61000000-0000-4000-8000-000000000001","equipoVisitanteId":"61000000-0000-4000-8000-000000000003","canchaId":"70000000-0000-4000-8000-000000000006","inicio":"2026-11-22T10:30:00-06:00"}
+Respuesta:
+{
+  "detail": "La cancha «Cancha Oriente» ya está ocupada por el partido «Osos vs. Venados» del 22/11/2026 10:00 a 22/11/2026 12:00.",
+  "instance": "/api/v1/jornadas/4aeac593-04d7-4d4f-8571-bf6626bf0179/partidos",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/val-004",
+  "codigo": "VAL-004"
+}
+
+──────────────────────────────────────────────────────────────────────────────
+CA-2 · POST /api/v1/jornadas/{id}/partidos con un equipo que ya tiene partido en el bloque (VAL-003)
+HTTP 409
+Petición: POST /api/v1/jornadas/4aeac593-04d7-4d4f-8571-bf6626bf0179/partidos
+Cuerpo: {"equipoLocalId":"61000000-0000-4000-8000-000000000001","equipoVisitanteId":"61000000-0000-4000-8000-000000000003","canchaId":"70000000-0000-4000-8000-000000000005","inicio":"2026-11-22T10:30:00-06:00"}
+Respuesta:
+{
+  "detail": "El equipo «Coyotes» ya tiene el partido «Coyotes vs. Mapaches» del 22/11/2026 10:00 a 22/11/2026 12:00 en la cancha «Cancha Norte».",
+  "instance": "/api/v1/jornadas/4aeac593-04d7-4d4f-8571-bf6626bf0179/partidos",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/val-003",
+  "codigo": "VAL-003"
+}
+
+──────────────────────────────────────────────────────────────────────────────
+CA-3 · POST /api/v1/jornadas/{id}/partidos en una cancha bloqueada (VAL-005)
+HTTP 409
+Petición: POST /api/v1/jornadas/4aeac593-04d7-4d4f-8571-bf6626bf0179/partidos
+Cuerpo: {"equipoLocalId":"61000000-0000-4000-8000-000000000002","equipoVisitanteId":"61000000-0000-4000-8000-000000000003","canchaId":"70000000-0000-4000-8000-000000000006","inicio":"2026-11-22T12:00:00-06:00"}
+Respuesta:
+{
+  "detail": "La cancha «Cancha Oriente» tiene un bloqueo del 22/11/2026 12:00 a 22/11/2026 14:00: Riego del césped.",
+  "instance": "/api/v1/jornadas/4aeac593-04d7-4d4f-8571-bf6626bf0179/partidos",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/val-005",
+  "codigo": "VAL-005"
+}
+
+──────────────────────────────────────────────────────────────────────────────
+CA-3 · POST /api/v1/jornadas/{id}/partidos en una cancha inactiva (VAL-005)
+HTTP 409
+Petición: POST /api/v1/jornadas/4aeac593-04d7-4d4f-8571-bf6626bf0179/partidos
+Cuerpo: {"equipoLocalId":"61000000-0000-4000-8000-000000000002","equipoVisitanteId":"61000000-0000-4000-8000-000000000003","canchaId":"70000000-0000-4000-8000-000000000003","inicio":"2026-11-22T14:00:00-06:00"}
+Respuesta:
+{
+  "detail": "La cancha «Cancha Auxiliar» está inactiva y no se puede asignar.",
+  "instance": "/api/v1/jornadas/4aeac593-04d7-4d4f-8571-bf6626bf0179/partidos",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/val-005",
+  "codigo": "VAL-005"
+}
+
+──────────────────────────────────────────────────────────────────────────────
+CA-4 · POST /api/v1/jornadas/{id}/verificacion (200; lista los conflictos sin guardar)
+HTTP 200
+Petición: POST /api/v1/jornadas/1048f0cf-d11f-4c64-bf29-10ecb1ca3e52/verificacion
+Cuerpo: (sin cuerpo)
+Respuesta:
+{
+  "conflictos": [
+    {
+      "partidoId": "4b206e62-e8a6-43a6-99be-9b7f17859e1a",
+      "codigo": "VAL-006",
+      "mensaje": "El equipo «Toros» está dado de baja y no se puede programar."
+    },
+    {
+      "partidoId": "4b206e62-e8a6-43a6-99be-9b7f17859e1a",
+      "codigo": "VAL-005",
+      "mensaje": "La cancha «Cancha Morelos 1» tiene un bloqueo del 21/11/2026 09:00 a 21/11/2026 11:00: Riego del césped."
+    },
+    {
+      "partidoId": "4ee7a751-feea-4334-abbc-fbc352e93d41",
+      "codigo": "VAL-005",
+      "mensaje": "La cancha «Cancha Morelos 2» está en mantenimiento del 21/11/2026 10:00 a 21/11/2026 11:00: Cambio de pasto."
+    }
+  ],
+  "advertencias": []
+}
+
+──────────────────────────────────────────────────────────────────────────────
+CA-5 · PATCH /api/v1/partidos/{id} sin motivo (400 RN-021)
+HTTP 400
+Petición: PATCH /api/v1/partidos/9a96c4ea-5b0f-4968-bab3-45cd8312cab8
+Cuerpo: {"inicio":"2026-11-23T10:00:00-06:00"}
+Respuesta:
+{
+  "detail": "Escribe un motivo de al menos 10 caracteres para ajustar el partido.",
+  "instance": "/api/v1/partidos/9a96c4ea-5b0f-4968-bab3-45cd8312cab8",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/rn-021",
+  "codigo": "RN-021"
+}
+
+──────────────────────────────────────────────────────────────────────────────
+CA-5 · PATCH /api/v1/partidos/{id} con motivo (200; el partido se reprograma)
+HTTP 200
+Petición: PATCH /api/v1/partidos/9a96c4ea-5b0f-4968-bab3-45cd8312cab8
+Cuerpo: {"inicio":"2026-11-23T10:00:00-06:00","motivo":"Cambio de fecha solicitado por la Liga para evitar el mantenimiento de la cancha."}
+Respuesta:
+{
+  "id": "9a96c4ea-5b0f-4968-bab3-45cd8312cab8",
+  "jornadaId": "4aeac593-04d7-4d4f-8571-bf6626bf0179",
+  "equipoLocal": {
+    "id": "61000000-0000-4000-8000-000000000003",
+    "nombre": "Coyotes"
+  },
+  "equipoVisitante": {
+    "id": "61000000-0000-4000-8000-000000000004",
+    "nombre": "Mapaches"
+  },
+  "cancha": {
+    "id": "70000000-0000-4000-8000-000000000004",
+    "nombre": "Cancha Norte"
+  },
+  "inicio": "2026-11-23T10:00:00-06:00",
+  "finBloque": "2026-11-23T12:00:00-06:00",
+  "estado": "PROGRAMADO",
+  "creadoEn": "2026-11-14T18:25:31.587011-06:00",
+  "actualizadoEn": "2026-11-14T18:25:32.470556-06:00"
+}
+
+──────────────────────────────────────────────────────────────────────────────
+CA-6 · POST /api/v1/jornadas/{id}/partidos con un equipo dado de baja (409 VAL-006)
+HTTP 409
+Petición: POST /api/v1/jornadas/4aeac593-04d7-4d4f-8571-bf6626bf0179/partidos
+Cuerpo: {"equipoLocalId":"60000000-0000-4000-8000-000000000007","equipoVisitanteId":"60000000-0000-4000-8000-000000000008","canchaId":"70000000-0000-4000-8000-000000000005","inicio":"2026-11-22T14:00:00-06:00"}
+Respuesta:
+{
+  "detail": "El equipo «Zorros» está dado de baja y no se puede programar.",
+  "instance": "/api/v1/jornadas/4aeac593-04d7-4d4f-8571-bf6626bf0179/partidos",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/val-006",
+  "codigo": "VAL-006"
+}
+
+──────────────────────────────────────────────────────────────────────────────
+CA-6 · POST /api/v1/jornadas/{id}/partidos con un equipo con suspensión vigente (409 VAL-006)
+HTTP 409
+Petición: POST /api/v1/jornadas/4aeac593-04d7-4d4f-8571-bf6626bf0179/partidos
+Cuerpo: {"equipoLocalId":"60000000-0000-4000-8000-000000000007","equipoVisitanteId":"60000000-0000-4000-8000-000000000005","canchaId":"70000000-0000-4000-8000-000000000005","inicio":"2026-11-22T14:00:00-06:00"}
+Respuesta:
+{
+  "detail": "El equipo «Leones» tiene una suspensión vigente de 2 partido(s) y no puede jugar.",
+  "instance": "/api/v1/jornadas/4aeac593-04d7-4d4f-8571-bf6626bf0179/partidos",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/val-006",
+  "codigo": "VAL-006"
+}
+
+──────────────────────────────────────────────────────────────────────────────
+Complementario · POST /api/v1/jornadas sin token (401 NO_AUTENTICADO)
+HTTP 401
+Petición: POST /api/v1/jornadas
+Cuerpo: {"grupoId":"50000000-0000-4000-8000-000000000004","numero":99}
+Respuesta:
+{
+  "type": "https://siglim.mx/errores/no-autenticado",
+  "title": "No autenticado",
+  "status": 401,
+  "detail": "Inicia sesión para continuar.",
+  "instance": "/api/v1/jornadas",
+  "codigo": "NO_AUTENTICADO"
+}
+
+──────────────────────────────────────────────────────────────────────────────
+Complementario · POST /api/v1/jornadas con rol Tesorero, sin programacion.jornada:EDITAR (403 VAL-015)
+HTTP 403
+Petición: POST /api/v1/jornadas
+Cuerpo: {"grupoId":"50000000-0000-4000-8000-000000000004","numero":99}
+Respuesta:
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/jornadas",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}
+
+──────────────────────────────────────────────────────────────────────────────
+Complementario · GET /api/v1/jornadas/{id} con un id inexistente (404 NO_ENCONTRADO)
+HTTP 404
+Petición: GET /api/v1/jornadas/99999999-9999-4999-8999-999999999999
+Cuerpo: (sin cuerpo)
+Respuesta:
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/jornadas/99999999-9999-4999-8999-999999999999",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
