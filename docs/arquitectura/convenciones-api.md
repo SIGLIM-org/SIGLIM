@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.7 · 15 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.10 · 16 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -56,6 +56,7 @@ Versión 5.7 · 15 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../r
 | 5.5 | 14 de noviembre de 2026 | H-23.1: §6.4 con la baja de un registro (`POST /registros-jugador/{id}/baja`): permiso `registros.registro:EDITAR` sobre el club del equipo, motivo obligatorio de 10 a 500 caracteres (`400 RN-021`), solo desde `ACTIVO` con un `409 RF-017` por estado de origen, `409 RF-003` con la temporada cerrada, `UPDATE` condicional con el registro bloqueado, `baja_en` en `America/Mexico_City`, motivo solo en el historial, respuesta `200` con `bajaEn` y `motivoBaja` y auditoría `DAR_BAJA_REGISTRO_JUGADOR`; el alta y el detalle muestran los dos campos nuevos (`null` salvo en `BAJA`) (DEC-118 a DEC-124). |
 | 5.6 | 14 de noviembre de 2026 | B-05.1: §6.3 con el contrato de la venta y la conservación de plaza (`POST /operaciones-equipo` y `POST /operaciones-equipo/{id}/resolucion`), la conservación como operación independiente (RF-104), el dictamen del Presidente, las reglas del club destino, los permisos `organizacion.venta:SOLICITAR`/`APROBAR` y las acciones `SOLICITAR_OPERACION_EQUIPO` (con las observaciones de la solicitud), `AUTORIZAR_OPERACION_EQUIPO` y `RECHAZAR_OPERACION_EQUIPO`; una sola operación vigente por equipo y tipo (`409 RF-103`/`RF-104`, DEC-132); autorizar sin nota conserva las observaciones y revalida la temporada y el club destino; §2.1 con la transición. |
 | 5.7 | 15 de noviembre de 2026 | B-05.2: §6.2 documenta el efecto del cierre de la temporada sobre las operaciones de equipo: en la misma transacción, las `AUTORIZADA` pasan a `APLICADA` con `aplicadaEn`, la venta mueve el equipo a su club destino y las `SOLICITADA` no se aplican; cada aplicación se audita como `APLICAR_OPERACION_EQUIPO` y `CERRAR_TEMPORADA` registra `operacionesAplicadas` (RF-103, RF-104, RN-040). |
+| 5.10 | 16 de noviembre de 2026 | B-08.1: §6.5 con el contrato de `GET /clubes/{id}/cuota-arbitros?temporadaId=` (equipos activos, árbitros `VALIDADO`, redondeo hacia arriba y `cumple`), su ámbito de club, errores y la temporada activa por omisión; §6.2 con el parámetro `equiposPorArbitro` de la temporada (4 **[DEMO]**, DEC-72), su herencia de la versión vigente cuando se omite y su inclusión en `camposDemo` (RF-114, DEC-17). |
 
 ## Índice
 
@@ -800,7 +801,9 @@ liga; la liga sale de la configuración del backend. El `POST` valida en el mism
 reglas de negocio (`409`). No hay `PATCH` ni `DELETE`.
 
 `POST /temporadas/{id}/parametros` lleva el juego **completo** de valores: nada se hereda de la
-versión anterior y todos los campos son obligatorios salvo `esDemo` y `categorias`.
+versión anterior y todos los campos son obligatorios salvo `equiposPorArbitro`, `esDemo` y
+`categorias`. `equiposPorArbitro` omitido conserva el de la versión vigente y, en la primera
+versión, vale 4 **[DEMO]** (RF-114).
 
 ```json
 {
@@ -811,6 +814,7 @@ versión anterior y todos los campos son obligatorios salvo `esDemo` y `categori
   "duracionJuegoMin": 90, "bloqueCanchaMin": 120,
   "clasificadosLiguilla": 8, "formatoLiguilla": "PARTIDO_UNICO", "empateLiguillaPorPenales": true,
   "equiposAscienden": 2, "equiposDescienden": 2, "permiteCambioClub": true,
+  "equiposPorArbitro": 4,
   "esDemo": true,
   "categorias": [ { "categoriaId": "…", "duracionJuegoMin": 70, "bloqueCanchaMin": 90 } ],
   "motivo": "Valores de demostración para la temporada"
@@ -828,6 +832,7 @@ versión anterior y todos los campos son obligatorios salvo `esDemo` y `categori
 | `formatoLiguilla` | `PARTIDO_UNICO` o `IDA_Y_VUELTA` |
 | `empateLiguillaPorPenales`, `permiteCambioClub` | Booleanos |
 | `equiposAscienden`, `equiposDescienden` | Enteros de 0 a 32 **[PROPUESTA]** (DEC-29) |
+| `equiposPorArbitro` | Entero de 1 a 100; opcional. Omitido conserva el de la versión vigente y, en la primera versión, vale 4 **[DEMO]**. Equipos activos por cada árbitro validado que el club debe presentar (RF-114, DEC-17, DEC-72) |
 | `esDemo` | Opcional; omitido vale `true` |
 | `categorias` | Opcional. Duración y bloque propios de una categoría **asignada a esta temporada**, sin repetir categoría y con bloque ≥ duración. Una categoría omitida usa los valores de la temporada |
 | `motivo` | De 10 a 500 caracteres sin espacios en los extremos (RN-021); se guarda en la versión y en la auditoría |
@@ -844,12 +849,13 @@ la misma forma que `GET /temporadas/{id}/parametros/{version}`:
   "duracionJuegoMin": 90, "bloqueCanchaMin": 120, "clasificadosLiguilla": 8,
   "formatoLiguilla": "PARTIDO_UNICO", "empateLiguillaPorPenales": true,
   "equiposAscienden": 2, "equiposDescienden": 2, "permiteCambioClub": true,
+  "equiposPorArbitro": 4,
   "categorias": [ { "categoria": { "id": "…", "nombre": "Veteranos" }, "duracionJuegoMin": 70, "bloqueCanchaMin": 90 } ],
   "esDemo": true,
   "camposDemo": ["puntosVictoria", "puntosEmpate", "puntosDerrota", "criteriosDesempate",
                  "golesDefaultGanador", "golesDefaultPerdedor", "plazoValidacionCedulaHoras", "bloqueCanchaMin",
                  "clasificadosLiguilla", "formatoLiguilla", "empateLiguillaPorPenales",
-                 "equiposAscienden", "equiposDescienden"],
+                 "equiposAscienden", "equiposDescienden", "equiposPorArbitro"],
   "motivo": "Ajuste de la asamblea de la Liga",
   "creadoPor": { "id": "…", "nombre": "Ana López" },
   "creadoEn": "2026-11-05T10:00:00-06:00"
@@ -1700,6 +1706,30 @@ faltan); la validación las admite como nota. Se guardan el perfil y la fecha de
 auditan como `PROPONER_ARBITRO`, `VALIDAR_ARBITRO` y `RECHAZAR_ARBITRO` en `M-05` sobre `arbitros`,
 sin nombres ni CURP. Solo los `VALIDADO` pueden designarse: el trigger de `designaciones` responde
 `RF-113` para cualquier otro estado.
+
+**Cuota de árbitros del club (B-08.1, RF-114, RN-042, DEC-17, DEC-72).**
+`GET /clubes/{id}/cuota-arbitros?temporadaId=` exige `arbitraje.arbitro:CONSULTAR` sobre el club
+(ADR-0007) y responde `200` con:
+
+```json
+{
+  "club": { "id": "…", "nombre": "Club Halcones" },
+  "temporada": { "id": "…", "nombre": "Apertura 2030" },
+  "equiposActivos": 5,
+  "equiposPorArbitro": 4,
+  "cuotaArbitros": { "requeridos": 2, "validados": 1, "cumple": false }
+}
+```
+
+`temporadaId` es opcional; sin él se usa la temporada `ACTIVA` de la liga y, si no hay, responde
+`409 RF-114`. `equiposActivos` cuenta solo los equipos `ACTIVO` del club en los grupos de esa
+temporada. `equiposPorArbitro` es el valor de la versión vigente de `parametros_temporada` (el
+parámetro **[DEMO]** de DEC-17; la interfaz lo rotula «no oficial»): nunca es una constante del
+código. Sin ninguna versión de parámetros, responde `409 RF-100`. `requeridos` es
+`ceil(equiposActivos / equiposPorArbitro)`, `validados` cuenta solo los árbitros `VALIDADO` del club
+y `cumple` indica si `validados >= requeridos`. Los árbitros `PROPUESTO`, `RECHAZADO` y `BAJA` no
+cubren la cuota. Un club fuera del ámbito o inexistente y una temporada inexistente o de otra liga
+responden `404` idéntico (VAL-024). Es una consulta calculada: no se guarda ni se audita.
 
 ### 6.6 M-06 Canchas y recursos
 

@@ -63,11 +63,12 @@ class ParametrosServiceTest {
     private static final OffsetDateTime CREADO_EN = OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC);
     private static final String MOTIVO = ParametrosPrueba.MOTIVO;
 
-    /** Los 16 campos de una versión, sin {@code categorias}: los de la versión 1 sin filas propias. */
+    /** Los 17 campos de una versión, sin {@code categorias}: los de la versión 1 sin filas propias. */
     private static final List<String> TODOS = List.of("puntosVictoria", "puntosEmpate", "puntosDerrota",
             "criteriosDesempate", "golesDefaultGanador", "golesDefaultPerdedor", "plazoValidacionCedulaHoras",
             "duracionJuegoMin", "bloqueCanchaMin", "clasificadosLiguilla", "formatoLiguilla",
-            "empateLiguillaPorPenales", "equiposAscienden", "equiposDescienden", "permiteCambioClub", "esDemo");
+            "empateLiguillaPorPenales", "equiposAscienden", "equiposDescienden", "permiteCambioClub",
+            "equiposPorArbitro", "esDemo");
 
     private final ParametrosRepository parametros = mock(ParametrosRepository.class);
     private final Autorizacion autorizacion = mock(Autorizacion.class);
@@ -101,7 +102,7 @@ class ParametrosServiceTest {
                 d.golesDefaultGanador(), d.golesDefaultPerdedor(), d.plazoValidacionCedulaHoras(),
                 d.duracionJuegoMin(), d.bloqueCanchaMin(), d.clasificadosLiguilla(), d.formatoLiguilla(),
                 d.empateLiguillaPorPenales(), d.equiposAscienden(), d.equiposDescienden(), d.permiteCambioClub(),
-                esDemo, List.of());
+                d.equiposPorArbitro(), esDemo, List.of());
     }
 
     private static FilaVersion fila(UUID id, int version, ValoresParametros valores) {
@@ -246,6 +247,38 @@ class ParametrosServiceTest {
         assertThat(eventoAuditado().detalle()).containsEntry("version", 2)
                 .containsEntry("versionAnterior", 1)
                 .containsEntry("campos", List.of("puntosVictoria", "categorias"));
+    }
+
+    @Test
+    @DisplayName("RF-114: versión nueva sin equiposPorArbitro conserva el valor anterior")
+    void versionNuevaSinEquiposPorArbitroConservaElValorAnterior() {
+        existeTemporada(EstadoTemporada.ACTIVA);
+        ValoresParametros vigentes = predeterminados(true).conEquiposPorArbitro(7);
+        given(parametros.buscarVigente(TEMPORADA)).willReturn(Optional.of(fila(VERSION_1, 1, vigentes)));
+        given(parametros.categoriasDeVersion(VERSION_1)).willReturn(List.of());
+        seInserta(VERSION_2, 2, vigentes, List.of());
+
+        ParametrosDto creada = servicio.registrar(TEMPORADA,
+                ParametrosPrueba.juego().sinEquiposPorArbitro().peticion());
+
+        assertThat(valoresInsertados().equiposPorArbitro()).as("hereda el divisor de la versión 1").isEqualTo(7);
+        assertThat(creada.equiposPorArbitro()).isEqualTo(7);
+        assertThat(eventoAuditado().detalle()).containsEntry("versionAnterior", 1)
+                .containsEntry("campos", List.of());
+    }
+
+    @Test
+    @DisplayName("RF-114: sin equiposPorArbitro la primera versión usa el 4 [DEMO] de la tabla")
+    void primeraVersionSinEquiposPorArbitroUsaElValorDeLaTabla() {
+        existeTemporada(EstadoTemporada.CONFIGURACION);
+        seInserta(VERSION_1, 1, predeterminados(true), List.of());
+
+        ParametrosDto creada = servicio.registrar(TEMPORADA,
+                ParametrosPrueba.juego().sinEquiposPorArbitro().peticion());
+
+        assertThat(valoresInsertados().equiposPorArbitro()).isEqualTo(
+                ParametrosPredeterminadosDto.DE_LA_TABLA.equiposPorArbitro());
+        assertThat(creada.equiposPorArbitro()).isEqualTo(4);
     }
 
     @Test
@@ -484,7 +517,7 @@ class ParametrosServiceTest {
     void consultarHistorial() {
         existeTemporada(EstadoTemporada.ACTIVA);
         ValoresParametros segunda = new ValoresParametros(2, 1, 0, List.of(CriterioDesempate.PUNTOS), 3, 0, 48, 90,
-                120, 8, FormatoLiguilla.PARTIDO_UNICO, true, 2, 2, true, false, List.of());
+                120, 8, FormatoLiguilla.PARTIDO_UNICO, true, 2, 2, true, 4, false, List.of());
         given(parametros.listarVersiones(TEMPORADA)).willReturn(List.of(
                 fila(VERSION_1, 1, predeterminados(true)), fila(VERSION_2, 2, segunda)));
         given(parametros.categoriasDeTemporada(TEMPORADA)).willReturn(List.of(filaCategoria(VERSION_2, 70, 90)));

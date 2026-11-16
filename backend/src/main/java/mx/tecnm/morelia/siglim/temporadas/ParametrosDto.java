@@ -40,6 +40,7 @@ public record ParametrosDto(
         int equiposAscienden,
         int equiposDescienden,
         boolean permiteCambioClub,
+        int equiposPorArbitro,
         List<ParametrosCategoriaDto> categorias,
         boolean esDemo,
         List<String> camposDemo,
