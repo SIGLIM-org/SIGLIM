@@ -28,6 +28,7 @@ record ValoresParametros(
         int equiposAscienden,
         int equiposDescienden,
         boolean permiteCambioClub,
+        int equiposPorArbitro,
         boolean esDemo,
         List<ValorCategoria> categorias) {
 
@@ -41,7 +42,7 @@ record ValoresParametros(
         return new ValoresParametros(puntosVictoria, puntosEmpate, puntosDerrota, criteriosDesempate,
                 golesDefaultGanador, golesDefaultPerdedor, plazoValidacionCedulaHoras, duracionJuegoMin,
                 bloqueCanchaMin, clasificadosLiguilla, formatoLiguilla, empateLiguillaPorPenales, equiposAscienden,
-                equiposDescienden, permiteCambioClub, esDemo, otras);
+                equiposDescienden, permiteCambioClub, equiposPorArbitro, esDemo, otras);
     }
 
     /** Duración de juego y bloque de cancha de una categoría (D7). */

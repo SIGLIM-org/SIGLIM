@@ -36,6 +36,7 @@ public record RegistrarParametrosRequest(
         Integer equiposAscienden,
         Integer equiposDescienden,
         Boolean permiteCambioClub,
+        Integer equiposPorArbitro,
         Boolean esDemo,
         List<CategoriaRequest> categorias,
         String motivo) {

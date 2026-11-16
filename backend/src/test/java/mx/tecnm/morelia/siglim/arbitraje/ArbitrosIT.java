@@ -175,7 +175,167 @@ class ArbitrosIT extends BaseDatosPrueba {
                 .isEqualTo(2);
     }
 
+    // ── Cuota de árbitros (B-08.1, RF-114, DEC-17) ─────────────────────────────────────────────
+
+    @Test
+    @DisplayName("B-08.1 · RF-114: 5 equipos activos con 4 por árbitro requieren 2 y solo cuenta el VALIDADO")
+    void cuotaRedondeaHaciaArriba() {
+        Club club = club("Cuota");
+        UUID temporada = temporadaConParametros(1, 4);
+        UUID grupo = grupoDe(temporada);
+        for (int numero = 1; numero <= 5; numero++) {
+            equipoActivo(club.id(), grupo, "Equipo " + numero);
+        }
+        equipoDeBaja(club.id(), grupo, "Equipo dado de baja");
+        arbitro(club.id(), EstadoArbitro.VALIDADO);
+        arbitro(club.id(), EstadoArbitro.PROPUESTO);
+        arbitro(club.id(), EstadoArbitro.RECHAZADO);
+
+        iniciarSesion(perfilDeDirectiva(club.id()));
+        CuotaArbitrosDto cuota = arbitros.consultarCuota(club.id(), temporada);
+
+        assertThat(cuota.club().id()).isEqualTo(club.id());
+        assertThat(cuota.temporada().id()).isEqualTo(temporada);
+        assertThat(cuota.equiposActivos()).as("los equipos dados de baja no cuentan").isEqualTo(5);
+        assertThat(cuota.equiposPorArbitro()).isEqualTo(4);
+        assertThat(cuota.cuotaArbitros().requeridos()).as("ceil(5 / 4)").isEqualTo(2);
+        assertThat(cuota.cuotaArbitros().validados()).as("solo los VALIDADO cubren la cuota").isEqualTo(1);
+        assertThat(cuota.cuotaArbitros().cumple()).isFalse();
+    }
+
+    @Test
+    @DisplayName("B-08.1 · RF-114, DEC-72: la cuota usa la versión vigente del parámetro de la temporada")
+    void cuotaUsaParametroDeLaTemporada() {
+        Club club = club("Parámetro");
+        UUID temporada = temporadaConParametros(1, 5);
+        parametros(temporada, 2, 2);
+        UUID grupo = grupoDe(temporada);
+        for (int numero = 1; numero <= 5; numero++) {
+            equipoActivo(club.id(), grupo, "Equipo " + numero);
+        }
+        arbitro(club.id(), EstadoArbitro.VALIDADO);
+        arbitro(club.id(), EstadoArbitro.VALIDADO);
+
+        iniciarSesion(perfilDeDirectiva(club.id()));
+        CuotaArbitrosDto cuota = arbitros.consultarCuota(club.id(), temporada);
+
+        assertThat(cuota.equiposPorArbitro()).as("se ignora la versión 1 y se usa la 2").isEqualTo(2);
+        assertThat(cuota.cuotaArbitros().requeridos()).as("ceil(5 / 2)").isEqualTo(3);
+        assertThat(cuota.cuotaArbitros().validados()).isEqualTo(2);
+        assertThat(cuota.cuotaArbitros().cumple()).isFalse();
+    }
+
+    @Test
+    @DisplayName("B-08.1 · VAL-024: con ámbito CLUB la cuota de otro club responde 404 como una inexistente")
+    void cuotaFueraDeAmbito() {
+        Club propio = club("Cuota propia");
+        Club ajeno = club("Cuota ajena");
+        UUID temporada = temporadaConParametros(1, 4);
+
+        iniciarSesion(perfilDeDirectiva(propio.id()));
+
+        assertThatThrownBy(() -> arbitros.consultarCuota(ajeno.id(), temporada))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        assertThatThrownBy(() -> arbitros.consultarCuota(UUID.randomUUID(), temporada))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
     // ── Apoyo ───────────────────────────────────────────────────────────────────────────────────
+
+    /** Temporada en configuración (no compite por la única ACTIVA) con una versión de parámetros. */
+    private UUID temporadaConParametros(int version, int equiposPorArbitro) {
+        UUID temporada = jdbc.sql("""
+                        INSERT INTO siglim.temporadas (liga_id, nombre, fecha_inicio)
+                        VALUES (:liga, :nombre, DATE '2035-08-01')
+                        RETURNING id
+                        """)
+                .param("liga", LIGA)
+                .param("nombre", "Temporada " + UUID.randomUUID())
+                .query(UUID.class)
+                .single();
+        parametros(temporada, version, equiposPorArbitro);
+        return temporada;
+    }
+
+    private void parametros(UUID temporada, int version, int equiposPorArbitro) {
+        jdbc.sql("""
+                        INSERT INTO siglim.parametros_temporada
+                            (temporada_id, version, equipos_por_arbitro, motivo)
+                        VALUES (:temporada, :version, :equiposPorArbitro, 'Parámetros de la cuota de prueba')
+                        """)
+                .param("temporada", temporada)
+                .param("version", version)
+                .param("equiposPorArbitro", equiposPorArbitro)
+                .update();
+    }
+
+    /** Categoría, categoría de la temporada y grupo donde se dan de alta los equipos del club. */
+    private UUID grupoDe(UUID temporada) {
+        UUID categoria = jdbc.sql("""
+                        INSERT INTO siglim.categorias (liga_id, nombre, tipo, orden)
+                        SELECT :liga, :nombre, 'LIBRE', coalesce(max(orden), 0) + 1
+                          FROM siglim.categorias
+                         WHERE liga_id = :liga
+                        RETURNING id
+                        """)
+                .param("liga", LIGA)
+                .param("nombre", "Categoría " + UUID.randomUUID())
+                .query(UUID.class)
+                .single();
+        UUID categoriaTemporada = jdbc.sql("""
+                        INSERT INTO siglim.categorias_temporada (temporada_id, categoria_id)
+                        VALUES (:temporada, :categoria)
+                        RETURNING id
+                        """)
+                .param("temporada", temporada)
+                .param("categoria", categoria)
+                .query(UUID.class)
+                .single();
+        return jdbc.sql("""
+                        INSERT INTO siglim.grupos (categoria_temporada_id, nombre)
+                        VALUES (:categoriaTemporada, 'A')
+                        RETURNING id
+                        """)
+                .param("categoriaTemporada", categoriaTemporada)
+                .query(UUID.class)
+                .single();
+    }
+
+    private void equipoActivo(UUID club, UUID grupo, String nombre) {
+        jdbc.sql("""
+                        INSERT INTO siglim.equipos (club_id, grupo_id, nombre)
+                        VALUES (:club, :grupo, :nombre)
+                        """)
+                .param("club", club)
+                .param("grupo", grupo)
+                .param("nombre", nombre)
+                .update();
+    }
+
+    private void equipoDeBaja(UUID club, UUID grupo, String nombre) {
+        jdbc.sql("""
+                        INSERT INTO siglim.equipos
+                            (club_id, grupo_id, nombre, estado, baja_en, motivo_baja)
+                        VALUES (:club, :grupo, :nombre, 'BAJA', CURRENT_DATE, 'Baja de prueba')
+                        """)
+                .param("club", club)
+                .param("grupo", grupo)
+                .param("nombre", nombre)
+                .update();
+    }
+
+    private UUID arbitro(UUID club, EstadoArbitro estado) {
+        return jdbc.sql("""
+                        INSERT INTO siglim.arbitros (persona_id, club_id, estado)
+                        VALUES (:persona, :club, CAST(:estado AS siglim.estado_arbitro))
+                        RETURNING id
+                        """)
+                .param("persona", persona())
+                .param("club", club)
+                .param("estado", estado.name())
+                .query(UUID.class)
+                .single();
+    }
 
     private Club club(String nombre) {
         UUID id = jdbc.sql("""

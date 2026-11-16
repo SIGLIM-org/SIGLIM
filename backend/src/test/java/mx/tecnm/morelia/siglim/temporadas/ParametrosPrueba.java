@@ -48,6 +48,7 @@ final class ParametrosPrueba {
         Integer equiposAscienden = 2;
         Integer equiposDescienden = 2;
         Boolean permiteCambioClub = true;
+        Integer equiposPorArbitro = 4;
         Boolean esDemo;
         List<CategoriaRequest> categorias;
         String motivo = MOTIVO;
@@ -104,8 +105,8 @@ final class ParametrosPrueba {
                     criteriosDesempate == null ? null : List.copyOf(criteriosDesempate), golesDefaultGanador,
                     golesDefaultPerdedor, plazoValidacionCedulaHoras, duracionJuegoMin, bloqueCanchaMin,
                     clasificadosLiguilla, formatoLiguilla, empateLiguillaPorPenales, equiposAscienden,
-                    equiposDescienden, permiteCambioClub, esDemo, categorias == null ? null : List.copyOf(categorias),
-                    motivo);
+                    equiposDescienden, permiteCambioClub, equiposPorArbitro, esDemo,
+                    categorias == null ? null : List.copyOf(categorias), motivo);
         }
     }
 }

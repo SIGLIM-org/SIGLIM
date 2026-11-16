@@ -63,11 +63,12 @@ class ParametrosServiceTest {
     private static final OffsetDateTime CREADO_EN = OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC);
     private static final String MOTIVO = ParametrosPrueba.MOTIVO;
 
-    /** Los 16 campos de una versión, sin {@code categorias}: los de la versión 1 sin filas propias. */
+    /** Los 17 campos de una versión, sin {@code categorias}: los de la versión 1 sin filas propias. */
     private static final List<String> TODOS = List.of("puntosVictoria", "puntosEmpate", "puntosDerrota",
             "criteriosDesempate", "golesDefaultGanador", "golesDefaultPerdedor", "plazoValidacionCedulaHoras",
             "duracionJuegoMin", "bloqueCanchaMin", "clasificadosLiguilla", "formatoLiguilla",
-            "empateLiguillaPorPenales", "equiposAscienden", "equiposDescienden", "permiteCambioClub", "esDemo");
+            "empateLiguillaPorPenales", "equiposAscienden", "equiposDescienden", "permiteCambioClub",
+            "equiposPorArbitro", "esDemo");
 
     private final ParametrosRepository parametros = mock(ParametrosRepository.class);
     private final Autorizacion autorizacion = mock(Autorizacion.class);
@@ -101,7 +102,7 @@ class ParametrosServiceTest {
                 d.golesDefaultGanador(), d.golesDefaultPerdedor(), d.plazoValidacionCedulaHoras(),
                 d.duracionJuegoMin(), d.bloqueCanchaMin(), d.clasificadosLiguilla(), d.formatoLiguilla(),
                 d.empateLiguillaPorPenales(), d.equiposAscienden(), d.equiposDescienden(), d.permiteCambioClub(),
-                esDemo, List.of());
+                d.equiposPorArbitro(), esDemo, List.of());
     }
 
     private static FilaVersion fila(UUID id, int version, ValoresParametros valores) {
@@ -484,7 +485,7 @@ class ParametrosServiceTest {
     void consultarHistorial() {
         existeTemporada(EstadoTemporada.ACTIVA);
         ValoresParametros segunda = new ValoresParametros(2, 1, 0, List.of(CriterioDesempate.PUNTOS), 3, 0, 48, 90,
-                120, 8, FormatoLiguilla.PARTIDO_UNICO, true, 2, 2, true, false, List.of());
+                120, 8, FormatoLiguilla.PARTIDO_UNICO, true, 2, 2, true, 4, false, List.of());
         given(parametros.listarVersiones(TEMPORADA)).willReturn(List.of(
                 fila(VERSION_1, 1, predeterminados(true)), fila(VERSION_2, 2, segunda)));
         given(parametros.categoriasDeTemporada(TEMPORADA)).willReturn(List.of(filaCategoria(VERSION_2, 70, 90)));

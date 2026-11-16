@@ -5,7 +5,12 @@ import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import mx.tecnm.morelia.siglim.arbitraje.ArbitroRepository.DatosCuota;
+import mx.tecnm.morelia.siglim.arbitraje.ArbitroRepository.ReferenciaClub;
 import mx.tecnm.morelia.siglim.arbitraje.ArbitroRepository.ResumenArbitro;
+import mx.tecnm.morelia.siglim.arbitraje.ArbitroRepository.TemporadaCuota;
+import mx.tecnm.morelia.siglim.arbitraje.CuotaArbitrosDto.ReferenciaDto;
+import mx.tecnm.morelia.siglim.arbitraje.CuotaArbitrosDto.ResumenCuotaDto;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
 import mx.tecnm.morelia.siglim.auditoria.EventoAuditoria;
 import mx.tecnm.morelia.siglim.compartido.api.Pagina;
@@ -88,6 +93,49 @@ public class ArbitroService {
         filtro.validar();
         return Pagina.de(arbitros.listar(ligaId, filtro, alcance), filtro.pagina(), filtro.tamano(),
                 arbitros.contar(ligaId, filtro, alcance));
+    }
+
+    /**
+     * Cuota de árbitros del club (RF-114, RN-042, DEC-17): al menos un árbitro validado por cada
+     * {@code equiposPorArbitro} equipos activos, con redondeo hacia arriba. El divisor sale de la
+     * versión vigente de {@code parametros_temporada}; nunca es una constante del código. Sin
+     * {@code temporadaId} se usa la temporada activa de la liga.
+     *
+     * <p>El ámbito es el del club: la Directiva solo consulta el suyo y un club ajeno responde
+     * {@code 404}, igual que uno inexistente (VAL-024, ADR-0007). Solo cuentan los árbitros
+     * {@code VALIDADO}; los propuestos, rechazados y dados de baja no cubren la cuota.
+     *
+     * @throws ReglaNegocioException 403 {@code VAL-015} sin el permiso; 409 {@code RF-114} si no
+     *                               hay temporada activa y no se indicó una; 409 {@code RF-100} si la
+     *                               temporada no tiene parámetros deportivos
+     */
+    @Transactional(readOnly = true)
+    public CuotaArbitrosDto consultarCuota(UUID clubId, UUID temporadaId) {
+        autorizacion.exigir(CONSULTAR, ObjetivoAutorizacion.deClubes(clubId));
+        ReferenciaClub club = arbitros.buscarClub(ligaId, clubId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Club " + clubId));
+        TemporadaCuota temporada = (temporadaId == null
+                ? arbitros.temporadaActiva(ligaId)
+                : arbitros.buscarTemporada(ligaId, temporadaId))
+                .orElseThrow(() -> temporadaId == null
+                        ? ReglaNegocioException.conflicto("RF-114",
+                                "La liga no tiene una temporada activa: indica la temporada de la cuota.")
+                        : new RecursoNoEncontradoException("Temporada " + temporadaId));
+
+        DatosCuota datos = arbitros.datosCuota(club.id(), temporada.id());
+        Integer equiposPorArbitro = datos.equiposPorArbitro();
+        if (equiposPorArbitro == null) {
+            throw ReglaNegocioException.conflicto("RF-100",
+                    "La temporada «" + temporada.nombre()
+                            + "» no tiene parámetros deportivos: no se puede calcular la cuota de árbitros.");
+        }
+        int requeridos = Math.ceilDiv(datos.equiposActivos(), equiposPorArbitro);
+        return new CuotaArbitrosDto(
+                new ReferenciaDto(club.id(), club.nombre()),
+                new ReferenciaDto(temporada.id(), temporada.nombre()),
+                datos.equiposActivos(),
+                equiposPorArbitro,
+                new ResumenCuotaDto(requeridos, datos.validados(), datos.validados() >= requeridos));
     }
 
     /**
