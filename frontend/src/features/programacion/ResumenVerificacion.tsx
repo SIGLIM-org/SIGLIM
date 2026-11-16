@@ -17,6 +17,7 @@ import type {
 
 type Props = {
   estadoJornada: EstadoJornada
+  /** Partidos no cancelados: sin ninguno, la jornada no se envía. */
   partidos: number
   conflictos: readonly AvisoVerificacion[]
   advertencias: readonly AvisoVerificacion[]
@@ -31,9 +32,9 @@ type Props = {
 }
 
 /**
- * Panel de validación de F-22 (H-12.4): resume la verificación en línea y controla el envío. El
- * envío real llega con H-13.2; aquí solo se deshabilita mientras haya conflictos o la jornada no
- * esté en borrador.
+ * Panel de validación de F-22 (H-12.4): resume la verificación en línea y controla el envío a
+ * aprobación (H-13.2), que se deshabilita mientras haya conflictos o la jornada no esté en
+ * borrador y explica la causa.
  */
 export function ResumenVerificacion({
   estadoJornada,

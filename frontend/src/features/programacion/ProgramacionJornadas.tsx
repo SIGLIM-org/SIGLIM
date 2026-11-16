@@ -5,6 +5,7 @@ import {
   CalendarPlus,
   CircleAlert,
   CircleCheck,
+  CornerUpLeft,
   Info,
   Lock,
   Plus,
@@ -16,6 +17,7 @@ import { EstadoCarga } from '@/components/ui/EstadoCarga'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { Insignia } from '@/components/ui/Insignia'
 import { ListaPartidos } from '@/features/programacion/ListaPartidos'
+import { ModalEnvioJornada } from '@/features/programacion/ModalEnvioJornada'
 import { ModalNuevaJornada } from '@/features/programacion/ModalNuevaJornada'
 import { ModalPartido } from '@/features/programacion/ModalPartido'
 import { ResumenVerificacion } from '@/features/programacion/ResumenVerificacion'
@@ -36,13 +38,15 @@ import type {
   GrupoProgramacion,
   Partido,
 } from '@/features/programacion/tipos'
+import { formatearFechaHora } from '@/features/publicacion/fechas'
 import { useCategoriasTemporada } from '@/features/temporadas/api'
 
 /**
  * Programación manual de una jornada (F-22, H-12.4). El Programador elige el grupo y la jornada,
  * registra o ajusta partidos con motivo y ve en línea los conflictos que reporta
- * `POST /jornadas/{id}/verificacion`. El envío a aprobación queda deshabilitado mientras haya
- * conflictos; el envío real llega con H-13.2.
+ * `POST /jornadas/{id}/verificacion`. El envío a aprobación (H-13.2, RF-121) queda deshabilitado
+ * mientras haya conflictos y pide confirmación; si la Presidencia devuelve la jornada, sus
+ * observaciones se muestran arriba de los partidos.
  */
 export function ProgramacionJornadas() {
   const permisos = usePermisosProgramacion()
@@ -53,6 +57,7 @@ export function ProgramacionJornadas() {
   const [creandoJornada, setCreandoJornada] = useState(false)
   const [creandoPartido, setCreandoPartido] = useState(false)
   const [partidoEnEdicion, setPartidoEnEdicion] = useState<Partido | null>(null)
+  const [enviando, setEnviando] = useState(false)
   const [mensaje, setMensaje] = useState<{
     texto: string
     tono: 'exito' | 'informacion'
@@ -112,10 +117,12 @@ export function ProgramacionJornadas() {
 
   const puedeEditarJornada = permisos.editar && jornada?.estadoPublicacion === 'BORRADOR'
   const verificacionLista = !verificacion.isPending && !verificacion.isError
+  // El backend no envía una jornada sin partidos vigentes (`409 RF-121`, [PROPUESTA]).
+  const partidosVigentes = partidos.filter(({ estado }) => estado !== 'CANCELADO').length
   const puedeEnviar =
     permisos.enviar &&
     jornada?.estadoPublicacion === 'BORRADOR' &&
-    partidos.length > 0 &&
+    partidosVigentes > 0 &&
     verificacionLista &&
     conflictos.length === 0
   const numeroSugerido =
@@ -155,12 +162,21 @@ export function ProgramacionJornadas() {
   }
 
   const alEnviar = () => {
+    setMensaje(null)
+    setEnviando(true)
+  }
+
+  const alEnviarJornada = (enviada: { numero: number }) => {
+    setEnviando(false)
     setMensaje({
-      texto:
-        'La jornada está lista para enviarse. El envío a aprobación estará disponible próximamente.',
-      tono: 'informacion',
+      texto: `Jornada ${enviada.numero} enviada a aprobación. La Presidencia la revisará antes de publicarla.`,
+      tono: 'exito',
     })
   }
+
+  const contextoJornada = grupo ? `${grupo.categoria} · ${grupo.nombre}` : 'el grupo'
+  const fueDevuelta =
+    jornada?.estadoPublicacion === 'BORRADOR' && Boolean(jornada.observaciones)
 
   return (
     <div className="flex flex-col gap-6">
@@ -380,9 +396,33 @@ export function ProgramacionJornadas() {
                   className="flex items-start gap-2 rounded-lg border border-info/30 bg-info/10 p-3 text-body-md text-info-strong"
                 >
                   <Info aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
-                  Esta jornada está en {etiquetaEstadoJornada[jornada.estadoPublicacion].toLowerCase()}.
-                  Solo se ajustan partidos de una jornada en borrador.
+                  <span>
+                    {jornada.estadoPublicacion === 'REVISION'
+                      ? `Esta jornada está en revisión de la Presidencia${jornada.enviadaEn ? ` desde el ${formatearFechaHora(jornada.enviadaEn)}` : ''}. Podrás ajustar partidos si la devuelve a borrador.`
+                      : `Esta jornada está publicada${jornada.publicadaEn ? ` desde el ${formatearFechaHora(jornada.publicadaEn)}` : ''} y ya aparece en el portal. Solo se ajustan partidos de una jornada en borrador.`}
+                  </span>
                 </p>
+              )}
+
+              {fueDevuelta && (
+                <div
+                  role="note"
+                  aria-label="Observaciones de la Presidencia"
+                  className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-4"
+                >
+                  <CornerUpLeft aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-warning-strong" />
+                  <div className="min-w-0">
+                    <p className="text-headline-sm text-warning-strong">
+                      La Presidencia devolvió esta jornada
+                    </p>
+                    <p className="mt-1 whitespace-pre-line break-words text-body-md text-text-main">
+                      {jornada.observaciones}
+                    </p>
+                    <p className="mt-1 text-body-sm text-text-muted">
+                      Corrige lo señalado y vuelve a enviarla a aprobación.
+                    </p>
+                  </div>
+                </div>
               )}
 
               {!verificacion.isPending && !verificacion.isError && conflictos.length > 0 && (
@@ -426,7 +466,7 @@ export function ProgramacionJornadas() {
 
                 <ResumenVerificacion
                   estadoJornada={jornada.estadoPublicacion}
-                  partidos={partidos.length}
+                  partidos={partidosVigentes}
                   conflictos={conflictos}
                   advertencias={advertencias}
                   cargando={verificacion.isPending}
@@ -449,6 +489,16 @@ export function ProgramacionJornadas() {
           numeroSugerido={numeroSugerido}
           onCerrar={() => setCreandoJornada(false)}
           onCreada={alCrearJornada}
+        />
+      )}
+
+      {jornada && enviando && (
+        <ModalEnvioJornada
+          jornada={jornada}
+          contexto={contextoJornada}
+          partidos={partidosVigentes}
+          onCerrar={() => setEnviando(false)}
+          onEnviada={alEnviarJornada}
         />
       )}
 

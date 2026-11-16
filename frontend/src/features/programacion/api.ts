@@ -5,8 +5,10 @@ import type {
   CrearPartidoPeticion,
   Jornada,
   Partido,
+  ResolverJornadaPeticion,
   VerificacionJornada,
 } from '@/features/programacion/tipos'
+import { clavesPublicaciones } from '@/features/publicacion/api'
 import type { Temporada } from '@/features/temporadas/tipos'
 import { api } from '@/lib/api/cliente'
 import type { Pagina } from '@/lib/api/tipos'
@@ -81,6 +83,47 @@ function useInvalidarProgramacion() {
   const clienteConsultas = useQueryClient()
 
   return () => clienteConsultas.invalidateQueries({ queryKey: clavesProgramacion.todas })
+}
+
+/**
+ * Después de enviar o dictaminar, la jornada cambia de estado y entra o sale de la bandeja de
+ * pendientes: se refrescan las dos.
+ */
+function useInvalidarPublicacion() {
+  const clienteConsultas = useQueryClient()
+
+  return () =>
+    Promise.all([
+      clienteConsultas.invalidateQueries({ queryKey: clavesProgramacion.todas }),
+      clienteConsultas.invalidateQueries({ queryKey: clavesPublicaciones.todas }),
+    ])
+}
+
+/**
+ * `POST /jornadas/{id}/envio` (H-13.1, RF-121): `BORRADOR` → `REVISION`. Un `409 RF-039` trae los
+ * conflictos que aparecieron después de la última verificación; se refresca para mostrarlos.
+ */
+export function useEnviarJornada() {
+  const invalidar = useInvalidarPublicacion()
+
+  return useMutation({
+    mutationFn: (jornadaId: string) => api.post<Jornada>(`jornadas/${jornadaId}/envio`),
+    onSettled: invalidar,
+  })
+}
+
+/**
+ * `POST /jornadas/{id}/resolucion` (H-13.1, RF-121, RF-090): aprobar y publicar, o devolver a
+ * borrador con observaciones. Quien programa no puede dictaminar (`403 RF-121`).
+ */
+export function useResolverJornada() {
+  const invalidar = useInvalidarPublicacion()
+
+  return useMutation({
+    mutationFn: ({ id, ...peticion }: ResolverJornadaPeticion & { id: string }) =>
+      api.post<Jornada>(`jornadas/${id}/resolucion`, peticion),
+    onSettled: invalidar,
+  })
 }
 
 /** `POST /jornadas` (RF-033). */
