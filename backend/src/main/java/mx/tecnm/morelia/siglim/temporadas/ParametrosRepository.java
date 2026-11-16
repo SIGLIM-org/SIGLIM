@@ -42,7 +42,7 @@ class ParametrosRepository {
                    p.duracion_juego_min, p.bloque_cancha_min, p.clasificados_liguilla,
                    p.formato_liguilla::text AS formato_liguilla, p.empate_liguilla_por_penales,
                    p.equipos_ascienden, p.equipos_descienden, p.permite_cambio_club,
-                   p.equipos_por_arbitro, p.es_demo,
+                   p.equipos_por_arbitro, p.fechas_fase_regular, p.fechas_finales_unidad_deportiva, p.es_demo,
                    p.motivo, p.creado_por, pf.nombre_mostrado AS creado_por_nombre, p.creado_en
               FROM parametros_temporada p
               LEFT JOIN perfiles pf ON pf.id = p.creado_por
@@ -146,12 +146,14 @@ class ParametrosRepository {
                                goles_default_ganador, goles_default_perdedor, plazo_validacion_cedula,
                                duracion_juego_min, bloque_cancha_min, clasificados_liguilla, formato_liguilla,
                                empate_liguilla_por_penales, equipos_ascienden, equipos_descienden,
-                               permite_cambio_club, equipos_por_arbitro, es_demo, motivo, creado_por)
+                               permite_cambio_club, equipos_por_arbitro, fechas_fase_regular,
+                               fechas_finales_unidad_deportiva, es_demo, motivo, creado_por)
                         VALUES (:temporadaId, :puntosVictoria, :puntosEmpate, :puntosDerrota,
                                 CAST(:criterios AS criterio_desempate[]),
                                 :golesGanador, :golesPerdedor, make_interval(hours => :plazoHoras),
                                 :duracion, :bloque, :clasificados, CAST(:formato AS formato_eliminatoria),
-                                :penales, :ascienden, :descienden, :cambioClub, :equiposPorArbitro, :esDemo,
+                                :penales, :ascienden, :descienden, :cambioClub, :equiposPorArbitro,
+                                :fechasFaseRegular, :fechasFinales, :esDemo,
                                 :motivo, :creadoPor)
                         RETURNING id, version
                         """)
@@ -172,6 +174,8 @@ class ParametrosRepository {
                 .param("descienden", valores.equiposDescienden())
                 .param("cambioClub", valores.permiteCambioClub())
                 .param("equiposPorArbitro", valores.equiposPorArbitro())
+                .param("fechasFaseRegular", valores.fechasFaseRegular(), java.sql.Types.SMALLINT)
+                .param("fechasFinales", valores.fechasFinalesUnidadDeportiva())
                 .param("esDemo", valores.esDemo())
                 .param("motivo", motivo)
                 .param("creadoPor", creadoPor)
@@ -227,6 +231,8 @@ class ParametrosRepository {
                 fila.getInt("equipos_descienden"),
                 fila.getBoolean("permite_cambio_club"),
                 fila.getInt("equipos_por_arbitro"),
+                fila.getObject("fechas_fase_regular", Integer.class),
+                fila.getInt("fechas_finales_unidad_deportiva"),
                 fila.getBoolean("es_demo"),
                 List.of());
         return new FilaVersion(

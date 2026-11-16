@@ -177,6 +177,33 @@ class ProgramacionControllerTest {
     }
 
     @Test
+    @DisplayName("VAL-027: el 409 de localía es aceptable y el reenvío lleva motivoAceptacion al servicio")
+    void registrarPartidoConLocalia() {
+        given(servicio.registrarPartido(eq(JORNADA), any(CrearPartidoRequest.class)))
+                .willThrow(ReglaNegocioException.conflicto("VAL-027", "El equipo local tiene cancha.")
+                        .con("aceptable", true)
+                        .con("advertencias", List.of(new Aviso(null, "VAL-027", "El equipo local tiene cancha."))));
+
+        MvcTestResult rechazo = post(BASE + "/" + JORNADA + "/partidos", CUERPO_PARTIDO);
+
+        assertThat(rechazo).hasStatus(HttpStatus.CONFLICT);
+        assertThat(rechazo).bodyJson().extractingPath("$.codigo").isEqualTo("VAL-027");
+        assertThat(rechazo).bodyJson().extractingPath("$.aceptable").isEqualTo(true);
+        assertThat(rechazo).bodyJson().extractingPath("$.advertencias[0].codigo").isEqualTo("VAL-027");
+
+        Mockito.reset(servicio);
+        given(servicio.registrarPartido(eq(JORNADA), any(CrearPartidoRequest.class))).willReturn(PARTIDO_DTO);
+        String conMotivo = CUERPO_PARTIDO.substring(0, CUERPO_PARTIDO.lastIndexOf('}'))
+                + ",\"motivoAceptacion\":\"La cancha del club está en remodelación\"}";
+
+        assertThat(post(BASE + "/" + JORNADA + "/partidos", conMotivo)).hasStatus(HttpStatus.CREATED);
+        ArgumentCaptor<CrearPartidoRequest> peticion = ArgumentCaptor.forClass(CrearPartidoRequest.class);
+        Mockito.verify(servicio).registrarPartido(eq(JORNADA), peticion.capture());
+        assertThat(peticion.getValue().motivoAceptacion()).isEqualTo("La cancha del club está en remodelación");
+        assertThat(peticion.getValue().canchaId()).isEqualTo(CANCHA);
+    }
+
+    @Test
     @DisplayName("RF-036: POST sin cancha responde 400 VALIDACION y no llega al servicio")
     void registrarPartidoInvalido() {
         MvcTestResult resultado = post(BASE + "/" + JORNADA + "/partidos",

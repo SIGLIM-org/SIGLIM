@@ -66,10 +66,11 @@ class JornadaServiceTest {
 
     private final JornadaRepository jornadas = mock(JornadaRepository.class);
     private final ValidadorConflictos validador = mock(ValidadorConflictos.class);
+    private final ValidadorLocalia localia = mock(ValidadorLocalia.class);
     private final Autorizacion autorizacion = mock(Autorizacion.class);
     private final AuditoriaService auditoria = mock(AuditoriaService.class);
     private final MotivoOperacion motivoOperacion = mock(MotivoOperacion.class);
-    private final JornadaService servicio = new JornadaService(jornadas, validador, autorizacion, auditoria,
+    private final JornadaService servicio = new JornadaService(jornadas, validador, localia, autorizacion, auditoria,
             motivoOperacion, new SiglimPropiedades(null, null, null, LIGA));
 
     @BeforeEach
@@ -239,10 +240,10 @@ class JornadaServiceTest {
         assertThat(resultado.conflictos()).containsExactly(
                 new VerificacionJornadaDto.Aviso(PARTIDO, "VAL-004", "Cancha ocupada."),
                 new VerificacionJornadaDto.Aviso(segundo, "VAL-003", "Equipo ocupado."));
-        assertThat(resultado.advertencias()).as("la localía es backlog B-15").isEmpty();
+        assertThat(resultado.advertencias()).as("sin advertencias de localía").isEmpty();
         verify(autorizacion).exigir(EDITAR, ObjetivoAutorizacion.deLiga());
-        verify(jornadas, never()).insertarPartido(any(), any(), any(), any(), any(), any());
-        verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any());
+        verify(jornadas, never()).insertarPartido(any(), any(), any(), any(), any(), any(), any());
+        verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any(), any());
         verifyNoInteractions(auditoria);
     }
 
@@ -308,7 +309,7 @@ class JornadaServiceTest {
             assertThatThrownBy(() -> servicio.registrarPartido(JORNADA, peticionPartido(LOCAL)))
                     .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-090"));
         }
-        verify(jornadas, never()).insertarPartido(any(), any(), any(), any(), any(), any());
+        verify(jornadas, never()).insertarPartido(any(), any(), any(), any(), any(), any(), any());
         verifyNoInteractions(auditoria);
     }
 
@@ -322,7 +323,7 @@ class JornadaServiceTest {
         assertThatThrownBy(() -> servicio.registrarPartido(JORNADA, peticionPartido(LOCAL)))
                 .isInstanceOfSatisfying(ReglaNegocioException.class,
                         error(HttpStatus.UNPROCESSABLE_CONTENT, "RF-033"));
-        verify(jornadas, never()).insertarPartido(any(), any(), any(), any(), any(), any());
+        verify(jornadas, never()).insertarPartido(any(), any(), any(), any(), any(), any(), any());
         verifyNoInteractions(auditoria);
     }
 
@@ -334,7 +335,7 @@ class JornadaServiceTest {
         given(jornadas.buscarEquipo(LIGA, LOCAL)).willReturn(Optional.of(equipo(LOCAL, "Halcones", GRUPO)));
         given(jornadas.buscarEquipo(LIGA, VISITANTE)).willReturn(Optional.of(equipo(VISITANTE, "Toros", GRUPO)));
         given(jornadas.bloquearCancha(LIGA, CANCHA)).willReturn(Optional.of(cancha(true)));
-        given(jornadas.insertarPartido(JORNADA, LOCAL, VISITANTE, CANCHA, INICIO, PERFIL)).willReturn(PARTIDO);
+        given(jornadas.insertarPartido(JORNADA, LOCAL, VISITANTE, CANCHA, INICIO, null, PERFIL)).willReturn(PARTIDO);
         given(jornadas.buscarPartido(LIGA, PARTIDO))
                 .willReturn(Optional.of(partido(EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, INICIO)));
 
@@ -349,6 +350,111 @@ class JornadaServiceTest {
         assertThat(evento.entidad()).isEqualTo("partidos");
         assertThat(evento.detalle()).containsEntry("jornadaId", JORNADA.toString())
                 .containsEntry("canchaId", CANCHA.toString());
+    }
+
+    // ── Localía (B-15.1, RF-120, VAL-027) ──────────────────────────────────────────────────────
+
+    private static final String MOTIVO_LOCALIA = "La cancha del club está en remodelación";
+    private static final ValidadorLocalia.Advertencia CANCHA_AJENA = new ValidadorLocalia.Advertencia(
+            ValidadorLocalia.Regla.CANCHA_DEL_LOCAL, "El equipo local «Halcones» tiene cancha.");
+
+    private void partidoConCanchaAjena() {
+        given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.BORRADOR)));
+        given(jornadas.buscarEquipo(LIGA, LOCAL)).willReturn(Optional.of(equipo(LOCAL, "Halcones", GRUPO)));
+        given(jornadas.buscarEquipo(LIGA, VISITANTE)).willReturn(Optional.of(equipo(VISITANTE, "Toros", GRUPO)));
+        given(jornadas.bloquearCancha(LIGA, CANCHA)).willReturn(Optional.of(cancha(true)));
+        given(localia.evaluar(eq(GRUPO), eq(JORNADA), any(), eq(CANCHA))).willReturn(List.of(CANCHA_AJENA));
+    }
+
+    @Test
+    @DisplayName("VAL-027: con advertencia de localía y sin motivo se rechaza con 409 y la explicación")
+    void localiaSinMotivo() {
+        partidoConCanchaAjena();
+
+        for (String motivo : java.util.Arrays.asList(null, "", "Corto")) {
+            assertThatThrownBy(() -> servicio.registrarPartido(JORNADA,
+                    new CrearPartidoRequest(LOCAL, VISITANTE, CANCHA, INICIO, motivo)))
+                    .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "VAL-027"))
+                    .hasMessageContaining("«Halcones» tiene cancha")
+                    .hasMessageContaining("motivo de localía")
+                    .satisfies(error -> assertThat(((ReglaNegocioException) error).propiedades())
+                            .containsEntry("aceptable", true).containsKey("advertencias"));
+        }
+        verify(jornadas, never()).insertarPartido(any(), any(), any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-120: con motivo de localía el partido se guarda con él y la aceptación se audita")
+    void localiaConMotivo() {
+        partidoConCanchaAjena();
+        given(jornadas.insertarPartido(JORNADA, LOCAL, VISITANTE, CANCHA, INICIO, MOTIVO_LOCALIA, PERFIL))
+                .willReturn(PARTIDO);
+        given(jornadas.buscarPartido(LIGA, PARTIDO))
+                .willReturn(Optional.of(partido(EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, INICIO)));
+
+        servicio.registrarPartido(JORNADA,
+                new CrearPartidoRequest(LOCAL, VISITANTE, CANCHA, INICIO, "  " + MOTIVO_LOCALIA + " "));
+
+        verify(jornadas).insertarPartido(JORNADA, LOCAL, VISITANTE, CANCHA, INICIO, MOTIVO_LOCALIA, PERFIL);
+        ArgumentCaptor<EventoAuditoria> eventos = ArgumentCaptor.forClass(EventoAuditoria.class);
+        verify(auditoria, org.mockito.Mockito.times(2)).registrar(eventos.capture());
+        EventoAuditoria aceptacion = eventos.getAllValues().get(1);
+        assertThat(aceptacion.accion()).isEqualTo("ACEPTAR_LOCALIA");
+        assertThat(aceptacion.motivo()).isEqualTo(MOTIVO_LOCALIA);
+        assertThat(aceptacion.detalle()).containsEntry("reglas", List.of("CANCHA_DEL_LOCAL"));
+    }
+
+    @Test
+    @DisplayName("RF-120: sin advertencia el motivo de localía enviado se ignora y no se audita aceptación")
+    void sinAdvertenciaIgnoraMotivo() {
+        partidoConCanchaAjena();
+        given(localia.evaluar(eq(GRUPO), eq(JORNADA), any(), eq(CANCHA))).willReturn(List.of());
+        given(jornadas.insertarPartido(JORNADA, LOCAL, VISITANTE, CANCHA, INICIO, null, PERFIL)).willReturn(PARTIDO);
+        given(jornadas.buscarPartido(LIGA, PARTIDO))
+                .willReturn(Optional.of(partido(EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, INICIO)));
+
+        servicio.registrarPartido(JORNADA, new CrearPartidoRequest(LOCAL, VISITANTE, CANCHA, INICIO, MOTIVO_LOCALIA));
+
+        assertThat(eventoAuditado().accion()).isEqualTo("REGISTRAR_PARTIDO");
+    }
+
+    @Test
+    @DisplayName("RF-120: el ajuste conserva el motivo de localía guardado si la advertencia sigue")
+    void ajusteConservaMotivoLocalia() {
+        DatosPartido actual = new DatosPartido(PARTIDO, JORNADA, GRUPO, EstadoJornada.BORRADOR, LOCAL, "Halcones",
+                UUID.randomUUID(), VISITANTE, "Toros", UUID.randomUUID(), CANCHA, "Morelos 2",
+                INICIO, INICIO.plusHours(2), EstadoPartido.PROGRAMADO, MOTIVO_LOCALIA, CREADO_EN, CREADO_EN,
+                "ACTIVO", "ACTIVO", true);
+        given(jornadas.buscarPartidoParaActualizar(LIGA, PARTIDO)).willReturn(Optional.of(actual));
+        given(jornadas.buscarPartido(LIGA, PARTIDO)).willReturn(Optional.of(actual));
+        given(jornadas.buscarEquipo(LIGA, LOCAL)).willReturn(Optional.of(equipo(LOCAL, "Halcones", GRUPO)));
+        given(jornadas.buscarEquipo(LIGA, VISITANTE)).willReturn(Optional.of(equipo(VISITANTE, "Toros", GRUPO)));
+        given(jornadas.bloquearCancha(LIGA, CANCHA)).willReturn(Optional.of(cancha(true)));
+        given(localia.evaluar(eq(GRUPO), eq(JORNADA), any(), eq(CANCHA))).willReturn(List.of(CANCHA_AJENA));
+
+        servicio.actualizarPartido(PARTIDO,
+                new ActualizarPartidoRequest(null, null, null, INICIO.plusHours(3), MOTIVO));
+
+        verify(jornadas).actualizarPartido(PARTIDO, LOCAL, VISITANTE, CANCHA, INICIO.plusHours(3), MOTIVO_LOCALIA);
+        assertThat(eventoAuditado().accion()).as("no hay aceptación nueva").isEqualTo("AJUSTAR_PARTIDO");
+    }
+
+    @Test
+    @DisplayName("VAL-027: la verificación lista las advertencias de localía sin escribir")
+    void verificarListaAdvertencias() {
+        given(jornadas.buscarJornada(LIGA, JORNADA)).willReturn(Optional.of(jornada(EstadoJornada.BORRADOR)));
+        given(jornadas.listarPartidos(JORNADA)).willReturn(List.of(
+                partido(EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, INICIO)));
+        given(localia.evaluar(eq(GRUPO), eq(JORNADA), any(), eq(CANCHA))).willReturn(List.of(CANCHA_AJENA));
+
+        VerificacionJornadaDto resultado = servicio.verificar(JORNADA);
+
+        assertThat(resultado.conflictos()).isEmpty();
+        assertThat(resultado.advertencias()).containsExactly(
+                new VerificacionJornadaDto.Aviso(PARTIDO, "VAL-027", CANCHA_AJENA.mensaje()));
+        verifyNoInteractions(auditoria);
     }
 
     @Test
@@ -368,7 +474,7 @@ class JornadaServiceTest {
         assertThatThrownBy(() -> servicio.registrarPartido(JORNADA, peticionPartido(CANCHA)))
                 .isInstanceOfSatisfying(ReglaNegocioException.class,
                         error(HttpStatus.UNPROCESSABLE_CONTENT, "REFERENCIA_INVALIDA"));
-        verify(jornadas, never()).insertarPartido(any(), any(), any(), any(), any(), any());
+        verify(jornadas, never()).insertarPartido(any(), any(), any(), any(), any(), any(), any());
         verifyNoInteractions(validador, auditoria);
     }
 
@@ -386,7 +492,7 @@ class JornadaServiceTest {
 
         assertThatThrownBy(() -> servicio.registrarPartido(JORNADA, peticionPartido(CANCHA)))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "VAL-004"));
-        verify(jornadas, never()).insertarPartido(any(), any(), any(), any(), any(), any());
+        verify(jornadas, never()).insertarPartido(any(), any(), any(), any(), any(), any(), any());
         verifyNoInteractions(auditoria);
     }
 
@@ -404,7 +510,7 @@ class JornadaServiceTest {
         assertThatThrownBy(() -> servicio.actualizarPartido(PARTIDO,
                 new ActualizarPartidoRequest(null, null, null, INICIO.plusHours(3), "Corto")))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "RN-021"));
-        verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any());
+        verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any(), any());
         verifyNoInteractions(validador, motivoOperacion, auditoria);
     }
 
@@ -424,7 +530,7 @@ class JornadaServiceTest {
                 "  " + MOTIVO + "  "));
 
         verify(validador).validar(eq(GRUPO), eq(PARTIDO), any(), any(), eq(cancha(true)), eq(nuevoInicio));
-        verify(jornadas).actualizarPartido(PARTIDO, LOCAL, VISITANTE, CANCHA, nuevoInicio);
+        verify(jornadas).actualizarPartido(PARTIDO, LOCAL, VISITANTE, CANCHA, nuevoInicio, null);
         verify(motivoOperacion).fijar(MOTIVO);
         EventoAuditoria evento = eventoAuditado();
         assertThat(evento.accion()).isEqualTo("AJUSTAR_PARTIDO");
@@ -448,7 +554,7 @@ class JornadaServiceTest {
         servicio.actualizarPartido(PARTIDO,
                 new ActualizarPartidoRequest(null, nuevoVisitante, null, null, MOTIVO));
 
-        verify(jornadas).actualizarPartido(PARTIDO, LOCAL, nuevoVisitante, CANCHA, INICIO);
+        verify(jornadas).actualizarPartido(PARTIDO, LOCAL, nuevoVisitante, CANCHA, INICIO, null);
         assertThat(eventoAuditado().detalle()).containsEntry("campos", List.of("equipoVisitanteId"));
     }
 
@@ -466,7 +572,7 @@ class JornadaServiceTest {
                 new ActualizarPartidoRequest(null, ajeno, null, null, MOTIVO)))
                 .isInstanceOfSatisfying(ReglaNegocioException.class,
                         error(HttpStatus.UNPROCESSABLE_CONTENT, "RF-033"));
-        verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any());
+        verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any(), any());
         verifyNoInteractions(validador, motivoOperacion, auditoria);
     }
 
@@ -494,7 +600,7 @@ class JornadaServiceTest {
                 new ActualizarPartidoRequest(LOCAL, VISITANTE, CANCHA, INICIO, null));
 
         assertThat(resultado.id()).isEqualTo(PARTIDO);
-        verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any());
+        verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any(), any());
         verifyNoInteractions(validador, motivoOperacion, auditoria);
     }
 
@@ -509,7 +615,7 @@ class JornadaServiceTest {
                     new ActualizarPartidoRequest(null, null, null, INICIO.plusDays(1), MOTIVO)))
                     .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-046"));
         }
-        verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any());
+        verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any(), any());
     }
 
     @Test
