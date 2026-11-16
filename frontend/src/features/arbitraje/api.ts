@@ -1,7 +1,14 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import type {
   Arbitro,
   CrearArbitroPeticion,
+  CuotaArbitros,
   EstadoArbitroVisible,
   FiltrosArbitros,
   ValidarArbitroPeticion,
@@ -17,6 +24,7 @@ export const clavesArbitros = {
   lista: (filtros: FiltrosArbitros) => ['arbitraje', 'arbitros', 'lista', filtros] as const,
   conteo: (estado: EstadoArbitroVisible) =>
     ['arbitraje', 'arbitros', 'conteo', estado] as const,
+  cuota: (clubId: string) => ['arbitraje', 'arbitros', 'cuota', clubId] as const,
 }
 
 function consultaDeArbitros({ estado, pagina, tamano }: FiltrosArbitros): string {
@@ -82,4 +90,40 @@ export function useValidarArbitro(id: string) {
       api.post<Arbitro>(`arbitros/${id}/validacion`, peticion),
     onSuccess: invalidar,
   })
+}
+
+/**
+ * Cuota de árbitros de un club en la temporada activa (RF-114, B-08.2). El backend calcula el
+ * indicador con el ámbito del club; la Comisión (ámbito de liga) puede consultar el de cualquier
+ * club. `habilitada` evita pedirla cuando la vista ya no muestra la cuota.
+ */
+export function useCuotaArbitros(clubId: string | undefined, habilitada = true) {
+  return useQuery({
+    queryKey: clavesArbitros.cuota(clubId ?? 'sin-club'),
+    queryFn: () => consultarCuota(clubId),
+    enabled: habilitada && Boolean(clubId),
+  })
+}
+
+/**
+ * Cuotas de varios clubes a la vez (B-08.2): el filtro «Cumple cuota» de la Comisión necesita el
+ * indicador de cada club de la página. Comparte la clave con {@link useCuotaArbitros}, así que la
+ * celda y el filtro no duplican peticiones.
+ */
+export function useCuotasDeClubes(clubIds: readonly string[], habilitada = true) {
+  return useQueries({
+    queries: clubIds.map((clubId) => ({
+      queryKey: clavesArbitros.cuota(clubId),
+      queryFn: () => consultarCuota(clubId),
+      enabled: habilitada,
+    })),
+  })
+}
+
+function consultarCuota(clubId: string | undefined) {
+  if (!clubId) {
+    throw new Error('Falta el club de la cuota de árbitros.')
+  }
+
+  return api.get<CuotaArbitros>(`clubes/${clubId}/cuota-arbitros`)
 }

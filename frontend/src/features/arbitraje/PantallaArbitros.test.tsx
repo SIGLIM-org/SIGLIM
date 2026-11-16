@@ -7,7 +7,7 @@ import {
   PantallaArbitros,
   RUTA_ARBITROS,
 } from '@/features/arbitraje/PantallaArbitros'
-import type { Arbitro } from '@/features/arbitraje/tipos'
+import type { Arbitro, CuotaArbitros } from '@/features/arbitraje/tipos'
 import type { Persona, PersonaDetalle } from '@/features/organizacion/tipos'
 import type { Ambito, Permiso } from '@/features/seguridad/tipos'
 import { ApiError } from '@/lib/api/ApiError'
@@ -112,11 +112,49 @@ function error(status: number, codigo: string, detail = 'Detalle del servidor.')
   return new ApiError({ title: 'Error', status, detail, codigo })
 }
 
+/** Cuota de un club para el contrato de `GET /clubes/{id}/cuota-arbitros` (RF-114). */
+function cuota(
+  club: { id: string; nombre: string } = CLUB,
+  {
+    requeridos = 1,
+    validados = 1,
+    equiposActivos = 4,
+    equiposPorArbitro = 4,
+  }: {
+    requeridos?: number
+    validados?: number
+    equiposActivos?: number
+    equiposPorArbitro?: number
+  } = {},
+): CuotaArbitros {
+  return {
+    club,
+    temporada: { id: 't1', nombre: 'Apertura 2030' },
+    equiposActivos,
+    equiposPorArbitro,
+    cuotaArbitros: {
+      requeridos,
+      validados,
+      cumple: validados >= requeridos,
+    },
+  }
+}
+
+const OTRO_CLUB = { id: 'c2', nombre: 'Club Toros' }
+
+const PROPUESTO_OTRO: Arbitro = {
+  ...PROPUESTO,
+  id: 'ar-2',
+  persona: { id: 'p3', nombreCompleto: 'Jorge Nava' },
+  club: OTRO_CLUB,
+}
+
 type Respuestas = {
   propuestos?: Arbitro[]
   validados?: Arbitro[]
   rechazados?: Arbitro[]
   personas?: Persona | Error
+  cuotas?: Record<string, CuotaArbitros | Error>
 }
 
 function responder({
@@ -124,6 +162,7 @@ function responder({
   validados = [],
   rechazados = [],
   personas = PERSONA,
+  cuotas = { [CLUB.id]: cuota() },
 }: Respuestas = {}) {
   get.mockImplementation(async (ruta: string) => {
     if (ruta.startsWith('arbitros?')) {
@@ -144,6 +183,18 @@ function responder({
         throw personas
       }
       return personas
+    }
+
+    const deCuota = /^clubes\/([^/]+)\/cuota-arbitros$/.exec(ruta)
+    if (deCuota) {
+      const respuesta = cuotas[deCuota[1]]
+      if (!respuesta) {
+        throw new Error(`Cuota no simulada: ${ruta}`)
+      }
+      if (respuesta instanceof Error) {
+        throw respuesta
+      }
+      return respuesta
     }
 
     throw new Error(`Ruta no simulada: ${ruta}`)
@@ -348,6 +399,185 @@ describe('PantallaArbitros (F-20, H-11.2)', () => {
         personaId: PERSONA.id,
         clubId: CLUB.id,
       }),
+    )
+  })
+
+  it('RF-114: el club ve los árbitros validados frente a los requeridos y la advertencia', async () => {
+    otorgar('CLUB', CONSULTAR, PROPONER)
+    responder({
+      propuestos: [PROPUESTO],
+      cuotas: {
+        [CLUB.id]: cuota(CLUB, { requeridos: 2, validados: 1, equiposActivos: 5 }),
+      },
+    })
+
+    montar()
+
+    const indicador = await screen.findByText(/Árbitros validados:/)
+    expect(indicador).toHaveTextContent('Árbitros validados: 1 de 2 requeridos')
+    expect(
+      screen.getByText(/No cumple la cuota: falta 1 árbitro validado/),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('progressbar', { name: '1 de 2 árbitros validados' }),
+    ).toHaveAttribute('aria-valuenow', '1')
+  })
+
+  it('RF-114: el club ve el cumplimiento cuando alcanza la cuota', async () => {
+    otorgar('CLUB', CONSULTAR, PROPONER)
+    responder({
+      cuotas: {
+        [CLUB.id]: cuota(CLUB, { requeridos: 2, validados: 2 }),
+      },
+    })
+
+    montar()
+
+    expect(await screen.findByText(/El club cumple la cuota/)).toBeInTheDocument()
+    expect(screen.getByText(/Árbitros validados:/)).toHaveTextContent(
+      'Árbitros validados: 2 de 2 requeridos',
+    )
+    expect(screen.queryByText(/No cumple la cuota:/)).not.toBeInTheDocument()
+  })
+
+  it('RF-114: la Comisión ve la insignia «Cumple cuota» por club', async () => {
+    otorgar('LIGA', CONSULTAR)
+    responder({
+      propuestos: [PROPUESTO, PROPUESTO_OTRO],
+      cuotas: {
+        [CLUB.id]: cuota(CLUB, { requeridos: 2, validados: 1, equiposActivos: 5 }),
+        [OTRO_CLUB.id]: cuota(OTRO_CLUB, { requeridos: 2, validados: 2 }),
+      },
+    })
+
+    montar()
+
+    const filaHalcones = await screen.findByRole('row', {
+      name: /Carlos Alberto Prado/,
+    })
+    const filaToros = screen.getByRole('row', { name: /Jorge Nava/ })
+
+    expect(await within(filaHalcones).findByText('No cumple')).toBeInTheDocument()
+    expect(
+      within(filaHalcones).getByText('1 de 2 árbitros validados'),
+    ).toBeInTheDocument()
+    expect(await within(filaToros).findByText('Cumple')).toBeInTheDocument()
+    expect(
+      within(filaToros).getByText('2 de 2 árbitros validados'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Cuota de árbitros por club' }),
+    ).toBeInTheDocument()
+  })
+
+  it('RF-114: la Comisión filtra los clubes por «Cumple cuota»', async () => {
+    otorgar('LIGA', CONSULTAR)
+    responder({
+      propuestos: [PROPUESTO, PROPUESTO_OTRO],
+      cuotas: {
+        [CLUB.id]: cuota(CLUB, { requeridos: 2, validados: 1, equiposActivos: 5 }),
+        [OTRO_CLUB.id]: cuota(OTRO_CLUB, { requeridos: 2, validados: 2 }),
+      },
+    })
+
+    montar()
+
+    const filtro = await screen.findByLabelText('Cumple cuota')
+    await userEvent.selectOptions(filtro, 'NO_CUMPLE')
+
+    expect(
+      await screen.findByText(/Mostrando 1 de 2 árbitros de esta página/),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('row', { name: /Carlos Alberto Prado/ })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('row', { name: /Jorge Nava/ }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('RF-114: si la cuota no se puede calcular, muestra la causa y permite reintentar', async () => {
+    otorgar('CLUB', CONSULTAR, PROPONER)
+    responder({
+      cuotas: {
+        [CLUB.id]: error(
+          409,
+          'RF-114',
+          'La liga no tiene una temporada activa: indica la temporada de la cuota.',
+        ),
+      },
+    })
+
+    montar()
+
+    const alerta = await screen.findByRole('alert')
+    expect(alerta).toHaveTextContent('La liga no tiene una temporada activa')
+    expect(
+      within(alerta).getByRole('button', { name: 'Reintentar' }),
+    ).toBeInTheDocument()
+  })
+
+  it('RF-114: la Comisión marca «Sin dato» si la cuota de un club no está disponible', async () => {
+    otorgar('LIGA', CONSULTAR)
+    responder({
+      propuestos: [PROPUESTO],
+      cuotas: {
+        [CLUB.id]: error(409, 'RF-114', 'Sin temporada activa.'),
+      },
+    })
+
+    montar()
+
+    const fila = await screen.findByRole('row', {
+      name: /Carlos Alberto Prado/,
+    })
+    expect(await within(fila).findByText('Sin dato')).toBeInTheDocument()
+  })
+
+  it('RF-114: un club sin equipos activos muestra el estado vacío de la cuota', async () => {
+    otorgar('CLUB', CONSULTAR, PROPONER)
+    responder({
+      cuotas: {
+        [CLUB.id]: cuota(CLUB, {
+          requeridos: 0,
+          validados: 0,
+          equiposActivos: 0,
+        }),
+      },
+    })
+
+    montar()
+
+    expect(
+      await screen.findByText(/no tiene equipos activos en esta temporada/),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Árbitros validados:/)).not.toBeInTheDocument()
+  })
+
+  it('RF-114: muestra el estado de carga de la cuota', async () => {
+    otorgar('CLUB', CONSULTAR, PROPONER)
+    let resolver!: (valor: CuotaArbitros) => void
+    const pendiente = new Promise<CuotaArbitros>((resolverPromesa) => {
+      resolver = resolverPromesa
+    })
+    get.mockImplementation(async (ruta: string) => {
+      if (ruta.startsWith('arbitros?')) {
+        return pagina([], 0)
+      }
+      if (ruta.endsWith('/cuota-arbitros')) {
+        return pendiente
+      }
+      throw new Error(`Ruta no simulada: ${ruta}`)
+    })
+
+    montar()
+
+    expect(
+      await screen.findByText('Cargando la cuota de árbitros…'),
+    ).toBeInTheDocument()
+
+    resolver(cuota(CLUB, { requeridos: 1, validados: 1 }))
+
+    expect(await screen.findByText(/Árbitros validados:/)).toHaveTextContent(
+      'Árbitros validados: 1 de 1 requeridos',
     )
   })
 })
