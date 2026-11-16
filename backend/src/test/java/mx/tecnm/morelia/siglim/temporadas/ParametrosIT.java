@@ -73,7 +73,7 @@ class ParametrosIT extends BaseDatosPrueba {
         assertThat(consulta.historial()).extracting(VersionParametrosResumenDto::version).containsExactly(2, 1);
         assertThat(consulta.historial().getFirst().camposCambiados())
                 .containsExactly("puntosVictoria", "plazoValidacionCedulaHoras", "esDemo", "categorias");
-        assertThat(consulta.historial().getLast().camposCambiados()).hasSize(17).doesNotContain("categorias");
+        assertThat(consulta.historial().getLast().camposCambiados()).hasSize(19).doesNotContain("categorias");
         assertThat(temporadas.consultar(temporada.id()).versionParametros()).isEqualTo(2);
 
         assertThat(bloqueCancha(temporada.id(), conBloquePropio)).as("fila propia de la categoría").isEqualTo(90);
@@ -113,7 +113,8 @@ class ParametrosIT extends BaseDatosPrueba {
                 tabla.plazoValidacionCedulaHoras(), tabla.duracionJuegoMin(), tabla.bloqueCanchaMin(),
                 tabla.clasificadosLiguilla(), tabla.formatoLiguilla(), tabla.empateLiguillaPorPenales(),
                 tabla.equiposAscienden(), tabla.equiposDescienden(), tabla.permiteCambioClub(),
-                tabla.equiposPorArbitro(), tabla.esDemo()))
+                tabla.equiposPorArbitro(), tabla.fechasFaseRegular(), tabla.fechasFinalesUnidadDeportiva(),
+                tabla.esDemo()))
                 .isEqualTo(ParametrosPredeterminadosDto.DE_LA_TABLA);
     }
 

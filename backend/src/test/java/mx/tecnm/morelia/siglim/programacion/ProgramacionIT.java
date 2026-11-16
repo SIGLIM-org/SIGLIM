@@ -39,6 +39,7 @@ class ProgramacionIT extends BaseDatosPrueba {
     private static final UUID LIGA = UUID.fromString("a0000000-0000-4000-8000-000000000001");
     private static final OffsetDateTime INICIO = OffsetDateTime.parse("2031-03-10T10:00:00-06:00");
     private static final String MOTIVO = "Cambio de horario pedido por la Liga";
+    private static final String MOTIVO_LOCALIA = "La cancha del club está en remodelación";
 
     @Autowired
     private JornadaService servicio;
@@ -276,6 +277,72 @@ class ProgramacionIT extends BaseDatosPrueba {
         assertThat(auditoria.motivo()).isEqualTo(MOTIVO);
         assertThat(auditoria.detalle()).contains("canchaId", "inicio")
                 .doesNotContain("equipoLocalId", "equipoVisitanteId");
+    }
+
+    // ── Localía (B-15.1, RF-120, VAL-027) ──────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("VAL-027, DEC-34: el local con cancha en otra cancha se rechaza sin motivo; con motivo se guarda y audita")
+    void localiaCanchaDelLocal() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID local = crearEquipo(grupo, "Halcones");
+        UUID visitante = crearEquipo(grupo, "Toros");
+        UUID canchaDelClub = crearCanchaDelClub(local);
+        UUID canchaDeLiga = crearCancha();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+
+        assertThatThrownBy(() -> servicio.registrarPartido(jornada,
+                new CrearPartidoRequest(local, visitante, canchaDeLiga, INICIO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "VAL-027"))
+                .hasMessageContaining(nombreDeCancha(canchaDelClub))
+                .hasMessageContaining(nombreDeCancha(canchaDeLiga));
+        assertThat(contarPartidos(jornada)).isZero();
+
+        PartidoDto partido = servicio.registrarPartido(jornada,
+                new CrearPartidoRequest(local, visitante, canchaDeLiga, INICIO, MOTIVO_LOCALIA));
+
+        assertThat(partido.motivoLocalia()).isEqualTo(MOTIVO_LOCALIA);
+        assertThat(jdbc.sql("SELECT motivo FROM siglim.auditoria WHERE entidad_id = :id AND accion = 'ACEPTAR_LOCALIA'")
+                .param("id", partido.id().toString()).query(String.class).single())
+                .isEqualTo(MOTIVO_LOCALIA);
+        assertThat(servicio.verificar(jornada).advertencias()).singleElement().satisfies(aviso -> {
+            assertThat(aviso.codigo()).isEqualTo("VAL-027");
+            assertThat(aviso.mensaje()).contains("Aceptada");
+        });
+
+        PartidoDto enSuCancha = servicio.actualizarPartido(partido.id(),
+                new ActualizarPartidoRequest(null, null, canchaDelClub, null, MOTIVO));
+        assertThat(enSuCancha.motivoLocalia()).as("el motivo deja de aplicar en su cancha").isNull();
+        assertThat(servicio.verificar(jornada).advertencias()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("VAL-027, RN-049: cancha externa en las últimas 10 fechas se advierte; antes, no")
+    void localiaUltimasFechas() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        fijarFechas(grupo, 18, 10);
+        UUID externa = crearCanchaExterna();
+        UUID octava = servicio.crear(new CrearJornadaRequest(grupo, null, 8)).id();
+        UUID novena = servicio.crear(new CrearJornadaRequest(grupo, null, 9)).id();
+
+        servicio.registrarPartido(octava, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), crearEquipo(grupo, "Toros"), externa, INICIO));
+        assertThat(servicio.verificar(octava).advertencias()).as("18 − 10 = 8 no es de las últimas").isEmpty();
+
+        UUID local = crearEquipo(grupo, "Pumas");
+        UUID visitante = crearEquipo(grupo, "Lobos");
+        assertThatThrownBy(() -> servicio.registrarPartido(novena,
+                new CrearPartidoRequest(local, visitante, externa, INICIO.plusDays(7))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "VAL-027"))
+                .hasMessageContaining("últimas 10 fechas")
+                .hasMessageContaining("no oficial");
+
+        PartidoDto aceptado = servicio.registrarPartido(novena,
+                new CrearPartidoRequest(local, visitante, externa, INICIO.plusDays(7), MOTIVO_LOCALIA));
+        assertThat(aceptado.motivoLocalia()).isEqualTo(MOTIVO_LOCALIA);
+        assertThat(accionesAuditadas(aceptado.id())).contains("REGISTRAR_PARTIDO", "ACEPTAR_LOCALIA");
     }
 
     @Test
@@ -661,7 +728,7 @@ class ProgramacionIT extends BaseDatosPrueba {
         // Se salta el validador del servicio a propósito: el INSERT directo llega a la base.
         Throwable error = catchThrowable(() -> new TransactionTemplate(transacciones)
                 .executeWithoutResult(estado -> repositorio.insertarPartido(jornada, local, visitante,
-                        cancha, INICIO.plusMinutes(30), programador)));
+                        cancha, INICIO.plusMinutes(30), null, programador)));
 
         assertThat(error).as("la restricción GiST debía rechazar la cancha ocupada").isNotNull();
         assertThat(traductor.traducir(error, false)).isEqualTo(new ErrorTraducido(
@@ -682,7 +749,7 @@ class ProgramacionIT extends BaseDatosPrueba {
 
         Throwable error = catchThrowable(() -> new TransactionTemplate(transacciones)
                 .executeWithoutResult(estado -> repositorio.insertarPartido(jornada, local, visitante,
-                        otraCancha, INICIO.plusMinutes(30), programador)));
+                        otraCancha, INICIO.plusMinutes(30), null, programador)));
 
         assertThat(error).as("el trigger debía rechazar el equipo repetido").isNotNull();
         ErrorTraducido traducido = traductor.traducir(error, false);
@@ -854,6 +921,39 @@ class ProgramacionIT extends BaseDatosPrueba {
                         """)
                 .param("liga", LIGA).param("nombre", "Cancha " + UUID.randomUUID())
                 .query(UUID.class).single();
+    }
+
+    /** Cancha propia del club del equipo, fuera de la unidad deportiva (DEC-33). */
+    private UUID crearCanchaDelClub(UUID equipo) {
+        return jdbc.sql("""
+                        INSERT INTO siglim.canchas (liga_id, nombre, ubicacion, propietario, club_id)
+                        SELECT :liga, :nombre, 'EXTERNA', 'CLUB', e.club_id FROM siglim.equipos e WHERE e.id = :equipo
+                        RETURNING id
+                        """)
+                .param("liga", LIGA).param("nombre", "Campo " + UUID.randomUUID()).param("equipo", equipo)
+                .query(UUID.class).single();
+    }
+
+    /** Cancha de un tercero fuera de la unidad deportiva. */
+    private UUID crearCanchaExterna() {
+        return jdbc.sql("""
+                        INSERT INTO siglim.canchas (liga_id, nombre, ubicacion, propietario, propietario_externo)
+                        VALUES (:liga, :nombre, 'EXTERNA', 'EXTERNO', 'Deportivo privado')
+                        RETURNING id
+                        """)
+                .param("liga", LIGA).param("nombre", "Externa " + UUID.randomUUID())
+                .query(UUID.class).single();
+    }
+
+    /** Versión 2 de parámetros con el total de fechas y las últimas fechas de RN-049. */
+    private void fijarFechas(UUID grupo, int total, int finales) {
+        jdbc.sql("""
+                        INSERT INTO siglim.parametros_temporada
+                            (temporada_id, version, motivo, fechas_fase_regular, fechas_finales_unidad_deportiva)
+                        VALUES (:temporada, 2, 'Calendario de la fase regular', :total, :finales)
+                        """)
+                .param("temporada", temporadaDe(grupo)).param("total", total).param("finales", finales)
+                .update();
     }
 
     private String nombreDeCancha(UUID cancha) {

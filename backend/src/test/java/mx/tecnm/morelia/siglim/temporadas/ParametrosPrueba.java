@@ -49,6 +49,8 @@ final class ParametrosPrueba {
         Integer equiposDescienden = 2;
         Boolean permiteCambioClub = true;
         Integer equiposPorArbitro = 4;
+        Integer fechasFaseRegular;
+        Integer fechasFinalesUnidadDeportiva;
         Boolean esDemo;
         List<CategoriaRequest> categorias;
         String motivo = MOTIVO;
@@ -101,6 +103,13 @@ final class ParametrosPrueba {
             return this;
         }
 
+        /** Total de fechas de la fase regular y últimas fechas de VAL-027 (RF-120, RN-049). */
+        Juego localia(Integer total, Integer finales) {
+            fechasFaseRegular = total;
+            fechasFinalesUnidadDeportiva = finales;
+            return this;
+        }
+
         Juego motivo(String texto) {
             motivo = texto;
             return this;
@@ -111,7 +120,8 @@ final class ParametrosPrueba {
                     criteriosDesempate == null ? null : List.copyOf(criteriosDesempate), golesDefaultGanador,
                     golesDefaultPerdedor, plazoValidacionCedulaHoras, duracionJuegoMin, bloqueCanchaMin,
                     clasificadosLiguilla, formatoLiguilla, empateLiguillaPorPenales, equiposAscienden,
-                    equiposDescienden, permiteCambioClub, equiposPorArbitro, esDemo,
+                    equiposDescienden, permiteCambioClub, equiposPorArbitro, fechasFaseRegular,
+                    fechasFinalesUnidadDeportiva, esDemo,
                     categorias == null ? null : List.copyOf(categorias), motivo);
         }
     }
