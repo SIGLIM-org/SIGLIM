@@ -63,8 +63,9 @@ class TemporadaServiceTest {
     private final Autorizacion autorizacion = mock(Autorizacion.class);
     private final AuditoriaService auditoria = mock(AuditoriaService.class);
     private final MotivoOperacion motivoOperacion = mock(MotivoOperacion.class);
+    private final AplicacionOperacionesEquipo operacionesEquipo = mock(AplicacionOperacionesEquipo.class);
     private final TemporadaService servicio = new TemporadaService(temporadas, autorizacion, auditoria,
-            motivoOperacion, new SiglimPropiedades(null, null, null, LIGA));
+            motivoOperacion, operacionesEquipo, new SiglimPropiedades(null, null, null, LIGA));
 
     @BeforeEach
     void iniciarSesion() {
@@ -390,25 +391,28 @@ class TemporadaServiceTest {
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "RN-021"));
         verify(motivoOperacion, never()).fijar(any());
         verify(temporadas, never()).cambiarEstado(any(), any());
-        verifyNoInteractions(auditoria);
+        verifyNoInteractions(auditoria, operacionesEquipo);
     }
 
     @Test
-    @DisplayName("RF-003: cerrar fija el motivo, cambia el estado y lo deja en auditoría")
-    void cerrarConMotivo() {
+    @DisplayName("B-05.2, RF-103, RF-104, RN-040: cerrar aplica las operaciones de equipo autorizadas")
+    void cerrarAplicaLasOperacionesAutorizadas() {
         DatosTemporada cerrada = temporada(EstadoTemporada.CERRADA, 1, 1, 1);
         given(temporadas.buscarParaActualizar(LIGA, ID))
                 .willReturn(Optional.of(temporada(EstadoTemporada.ACTIVA, 1, 1, 1)));
         given(temporadas.buscar(LIGA, ID)).willReturn(Optional.of(cerrada));
+        given(operacionesEquipo.aplicarAutorizadas(ID)).willReturn(2);
 
         TemporadaDto resultado = servicio.cerrar(ID, new CerrarTemporadaRequest("  " + MOTIVO + "  "));
 
         assertThat(resultado.estado()).isEqualTo(EstadoTemporada.CERRADA);
         verify(motivoOperacion).fijar(MOTIVO);
+        verify(operacionesEquipo).aplicarAutorizadas(ID);
         verify(temporadas).cambiarEstado(ID, EstadoTemporada.CERRADA);
         EventoAuditoria evento = eventoAuditado();
         assertThat(evento.accion()).isEqualTo("CERRAR_TEMPORADA");
         assertThat(evento.motivo()).isEqualTo(MOTIVO);
+        assertThat(evento.detalle()).containsEntry("operacionesAplicadas", 2);
     }
 
     @Test
@@ -419,7 +423,7 @@ class TemporadaServiceTest {
 
         assertThatThrownBy(() -> servicio.cerrar(ID, new CerrarTemporadaRequest(MOTIVO)))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-001"));
-        verifyNoInteractions(motivoOperacion, auditoria);
+        verifyNoInteractions(motivoOperacion, auditoria, operacionesEquipo);
     }
 
     // ── Apoyo ─────────────────────────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.6 · 14 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.7 · 15 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -55,6 +55,7 @@ Versión 5.6 · 14 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../r
 | 5.4 | 12 de noviembre de 2026 | H-10.3: §7 precisa que `GET /registros-jugador/{id}/documentos` sigue fuera porque la página de documentos y la bandeja de validación no lo usan: los documentos vigentes vienen en `GET /registros-jugador/{id}/requisitos` (DEC-96, DEC-112). |
 | 5.5 | 14 de noviembre de 2026 | H-23.1: §6.4 con la baja de un registro (`POST /registros-jugador/{id}/baja`): permiso `registros.registro:EDITAR` sobre el club del equipo, motivo obligatorio de 10 a 500 caracteres (`400 RN-021`), solo desde `ACTIVO` con un `409 RF-017` por estado de origen, `409 RF-003` con la temporada cerrada, `UPDATE` condicional con el registro bloqueado, `baja_en` en `America/Mexico_City`, motivo solo en el historial, respuesta `200` con `bajaEn` y `motivoBaja` y auditoría `DAR_BAJA_REGISTRO_JUGADOR`; el alta y el detalle muestran los dos campos nuevos (`null` salvo en `BAJA`) (DEC-118 a DEC-124). |
 | 5.6 | 14 de noviembre de 2026 | B-05.1: §6.3 con el contrato de la venta y la conservación de plaza (`POST /operaciones-equipo` y `POST /operaciones-equipo/{id}/resolucion`), la conservación como operación independiente (RF-104), el dictamen del Presidente, las reglas del club destino, los permisos `organizacion.venta:SOLICITAR`/`APROBAR` y las acciones `SOLICITAR_OPERACION_EQUIPO` (con las observaciones de la solicitud), `AUTORIZAR_OPERACION_EQUIPO` y `RECHAZAR_OPERACION_EQUIPO`; una sola operación vigente por equipo y tipo (`409 RF-103`/`RF-104`, DEC-132); autorizar sin nota conserva las observaciones y revalida la temporada y el club destino; §2.1 con la transición. |
+| 5.7 | 15 de noviembre de 2026 | B-05.2: §6.2 documenta el efecto del cierre de la temporada sobre las operaciones de equipo: en la misma transacción, las `AUTORIZADA` pasan a `APLICADA` con `aplicadaEn`, la venta mueve el equipo a su club destino y las `SOLICITADA` no se aplican; cada aplicación se audita como `APLICAR_OPERACION_EQUIPO` y `CERRAR_TEMPORADA` registra `operacionesAplicadas` (RF-103, RF-104, RN-040). |
 
 ## Índice
 
@@ -679,8 +680,13 @@ temporada está activa (el mensaje la nombra), `409 RF-100`, `409 RF-004` o `409
 extensión `requisitos` para los que falten, y `409 RF-001` si la temporada no está en configuración.
 `POST /temporadas/{id}/cierre` lleva `{ "motivo" }` (mínimo 10 caracteres), pasa
 `ACTIVA → CERRADA`, fija el motivo para el historial y la auditoría (RN-021, RF-093); sin motivo
-responde `400 RN-021` y si no está activa, `409 RF-001`. Ambas acciones se auditan como
-`ACTIVAR_TEMPORADA` y `CERRAR_TEMPORADA`.
+responde `400 RN-021` y si no está activa, `409 RF-001`. En la misma transacción aplica las
+operaciones de equipo `AUTORIZADA` de la temporada (B-05.2): pasan a `APLICADA` con `aplicadaEn`, la
+venta mueve el equipo a su club destino conservando el historial de propietarios y la conservación
+de plaza solo se marca aplicada (RF-103, RF-104, RN-040); las `SOLICITADA` no se aplican. Cada
+aplicación se audita como `APLICAR_OPERACION_EQUIPO` en `M-03` y el evento `CERRAR_TEMPORADA` guarda
+`operacionesAplicadas` en su detalle. Ambas acciones se auditan como `ACTIVAR_TEMPORADA` y
+`CERRAR_TEMPORADA`.
 
 **Permisos y ámbito de categorías y grupos (H-05.1).** Todos los `GET` de categorías, categorías de
 la temporada y grupos exigen `temporadas.temporada:CONSULTAR`; los `POST` y `PATCH`,

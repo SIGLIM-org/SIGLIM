@@ -39,15 +39,18 @@ import org.springframework.transaction.annotation.Transactional;
  *       falta; al rechazar la activación, el problema RFC 9457 lleva los requisitos incumplidos.</li>
  *   <li><b>Histórico protegido (RF-003, RN-005).</b> Una temporada {@code CERRADA} es de solo
  *       lectura: cualquier edición responde {@code 409 RF-003}. No existe borrado.</li>
- *   <li><b>Cierre con motivo (RN-021, RF-093).</b> Solo una temporada {@code ACTIVA} se cierra, con
- *       un motivo de al menos 10 caracteres que se fija en la transacción y queda en la auditoría.</li>
+ *   <li><b>Cierre con motivo (RN-021, RF-093, B-05.2).</b> Solo una temporada {@code ACTIVA} se
+ *       cierra, con un motivo de al menos 10 caracteres que se fija en la transacción y queda en la
+ *       auditoría. En la misma transacción se aplican las operaciones de equipo {@code AUTORIZADA}:
+ *       pasan a {@code APLICADA} y las ventas mueven el equipo a su club destino (RF-103, RF-104,
+ *       RN-040).</li>
  *   <li><b>Ámbito.</b> La temporada pertenece a la liga, así que todas las operaciones se autorizan
  *       con {@link ObjetivoAutorizacion#deLiga()}; un ámbito de club no la alcanza. El listado filtra
  *       con el alcance del permiso y cuenta con la misma condición (ADR-0007).</li>
  * </ul>
  *
- * <p>Refs: H-04.1, RF-001, RF-003, RF-004, RF-005, RF-093, RF-100, RN-005, RN-021, RN-058, VAL-024,
- * ADR-0007, ADR-0011
+ * <p>Refs: H-04.1, B-05.2, RF-001, RF-003, RF-004, RF-005, RF-093, RF-100, RF-103, RF-104, RN-005,
+ * RN-021, RN-040, RN-058, VAL-024, ADR-0007, ADR-0011
  */
 @Service
 public class TemporadaService {
@@ -66,14 +69,17 @@ public class TemporadaService {
     private final Autorizacion autorizacion;
     private final AuditoriaService auditoria;
     private final MotivoOperacion motivoOperacion;
+    private final AplicacionOperacionesEquipo operacionesEquipo;
     private final UUID ligaId;
 
     TemporadaService(TemporadaRepository temporadas, Autorizacion autorizacion, AuditoriaService auditoria,
-            MotivoOperacion motivoOperacion, SiglimPropiedades propiedades) {
+            MotivoOperacion motivoOperacion, AplicacionOperacionesEquipo operacionesEquipo,
+            SiglimPropiedades propiedades) {
         this.temporadas = temporadas;
         this.autorizacion = autorizacion;
         this.auditoria = auditoria;
         this.motivoOperacion = motivoOperacion;
+        this.operacionesEquipo = operacionesEquipo;
         this.ligaId = propiedades.ligaId();
     }
 
@@ -201,7 +207,8 @@ public class TemporadaService {
     }
 
     /**
-     * Cierra una temporada activa con motivo obligatorio (RF-003, RN-021).
+     * Cierra una temporada activa con motivo obligatorio (RF-003, RN-021). En la misma transacción
+     * aplica las operaciones de equipo autorizadas (B-05.2, RF-103, RF-104, RN-040).
      *
      * @throws ReglaNegocioException 409 {@code RF-001} si no está activa; 400 {@code RN-021} sin
      *                               motivo
@@ -217,11 +224,13 @@ public class TemporadaService {
         }
         String motivo = motivoValido(peticion == null ? null : peticion.motivo());
         motivoOperacion.fijar(motivo);
+        int operacionesAplicadas = operacionesEquipo.aplicarAutorizadas(id);
         temporadas.cambiarEstado(id, EstadoTemporada.CERRADA);
 
         Map<String, Object> detalle = new LinkedHashMap<>();
         detalle.put("estadoAnterior", EstadoTemporada.ACTIVA.name());
         detalle.put("estado", EstadoTemporada.CERRADA.name());
+        detalle.put("operacionesAplicadas", operacionesAplicadas);
         auditar("CERRAR_TEMPORADA", id, motivo, detalle);
         return aDto(buscar(id));
     }
