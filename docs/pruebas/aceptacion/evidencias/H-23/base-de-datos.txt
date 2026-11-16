@@ -1,0 +1,61 @@
+Estado de la base ANTES de la prueba (siembra: Carlos y Luis ACTIVO, Andrés PENDIENTE_VALIDACION)
+
+── Registros del equipo Halcones
+               registro               |    jugador     |        estado        |  alta_en   | baja_en |            observaciones            | validado 
+--------------------------------------+----------------+----------------------+------------+---------+-------------------------------------+----------
+ 80000000-0000-4000-8000-000000000002 | Luis Pérez     | ACTIVO               | 2026-11-15 |         | Documentos revisados en ventanilla. | t
+ 80000000-0000-4000-8000-000000000001 | Carlos Ramírez | ACTIVO               | 2026-11-15 |         | Documentos revisados en ventanilla. | t
+ 80000000-0000-4000-8000-000000000003 | Andrés Torres  | PENDIENTE_VALIDACION | 2026-11-15 |         |                                     | f
+
+── Historial de estados (registro_estado_historial)
+ id |               registro               |   estado_anterior    |     estado_nuevo     |               motivo                |     cambiado_por      |     cambiado_en     
+----+--------------------------------------+----------------------+----------------------+-------------------------------------+-----------------------+---------------------
+  1 | 80000000-0000-4000-8000-000000000001 |                      | PENDIENTE_VALIDACION | Alta del registro                   | Directiva Halcones    | 2026-11-15 13:09:33
+  2 | 80000000-0000-4000-8000-000000000002 |                      | PENDIENTE_VALIDACION | Alta del registro                   | Directiva Halcones    | 2026-11-15 13:09:33
+  3 | 80000000-0000-4000-8000-000000000003 |                      | PENDIENTE_VALIDACION | Alta del registro                   | Directiva Halcones    | 2026-11-15 13:09:33
+  4 | 80000000-0000-4000-8000-000000000001 | PENDIENTE_VALIDACION | ACTIVO               | Documentos revisados en ventanilla. | Secretario de la Liga | 2026-11-15 13:09:33
+  5 | 80000000-0000-4000-8000-000000000002 | PENDIENTE_VALIDACION | ACTIVO               | Documentos revisados en ventanilla. | Secretario de la Liga | 2026-11-15 13:09:33
+
+── Auditoría DAR_BAJA_REGISTRO_JUGADOR
+ id | usuario | modulo | accion | entidad | entidad_id | detalle | motivo 
+----+---------+--------+--------+---------+------------+---------+--------
+
+
+════════════════════════════════════════════════════════════════════
+Estado de la base DESPUÉS de la prueba (CA-1 sobre Carlos, CA-2 y errores sobre Luis/Andrés)
+
+── Registros del equipo Halcones
+               registro               |    jugador     |        estado        |  alta_en   |  baja_en   |            observaciones            | validado 
+--------------------------------------+----------------+----------------------+------------+------------+-------------------------------------+----------
+ 80000000-0000-4000-8000-000000000002 | Luis Pérez     | ACTIVO               | 2026-11-15 |            | Documentos revisados en ventanilla. | t
+ 80000000-0000-4000-8000-000000000001 | Carlos Ramírez | BAJA                 | 2026-11-15 | 2026-11-15 | Documentos revisados en ventanilla. | t
+ 80000000-0000-4000-8000-000000000003 | Andrés Torres  | PENDIENTE_VALIDACION | 2026-11-15 |            |                                     | f
+
+── Historial de estados (registro_estado_historial)
+ id |               registro               |   estado_anterior    |     estado_nuevo     |                     motivo                     |     cambiado_por      |     cambiado_en     
+----+--------------------------------------+----------------------+----------------------+------------------------------------------------+-----------------------+---------------------
+  1 | 80000000-0000-4000-8000-000000000001 |                      | PENDIENTE_VALIDACION | Alta del registro                              | Directiva Halcones    | 2026-11-15 13:09:33
+  2 | 80000000-0000-4000-8000-000000000002 |                      | PENDIENTE_VALIDACION | Alta del registro                              | Directiva Halcones    | 2026-11-15 13:09:33
+  3 | 80000000-0000-4000-8000-000000000003 |                      | PENDIENTE_VALIDACION | Alta del registro                              | Directiva Halcones    | 2026-11-15 13:09:33
+  4 | 80000000-0000-4000-8000-000000000001 | PENDIENTE_VALIDACION | ACTIVO               | Documentos revisados en ventanilla.            | Secretario de la Liga | 2026-11-15 13:09:33
+  5 | 80000000-0000-4000-8000-000000000002 | PENDIENTE_VALIDACION | ACTIVO               | Documentos revisados en ventanilla.            | Secretario de la Liga | 2026-11-15 13:09:33
+  6 | 80000000-0000-4000-8000-000000000001 | ACTIVO               | BAJA                 | El jugador cambió de residencia a otra ciudad. | Directiva Halcones    | 2026-11-15 13:13:05
+
+── Auditoría DAR_BAJA_REGISTRO_JUGADOR
+ id |      usuario       | modulo |          accion           |      entidad      |              entidad_id              |                                                                                                                detalle                                                                                                                 |                     motivo                     
+----+--------------------+--------+---------------------------+-------------------+--------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------------------------------------------
+  2 | Directiva Halcones | M-04   | DAR_BAJA_REGISTRO_JUGADOR | registros_jugador | 80000000-0000-4000-8000-000000000001 | {"bajaEn": "2026-11-15", "estado": "BAJA", "equipoId": "60000000-0000-4000-8000-000000000001", "personaId": "21000000-0000-4000-8000-000000000001", "temporadaId": "50000000-0000-4000-8000-000000000001", "estadoAnterior": "ACTIVO"} | El jugador cambió de residencia a otra ciudad.
+
+
+════════════════════════════════════════════════════════════════════
+Inmutabilidad con el rol siglim_app (el del backend); cada intento en una transacción que se deshace
+
+> DELETE FROM siglim.registro_estado_historial WHERE registro_id = '80000000-0000-4000-8000-000000000001'
+ERROR:  permission denied for table registro_estado_historial
+
+> UPDATE siglim.registro_estado_historial SET motivo = 'x' WHERE id = 6
+ERROR:  permission denied for table registro_estado_historial
+
+> DELETE FROM siglim.registros_jugador WHERE id = '80000000-0000-4000-8000-000000000001'
+ERROR:  permission denied for table registros_jugador
+
