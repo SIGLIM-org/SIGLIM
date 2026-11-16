@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
@@ -30,7 +31,6 @@ import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion.AlcanceAutorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
 import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -382,18 +382,20 @@ public class AfiliacionService {
 
     private UUID insertarSinDuplicado(ClubDto club, TemporadaAfiliacion temporada, String folio,
             String colores, UUID perfil) {
-        try {
-            return afiliaciones.insertar(club.id(), temporada.id(), folio, colores, perfil);
-        } catch (DuplicateKeyException carrera) {
-            ResumenAfiliacion existente = afiliaciones
-                    .buscarPorClubTemporada(ligaId, club.id(), temporada.id())
-                    .orElse(null);
-            if (existente != null) {
-                throw duplicada(existente, club, temporada);
-            }
-            throw ReglaNegocioException.conflicto(ErroresTecnicos.DUPLICADO,
-                    "No se pudo asignar el folio de la afiliación. Recarga la página e intenta de nuevo.");
+        Optional<UUID> id = afiliaciones.insertar(club.id(), temporada.id(), folio, colores, perfil);
+        if (id.isPresent()) {
+            return id.get();
         }
+        // ON CONFLICT DO NOTHING no abortó la transacción (DEC-133), así que esta consulta ya es
+        // segura: distingue el choque por club (409 con el tarjetón existente) del choque por folio.
+        ResumenAfiliacion existente = afiliaciones
+                .buscarPorClubTemporada(ligaId, club.id(), temporada.id())
+                .orElse(null);
+        if (existente != null) {
+            throw duplicada(existente, club, temporada);
+        }
+        throw ReglaNegocioException.conflicto(ErroresTecnicos.DUPLICADO,
+                "No se pudo asignar el folio de la afiliación. Recarga la página e intenta de nuevo.");
     }
 
     private static ReglaNegocioException duplicada(ResumenAfiliacion existente, ClubDto club,
