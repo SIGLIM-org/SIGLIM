@@ -308,11 +308,12 @@ class JornadaRepository {
      * {@code tg_partidos_programacion} lo reemplaza con el bloque de la categoría (DEC-25).
      */
     UUID insertarPartido(UUID jornadaId, UUID equipoLocalId, UUID equipoVisitanteId, UUID canchaId,
-            OffsetDateTime inicio, UUID creadoPor) {
+            OffsetDateTime inicio, String motivoLocalia, UUID creadoPor) {
         return jdbc.sql("""
                         INSERT INTO partidos (jornada_id, equipo_local_id, equipo_visitante_id, cancha_id,
-                                              inicio, fin_bloque, creado_por)
-                        VALUES (:jornadaId, :local, :visitante, :cancha, :inicio, :inicio, :creadoPor)
+                                              inicio, fin_bloque, motivo_localia, creado_por)
+                        VALUES (:jornadaId, :local, :visitante, :cancha, :inicio, :inicio, :motivoLocalia,
+                                :creadoPor)
                         RETURNING id
                         """)
                 .param("jornadaId", jornadaId)
@@ -320,20 +321,25 @@ class JornadaRepository {
                 .param("visitante", equipoVisitanteId)
                 .param("cancha", canchaId)
                 .param("inicio", inicio)
+                .param("motivoLocalia", motivoLocalia, java.sql.Types.VARCHAR)
                 .param("creadoPor", creadoPor)
                 .query(UUID.class)
                 .single();
     }
 
-    /** Ajusta equipos, cancha e inicio; el trigger recalcula {@code fin_bloque}. */
+    /**
+     * Ajusta equipos, cancha, inicio y motivo de localía ({@code null} si el partido ya respeta la
+     * localía); el trigger recalcula {@code fin_bloque}.
+     */
     void actualizarPartido(UUID id, UUID equipoLocalId, UUID equipoVisitanteId, UUID canchaId,
-            OffsetDateTime inicio) {
+            OffsetDateTime inicio, String motivoLocalia) {
         jdbc.sql("""
                         UPDATE partidos
                            SET equipo_local_id = :local,
                                equipo_visitante_id = :visitante,
                                cancha_id = :cancha,
-                               inicio = :inicio
+                               inicio = :inicio,
+                               motivo_localia = :motivoLocalia
                          WHERE id = :id
                         """)
                 .param("id", id)
@@ -341,6 +347,7 @@ class JornadaRepository {
                 .param("visitante", equipoVisitanteId)
                 .param("cancha", canchaId)
                 .param("inicio", inicio)
+                .param("motivoLocalia", motivoLocalia, java.sql.Types.VARCHAR)
                 .update();
     }
 

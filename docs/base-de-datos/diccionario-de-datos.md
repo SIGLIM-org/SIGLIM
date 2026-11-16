@@ -1,7 +1,7 @@
 # Diccionario de datos
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.10 · 16 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
+Versión 2.11 · 16 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
 
 > [!NOTE]
 > Este diccionario describe la migración
@@ -27,6 +27,7 @@ Versión 2.10 · 16 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alinea
 | 2.8 | 12 de noviembre de 2026 | Migración `20261112130000_documentos_registro.sql` (H-10.1, DEC-94): la política `documentos_editar` se recrea con `USING` y `WITH CHECK` para que también actualice un documento de registro la Directiva del club del equipo (reemplazo por otro directivo del mismo club), sin abrirla al ámbito `PROPIO`; `tg_documentos_validar` agrega tres reglas: `reemplazado_por_id` no cambia una vez puesto (`RNF-018`), `estado_validacion` solo cambia desde `PENDIENTE` (`RF-109`) y solo un usuario de liga cambia `estado_validacion`, `validado_por` o `validado_en` (`VAL-015`). Sin cambios en columnas. |
 | 2.9 | 12 de noviembre de 2026 | Migración `20261112180000_validacion_registro.sql` (H-10.2, DEC-101): `tg_registros_validar` se reescribe con la misma firma y conserva todas sus reglas; agrega que solo un usuario de liga (`es_usuario_liga()`) hace la transición `PENDIENTE_VALIDACION → ACTIVO \| RECHAZADO` o cambia `validado_por` o `validado_en` (`VAL-015`), y que al activar cada requisito aplicable de `requisitos_documento` tenga al menos `cantidad` documentos vigentes `APROBADO` (`VAL-001`). Orden: `RF-017` → `VAL-015` → `RN-021` → `VAL-001` → `VAL-025`. La política `registros_editar` no cambia. Sin cambios en columnas. |
 | 2.10 | 16 de noviembre de 2026 | Migración `20261116100000_cuota_arbitros_parametro.sql` (B-08.1, RF-114, DEC-17): `parametros_temporada` agrega `equipos_por_arbitro` (`smallint`, no nulo, default 4 **[DEMO]**) con `ck_parametros_arbitros` (`> 0`); la cuota de árbitros del club se calcula con la versión vigente del parámetro y se redondea hacia arriba. Las versiones existentes reciben el valor por default. |
+| 2.11 | 16 de noviembre de 2026 | Migración `20261116180000_parametros_localia.sql` (B-15.1, RF-120, VAL-027, RN-049, DEC-34): `parametros_temporada` agrega `fechas_fase_regular` (`smallint`, nulo = sin definir) y `fechas_finales_unidad_deportiva` (`smallint`, no nulo, default 10 **[DEMO]**) con `ck_parametros_localia`; el backend advierte una cancha fuera de la unidad deportiva en las jornadas de la fase regular con `numero > fechas_fase_regular − fechas_finales_unidad_deportiva` y guarda el motivo con que se acepta en `partidos.motivo_localia`. Las versiones existentes quedan sin total de fechas (la regla no se evalúa) y con 10. |
 
 ## 1. Propósito y alcance
 
@@ -561,6 +562,8 @@ Reglas versionadas de la temporada; la versión mayor es la vigente (RF-006, RF-
 | `equipos_descienden` | smallint | No | 2 |  | Equipos que bajan por categoría (2 [DEMO]). |
 | `permite_cambio_club` | boolean | No | true |  | Si se aceptan cambios de club entre temporadas (RF-111, DEC-13). |
 | `equipos_por_arbitro` | smallint | No | 4 |  | Equipos activos del club por cada árbitro validado que debe presentar; la cuota se redondea hacia arriba (4 [DEMO], RF-114, DEC-17). |
+| `fechas_fase_regular` | smallint | Sí |  |  | Total de fechas (jornadas) de la fase regular; nulo = sin definir y no se evalúa la regla de las últimas fechas (RN-049, B-15.1). |
+| `fechas_finales_unidad_deportiva` | smallint | No | 10 |  | Últimas fechas de la fase regular en las que se advierte una cancha fuera de la unidad deportiva; 0 desactiva la regla (10 [DEMO], RF-120, VAL-027, DEC-34). |
 | `es_demo` | boolean | No | true |  | Valor de demostración [DEMO]: configurable y rotulado «no oficial» en la interfaz. |
 | `motivo` | text | No |  |  | Motivo de la operación o del cambio. |
 | `creado_por` | uuid | Sí |  | FK → perfiles.id | Perfil que creó el registro. |
@@ -572,6 +575,7 @@ Restricciones, índices y triggers:
 - `ck_parametros_criterios`: `CHECK ((criterios_desempate[1] = 'PUNTOS'))`
 - `ck_parametros_default`: `CHECK (((goles_default_ganador > goles_default_perdedor) AND (goles_default_perdedor >= 0)))`
 - `ck_parametros_liguilla`: `CHECK ((clasificados_liguilla = ANY (ARRAY[2, 4, 8, 16, 32])))`
+- `ck_parametros_localia`: `CHECK ((((fechas_fase_regular IS NULL) OR (fechas_fase_regular > 0)) AND (fechas_finales_unidad_deportiva >= 0)))`
 - `ck_parametros_movimientos`: `CHECK (((equipos_ascienden >= 0) AND (equipos_descienden >= 0)))`
 - `ck_parametros_puntos`: `CHECK (((puntos_victoria >= puntos_empate) AND (puntos_empate >= puntos_derrota) AND (puntos_derrota >= 0)))`
 - `ck_parametros_tiempos`: `CHECK (((duracion_juego_min > 0) AND (bloque_cancha_min >= duracion_juego_min) AND (plazo_validacion_cedula > '00:00:00'::interval)))`
@@ -1140,7 +1144,7 @@ Partido programado manualmente. fin_bloque = inicio + bloque de cancha de la cat
 | `inicio` | timestamptz | No |  |  | Fecha y hora de inicio programada. |
 | `fin_bloque` | timestamptz | No |  |  | Fin del bloque de cancha = inicio + bloque de la categoría (lo calcula un trigger). |
 | `estado` | estado_partido | No | PROGRAMADO |  | Estado actual (máquinas de estado del ERS §4.3). |
-| `motivo_localia` | text | Sí |  |  | Motivo con el que se aceptó una advertencia de localía (RF-120). |
+| `motivo_localia` | text | Sí |  |  | Motivo con el que se aceptó una advertencia de localía (RF-120, VAL-027); el backend lo exige de al menos 10 caracteres y lo borra si el partido ya respeta la localía (B-15.1). |
 | `creado_por` | uuid | Sí |  | FK → perfiles.id | Perfil que creó el registro. |
 | `creado_en` | timestamptz | No | now() |  | Fecha y hora de creación. |
 | `actualizado_en` | timestamptz | No | now() |  | Fecha y hora de la última modificación (la fija un trigger). |

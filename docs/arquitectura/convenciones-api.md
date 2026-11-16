@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.10 · 16 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.11 · 16 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -59,6 +59,7 @@ Versión 5.10 · 16 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.8 | 16 de noviembre de 2026 | H-13.1: §6.7 con el envío a aprobación (`POST /jornadas/{id}/envio`, `409 RF-039` con la extensión `conflictos`, `409 RF-121` sin partidos vigentes) y el dictamen (`POST /jornadas/{id}/resolucion`) con la separación de funciones (`403 RF-121` si quien dictamina creó o envió la jornada o tiene también `programacion.jornada:EDITAR`), la devolución con observaciones (`400 RF-121`), los campos de publicación del detalle y la auditoría `ENVIAR_JORNADA_A_APROBACION`, `APROBAR_JORNADA` y `DEVOLVER_JORNADA`; §6.11 con el contrato de `GET /publicaciones/pendientes`. |
 | 5.9 | 16 de noviembre de 2026 | B-05.3: §6.3 con la consulta de operaciones de equipo que necesita B-09: `GET /operaciones-equipo` (filtro `temporadaId`/`estado`, paginación, alcance unificado de `SOLICITAR`/`APROBAR` en el `WHERE` y el `COUNT`), `GET /operaciones-equipo/{id}` (404 fuera de ámbito) y `GET /operaciones-equipo/contexto` (clubes `ACTIVO` de la liga para elegir el destino de una venta); `POST` responde `201` con `Location`. |
 | 5.10 | 16 de noviembre de 2026 | B-08.1: §6.5 con el contrato de `GET /clubes/{id}/cuota-arbitros?temporadaId=` (equipos activos, árbitros `VALIDADO`, redondeo hacia arriba y `cumple`), su ámbito de club, errores y la temporada activa por omisión; §6.2 con el parámetro `equiposPorArbitro` de la temporada (4 **[DEMO]**, DEC-72), su herencia de la versión vigente cuando se omite y su inclusión en `camposDemo` (RF-114, DEC-17). |
+| 5.11 | 16 de noviembre de 2026 | B-15.1: §6.7 con las advertencias de localía (VAL-027): las reglas de la cancha del local (DEC-33, DEC-34) y de las últimas fechas en la unidad deportiva (RN-049), el `409 VAL-027` con `aceptable` y `advertencias` al registrar o ajustar un partido sin `motivoAceptacion`, el motivo guardado en `motivoLocalia`, su conservación en los ajustes, la lista `advertencias` de la verificación y la auditoría `ACEPTAR_LOCALIA`; §6.2 con los parámetros `fechasFaseRegular` (sin default) y `fechasFinalesUnidadDeportiva` (10 **[DEMO]**), heredados de la versión vigente cuando se omiten. |
 
 ## Índice
 
@@ -803,9 +804,10 @@ liga; la liga sale de la configuración del backend. El `POST` valida en el mism
 reglas de negocio (`409`). No hay `PATCH` ni `DELETE`.
 
 `POST /temporadas/{id}/parametros` lleva el juego **completo** de valores: nada se hereda de la
-versión anterior y todos los campos son obligatorios salvo `equiposPorArbitro`, `esDemo` y
-`categorias`. `equiposPorArbitro` omitido conserva el de la versión vigente y, en la primera
-versión, vale 4 **[DEMO]** (RF-114).
+versión anterior y todos los campos son obligatorios salvo `equiposPorArbitro`,
+`fechasFaseRegular`, `fechasFinalesUnidadDeportiva`, `esDemo` y `categorias`. `equiposPorArbitro`
+omitido conserva el de la versión vigente y, en la primera versión, vale 4 **[DEMO]** (RF-114); los
+dos de localía se heredan igual y, en la primera versión, valen sin definir y 10 **[DEMO]** (RF-120).
 
 ```json
 {
@@ -817,6 +819,7 @@ versión, vale 4 **[DEMO]** (RF-114).
   "clasificadosLiguilla": 8, "formatoLiguilla": "PARTIDO_UNICO", "empateLiguillaPorPenales": true,
   "equiposAscienden": 2, "equiposDescienden": 2, "permiteCambioClub": true,
   "equiposPorArbitro": 4,
+  "fechasFaseRegular": 18, "fechasFinalesUnidadDeportiva": 10,
   "esDemo": true,
   "categorias": [ { "categoriaId": "…", "duracionJuegoMin": 70, "bloqueCanchaMin": 90 } ],
   "motivo": "Valores de demostración para la temporada"
@@ -835,6 +838,8 @@ versión, vale 4 **[DEMO]** (RF-114).
 | `empateLiguillaPorPenales`, `permiteCambioClub` | Booleanos |
 | `equiposAscienden`, `equiposDescienden` | Enteros de 0 a 32 **[PROPUESTA]** (DEC-29) |
 | `equiposPorArbitro` | Entero de 1 a 100; opcional. Omitido conserva el de la versión vigente y, en la primera versión, vale 4 **[DEMO]**. Equipos activos por cada árbitro validado que el club debe presentar (RF-114, DEC-17, DEC-72) |
+| `fechasFaseRegular` | Entero de 1 a 99 **[PROPUESTA]**; opcional. Total de fechas (jornadas) de la fase regular. Omitido conserva el de la versión vigente; en la primera versión queda sin definir y la regla de las últimas fechas no se evalúa (RN-049, B-15.1) |
+| `fechasFinalesUnidadDeportiva` | Entero de 0 a 99 **[PROPUESTA]**; opcional. Últimas fechas de la fase regular en que se advierte una cancha fuera de la unidad deportiva; 0 desactiva la regla. Omitido conserva el de la versión vigente y, en la primera versión, vale 10 **[DEMO]** (RF-120, VAL-027, DEC-34) |
 | `esDemo` | Opcional; omitido vale `true` |
 | `categorias` | Opcional. Duración y bloque propios de una categoría **asignada a esta temporada**, sin repetir categoría y con bloque ≥ duración. Una categoría omitida usa los valores de la temporada |
 | `motivo` | De 10 a 500 caracteres sin espacios en los extremos (RN-021); se guarda en la versión y en la auditoría |
@@ -852,19 +857,22 @@ la misma forma que `GET /temporadas/{id}/parametros/{version}`:
   "formatoLiguilla": "PARTIDO_UNICO", "empateLiguillaPorPenales": true,
   "equiposAscienden": 2, "equiposDescienden": 2, "permiteCambioClub": true,
   "equiposPorArbitro": 4,
+  "fechasFaseRegular": 18, "fechasFinalesUnidadDeportiva": 10,
   "categorias": [ { "categoria": { "id": "…", "nombre": "Veteranos" }, "duracionJuegoMin": 70, "bloqueCanchaMin": 90 } ],
   "esDemo": true,
   "camposDemo": ["puntosVictoria", "puntosEmpate", "puntosDerrota", "criteriosDesempate",
                  "golesDefaultGanador", "golesDefaultPerdedor", "plazoValidacionCedulaHoras", "bloqueCanchaMin",
                  "clasificadosLiguilla", "formatoLiguilla", "empateLiguillaPorPenales",
-                 "equiposAscienden", "equiposDescienden", "equiposPorArbitro"],
+                 "equiposAscienden", "equiposDescienden", "equiposPorArbitro",
+                 "fechasFinalesUnidadDeportiva"],
   "motivo": "Ajuste de la asamblea de la Liga",
   "creadoPor": { "id": "…", "nombre": "Ana López" },
   "creadoEn": "2026-11-05T10:00:00-06:00"
 }
 ```
 
-`categorias` va por el orden del catálogo y `creadoPor` se omite si la versión no lo tiene.
+`categorias` va por el orden del catálogo y `creadoPor` y `fechasFaseRegular` se omiten si la versión
+no los tiene.
 
 - **`esDemo` y `camposDemo`.** `esDemo` vale para la versión completa: es `true` mientras la Liga no
   confirme los valores como oficiales (PEN-021). Con `esDemo: true`, `camposDemo` lista los campos
@@ -1852,13 +1860,38 @@ vaciar la lista.
 | --- | --- | --- | --- | --- |
 | `GET /jornadas?grupoId=&estadoPublicacion=` · `POST /jornadas` | Jornadas del grupo | `programacion.jornada:EDITAR` | RF-033 | N |
 | `GET /jornadas/{id}` | Jornada con partidos, conflictos y advertencias | `programacion.jornada:CONSULTAR` | RF-033 | N |
-| `POST /jornadas/{id}/partidos` · `PATCH /partidos/{id}` | Registrar o ajustar partido (equipos, cancha, inicio); solo con la jornada en `BORRADOR`; ajuste con `motivo` | `programacion.jornada:EDITAR` | RF-033, RF-036, RF-040 | N |
+| `POST /jornadas/{id}/partidos` · `PATCH /partidos/{id}` | Registrar o ajustar partido (equipos, cancha, inicio); solo con la jornada en `BORRADOR`; ajuste con `motivo`; `motivoAceptacion` para aceptar una advertencia de localía | `programacion.jornada:EDITAR` | RF-033, RF-036, RF-040, RF-120 | N · B |
 | `POST /jornadas/{id}/verificacion` | Revisa todos los partidos sin guardar: `{ conflictos: [ { partidoId, codigo, mensaje } ], advertencias: [...] }` | `programacion.jornada:EDITAR` | RF-039, RF-120 | N · B |
 | `POST /jornadas/{id}/envio` · `/resolucion` | Aprobación y publicación | ver §2.1 | RF-121, RF-090 | N |
 
 La verificación y el guardado usan las mismas reglas: VAL-003 (equipo duplicado en el bloque),
 VAL-004 (cancha ocupada), VAL-005 (cancha bloqueada o fuera de disponibilidad), VAL-006 (equipo con
 baja o sanción). Cada conflicto nombra los partidos, la cancha y el horario que chocan.
+
+**Advertencias de localía (B-15.1, RF-120, VAL-027).** No son conflictos duros: se aceptan con
+motivo (§3.1) y no impiden enviar la jornada a aprobación. Se evalúan dos reglas con los datos de la
+base, nunca con valores fijos en el código:
+
+- **Cancha del local (DEC-33, DEC-34).** El club del equipo local tiene cancha si es propietario de
+  una cancha activa (`propietario = 'CLUB'`) o si tiene horarios en `horarios_cancha_club` (oferta o
+  comodato) para la temporada del grupo y la categoría del local. Si la tiene y el partido se
+  programa en otra (incluida la del rival), se advierte nombrando las canchas.
+- **Últimas fechas en la unidad deportiva (RN-049).** En una jornada de la fase regular con
+  `numero > fechasFaseRegular − fechasFinalesUnidadDeportiva` (parámetros vigentes, §6.2), una
+  cancha con `ubicacion = 'EXTERNA'` se advierte; el mensaje rotula el número de fechas como valor de
+  demostración, no oficial. Sin `fechasFaseRegular` definido, en una fase final o con
+  `fechasFinalesUnidadDeportiva = 0`, la regla no se evalúa.
+
+El alta y el ajuste validan la localía después de los conflictos duros. Si hay advertencias y la
+petición no trae `motivoAceptacion` de al menos 10 caracteres (como RN-021), responden
+`409 VAL-027` con la primera explicación y las extensiones `aceptable: true` y
+`advertencias: [ { partidoId, codigo, mensaje } ]` (`partidoId` nulo en un alta). Con motivo, el
+partido se guarda con `motivoLocalia` y se audita `ACEPTAR_LOCALIA` en `M-07` sobre `partidos`, con el
+motivo y `{ jornadaId, reglas: ["CANCHA_DEL_LOCAL" | "UNIDAD_DEPORTIVA"] }`. Un ajuste sin
+`motivoAceptacion` conserva el `motivoLocalia` guardado si la advertencia sigue **[PROPUESTA]**; si el
+partido ya respeta la localía, `motivoLocalia` se borra. Un `PATCH` que solo trae `motivoAceptacion`
+no cambia nada. La verificación devuelve las advertencias de todos los partidos no cancelados en
+`advertencias` con `codigo: "VAL-027"`; si el partido ya tiene motivo, el mensaje lo indica.
 
 **Aprobación y publicación (H-13.1).** El detalle y las respuestas de las dos acciones traen, además,
 `enviadaPor`, `enviadaEn`, `aprobadaPor`, `aprobadaEn`, `publicadaEn` y `observaciones` (los vacíos

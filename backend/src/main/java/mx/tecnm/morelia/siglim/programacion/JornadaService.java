@@ -22,6 +22,7 @@ import mx.tecnm.morelia.siglim.programacion.JornadaRepository.DatosPartido;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.EquipoDeLiga;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.GrupoDeLiga;
 import mx.tecnm.morelia.siglim.programacion.PartidoDto.ReferenciaDto;
+import mx.tecnm.morelia.siglim.programacion.ValidadorLocalia.Advertencia;
 import mx.tecnm.morelia.siglim.programacion.VerificacionJornadaDto.Aviso;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
@@ -50,8 +51,13 @@ import org.springframework.transaction.annotation.Transactional;
  *       la última garantía ante una carrera entre dos peticiones.</li>
  *   <li><b>Verificación sin guardar (H-12.3).</b> {@code POST /jornadas/{id}/verificacion} revisa
  *       todos los partidos con la misma regla del alta y el ajuste y devuelve cada conflicto con su
- *       partido. Las advertencias de localía (RF-120, VAL-027) son backlog B-15; hasta entonces la
- *       lista de advertencias va vacía.</li>
+ *       partido, y en {@code advertencias} las de localía de {@link ValidadorLocalia}.</li>
+ *   <li><b>Localía (B-15.1, RF-120, VAL-027, DEC-34).</b> Si el partido no respeta la localía, el
+ *       alta y el ajuste exigen {@code motivoAceptacion} de al menos 10 caracteres; sin él responden
+ *       {@code 409 VAL-027} con la explicación y las extensiones {@code aceptable: true} y
+ *       {@code advertencias} (convenciones de API §3.1). El motivo se
+ *       guarda en {@code partidos.motivo_localia} y se audita como {@code ACEPTAR_LOCALIA}. Las
+ *       advertencias no impiden enviar la jornada a aprobación.</li>
  *   <li><b>Publicación (H-13.1, RF-121, RF-090).</b> {@code BORRADOR → REVISION → PUBLICADO}, con
  *       la devolución {@code REVISION → BORRADOR}. El envío exige {@code programacion.jornada:ENVIAR},
  *       al menos un partido vigente y ningún conflicto duro ({@code 409 RF-039} con la lista). El
@@ -64,11 +70,12 @@ import org.springframework.transaction.annotation.Transactional;
  *       {@code ck_jornadas_aprobacion} es la última garantía.</li>
  *   <li><b>Auditoría (RF-093).</b> {@code REGISTRAR_JORNADA}, {@code REGISTRAR_PARTIDO},
  *       {@code AJUSTAR_PARTIDO}, {@code ENVIAR_JORNADA_A_APROBACION}, {@code APROBAR_JORNADA} y
- *       {@code DEVOLVER_JORNADA} en M-07, con identificadores y sin datos personales.</li>
+ *       {@code DEVOLVER_JORNADA} y {@code ACEPTAR_LOCALIA} en M-07, con identificadores y sin datos
+ *       personales.</li>
  * </ul>
  *
- * <p>Refs: H-12.1, H-12.3, H-13.1, RF-033, RF-036, RF-039, RF-040, RF-093, RF-090, RF-120, RF-121, RN-018,
- * RN-021, RN-053, VAL-003 a VAL-006, ADR-0007, ADR-0011
+ * <p>Refs: H-12.1, H-12.3, H-13.1, B-15.1, RF-033, RF-036, RF-039, RF-040, RF-093, RF-090, RF-120, RF-121, RN-018,
+ * RN-021, RN-049, RN-053, VAL-003 a VAL-006, VAL-027, DEC-34, ADR-0007, ADR-0011
  */
 @Service
 public class JornadaService {
@@ -86,15 +93,18 @@ public class JornadaService {
 
     private final JornadaRepository jornadas;
     private final ValidadorConflictos validador;
+    private final ValidadorLocalia localia;
     private final Autorizacion autorizacion;
     private final AuditoriaService auditoria;
     private final MotivoOperacion motivoOperacion;
     private final UUID ligaId;
 
-    JornadaService(JornadaRepository jornadas, ValidadorConflictos validador, Autorizacion autorizacion,
-            AuditoriaService auditoria, MotivoOperacion motivoOperacion, SiglimPropiedades propiedades) {
+    JornadaService(JornadaRepository jornadas, ValidadorConflictos validador, ValidadorLocalia localia,
+            Autorizacion autorizacion, AuditoriaService auditoria, MotivoOperacion motivoOperacion,
+            SiglimPropiedades propiedades) {
         this.jornadas = jornadas;
         this.validador = validador;
+        this.localia = localia;
         this.autorizacion = autorizacion;
         this.auditoria = auditoria;
         this.motivoOperacion = motivoOperacion;
@@ -149,15 +159,38 @@ public class JornadaService {
      * cancha ni bloquean equipos. No exige que la jornada esté en {@code BORRADOR} porque es de
      * solo lectura; el alta y el ajuste sí lo exigen.
      *
-     * @return los conflictos de todos los partidos y la lista de advertencias, vacía hasta que el
-     *         backlog B-15 implemente la localía (RF-120, VAL-027)
+     * @return los conflictos de todos los partidos y sus advertencias de localía (B-15.1, VAL-027);
+     *         una advertencia ya aceptada lo dice en su mensaje
      * @throws RecursoNoEncontradoException si la jornada no existe en la liga
      */
     @Transactional(readOnly = true)
     public VerificacionJornadaDto verificar(UUID id) {
         autorizacion.exigir(EDITAR, ObjetivoAutorizacion.deLiga());
         jornadas.buscarJornada(ligaId, id).orElseThrow(() -> noExisteJornada(id));
-        return new VerificacionJornadaDto(conflictosDe(jornadas.listarPartidos(id)), List.of());
+        List<DatosPartido> partidos = jornadas.listarPartidos(id);
+        return new VerificacionJornadaDto(conflictosDe(partidos), advertenciasDe(partidos));
+    }
+
+    /**
+     * Advertencias de localía de los partidos vigentes (RF-120, VAL-027). Si el partido ya se aceptó
+     * con motivo, el mensaje lo indica para que la pantalla no lo presente como pendiente.
+     */
+    private List<Aviso> advertenciasDe(List<DatosPartido> partidos) {
+        List<Aviso> advertencias = new ArrayList<>();
+        for (DatosPartido partido : partidos) {
+            if (partido.estado() == EstadoPartido.CANCELADO) {
+                continue;
+            }
+            EquipoDeLiga local = new EquipoDeLiga(partido.equipoLocalId(), partido.equipoLocalNombre(),
+                    partido.grupoId(), partido.clubLocalId(), partido.equipoLocalEstado());
+            String aceptada = partido.motivoLocalia() == null ? ""
+                    : " Aceptada con el motivo de localía registrado.";
+            for (Advertencia advertencia :
+                    localia.evaluar(partido.grupoId(), partido.jornadaId(), local, partido.canchaId())) {
+                advertencias.add(new Aviso(partido.id(), ValidadorLocalia.CODIGO, advertencia.mensaje() + aceptada));
+            }
+        }
+        return advertencias;
     }
 
     /** Conflictos duros de los partidos vigentes, con la misma regla del alta y el ajuste (RF-039). */
@@ -376,7 +409,8 @@ public class JornadaService {
      *
      * <p>Orden: permiso → jornada existe ({@code 404}) → jornada en borrador ({@code 409 RF-090}) →
      * cuerpo ({@code 400}) → equipos del grupo ({@code 422 RF-033}) → cancha de la liga ({@code 422})
-     * → conflictos duros ({@code 409 VAL-003} a {@code VAL-006}).
+     * → conflictos duros ({@code 409 VAL-003} a {@code VAL-006}) → localía sin motivo
+     * ({@code 409 VAL-027}).
      */
     @Transactional
     public PartidoDto registrarPartido(UUID jornadaId, CrearPartidoRequest peticion) {
@@ -398,9 +432,11 @@ public class JornadaService {
         CanchaDeLiga cancha = bloquearCancha(peticion.canchaId());
 
         validador.validar(jornada.grupoId(), null, local, visitante, cancha, peticion.inicio());
+        List<Advertencia> advertencias = localia.evaluar(jornada.grupoId(), jornada.id(), local, cancha.id());
+        String motivoLocalia = motivoLocalia(advertencias, peticion.motivoAceptacion(), null, null);
 
         UUID id = jornadas.insertarPartido(jornada.id(), local.id(), visitante.id(), peticion.canchaId(),
-                peticion.inicio(), UsuarioActual.idRequerido());
+                peticion.inicio(), motivoLocalia, UsuarioActual.idRequerido());
 
         Map<String, Object> detalle = new LinkedHashMap<>();
         detalle.put("jornadaId", jornada.id().toString());
@@ -408,6 +444,7 @@ public class JornadaService {
         detalle.put("equipoVisitanteId", visitante.id().toString());
         detalle.put("canchaId", peticion.canchaId().toString());
         auditar("REGISTRAR_PARTIDO", ENTIDAD_PARTIDO, id, null, detalle);
+        auditarLocalia(id, jornada.id(), advertencias, motivoLocalia);
         return aDto(buscarPartido(id));
     }
 
@@ -418,7 +455,9 @@ public class JornadaService {
      * ({@code 400 RN-021}) y se registra en la auditoría (RN-018); sin cambios, la petición es
      * inocua. Un partido finalizado o cancelado no se modifica ({@code 409 RF-046}). Antes de
      * escribir se repiten los conflictos duros ({@code 409 VAL-003} a {@code VAL-006}), sin contar
-     * el propio partido.
+     * el propio partido, y la localía ({@code 409 VAL-027}): si el partido sigue sin respetarla y la
+     * petición no trae {@code motivoAceptacion}, se conserva el que ya tenía; si ya la respeta, el
+     * motivo se borra porque dejó de aplicar.
      */
     @Transactional
     public PartidoDto actualizarPartido(UUID id, ActualizarPartidoRequest peticion) {
@@ -458,14 +497,20 @@ public class JornadaService {
         CanchaDeLiga cancha = bloquearCancha(canchaId);
 
         validador.validar(actual.grupoId(), id, local, visitante, cancha, inicio);
+        List<Advertencia> advertencias = localia.evaluar(actual.grupoId(), actual.jornadaId(), local, canchaId);
+        String motivoLocalia = motivoLocalia(advertencias, peticion == null ? null : peticion.motivoAceptacion(),
+                actual.motivoLocalia(), id);
 
         motivoOperacion.fijar(motivo);
-        jornadas.actualizarPartido(id, local.id(), visitante.id(), canchaId, inicio);
+        jornadas.actualizarPartido(id, local.id(), visitante.id(), canchaId, inicio, motivoLocalia);
 
         Map<String, Object> detalle = new LinkedHashMap<>();
         detalle.put("campos", campos);
         detalle.put("jornadaId", actual.jornadaId().toString());
         auditar("AJUSTAR_PARTIDO", ENTIDAD_PARTIDO, id, motivo, detalle);
+        if (!Objects.equals(motivoLocalia, actual.motivoLocalia())) {
+            auditarLocalia(id, actual.jornadaId(), advertencias, motivoLocalia);
+        }
         return aDto(buscarPartido(id));
     }
 
@@ -530,6 +575,52 @@ public class JornadaService {
             throw invalida("El número de la jornada debe ser mayor que cero.");
         }
         return numero;
+    }
+
+    /**
+     * Motivo de localía que se guarda con el partido (RF-120, VAL-027).
+     *
+     * <ul>
+     *   <li>Sin advertencias: {@code null}; un motivo enviado se ignora porque no hay nada que aceptar.</li>
+     *   <li>Con advertencias y {@code motivoAceptacion} en la petición: debe tener al menos 10
+     *       caracteres, como RN-021.</li>
+     *   <li>Con advertencias, sin motivo en la petición y con uno ya guardado: [PROPUESTA] se
+     *       conserva, para no pedirlo otra vez en cada ajuste de horario del mismo partido.</li>
+     *   <li>En otro caso: {@code 409 VAL-027} con la primera explicación y las extensiones
+     *       {@code aceptable: true} y {@code advertencias} (convenciones de API §3.1).</li>
+     * </ul>
+     */
+    private static String motivoLocalia(List<Advertencia> advertencias, String enviado, String guardado,
+            UUID partidoId) {
+        if (advertencias.isEmpty()) {
+            return null;
+        }
+        String texto = enviado == null ? "" : enviado.strip();
+        if (texto.isEmpty() && guardado != null) {
+            return guardado;
+        }
+        if (texto.length() >= MINIMO_MOTIVO) {
+            return texto;
+        }
+        List<Aviso> avisos = advertencias.stream()
+                .map(advertencia -> new Aviso(partidoId, ValidadorLocalia.CODIGO, advertencia.mensaje()))
+                .toList();
+        throw ReglaNegocioException.conflicto(ValidadorLocalia.CODIGO,
+                        advertencias.getFirst().mensaje() + " Para aceptarlo escribe un motivo de localía de al menos "
+                                + MINIMO_MOTIVO + " caracteres.")
+                .con("aceptable", true)
+                .con("advertencias", avisos);
+    }
+
+    /** RF-093: la aceptación de una advertencia de localía, con su motivo y las reglas que no se respetan. */
+    private void auditarLocalia(UUID partidoId, UUID jornadaId, List<Advertencia> advertencias, String motivoLocalia) {
+        if (motivoLocalia == null) {
+            return;
+        }
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("jornadaId", jornadaId.toString());
+        detalle.put("reglas", advertencias.stream().map(advertencia -> advertencia.regla().name()).toList());
+        auditar("ACEPTAR_LOCALIA", ENTIDAD_PARTIDO, partidoId, motivoLocalia, detalle);
     }
 
     private static String motivoValido(String motivo) {
