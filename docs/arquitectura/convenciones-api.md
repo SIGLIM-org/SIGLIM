@@ -337,6 +337,16 @@ implementa hasta que su historia entre a un Sprint (AGENTS.md §3). Los permisos
 | `GET /auditoria?perfilId=&modulo=&accion=&desde=&hasta=` | Consultar auditoría. `tamano` por defecto 50. `orden`: `ocurridoEn` | `auditoria.registro:CONSULTAR` | RF-134 | N |
 | `GET /auditoria/opciones-filtro` | Perfiles, módulos y acciones presentes en la auditoría de la liga, para llenar los filtros; sin paginación | `auditoria.registro:CONSULTAR` | RF-134 | N |
 
+- **Solicitudes ARCO (B-01).** `GET /solicitudes-arco?estado=&tipo=&personaId=` ordena por
+  `recibidaEn` descendente (`tamano` por defecto 20). `POST` recibe `personaId`, `tipo`
+  (`ACCESO`, `RECTIFICACION`, `CANCELACION`, `OPOSICION`) y `descripcion`; responde `201` sin
+  `Location` con la solicitud `RECIBIDA`. `PATCH …/{id}` recibe `estado` y, al cerrar, `respuesta`.
+  **[PROPUESTA]** Transiciones: `RECIBIDA → EN_ATENCION`; `RECIBIDA` o `EN_ATENCION` →
+  `ATENDIDA` o `RECHAZADA` (finales, con `respuesta` obligatoria; guardan `atendidaPor` y
+  `atendidaEn`). Otra transición responde `422 RF-098`. Registrar se autoriza sobre la persona
+  titular; cambiar el estado exige ámbito `LIGA` (política RLS `arco_editar`). Un ámbito `CLUB` ve una
+  página vacía. Una cancelación se atiende como bloqueo, nunca como borrado (DEC-67). Se audita
+  `REGISTRAR_SOLICITUD_ARCO` y `CAMBIAR_ESTADO_SOLICITUD_ARCO` sin la descripción ni la respuesta.
 - **Ámbito de la auditoría [PROPUESTA].** La tabla no tiene club ni persona: solo el ámbito `LIGA` ve
   filas. Con el permiso en ámbito `CLUB` o `PROPIO` la respuesta es `200` con página vacía y
   `totalElementos = 0` (y listas vacías en las opciones), coherente con la política RLS `auditoria_leer`.
