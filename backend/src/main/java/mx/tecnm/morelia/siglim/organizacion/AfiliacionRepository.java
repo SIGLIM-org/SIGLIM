@@ -33,8 +33,10 @@ import org.springframework.stereotype.Repository;
  *       misma condición (ADR-0007).</li>
  *   <li><b>Folio y concurrencia.</b> {@link #bloquearTemporada} lee la temporada con
  *       {@code FOR UPDATE}: dos altas simultáneas de la misma temporada se serializan y el
- *       consecutivo del folio no se repite. La resolución bloquea el tarjetón con
- *       {@code FOR UPDATE}.</li>
+ *       consecutivo del folio no se repite. El alta usa {@code INSERT … ON CONFLICT DO NOTHING
+ *       RETURNING id}: si choca con cualquiera de los dos {@code UNIQUE}, la transacción sigue sana y
+ *       el servicio consulta para responder {@code 409}, sin atrapar {@code DuplicateKeyException}
+ *       (DEC-133). La resolución bloquea el tarjetón con {@code FOR UPDATE}.</li>
  * </ul>
  *
  * <p>Refs: H-08.1, RF-101, CU-018, DEC-09, ADR-0007, ADR-0011
@@ -218,10 +220,18 @@ class AfiliacionRepository {
                 .list();
     }
 
-    UUID insertar(UUID clubId, UUID temporadaId, String folio, String coloresUniformes, UUID capturadaPor) {
+    /**
+     * Inserta el tarjetón {@code SOLICITADA} (lo pone el {@code DEFAULT}). Si choca con
+     * {@code UNIQUE (club_id, temporada_id)} o con {@code UNIQUE (temporada_id, folio)},
+     * {@code ON CONFLICT DO NOTHING} no inserta y devuelve vacío sin abortar la transacción (DEC-133;
+     * defecto SCRUM-433). Va sin destino porque un solo {@code ON CONFLICT} no admite dos.
+     */
+    Optional<UUID> insertar(UUID clubId, UUID temporadaId, String folio, String coloresUniformes,
+            UUID capturadaPor) {
         return jdbc.sql("""
                         INSERT INTO afiliaciones (club_id, temporada_id, folio, colores_uniforme, capturada_por)
                         VALUES (:clubId, :temporadaId, :folio, :colores, :capturadaPor)
+                        ON CONFLICT DO NOTHING
                         RETURNING id
                         """)
                 .param("clubId", clubId)
@@ -230,7 +240,7 @@ class AfiliacionRepository {
                 .param("colores", coloresUniformes)
                 .param("capturadaPor", capturadaPor)
                 .query(UUID.class)
-                .single();
+                .optional();
     }
 
     /** Agrega las categorías del tarjetón después de insertarlo. */

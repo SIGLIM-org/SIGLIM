@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -301,7 +302,7 @@ class AfiliacionServiceTest {
         given(afiliaciones.buscarPorClubTemporada(LIGA, CLUB, TEMPORADA)).willReturn(Optional.empty());
         given(afiliaciones.categoriasDeTemporada(TEMPORADA)).willReturn(Set.of(CATEGORIA_A));
         given(afiliaciones.contarDeTemporada(TEMPORADA)).willReturn(0L);
-        given(afiliaciones.insertar(CLUB, TEMPORADA, FOLIO, COLORES, PERFIL)).willReturn(ID);
+        given(afiliaciones.insertar(CLUB, TEMPORADA, FOLIO, COLORES, PERFIL)).willReturn(Optional.of(ID));
         given(afiliaciones.buscar(LIGA, ID)).willReturn(Optional.of(solicitada()));
 
         AfiliacionDto creada = servicio.crear(
@@ -375,6 +376,53 @@ class AfiliacionServiceTest {
                             .containsEntry("afiliacionId", ID.toString());
                 });
         verify(afiliaciones, never()).insertar(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("DEC-133, DEC-134 · SCRUM-433: si el alta choca por club, ON CONFLICT deja consultar y da 409 con el tarjetón")
+    void crearCarreraDeDuplicadoPorClub() {
+        given(afiliaciones.bloquearTemporada(LIGA, TEMPORADA)).willReturn(Optional.of(TEMPORADA_ABIERTA));
+        given(afiliaciones.buscarPorClubTemporada(LIGA, CLUB, TEMPORADA)).willReturn(Optional.empty(),
+                Optional.of(new ResumenAfiliacion(ID, FOLIO, EstadoAfiliacion.SOLICITADA)));
+        given(afiliaciones.categoriasDeTemporada(TEMPORADA)).willReturn(Set.of(CATEGORIA_A));
+        given(afiliaciones.contarDeTemporada(TEMPORADA)).willReturn(0L);
+        given(afiliaciones.insertar(CLUB, TEMPORADA, FOLIO, COLORES, PERFIL)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.crear(
+                new CrearAfiliacionRequest(CLUB, TEMPORADA, COLORES, List.of(CATEGORIA_A))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
+                    error(HttpStatus.CONFLICT, ErroresTecnicos.DUPLICADO).accept(excepcion);
+                    assertThat(excepcion.getMessage()).contains(FOLIO);
+                    assertThat(excepcion.propiedades()).containsEntry("afiliacionId", ID.toString())
+                            .containsEntry("folio", FOLIO);
+                });
+
+        verify(afiliaciones).insertar(CLUB, TEMPORADA, FOLIO, COLORES, PERFIL);
+        verify(afiliaciones, times(2)).buscarPorClubTemporada(LIGA, CLUB, TEMPORADA);
+        verify(afiliaciones, never()).insertarCategorias(any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("DEC-133, DEC-134 · SCRUM-433: si el alta choca por folio, responde 409 sin extensiones")
+    void crearCarreraDeFolio() {
+        given(afiliaciones.bloquearTemporada(LIGA, TEMPORADA)).willReturn(Optional.of(TEMPORADA_ABIERTA));
+        given(afiliaciones.buscarPorClubTemporada(LIGA, CLUB, TEMPORADA)).willReturn(Optional.empty());
+        given(afiliaciones.categoriasDeTemporada(TEMPORADA)).willReturn(Set.of(CATEGORIA_A));
+        given(afiliaciones.contarDeTemporada(TEMPORADA)).willReturn(0L);
+        given(afiliaciones.insertar(CLUB, TEMPORADA, FOLIO, COLORES, PERFIL)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.crear(
+                new CrearAfiliacionRequest(CLUB, TEMPORADA, COLORES, List.of(CATEGORIA_A))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
+                    error(HttpStatus.CONFLICT, ErroresTecnicos.DUPLICADO).accept(excepcion);
+                    assertThat(excepcion.getMessage()).startsWith("No se pudo asignar el folio");
+                    assertThat(excepcion.propiedades()).doesNotContainKeys("afiliacionId", "folio");
+                });
+
+        verify(afiliaciones, times(2)).buscarPorClubTemporada(LIGA, CLUB, TEMPORADA);
+        verify(afiliaciones, never()).insertarCategorias(any(), any());
+        verifyNoInteractions(auditoria);
     }
 
     @Test

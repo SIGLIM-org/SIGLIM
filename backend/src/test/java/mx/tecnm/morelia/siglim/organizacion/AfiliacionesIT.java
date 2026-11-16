@@ -21,6 +21,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * H-08.1 contra PostgreSQL real, con {@link AfiliacionService} completo: autorización con la matriz
@@ -42,6 +44,12 @@ class AfiliacionesIT extends BaseDatosPrueba {
 
     @Autowired
     private ClubService clubes;
+
+    @Autowired
+    private AfiliacionRepository repositorio;
+
+    @Autowired
+    private PlatformTransactionManager transacciones;
 
     // ── Criterio 1 y 2: folio, estado y resolución ───────────────────────────────────────────
 
@@ -77,6 +85,9 @@ class AfiliacionesIT extends BaseDatosPrueba {
                 .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
                     error(HttpStatus.CONFLICT, "DUPLICADO").accept(excepcion);
                     assertThat(excepcion.getMessage()).contains(afiliacionA.folio());
+                    assertThat(excepcion.propiedades())
+                            .containsEntry("afiliacionId", afiliacionA.id().toString())
+                            .containsEntry("folio", afiliacionA.folio());
                 });
 
         UUID presidente = perfilConRol("PRESIDENTE");
@@ -285,7 +296,84 @@ class AfiliacionesIT extends BaseDatosPrueba {
         assertThat(eventos(afiliacion.id())).extracting(Evento::accion).containsExactly("REGISTRAR_AFILIACION");
     }
 
+    // ── DEF-08: choque en el alta sin abortar la transacción ────────────────────────────────
+
+    /**
+     * Un hueco de folio reproduce el choque del {@code INSERT} sin hilos: otro club ya tiene el
+     * folio {@code 0002} y la temporada solo cuenta un tarjetón, así que el servicio calcula ese
+     * mismo folio. Antes de DEC-133 el {@code DuplicateKeyException} abortaba la transacción
+     * (25P02) y la consulta posterior respondía 500.
+     */
+    @Test
+    @DisplayName("DEC-133, DEC-134 · SCRUM-433: un hueco de folio responde 409 DUPLICADO y no 500")
+    void huecoDeFolioResponde409() {
+        TemporadaPrueba temporada = temporada(EstadoTemporada.CONFIGURACION);
+        iniciarSesionComoAdministrador();
+        ClubDto otro = clubes.crear(new CrearClubRequest("Club " + UUID.randomUUID()));
+        ClubDto club = clubes.crear(new CrearClubRequest("Club " + UUID.randomUUID()));
+        String folioOcupado = "AF-" + temporada.fechaInicio().getYear() + "-0002";
+        jdbc.sql("""
+                        INSERT INTO siglim.afiliaciones (club_id, temporada_id, folio, colores_uniforme, capturada_por)
+                        VALUES (:club, :temporada, :folio, :colores, :perfil)
+                        """)
+                .param("club", otro.id())
+                .param("temporada", temporada.id())
+                .param("folio", folioOcupado)
+                .param("colores", COLORES)
+                .param("perfil", crearPerfil())
+                .update();
+        long registrosAntes = eventosDeAlta();
+
+        iniciarSesion(perfilConRol("SECRETARIO"));
+        assertThatThrownBy(() -> afiliaciones.crear(new CrearAfiliacionRequest(club.id(), temporada.id(),
+                COLORES, List.of(temporada.categoriaId()))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
+                    error(HttpStatus.CONFLICT, "DUPLICADO").accept(excepcion);
+                    assertThat(excepcion.getMessage()).startsWith("No se pudo asignar el folio");
+                    assertThat(excepcion.propiedades()).doesNotContainKeys("afiliacionId", "folio");
+                });
+
+        assertThat(jdbc.sql("SELECT count(*) FROM siglim.afiliaciones WHERE club_id = :club")
+                .param("club", club.id()).query(Long.class).single()).isZero();
+        assertThat(eventosDeAlta()).isEqualTo(registrosAntes);
+    }
+
+    @Test
+    @DisplayName("DEC-133, DEC-134 · SCRUM-433: el ON CONFLICT de club o de folio no aborta la transacción")
+    void onConflictNoAbortaLaTransaccion() {
+        TemporadaPrueba temporada = temporada(EstadoTemporada.CONFIGURACION);
+        UUID perfil = iniciarSesionComoAdministrador();
+        ClubDto clubA = clubes.crear(new CrearClubRequest("Club " + UUID.randomUUID()));
+        ClubDto clubB = clubes.crear(new CrearClubRequest("Club " + UUID.randomUUID()));
+        String prefijo = "AF-" + temporada.fechaInicio().getYear() + "-";
+
+        new TransactionTemplate(transacciones).executeWithoutResult(estado -> {
+            assertThat(repositorio.insertar(clubA.id(), temporada.id(), prefijo + "0001", COLORES, perfil))
+                    .isPresent();
+            // Choque por UNIQUE (club_id, temporada_id).
+            assertThat(repositorio.insertar(clubA.id(), temporada.id(), prefijo + "0002", COLORES, perfil))
+                    .isEmpty();
+            // Choque por UNIQUE (temporada_id, folio).
+            assertThat(repositorio.insertar(clubB.id(), temporada.id(), prefijo + "0001", COLORES, perfil))
+                    .isEmpty();
+            // En la misma transacción: sin 25P02 las consultas siguen respondiendo.
+            assertThat(repositorio.buscarPorClubTemporada(LIGA, clubA.id(), temporada.id()))
+                    .hasValueSatisfying(existente -> assertThat(existente.folio()).isEqualTo(prefijo + "0001"));
+            assertThat(jdbc.sql("SELECT count(*) FROM siglim.afiliaciones WHERE temporada_id = :id")
+                    .param("id", temporada.id()).query(Long.class).single()).isEqualTo(1);
+        });
+    }
+
     // ── Apoyo ─────────────────────────────────────────────────────────────────────────────────
+
+    private long eventosDeAlta() {
+        return jdbc.sql("""
+                        SELECT count(*) FROM siglim.auditoria
+                         WHERE modulo = 'M-03' AND accion = 'REGISTRAR_AFILIACION'
+                        """)
+                .query(Long.class)
+                .single();
+    }
 
     /** Temporada con una categoría asignada, en el estado pedido (sin pasar por activación). */
     private TemporadaPrueba temporada(EstadoTemporada estado) {
