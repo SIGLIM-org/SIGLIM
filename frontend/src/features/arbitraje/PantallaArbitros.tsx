@@ -1,4 +1,4 @@
-import { useId, useState, type KeyboardEvent } from 'react'
+import { useId, useMemo, useState, type KeyboardEvent } from 'react'
 import {
   BadgeCheck,
   CircleCheck,
@@ -17,12 +17,15 @@ import {
   TAMANO_ARBITROS,
   useArbitros,
   useConteoArbitros,
+  useCuotasDeClubes,
 } from '@/features/arbitraje/api'
 import { estadosArbitroVisibles } from '@/features/arbitraje/etiquetas'
 import { ModalDictamenArbitro } from '@/features/arbitraje/ModalDictamenArbitro'
 import { ModalPresentarArbitro } from '@/features/arbitraje/ModalPresentarArbitro'
 import { PaginacionArbitros } from '@/features/arbitraje/PaginacionArbitros'
 import { TablaArbitros } from '@/features/arbitraje/TablaArbitros'
+import { TarjetaCuotaArbitros } from '@/features/arbitraje/TarjetaCuotaArbitros'
+import { TarjetaReglaCuota } from '@/features/arbitraje/TarjetaReglaCuota'
 import { usePermisosArbitros } from '@/features/arbitraje/permisos'
 import type {
   Arbitro,
@@ -36,6 +39,9 @@ import { PaginaSinPermiso } from '@/pages/PaginaSinPermiso'
 export const RUTA_ARBITROS = '/app/programacion/arbitros'
 
 const formatoEntero = new Intl.NumberFormat('es-MX')
+
+/** Filtro de la Comisión por el indicador de cuota del club (B-08.2, RF-114). */
+type FiltroCuota = 'TODOS' | 'CUMPLE' | 'NO_CUMPLE'
 
 /**
  * Pantalla de árbitros F-20 (H-11.2, UI-007). La Comisión de Arbitraje revisa por estado y valida
@@ -55,9 +61,17 @@ export function PantallaArbitros() {
 
 function PaginaArbitros() {
   const id = useId()
-  const { proponer, validar, puedeRegistrarPersona, clubesProponer } = usePermisosArbitros()
+  const {
+    proponer,
+    validar,
+    puedeRegistrarPersona,
+    clubesProponer,
+    clubesConsulta,
+    consultaAmbitoLiga,
+  } = usePermisosArbitros()
   const [filtro, setFiltro] = useState<EstadoArbitroVisible>('PROPUESTO')
   const [pagina, setPagina] = useState(0)
+  const [filtroCuota, setFiltroCuota] = useState<FiltroCuota>('TODOS')
   const [presentando, setPresentando] = useState(false)
   const [dictamen, setDictamen] = useState<{
     arbitro: Arbitro
@@ -69,12 +83,34 @@ function PaginaArbitros() {
   const conteoValidados = useConteoArbitros('VALIDADO')
   const conteoRechazados = useConteoArbitros('RECHAZADO')
   const lista = useArbitros({ estado: filtro, pagina, tamano: TAMANO_ARBITROS })
+  const clubesDeLaPagina = useMemo(
+    () => [...new Set((lista.data?.contenido ?? []).map(({ club }) => club.id))],
+    [lista.data],
+  )
+  const cuotas = useCuotasDeClubes(clubesDeLaPagina, consultaAmbitoLiga)
   const conteos: Record<EstadoArbitroVisible, number | undefined> = {
     PROPUESTO: conteoPropuestos.data,
     VALIDADO: conteoValidados.data,
     RECHAZADO: conteoRechazados.data,
   }
   const puedePresentar = proponer && clubesProponer.length > 0
+  const cargandoCuotas = cuotas.some(({ isPending }) => isPending)
+  const cuotasSinDato =
+    cuotas.length > 0 && cuotas.every(({ isError }) => isError)
+  const cumplePorClub = new Map<string, boolean>()
+  for (const [indice, clubId] of clubesDeLaPagina.entries()) {
+    const cumple = cuotas[indice]?.data?.cuotaArbitros.cumple
+    if (cumple !== undefined) {
+      cumplePorClub.set(clubId, cumple)
+    }
+  }
+  const filtrandoCuota = consultaAmbitoLiga && filtroCuota !== 'TODOS'
+  const filasVisibles = filtrandoCuota
+    ? (lista.data?.contenido ?? []).filter(({ club }) => {
+        const cumple = cumplePorClub.get(club.id)
+        return cumple !== undefined && cumple === (filtroCuota === 'CUMPLE')
+      })
+    : (lista.data?.contenido ?? [])
 
   if (esSinPermiso(lista.error)) {
     return <PaginaSinPermiso rutaInicio="/app" />
@@ -246,6 +282,52 @@ function PaginaArbitros() {
             aria-labelledby={`${id}-filtro-${filtro}`}
             className="flex min-w-0 flex-col gap-3"
           >
+            {consultaAmbitoLiga && (
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor={`${id}-filtro-cuota`}
+                    className="text-label-md text-text-main"
+                  >
+                    Cumple cuota
+                  </label>
+                  <select
+                    id={`${id}-filtro-cuota`}
+                    value={filtroCuota}
+                    onChange={(evento) =>
+                      setFiltroCuota(evento.target.value as FiltroCuota)
+                    }
+                    className="min-h-11 rounded-md border border-border bg-surface px-3 text-body-md text-text-main"
+                  >
+                    <option value="TODOS">Todos los clubes</option>
+                    <option value="CUMPLE">Solo los que cumplen</option>
+                    <option value="NO_CUMPLE">Solo los que no cumplen</option>
+                  </select>
+                </div>
+                {cargandoCuotas && (
+                  <p role="status" className="text-body-sm text-text-muted">
+                    Consultando la cuota de los clubes…
+                  </p>
+                )}
+              </div>
+            )}
+
+            {consultaAmbitoLiga && cuotasSinDato && (
+              <p
+                role="alert"
+                className="rounded-md border border-warning/30 bg-warning/14 p-3 text-body-sm text-warning-strong"
+              >
+                No se pudo consultar la cuota de los clubes de esta página.
+              </p>
+            )}
+
+            {filtrandoCuota && lista.data && !lista.isPending && (
+              <p role="status" className="text-body-sm text-text-muted">
+                Mostrando {filasVisibles.length} de {lista.data.contenido.length} árbitros de
+                esta página.
+              </p>
+            )}
+
             {lista.isPending && (
               <EstadoCarga etiqueta="Cargando árbitros…" filas={5} columnas={5} />
             )}
@@ -296,12 +378,22 @@ function PaginaArbitros() {
               />
             )}
 
-            {lista.data && lista.data.contenido.length > 0 && (
+            {filtrandoCuota &&
+              filasVisibles.length === 0 &&
+              lista.data &&
+              lista.data.contenido.length > 0 && (
+                <p className="rounded-lg border border-border bg-surface p-4 text-body-sm text-text-muted">
+                  Ningún club de esta página coincide con el filtro de cuota.
+                </p>
+              )}
+
+            {lista.data && filasVisibles.length > 0 && (
               <>
                 <TablaArbitros
-                  arbitros={lista.data.contenido}
+                  arbitros={filasVisibles}
                   actualizando={lista.isFetching && !lista.isPending}
                   puedeValidar={validar}
+                  mostrarCuota={consultaAmbitoLiga}
                   onDictamen={(arbitro, decision) => {
                     setMensaje(null)
                     setDictamen({ arbitro, decision })
@@ -323,25 +415,25 @@ function PaginaArbitros() {
         </section>
 
         <aside className="flex min-w-0 flex-col gap-4">
-          <section
-            aria-labelledby={`${id}-cuota`}
-            className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <h2 id={`${id}-cuota`} className="text-headline-sm text-text-main">
-                Cuota de árbitros por club
+          {consultaAmbitoLiga ? (
+            <TarjetaReglaCuota />
+          ) : clubesConsulta.length > 0 ? (
+            clubesConsulta.map((club) => (
+              <TarjetaCuotaArbitros key={club.id} club={club} />
+            ))
+          ) : (
+            <section
+              aria-labelledby={`${id}-cuota-sin-club`}
+              className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4"
+            >
+              <h2 id={`${id}-cuota-sin-club`} className="text-headline-sm text-text-main">
+                Cuota de árbitros
               </h2>
-              <Insignia variante="informacion">Próximamente</Insignia>
-            </div>
-            <p className="text-body-sm text-text-muted">
-              La Liga pide al menos un árbitro por cada cuatro equipos del club, con redondeo hacia
-              arriba.
-            </p>
-            <p className="rounded-md bg-background p-3 text-body-sm text-text-muted">
-              El cálculo de la cuota y los clubes en déficit llegarán en una próxima versión. Por
-              ahora esta pantalla muestra el catálogo y su dictamen.
-            </p>
-          </section>
+              <p className="text-body-sm text-text-muted">
+                Tu cuenta no tiene un club asignado, así que no hay una cuota que mostrar.
+              </p>
+            </section>
+          )}
 
           <section
             aria-labelledby={`${id}-solo-validados`}

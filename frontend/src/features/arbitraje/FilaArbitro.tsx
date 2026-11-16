@@ -1,6 +1,7 @@
 import { Building2, CalendarDays, CircleCheck, CircleX, UserRound } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Insignia } from '@/components/ui/Insignia'
+import { CeldaCumpleCuota } from '@/features/arbitraje/CeldaCumpleCuota'
 import {
   etiquetaEstadoArbitro,
   inicialesArbitro,
@@ -12,6 +13,8 @@ import { formatearFechaHora } from '@/features/temporadas/fechas'
 type Props = {
   arbitro: Arbitro
   puedeValidar: boolean
+  /** La Comisión ve el indicador de cuota del club que presenta al árbitro (B-08.2, RF-114). */
+  mostrarCuota: boolean
   onDictamen: (arbitro: Arbitro, decision: DecisionArbitro) => void
 }
 
@@ -22,7 +25,7 @@ const CLASE_ETIQUETA = 'block text-label-sm text-text-muted lg:hidden'
  * desplazamiento horizontal (RNF-007). Las acciones solo se ofrecen en `PROPUESTO` y con el permiso
  * de validar; el backend vuelve a decidir (VAL-015).
  */
-export function FilaArbitro({ arbitro, puedeValidar, onDictamen }: Props) {
+export function FilaArbitro({ arbitro, puedeValidar, mostrarCuota, onDictamen }: Props) {
   const estado = etiquetaEstadoArbitro[arbitro.estado]
   const mostrarAcciones = puedeValidar && arbitro.estado === 'PROPUESTO'
 
@@ -54,10 +57,13 @@ export function FilaArbitro({ arbitro, puedeValidar, onDictamen }: Props) {
 
       <td role="cell" className="block py-1 lg:table-cell lg:px-4 lg:py-3">
         <span className={CLASE_ETIQUETA}>Club que lo presenta</span>
-        <span className="flex items-center gap-1.5 text-body-md text-text-main">
-          <Building2 aria-hidden="true" className="size-4 shrink-0 text-text-muted" />
-          <span className="break-words">{arbitro.club.nombre}</span>
-        </span>
+        <div className="flex flex-col gap-1">
+          <span className="flex items-center gap-1.5 text-body-md text-text-main">
+            <Building2 aria-hidden="true" className="size-4 shrink-0 text-text-muted" />
+            <span className="break-words">{arbitro.club.nombre}</span>
+          </span>
+          {mostrarCuota && <CeldaCumpleCuota club={arbitro.club} />}
+        </div>
       </td>
 
       <td role="cell" className="block py-1 lg:table-cell lg:px-4 lg:py-3">
@@ -91,7 +97,13 @@ export function FilaArbitro({ arbitro, puedeValidar, onDictamen }: Props) {
       <td role="cell" className="block pt-3 lg:table-cell lg:px-4 lg:py-3 lg:text-right">
         <span className={CLASE_ETIQUETA}>Acciones</span>
         {mostrarAcciones ? (
-          <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
+          <div
+            className={
+              mostrarCuota
+                ? 'flex flex-col gap-2 2xl:flex-row 2xl:justify-end'
+                : 'flex flex-col gap-2 sm:flex-row lg:justify-end'
+            }
+          >
             <Button
               icono={CircleCheck}
               aria-label={`Validar a ${arbitro.persona.nombreCompleto}`}

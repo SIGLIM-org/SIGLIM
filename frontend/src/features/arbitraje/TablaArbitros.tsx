@@ -6,6 +6,8 @@ type Props = {
   /** La lista se está actualizando; se atenúa sin ocultar los datos vigentes. */
   actualizando: boolean
   puedeValidar: boolean
+  /** La Comisión ve el indicador de cuota del club junto a su nombre (B-08.2, RF-114). */
+  mostrarCuota: boolean
   onDictamen: (arbitro: Arbitro, decision: DecisionArbitro) => void
 }
 
@@ -13,9 +15,16 @@ const CLASE_ENCABEZADO = 'px-4 py-3 text-left text-label-sm text-text-muted'
 
 /**
  * Tabla de árbitros de F-20. En escritorio es una tabla densa; bajo `lg` cada fila se apila como
- * tarjeta y conserva los roles de tabla para lectores de pantalla (RNF-007, RNF-008).
+ * tarjeta y conserva los roles de tabla para lectores de pantalla (RNF-007, RNF-008). La Comisión
+ * ve el indicador de cuota junto al club que presenta al árbitro (B-08.2, RF-114).
  */
-export function TablaArbitros({ arbitros, actualizando, puedeValidar, onDictamen }: Props) {
+export function TablaArbitros({
+  arbitros,
+  actualizando,
+  puedeValidar,
+  mostrarCuota,
+  onDictamen,
+}: Props) {
   return (
     <div
       className={[
@@ -57,6 +66,7 @@ export function TablaArbitros({ arbitros, actualizando, puedeValidar, onDictamen
               key={arbitro.id}
               arbitro={arbitro}
               puedeValidar={puedeValidar}
+              mostrarCuota={mostrarCuota}
               onDictamen={onDictamen}
             />
           ))}

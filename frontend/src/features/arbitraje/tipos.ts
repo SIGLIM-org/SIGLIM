@@ -52,6 +52,22 @@ export type FiltrosArbitros = {
   tamano: number
 }
 
+/** Resumen de la cuota: requeridos, validados y si el club cumple (RF-114, DEC-17). */
+export type ResumenCuotaArbitros = {
+  requeridos: number
+  validados: number
+  cumple: boolean
+}
+
+/** `GET /clubes/{id}/cuota-arbitros` (RF-114, DEC-17): indicador calculado de la temporada. */
+export type CuotaArbitros = {
+  club: Referencia
+  temporada: Referencia
+  equiposActivos: number
+  equiposPorArbitro: number
+  cuotaArbitros: ResumenCuotaArbitros
+}
+
 /** Club que la sesión puede usar para presentar árbitros. */
 export type ClubParaArbitro = {
   id: string
