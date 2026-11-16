@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.11 · 16 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.12 · 16 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -60,6 +60,7 @@ Versión 5.11 · 16 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.9 | 16 de noviembre de 2026 | B-05.3: §6.3 con la consulta de operaciones de equipo que necesita B-09: `GET /operaciones-equipo` (filtro `temporadaId`/`estado`, paginación, alcance unificado de `SOLICITAR`/`APROBAR` en el `WHERE` y el `COUNT`), `GET /operaciones-equipo/{id}` (404 fuera de ámbito) y `GET /operaciones-equipo/contexto` (clubes `ACTIVO` de la liga para elegir el destino de una venta); `POST` responde `201` con `Location`. |
 | 5.10 | 16 de noviembre de 2026 | B-08.1: §6.5 con el contrato de `GET /clubes/{id}/cuota-arbitros?temporadaId=` (equipos activos, árbitros `VALIDADO`, redondeo hacia arriba y `cumple`), su ámbito de club, errores y la temporada activa por omisión; §6.2 con el parámetro `equiposPorArbitro` de la temporada (4 **[DEMO]**, DEC-72), su herencia de la versión vigente cuando se omite y su inclusión en `camposDemo` (RF-114, DEC-17). |
 | 5.11 | 16 de noviembre de 2026 | B-15.1: §6.7 con las advertencias de localía (VAL-027): las reglas de la cancha del local (DEC-33, DEC-34) y de las últimas fechas en la unidad deportiva (RN-049), el `409 VAL-027` con `aceptable` y `advertencias` al registrar o ajustar un partido sin `motivoAceptacion`, el motivo guardado en `motivoLocalia`, su conservación en los ajustes, la lista `advertencias` de la verificación y la auditoría `ACEPTAR_LOCALIA`; §6.2 con los parámetros `fechasFaseRegular` (sin default) y `fechasFinalesUnidadDeportiva` (10 **[DEMO]**), heredados de la versión vigente cuando se omiten. |
+| 5.12 | 16 de noviembre de 2026 | B-29.1: §6.13 con el contrato de tarifas (`GET /tarifas?temporadaId=` sin paginar, `POST /tarifas` y `PATCH /tarifas/{id}` solo del monto): una tarifa por temporada, categoría y concepto (`409 DUPLICADO`), monto mayor o igual a cero, categoría asignada a la temporada (`422 REFERENCIA_INVALIDA`), temporada cerrada de solo lectura (`409 RF-003`), `esDemo` siempre `true` mientras siga PEN-042 y auditoría `REGISTRAR_TARIFA` y `EDITAR_TARIFA` (RF-135). |
 
 ## Índice
 
@@ -2047,7 +2048,7 @@ los módulos; los endpoints `/reportes` y la exportación son B.
 
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
-| `GET /tarifas?temporadaId=` · `POST` · `PATCH` | Tarifas por temporada y categoría | `tesoreria.tarifa:EDITAR` | RF-135 | B |
+| `GET /tarifas?temporadaId=` · `POST /tarifas` · `PATCH /tarifas/{id}` | Tarifas por temporada y categoría | `tesoreria.tarifa:EDITAR` | RF-135 | B |
 | `GET /cobros?clubId=&equipoId=&estado=` · `POST /cobros` | Cobros (manuales en N; los automáticos los genera la publicación de la jornada, B) | `tesoreria.cobro:*` | RF-137, RF-136 | N · B |
 | `GET /adeudos?clubId=` | Suma de cobros pendientes y vencidos por club y equipo | `tesoreria.cobro:CONSULTAR` | RF-140 | N |
 | `POST /cobros/{id}/intentos-pago` · `POST /intentos-pago/{id}/confirmacion` | Pago en línea simulado | `tesoreria.pago:PAGAR` | RF-138, ADR-0012 | N |
@@ -2061,6 +2062,37 @@ Ningún endpoint pone un cobro en `VENCIDO`: lo hace la tarea programada de venc
 RF-141, ADR-0009) como el perfil Sistema, para los cobros `PENDIENTE` con `fecha_limite` anterior al
 día de hoy en `America/Mexico_City` **[PROPUESTA, DEC-60]**, con la acción de auditoría
 `VENCER_COBRO`. Desde ahí el cobro solo admite el pago externo (`POST /cobros/{id}/pagos`).
+
+#### Tarifas (B-29.1, RF-135)
+
+Las tarifas reales están pendientes (PEN-042): todo monto capturado es **[DEMO]** y cada tarifa
+lleva `esDemo: true` para que la interfaz la rotule «No oficial». Los tres endpoints exigen
+`tesoreria.tarifa:EDITAR` en ámbito de liga (la matriz no tiene un permiso de consulta propio).
+
+`GET /tarifas?temporadaId=` devuelve la lista **sin paginar** de la temporada (a lo sumo dos tarifas
+por categoría), ordenada por el orden del catálogo de categorías y después por concepto. Cada tarifa
+se representa con `id`, `temporada` y `categoria` anidados (`{ id, nombre }`), `concepto`
+(`ARBITRAJE` o `CANCHA`), `monto` (`BigDecimal`, dos decimales) y `esDemo`. Sin `temporadaId`
+responde `400 VALIDACION`; una temporada que no es de la liga, `404`.
+
+`POST /tarifas` responde `201` con `Location` y la tarifa. El cuerpo es:
+
+```json
+{ "temporadaId": "…", "categoriaId": "…", "concepto": "ARBITRAJE", "monto": 350.00 }
+```
+
+`PATCH /tarifas/{id}` solo cambia el monto (`{ "monto": 420.50 }`) y responde `200` con la tarifa;
+la temporada, la categoría y el concepto identifican la tarifa y no se editan. Un monto igual al
+vigente no cambia nada ni se audita.
+
+- `monto` es obligatorio, mayor o igual a cero, con hasta diez dígitos enteros y dos decimales
+  (`numeric(12,2)`); un negativo o un tercer decimal responden `400 VALIDACION`.
+- `409 DUPLICADO` si ya existe la tarifa de ese concepto para la categoría en la temporada (la
+  restricción `UNIQUE` es la última garantía); `422 REFERENCIA_INVALIDA` si la temporada no existe o
+  la categoría no está asignada a ella (`categorias_temporada`); `409 RF-003` si la temporada está
+  `CERRADA`: sus tarifas son de solo lectura. `PATCH` de una tarifa inexistente responde `404`.
+- Auditoría: `REGISTRAR_TARIFA` y `EDITAR_TARIFA` en `M-13`, entidad `tarifas`, con temporada,
+  categoría, concepto, monto (y `montoAnterior` en la edición) y `esDemo`.
 
 #### Cobros (H-29.1, RF-137, RF-140)
 
