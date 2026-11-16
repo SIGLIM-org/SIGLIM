@@ -28,6 +28,7 @@ record ValoresParametros(
         int equiposAscienden,
         int equiposDescienden,
         boolean permiteCambioClub,
+        int equiposPorArbitro,
         boolean esDemo,
         List<ValorCategoria> categorias) {
 
@@ -41,7 +42,15 @@ record ValoresParametros(
         return new ValoresParametros(puntosVictoria, puntosEmpate, puntosDerrota, criteriosDesempate,
                 golesDefaultGanador, golesDefaultPerdedor, plazoValidacionCedulaHoras, duracionJuegoMin,
                 bloqueCanchaMin, clasificadosLiguilla, formatoLiguilla, empateLiguillaPorPenales, equiposAscienden,
-                equiposDescienden, permiteCambioClub, esDemo, otras);
+                equiposDescienden, permiteCambioClub, equiposPorArbitro, esDemo, otras);
+    }
+
+    /** Los mismos valores con otro divisor de la cuota de árbitros (RF-114). */
+    ValoresParametros conEquiposPorArbitro(int otro) {
+        return new ValoresParametros(puntosVictoria, puntosEmpate, puntosDerrota, criteriosDesempate,
+                golesDefaultGanador, golesDefaultPerdedor, plazoValidacionCedulaHoras, duracionJuegoMin,
+                bloqueCanchaMin, clasificadosLiguilla, formatoLiguilla, empateLiguillaPorPenales, equiposAscienden,
+                equiposDescienden, permiteCambioClub, otro, esDemo, categorias);
     }
 
     /** Duración de juego y bloque de cancha de una categoría (D7). */

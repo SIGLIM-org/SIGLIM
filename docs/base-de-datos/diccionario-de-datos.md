@@ -1,7 +1,7 @@
 # Diccionario de datos
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.9 · 12 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
+Versión 2.10 · 16 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
 
 > [!NOTE]
 > Este diccionario describe la migración
@@ -26,6 +26,7 @@ Versión 2.9 · 12 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alinead
 | 2.7 | 11 de noviembre de 2026 | Migración `20261111200000_registro_alta_unicidad.sql` (H-09.2): funciones `SECURITY DEFINER` de lectura mínima `registros_en_temporada(uuid, uuid)` (club, equipo y estado de los registros no rechazados de la persona en la temporada) y `requisitos_menor(uuid)` (tutela vigente y consentimiento de un tutor vigente, la misma condición de `tg_registros_validar` al activar), ejecutables solo por `siglim_app`; comentario `VAL-017` en `ux_registros_activo` para que su `23505` se traduzca con ese código (DEC-88 a DEC-90). |
 | 2.8 | 12 de noviembre de 2026 | Migración `20261112130000_documentos_registro.sql` (H-10.1, DEC-94): la política `documentos_editar` se recrea con `USING` y `WITH CHECK` para que también actualice un documento de registro la Directiva del club del equipo (reemplazo por otro directivo del mismo club), sin abrirla al ámbito `PROPIO`; `tg_documentos_validar` agrega tres reglas: `reemplazado_por_id` no cambia una vez puesto (`RNF-018`), `estado_validacion` solo cambia desde `PENDIENTE` (`RF-109`) y solo un usuario de liga cambia `estado_validacion`, `validado_por` o `validado_en` (`VAL-015`). Sin cambios en columnas. |
 | 2.9 | 12 de noviembre de 2026 | Migración `20261112180000_validacion_registro.sql` (H-10.2, DEC-101): `tg_registros_validar` se reescribe con la misma firma y conserva todas sus reglas; agrega que solo un usuario de liga (`es_usuario_liga()`) hace la transición `PENDIENTE_VALIDACION → ACTIVO \| RECHAZADO` o cambia `validado_por` o `validado_en` (`VAL-015`), y que al activar cada requisito aplicable de `requisitos_documento` tenga al menos `cantidad` documentos vigentes `APROBADO` (`VAL-001`). Orden: `RF-017` → `VAL-015` → `RN-021` → `VAL-001` → `VAL-025`. La política `registros_editar` no cambia. Sin cambios en columnas. |
+| 2.10 | 16 de noviembre de 2026 | Migración `20261116100000_cuota_arbitros_parametro.sql` (B-08.1, RF-114, DEC-17): `parametros_temporada` agrega `equipos_por_arbitro` (`smallint`, no nulo, default 4 **[DEMO]**) con `ck_parametros_arbitros` (`> 0`); la cuota de árbitros del club se calcula con la versión vigente del parámetro y se redondea hacia arriba. Las versiones existentes reciben el valor por default. |
 
 ## 1. Propósito y alcance
 
@@ -559,6 +560,7 @@ Reglas versionadas de la temporada; la versión mayor es la vigente (RF-006, RF-
 | `equipos_ascienden` | smallint | No | 2 |  | Equipos que suben por categoría (2 [DEMO], DEC-29). |
 | `equipos_descienden` | smallint | No | 2 |  | Equipos que bajan por categoría (2 [DEMO]). |
 | `permite_cambio_club` | boolean | No | true |  | Si se aceptan cambios de club entre temporadas (RF-111, DEC-13). |
+| `equipos_por_arbitro` | smallint | No | 4 |  | Equipos activos del club por cada árbitro validado que debe presentar; la cuota se redondea hacia arriba (4 [DEMO], RF-114, DEC-17). |
 | `es_demo` | boolean | No | true |  | Valor de demostración [DEMO]: configurable y rotulado «no oficial» en la interfaz. |
 | `motivo` | text | No |  |  | Motivo de la operación o del cambio. |
 | `creado_por` | uuid | Sí |  | FK → perfiles.id | Perfil que creó el registro. |
@@ -566,6 +568,7 @@ Reglas versionadas de la temporada; la versión mayor es la vigente (RF-006, RF-
 
 Restricciones, índices y triggers:
 
+- `ck_parametros_arbitros`: `CHECK ((equipos_por_arbitro > 0))`
 - `ck_parametros_criterios`: `CHECK ((criterios_desempate[1] = 'PUNTOS'))`
 - `ck_parametros_default`: `CHECK (((goles_default_ganador > goles_default_perdedor) AND (goles_default_perdedor >= 0)))`
 - `ck_parametros_liguilla`: `CHECK ((clasificados_liguilla = ANY (ARRAY[2, 4, 8, 16, 32])))`

@@ -112,6 +112,70 @@ class ArbitroRepository {
                 .single();
     }
 
+    /** Datos del club para la cuota; vacío si no existe en la liga (VAL-024). */
+    Optional<ReferenciaClub> buscarClub(UUID ligaId, UUID clubId) {
+        return jdbc.sql("SELECT id, nombre FROM clubes WHERE liga_id = :ligaId AND id = :clubId")
+                .param("ligaId", ligaId)
+                .param("clubId", clubId)
+                .query((fila, numero) -> new ReferenciaClub(fila.getObject("id", UUID.class),
+                        fila.getString("nombre")))
+                .optional();
+    }
+
+    /** Temporada de la liga para la cuota; una de otra liga responde 404 (VAL-024). */
+    Optional<TemporadaCuota> buscarTemporada(UUID ligaId, UUID temporadaId) {
+        return jdbc.sql("SELECT id, nombre FROM temporadas WHERE liga_id = :ligaId AND id = :temporadaId")
+                .param("ligaId", ligaId)
+                .param("temporadaId", temporadaId)
+                .query(ArbitroRepository::aTemporadaCuota)
+                .optional();
+    }
+
+    /** Temporada activa de la liga; la cuota se calcula en ella si no se indica otra. */
+    Optional<TemporadaCuota> temporadaActiva(UUID ligaId) {
+        return jdbc.sql("SELECT id, nombre FROM temporadas WHERE liga_id = :ligaId AND estado = 'ACTIVA'")
+                .param("ligaId", ligaId)
+                .query(ArbitroRepository::aTemporadaCuota)
+                .optional();
+    }
+
+    /**
+     * Equipos activos del club en la temporada, árbitros validados del club y el parámetro vigente
+     * de la cuota. {@code equiposPorArbitro} es nulo si la temporada aún no tiene parámetros.
+     */
+    DatosCuota datosCuota(UUID clubId, UUID temporadaId) {
+        return jdbc.sql("""
+                        SELECT
+                          (SELECT count(*)
+                             FROM equipos e
+                             JOIN grupos g ON g.id = e.grupo_id
+                             JOIN categorias_temporada ct ON ct.id = g.categoria_temporada_id
+                            WHERE e.club_id = :clubId
+                              AND ct.temporada_id = :temporadaId
+                              AND e.estado = 'ACTIVO') AS equipos_activos,
+                          (SELECT count(*)
+                             FROM arbitros a
+                            WHERE a.club_id = :clubId
+                              AND a.estado = 'VALIDADO') AS validados,
+                          (SELECT p.equipos_por_arbitro
+                             FROM parametros_temporada p
+                            WHERE p.temporada_id = :temporadaId
+                            ORDER BY p.version DESC
+                            LIMIT 1) AS equipos_por_arbitro
+                        """)
+                .param("clubId", clubId)
+                .param("temporadaId", temporadaId)
+                .query((fila, numero) -> new DatosCuota(
+                        fila.getInt("equipos_activos"),
+                        fila.getInt("validados"),
+                        fila.getObject("equipos_por_arbitro", Integer.class)))
+                .single();
+    }
+
+    private static TemporadaCuota aTemporadaCuota(ResultSet fila, int numero) throws SQLException {
+        return new TemporadaCuota(fila.getObject("id", UUID.class), fila.getString("nombre"));
+    }
+
     /**
      * El club que ya presenta a esa persona. El índice único de {@code persona_id} es global; del
      * club solo se devuelve el nombre, nunca su estado ni identificadores (DEC-88).
@@ -203,5 +267,17 @@ class ArbitroRepository {
 
     /** El club que ya presenta a la persona, solo para explicar el {@code 409} (DEC-88). */
     record ResumenArbitro(String clubNombre) {
+    }
+
+    /** Referencia al club para la cuota (RF-114). */
+    record ReferenciaClub(UUID id, String nombre) {
+    }
+
+    /** Temporada en la que se calcula la cuota (RF-114). */
+    record TemporadaCuota(UUID id, String nombre) {
+    }
+
+    /** Insumos de la cuota: equipos activos, árbitros validados y parámetro vigente (RF-114). */
+    record DatosCuota(int equiposActivos, int validados, Integer equiposPorArbitro) {
     }
 }

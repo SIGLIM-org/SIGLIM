@@ -54,12 +54,13 @@ class ParametrosControllerTest {
              "duracionJuegoMin":90,"bloqueCanchaMin":120,"clasificadosLiguilla":8,
              "formatoLiguilla":"IDA_Y_VUELTA","empateLiguillaPorPenales":true,
              "equiposAscienden":2,"equiposDescienden":2,"permiteCambioClub":false,
+             "equiposPorArbitro":4,
              "categorias":[{"categoriaId":"%s","duracionJuegoMin":70,"bloqueCanchaMin":90}],
              "motivo":"Valores de demostración iniciales"}
             """.formatted(CATEGORIA);
     private static final ParametrosDto VERSION_1 = new ParametrosDto(VERSION, TEMPORADA, 1, 3, 1, 0,
             List.of(CriterioDesempate.PUNTOS, CriterioDesempate.DIFERENCIA_GOLES, CriterioDesempate.SORTEO), 3, 0, 36,
-            90, 120, 8, FormatoLiguilla.IDA_Y_VUELTA, true, 2, 2, false,
+            90, 120, 8, FormatoLiguilla.IDA_Y_VUELTA, true, 2, 2, false, 4,
             List.of(new ParametrosCategoriaDto(new ReferenciaDto(CATEGORIA, "Veteranos"), 70, 90)),
             true, ParametrosService.CAMPOS_DEMO, "Valores de demostración iniciales",
             new ReferenciaDto(PERFIL, "Administrador"), OffsetDateTime.parse("2030-03-01T06:00:00-06:00"));
