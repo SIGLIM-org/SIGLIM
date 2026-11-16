@@ -125,6 +125,17 @@ export const rutas: RouteObject[] = [
               },
               ...paginasApp,
               {
+                path: '/app/organizacion/operaciones-equipo',
+                lazy: async () => {
+                  const { PantallaOperacionesEquipo } = await import(
+                    '@/features/organizacion/operaciones/PantallaOperacionesEquipo'
+                  )
+
+                  return { Component: PantallaOperacionesEquipo }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
                 path: '/app/organizacion/clubes/:clubId?',
                 lazy: async () => {
                   const { PantallaClubes } = await import(

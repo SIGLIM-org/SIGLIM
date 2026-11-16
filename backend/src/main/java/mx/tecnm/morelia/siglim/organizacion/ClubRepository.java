@@ -76,6 +76,22 @@ class ClubRepository {
                 .optional();
     }
 
+    /**
+     * Clubes {@code ACTIVO} de la liga, sin filtrar por ámbito. Lo usa B-09 para elegir el club
+     * destino de una venta: la Directiva necesita ver los compradores posibles aunque su ámbito de
+     * consulta de clubes solo alcance el propio. Solo se usa para identificador y nombre.
+     */
+    List<ClubDto> listarActivosDeLiga(UUID ligaId) {
+        return jdbc.sql(SELECCION + """
+                         WHERE c.liga_id = :ligaId
+                           AND c.estado = 'ACTIVO'
+                         ORDER BY c.nombre, c.id
+                        """)
+                .param("ligaId", ligaId)
+                .query(ClubRepository::aDto)
+                .list();
+    }
+
     List<ClubDto> listar(UUID ligaId, FiltroClubes filtro, AlcanceAutorizacion alcance) {
         return conFiltro(jdbc.sql(SELECCION + CONDICIONES_LISTADO
                         + " ORDER BY c.nombre, c.id LIMIT :limite OFFSET :desplazamiento"), ligaId, filtro, alcance)
