@@ -14,7 +14,8 @@ export type EstadoPartido =
 
 /**
  * Jornada de un grupo (RF-033, RF-121). El listado no trae `partidos`; el detalle sí, ordenados
- * por inicio.
+ * por inicio. Los campos de publicación (H-13.1) se omiten mientras están vacíos; `enviadaPor` y
+ * `aprobadaPor` son `perfiles.id`.
  */
 export type Jornada = {
   id: string
@@ -23,6 +24,13 @@ export type Jornada = {
   numero: number
   estadoPublicacion: EstadoJornada
   partidos?: Partido[]
+  enviadaPor?: string
+  enviadaEn?: string
+  aprobadaPor?: string
+  aprobadaEn?: string
+  publicadaEn?: string
+  /** Observaciones de la última devolución o nota de la aprobación. */
+  observaciones?: string
   creadoEn: string
   actualizadoEn: string
 }
@@ -57,6 +65,18 @@ export type VerificacionJornada = {
   conflictos: AvisoVerificacion[]
   /** Vacío hasta que el backlog B-15 implemente las reglas de localía (RF-120). */
   advertencias: AvisoVerificacion[]
+}
+
+/** Dictamen del Presidente sobre una jornada en revisión (RF-121). */
+export type DecisionJornada = 'PUBLICADO' | 'BORRADOR'
+
+/**
+ * `POST /jornadas/{id}/resolucion` (H-13.1): las observaciones son obligatorias al devolver
+ * (mínimo 10 caracteres) y opcionales al aprobar.
+ */
+export type ResolverJornadaPeticion = {
+  decision: DecisionJornada
+  observaciones?: string
 }
 
 /** `POST /jornadas` (RF-033): la jornada nace en BORRADOR. */

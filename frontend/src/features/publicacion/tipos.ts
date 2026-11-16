@@ -42,3 +42,19 @@ export type ResolverComunicadoPeticion = {
   /** Obligatorio al devolver a borrador; opcional al aprobar. */
   observaciones?: string
 }
+
+export type TipoPublicacion = 'JORNADA' | 'COMUNICADO'
+
+/**
+ * Fila de `GET /publicaciones/pendientes` (H-13.1): una jornada o un comunicado en `REVISION`.
+ * `contexto` y `partidos` solo vienen en las jornadas.
+ */
+export type PublicacionPendiente = {
+  tipo: TipoPublicacion
+  id: string
+  titulo: string
+  contexto?: string
+  partidos?: number
+  enviadoPor: { id: string; nombre: string }
+  enviadoEn: string
+}

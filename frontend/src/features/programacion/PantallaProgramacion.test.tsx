@@ -14,6 +14,8 @@ import type { Cancha } from '@/features/canchas/tipos'
 import type { Equipo } from '@/features/organizacion/tipos'
 import type { Permiso } from '@/features/seguridad/tipos'
 import type { CategoriaTemporada, Temporada } from '@/features/temporadas/tipos'
+import type { PublicacionPendiente } from '@/features/publicacion/tipos'
+import { ApiError } from '@/lib/api/ApiError'
 import type { Pagina } from '@/lib/api/tipos'
 
 const { get, post, patch, sesion } = vi.hoisted(() => ({
@@ -37,6 +39,7 @@ vi.mock('@/features/seguridad/ProveedorSesionActual', () => ({
 const CONSULTAR = 'programacion.jornada:CONSULTAR'
 const EDITAR = 'programacion.jornada:EDITAR'
 const ENVIAR = 'programacion.jornada:ENVIAR'
+const APROBAR = 'programacion.jornada:APROBAR'
 const MOTIVO = 'Cambio de horario por lluvia'
 
 const TEMPORADA: Temporada = {
@@ -180,6 +183,7 @@ type Respuestas = {
   detalle?: Jornada
   equipos?: Pagina<Equipo>
   verificacion?: VerificacionJornada
+  pendientes?: PublicacionPendiente[]
 }
 
 function responder({
@@ -189,6 +193,7 @@ function responder({
   detalle = JORNADA,
   equipos = pagina(EQUIPOS),
   verificacion = CONFLICTOS,
+  pendientes = [],
 }: Respuestas = {}) {
   get.mockImplementation(async (ruta: string) => {
     if (ruta.startsWith('temporadas?')) {
@@ -209,6 +214,9 @@ function responder({
     if (ruta.startsWith('canchas?')) {
       return pagina(CANCHAS)
     }
+    if (ruta.startsWith('publicaciones/pendientes?')) {
+      return pagina(pendientes)
+    }
 
     throw new Error(`GET no simulado: ${ruta}`)
   })
@@ -216,6 +224,14 @@ function responder({
   post.mockImplementation(async (ruta: string) => {
     if (ruta === 'jornadas/j1/verificacion') {
       return verificacion
+    }
+    if (ruta === 'jornadas/j1/envio') {
+      return {
+        ...detalle,
+        estadoPublicacion: 'REVISION',
+        enviadaPor: 'perfil-1',
+        enviadaEn: '2026-11-16T18:45:00-06:00',
+      }
     }
 
     throw new Error(`POST no simulado: ${ruta}`)
@@ -393,5 +409,127 @@ describe('PantallaProgramacion (F-22, H-12.4)', () => {
       within(dialogo).getByText(/El equipo «Baja FC» está dado de baja/),
     ).toBeInTheDocument()
     expect(within(dialogo).getByRole('button', { name: 'Guardar cambios' })).toBeDisabled()
+  })
+
+  it('criterio 1: envía la jornada sin conflictos a aprobación con confirmación', async () => {
+    otorgar(CONSULTAR, EDITAR, ENVIAR)
+    responder({ verificacion: { conflictos: [], advertencias: [] } })
+    montarPantalla()
+
+    await screen.findByText('Sin conflictos')
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar a aprobación' }))
+
+    const dialogo = await screen.findByRole('dialog', { name: 'Enviar a aprobación' })
+    expect(
+      within(dialogo).getByText(/La jornada 1 de Libre Primera · Grupo A, con 2 partidos/),
+    ).toBeInTheDocument()
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Enviar a aprobación' }))
+
+    await waitFor(() => expect(post).toHaveBeenCalledWith('jornadas/j1/envio'))
+    expect(
+      await screen.findByText(
+        'Jornada 1 enviada a aprobación. La Presidencia la revisará antes de publicarla.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('explica el rechazo del envío por conflictos nuevos', async () => {
+    otorgar(CONSULTAR, EDITAR, ENVIAR)
+    responder({ verificacion: { conflictos: [], advertencias: [] } })
+    const verificar = post.getMockImplementation()
+    post.mockImplementation(async (ruta: string) => {
+      if (ruta === 'jornadas/j1/envio') {
+        throw new ApiError({
+          title: 'Conflicto',
+          status: 409,
+          codigo: 'RF-039',
+          detail: 'La jornada tiene 1 conflicto de programación.',
+        })
+      }
+      return verificar?.(ruta)
+    })
+    montarPantalla()
+
+    await screen.findByText('Sin conflictos')
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar a aprobación' }))
+    const dialogo = await screen.findByRole('dialog', { name: 'Enviar a aprobación' })
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Enviar a aprobación' }))
+
+    expect(
+      await within(dialogo).findByText(
+        /La jornada tiene 1 conflicto de programación. Cierra este aviso para ver los conflictos/,
+      ),
+    ).toBeInTheDocument()
+    expect(within(dialogo).getByRole('button', { name: 'Cerrar' })).toBeInTheDocument()
+  })
+
+  it('muestra las observaciones de una jornada devuelta', async () => {
+    otorgar(CONSULTAR, EDITAR, ENVIAR)
+    responder({
+      detalle: {
+        ...JORNADA,
+        observaciones: 'Mueve el partido de Halcones a la tarde.',
+      },
+      verificacion: { conflictos: [], advertencias: [] },
+    })
+    montarPantalla()
+
+    const nota = await screen.findByRole('note', { name: 'Observaciones de la Presidencia' })
+    expect(within(nota).getByText('Mueve el partido de Halcones a la tarde.')).toBeInTheDocument()
+  })
+
+  it('no permite enviar ni editar una jornada en revisión', async () => {
+    otorgar(CONSULTAR, EDITAR, ENVIAR)
+    responder({
+      detalle: { ...JORNADA, estadoPublicacion: 'REVISION', enviadaEn: '2026-11-16T18:45:00-06:00' },
+      verificacion: { conflictos: [], advertencias: [] },
+    })
+    montarPantalla()
+
+    expect(await screen.findByText(/Esta jornada está en revisión de la Presidencia/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Enviar a aprobación' })).toBeDisabled()
+    expect(
+      screen.queryByRole('button', { name: 'Editar el partido Halcones vs. Toros' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('a quien aprueba sin editar le muestra las jornadas por revisar', async () => {
+    otorgar(CONSULTAR, APROBAR)
+    responder({
+      pendientes: [
+        {
+          tipo: 'JORNADA',
+          id: 'j1',
+          titulo: 'Jornada 8',
+          contexto: 'Libre Primera · Grupo A',
+          partidos: 6,
+          enviadoPor: { id: 'p9', nombre: 'Carlos Gómez' },
+          enviadoEn: '2026-11-16T18:45:00-06:00',
+        },
+        {
+          tipo: 'COMUNICADO',
+          id: 'c1',
+          titulo: 'Suspensión por lluvia',
+          enviadoPor: { id: 'p8', nombre: 'Laura Ruiz' },
+          enviadoEn: '2026-11-16T19:00:00-06:00',
+        },
+      ],
+    })
+    montarPantalla()
+
+    expect(await screen.findByRole('heading', { name: 'Jornadas por revisar' })).toBeInTheDocument()
+    const enlace = await screen.findByRole('link', { name: /Jornada 8/ })
+    expect(enlace).toHaveAttribute('href', '/app/programacion/jornadas/j1/revision')
+    expect(enlace).toHaveTextContent('6 partidos · Enviada por Carlos Gómez')
+    expect(screen.queryByText('Suspensión por lluvia')).not.toBeInTheDocument()
+    expect(get).not.toHaveBeenCalledWith(expect.stringMatching(/^jornadas\?/))
+  })
+
+  it('la bandeja vacía explica cuándo aparecerán jornadas', async () => {
+    otorgar(CONSULTAR, APROBAR)
+    responder()
+    montarPantalla()
+
+    expect(await screen.findByText('No hay jornadas por revisar')).toBeInTheDocument()
   })
 })

@@ -8,10 +8,36 @@ import type {
   Comunicado,
   CrearComunicadoPeticion,
   EstadoPublicacion,
+  PublicacionPendiente,
   ResolverComunicadoPeticion,
 } from '@/features/publicacion/tipos'
 import { api } from '@/lib/api/cliente'
 import type { Pagina } from '@/lib/api/tipos'
+
+export const clavesPublicaciones = {
+  pendientes: (pagina: number, tamano: number) =>
+    ['publicaciones', 'pendientes', { pagina, tamano }] as const,
+  todas: ['publicaciones'] as const,
+}
+
+/**
+ * Bandeja del Presidente (H-13.1): jornadas y comunicados en revisión, del envío más antiguo al
+ * más reciente. Cada tipo llega solo si la sesión puede aprobarlo.
+ */
+export function usePublicacionesPendientes(
+  pagina: number,
+  tamano: number,
+  { habilitada = true }: { habilitada?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: clavesPublicaciones.pendientes(pagina, tamano),
+    queryFn: () =>
+      api.get<Pagina<PublicacionPendiente>>(
+        `publicaciones/pendientes?pagina=${pagina}&tamano=${tamano}`,
+      ),
+    enabled: habilitada,
+  })
+}
 
 export const clavesComunicados = {
   todas: ['comunicados'] as const,
