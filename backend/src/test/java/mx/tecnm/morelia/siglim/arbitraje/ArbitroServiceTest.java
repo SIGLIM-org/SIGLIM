@@ -24,7 +24,10 @@ import java.util.function.Consumer;
 import mx.tecnm.morelia.siglim.arbitraje.ArbitroDto.PerfilDto;
 import mx.tecnm.morelia.siglim.arbitraje.ArbitroDto.PersonaResumenDto;
 import mx.tecnm.morelia.siglim.arbitraje.ArbitroDto.ReferenciaDto;
+import mx.tecnm.morelia.siglim.arbitraje.ArbitroRepository.DatosCuota;
+import mx.tecnm.morelia.siglim.arbitraje.ArbitroRepository.ReferenciaClub;
 import mx.tecnm.morelia.siglim.arbitraje.ArbitroRepository.ResumenArbitro;
+import mx.tecnm.morelia.siglim.arbitraje.ArbitroRepository.TemporadaCuota;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
 import mx.tecnm.morelia.siglim.auditoria.EventoAuditoria;
 import mx.tecnm.morelia.siglim.compartido.config.SiglimPropiedades;
@@ -56,6 +59,7 @@ class ArbitroServiceTest {
     private static final UUID PERFIL = UUID.fromString("44444444-4444-4444-8444-444444444444");
     private static final UUID CLUB = UUID.fromString("22222222-2222-4222-8222-222222222222");
     private static final UUID PERSONA = UUID.fromString("55555555-5555-4555-8555-555555555555");
+    private static final UUID TEMPORADA = UUID.fromString("66666666-6666-4666-8666-666666666666");
     private static final Instant AHORA = Instant.parse("2030-08-02T12:00:00Z");
     private static final OffsetDateTime PROPUESTO_EN = OffsetDateTime.parse("2030-08-02T06:00:00-06:00");
     private static final OffsetDateTime VALIDADO_EN = OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC);
@@ -155,6 +159,155 @@ class ArbitroServiceTest {
                 .isInstanceOfSatisfying(ReglaNegocioException.class,
                         error(HttpStatus.BAD_REQUEST, ErroresTecnicos.VALIDACION));
         verify(arbitros, never()).listar(any(), any(), any());
+    }
+
+    // ── Cuota de árbitros (B-08.1, RF-114, DEC-17) ─────────────────────────────────────────────
+
+    private void clubYTemporada() {
+        given(arbitros.buscarClub(LIGA, CLUB))
+                .willReturn(Optional.of(new ReferenciaClub(CLUB, "Club Halcones")));
+        given(arbitros.buscarTemporada(LIGA, TEMPORADA))
+                .willReturn(Optional.of(new TemporadaCuota(TEMPORADA, "Apertura 2030")));
+    }
+
+    private static Consumer<ReglaNegocioException> errorDeCuota(HttpStatus estado, String codigo) {
+        return error(estado, codigo);
+    }
+
+    @Test
+    @DisplayName("RF-114: 5 equipos con 4 por árbitro requieren 2 y el club no cumple con 1 validado")
+    void cuotaRedondeaHaciaArriba() {
+        clubYTemporada();
+        given(arbitros.datosCuota(CLUB, TEMPORADA)).willReturn(new DatosCuota(5, 1, 4));
+
+        var cuota = servicio.consultarCuota(CLUB, TEMPORADA);
+
+        assertThat(cuota.club().id()).isEqualTo(CLUB);
+        assertThat(cuota.temporada().id()).isEqualTo(TEMPORADA);
+        assertThat(cuota.equiposActivos()).isEqualTo(5);
+        assertThat(cuota.equiposPorArbitro()).isEqualTo(4);
+        assertThat(cuota.cuotaArbitros().requeridos()).isEqualTo(2);
+        assertThat(cuota.cuotaArbitros().validados()).isEqualTo(1);
+        assertThat(cuota.cuotaArbitros().cumple()).isFalse();
+        verify(autorizacion).exigir(CONSULTAR, ObjetivoAutorizacion.deClubes(CLUB));
+    }
+
+    @Test
+    @DisplayName("RF-114: 4 equipos con 4 por árbitro requieren exactamente 1 y el club cumple")
+    void cuotaRedondeoExacto() {
+        clubYTemporada();
+        given(arbitros.datosCuota(CLUB, TEMPORADA)).willReturn(new DatosCuota(4, 1, 4));
+
+        var cuota = servicio.consultarCuota(CLUB, TEMPORADA);
+
+        assertThat(cuota.cuotaArbitros().requeridos()).isEqualTo(1);
+        assertThat(cuota.cuotaArbitros().cumple()).isTrue();
+    }
+
+    @Test
+    @DisplayName("RF-114: sin equipos activos la cuota requerida es 0 y el club cumple")
+    void cuotaSinEquipos() {
+        clubYTemporada();
+        given(arbitros.datosCuota(CLUB, TEMPORADA)).willReturn(new DatosCuota(0, 0, 4));
+
+        var cuota = servicio.consultarCuota(CLUB, TEMPORADA);
+
+        assertThat(cuota.cuotaArbitros().requeridos()).isZero();
+        assertThat(cuota.cuotaArbitros().cumple()).isTrue();
+    }
+
+    @Test
+    @DisplayName("RF-114: el divisor sale del parámetro de la temporada, no de un 4 fijo en el código")
+    void cuotaUsaParametroDeLaTemporada() {
+        clubYTemporada();
+        given(arbitros.datosCuota(CLUB, TEMPORADA)).willReturn(new DatosCuota(5, 1, 5));
+
+        var cuota = servicio.consultarCuota(CLUB, TEMPORADA);
+
+        assertThat(cuota.equiposPorArbitro()).isEqualTo(5);
+        assertThat(cuota.cuotaArbitros().requeridos()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("RF-114: sin temporadaId se usa la temporada activa de la liga")
+    void cuotaUsaTemporadaActiva() {
+        given(arbitros.buscarClub(LIGA, CLUB))
+                .willReturn(Optional.of(new ReferenciaClub(CLUB, "Club Halcones")));
+        given(arbitros.temporadaActiva(LIGA))
+                .willReturn(Optional.of(new TemporadaCuota(TEMPORADA, "Apertura 2030")));
+        given(arbitros.datosCuota(CLUB, TEMPORADA)).willReturn(new DatosCuota(1, 1, 4));
+
+        var cuota = servicio.consultarCuota(CLUB, null);
+
+        assertThat(cuota.temporada().id()).isEqualTo(TEMPORADA);
+        assertThat(cuota.cuotaArbitros().requeridos()).isEqualTo(1);
+        verify(arbitros, never()).buscarTemporada(any(), any());
+    }
+
+    @Test
+    @DisplayName("RF-114: sin temporada activa ni temporadaId responde 409")
+    void cuotaSinTemporadaActiva() {
+        given(arbitros.buscarClub(LIGA, CLUB))
+                .willReturn(Optional.of(new ReferenciaClub(CLUB, "Club Halcones")));
+        given(arbitros.temporadaActiva(LIGA)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.consultarCuota(CLUB, null))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, errorDeCuota(HttpStatus.CONFLICT, "RF-114"));
+        verify(arbitros, never()).datosCuota(any(), any());
+    }
+
+    @Test
+    @DisplayName("RF-100: una temporada sin parámetros deportivos no permite calcular la cuota (409)")
+    void cuotaSinParametros() {
+        clubYTemporada();
+        given(arbitros.datosCuota(CLUB, TEMPORADA)).willReturn(new DatosCuota(5, 1, null));
+
+        assertThatThrownBy(() -> servicio.consultarCuota(CLUB, TEMPORADA))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, errorDeCuota(HttpStatus.CONFLICT, "RF-100"));
+    }
+
+    @Test
+    @DisplayName("VAL-024: la cuota de un club fuera del ámbito responde 404 como uno inexistente")
+    void cuotaFueraDeAmbito() {
+        willThrow(Autorizacion.fueraDeAmbito(CONSULTAR)).given(autorizacion)
+                .exigir(CONSULTAR, ObjetivoAutorizacion.deClubes(CLUB));
+
+        assertThatThrownBy(() -> servicio.consultarCuota(CLUB, TEMPORADA))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        verifyNoInteractions(arbitros);
+    }
+
+    @Test
+    @DisplayName("VAL-015: sin CONSULTAR la cuota responde 403 y no consulta la base")
+    void cuotaSinPermiso() {
+        willThrow(Autorizacion.sinPermiso()).given(autorizacion)
+                .exigir(CONSULTAR, ObjetivoAutorizacion.deClubes(CLUB));
+
+        assertThatThrownBy(() -> servicio.consultarCuota(CLUB, TEMPORADA))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, errorDeCuota(HttpStatus.FORBIDDEN, "VAL-015"));
+        verifyNoInteractions(arbitros);
+    }
+
+    @Test
+    @DisplayName("VAL-024: una temporada de otra liga responde 404")
+    void cuotaTemporadaAjena() {
+        given(arbitros.buscarClub(LIGA, CLUB))
+                .willReturn(Optional.of(new ReferenciaClub(CLUB, "Club Halcones")));
+        given(arbitros.buscarTemporada(LIGA, TEMPORADA)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.consultarCuota(CLUB, TEMPORADA))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        verify(arbitros, never()).datosCuota(any(), any());
+    }
+
+    @Test
+    @DisplayName("VAL-024: un club inexistente responde 404")
+    void cuotaClubInexistente() {
+        given(arbitros.buscarClub(LIGA, CLUB)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.consultarCuota(CLUB, TEMPORADA))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        verify(arbitros, never()).buscarTemporada(any(), any());
     }
 
     // ── Presentación del club (criterio 1 de H-11) ─────────────────────────────────────────────

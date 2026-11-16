@@ -52,18 +52,31 @@ import org.springframework.transaction.annotation.Transactional;
  *       todos los partidos con la misma regla del alta y el ajuste y devuelve cada conflicto con su
  *       partido. Las advertencias de localía (RF-120, VAL-027) son backlog B-15; hasta entonces la
  *       lista de advertencias va vacía.</li>
- *   <li><b>Auditoría (RF-093).</b> {@code REGISTRAR_JORNADA}, {@code REGISTRAR_PARTIDO} y
- *       {@code AJUSTAR_PARTIDO} en M-07, con identificadores y sin datos personales.</li>
+ *   <li><b>Publicación (H-13.1, RF-121, RF-090).</b> {@code BORRADOR → REVISION → PUBLICADO}, con
+ *       la devolución {@code REVISION → BORRADOR}. El envío exige {@code programacion.jornada:ENVIAR},
+ *       al menos un partido vigente y ningún conflicto duro ({@code 409 RF-039} con la lista). El
+ *       dictamen exige {@code programacion.jornada:APROBAR}; devolver exige observaciones
+ *       ({@code 400 RF-121}). El trigger {@code tg_jornadas_publicacion} valida la misma máquina de
+ *       estados y deja cada paso en {@code historial_publicacion}.</li>
+ *   <li><b>Separación de funciones (RF-121, RN-053).</b> Quien programa no aprueba: se rechaza con
+ *       {@code 403 RF-121} si quien dictamina creó o envió la jornada, o si además tiene
+ *       {@code programacion.jornada:EDITAR} (par incompatible del Apéndice E). La restricción
+ *       {@code ck_jornadas_aprobacion} es la última garantía.</li>
+ *   <li><b>Auditoría (RF-093).</b> {@code REGISTRAR_JORNADA}, {@code REGISTRAR_PARTIDO},
+ *       {@code AJUSTAR_PARTIDO}, {@code ENVIAR_JORNADA_A_APROBACION}, {@code APROBAR_JORNADA} y
+ *       {@code DEVOLVER_JORNADA} en M-07, con identificadores y sin datos personales.</li>
  * </ul>
  *
- * <p>Refs: H-12.1, H-12.3, RF-033, RF-036, RF-039, RF-040, RF-093, RF-120, RN-018, RN-021,
- * VAL-003 a VAL-006, ADR-0007, ADR-0011
+ * <p>Refs: H-12.1, H-12.3, H-13.1, RF-033, RF-036, RF-039, RF-040, RF-093, RF-090, RF-120, RF-121, RN-018,
+ * RN-021, RN-053, VAL-003 a VAL-006, ADR-0007, ADR-0011
  */
 @Service
 public class JornadaService {
 
     private static final String CONSULTAR = "programacion.jornada:CONSULTAR";
     private static final String EDITAR = "programacion.jornada:EDITAR";
+    private static final String ENVIAR = "programacion.jornada:ENVIAR";
+    private static final String APROBAR = "programacion.jornada:APROBAR";
     private static final String MODULO = "M-07";
     private static final String ENTIDAD_JORNADA = "jornadas";
     private static final String ENTIDAD_PARTIDO = "partidos";
@@ -144,9 +157,13 @@ public class JornadaService {
     public VerificacionJornadaDto verificar(UUID id) {
         autorizacion.exigir(EDITAR, ObjetivoAutorizacion.deLiga());
         jornadas.buscarJornada(ligaId, id).orElseThrow(() -> noExisteJornada(id));
+        return new VerificacionJornadaDto(conflictosDe(jornadas.listarPartidos(id)), List.of());
+    }
 
+    /** Conflictos duros de los partidos vigentes, con la misma regla del alta y el ajuste (RF-039). */
+    private List<Aviso> conflictosDe(List<DatosPartido> partidos) {
         List<Aviso> conflictos = new ArrayList<>();
-        for (DatosPartido partido : jornadas.listarPartidos(id)) {
+        for (DatosPartido partido : partidos) {
             if (partido.estado() == EstadoPartido.CANCELADO) {
                 continue;
             }
@@ -163,7 +180,7 @@ public class JornadaService {
                 conflictos.add(new Aviso(partido.id(), conflicto.codigo(), conflicto.mensaje()));
             }
         }
-        return new VerificacionJornadaDto(conflictos, List.of());
+        return conflictos;
     }
 
     /**
@@ -202,6 +219,154 @@ public class JornadaService {
         detalle.put("estado", EstadoJornada.BORRADOR.name());
         auditar("REGISTRAR_JORNADA", ENTIDAD_JORNADA, id, null, detalle);
         return aDto(buscarJornada(id), List.of());
+    }
+
+    // ── Publicación (H-13.1) ────────────────────────────────────────────────────────────────────
+
+    /**
+     * Envía a aprobación del Presidente una jornada en {@code BORRADOR} (RF-121, RF-090).
+     *
+     * <p>Orden: permiso → jornada existe ({@code 404}) → en borrador ({@code 409 RF-090}) → con al
+     * menos un partido vigente ({@code 409 RF-121}) → sin conflictos duros ({@code 409 RF-039} con la
+     * extensión {@code conflictos}, como la verificación). La jornada queda bloqueada para que ningún
+     * alta o ajuste se cruce con el envío.
+     *
+     * @return la jornada en {@code REVISION} con sus partidos
+     */
+    @Transactional
+    public JornadaDto enviarAAprobacion(UUID id) {
+        autorizacion.exigir(ENVIAR, ObjetivoAutorizacion.deLiga());
+        DatosJornada jornada = jornadas.buscarJornadaParaActualizar(ligaId, id)
+                .orElseThrow(() -> noExisteJornada(id));
+        if (jornada.estadoPublicacion() != EstadoJornada.BORRADOR) {
+            throw ReglaNegocioException.conflicto("RF-090",
+                    "Solo una jornada en borrador se envía a aprobación; la jornada " + jornada.numero()
+                            + " está " + jornada.estadoPublicacion().texto() + ".");
+        }
+        List<DatosPartido> partidos = jornadas.listarPartidos(id);
+        long vigentes = partidos.stream().filter(p -> p.estado() != EstadoPartido.CANCELADO).count();
+        if (vigentes == 0) {
+            // [PROPUESTA] El ERS no lo dice expresamente: una jornada sin partidos no se somete a aprobación.
+            throw ReglaNegocioException.conflicto("RF-121",
+                    "La jornada " + jornada.numero() + " no tiene partidos programados; registra al menos uno "
+                            + "antes de enviarla a aprobación.");
+        }
+        List<Aviso> conflictos = conflictosDe(partidos);
+        if (!conflictos.isEmpty()) {
+            throw ReglaNegocioException.conflicto("RF-039",
+                    "La jornada tiene " + conflictos.size() + (conflictos.size() == 1 ? " conflicto" : " conflictos")
+                            + " sin resolver: " + conflictos.getFirst().mensaje())
+                    .con("conflictos", conflictos);
+        }
+
+        if (jornadas.enviarAAprobacion(id, UsuarioActual.idRequerido()) == 0) {
+            throw cambioConcurrente();
+        }
+
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("estadoAnterior", EstadoJornada.BORRADOR.name());
+        detalle.put("estado", EstadoJornada.REVISION.name());
+        detalle.put("partidos", vigentes);
+        auditar("ENVIAR_JORNADA_A_APROBACION", ENTIDAD_JORNADA, id, null, detalle);
+        return conPartidos(buscarJornada(id));
+    }
+
+    /**
+     * Aplica el dictamen del Presidente sobre una jornada en {@code REVISION} (RF-121, CU-007).
+     *
+     * <p>Orden: permiso → jornada existe ({@code 404}) → en revisión ({@code 409 RF-090}) →
+     * decisión presente ({@code 400}) → separación de funciones ({@code 403 RF-121}) → observaciones
+     * de la devolución ({@code 400 RF-121}).
+     *
+     * <ul>
+     *   <li>{@link DecisionJornada#PUBLICADO} fija {@code aprobada_por} y {@code aprobada_en}; el
+     *       trigger fija {@code publicada_en} y la jornada aparece en {@code v_publica_programacion}.
+     *       Las observaciones son opcionales.</li>
+     *   <li>{@link DecisionJornada#BORRADOR} exige observaciones de al menos 10 caracteres, las
+     *       guarda y las fija como motivo para que el trigger registre la devolución.</li>
+     * </ul>
+     */
+    @Transactional
+    public JornadaDto resolver(UUID id, ResolverJornadaRequest peticion) {
+        autorizacion.exigir(APROBAR, ObjetivoAutorizacion.deLiga());
+        DatosJornada jornada = jornadas.buscarJornadaParaActualizar(ligaId, id)
+                .orElseThrow(() -> noExisteJornada(id));
+        if (jornada.estadoPublicacion() != EstadoJornada.REVISION) {
+            throw ReglaNegocioException.conflicto("RF-090",
+                    "Solo una jornada en revisión se aprueba o se devuelve; la jornada " + jornada.numero()
+                            + " está " + jornada.estadoPublicacion().texto() + ".");
+        }
+        DecisionJornada decision = peticion == null ? null : peticion.decision();
+        if (decision == null) {
+            throw invalida("Indica si la jornada se publica o se devuelve.");
+        }
+        UUID perfil = UsuarioActual.idRequerido();
+        exigirSeparacionDeFunciones(jornada, perfil);
+
+        if (decision == DecisionJornada.PUBLICADO) {
+            String nota = textoOpcional(peticion.observaciones());
+            if (nota != null) {
+                motivoOperacion.fijar(nota);
+            }
+            if (jornadas.resolver(id, EstadoJornada.PUBLICADO, perfil, nota) == 0) {
+                throw cambioConcurrente();
+            }
+            auditarDictamen("APROBAR_JORNADA", id, EstadoJornada.PUBLICADO, null);
+        } else {
+            String motivo = observacionesValidas(peticion.observaciones());
+            motivoOperacion.fijar(motivo);
+            if (jornadas.resolver(id, EstadoJornada.BORRADOR, null, motivo) == 0) {
+                throw cambioConcurrente();
+            }
+            auditarDictamen("DEVOLVER_JORNADA", id, EstadoJornada.BORRADOR, motivo);
+        }
+        return conPartidos(buscarJornada(id));
+    }
+
+    /**
+     * Quien programa no aprueba (RF-121, Apéndice E): ni quien creó o envió la jornada, ni quien
+     * tiene además el permiso de editarla, aunque sus permisos vengan de otro rol.
+     */
+    private void exigirSeparacionDeFunciones(DatosJornada jornada, UUID perfil) {
+        if (perfil.equals(jornada.enviadaPor()) || perfil.equals(jornada.creadoPor())) {
+            throw ReglaNegocioException.prohibida("RF-121",
+                    "Quien programó la jornada no puede dictaminarla: la aprobación corresponde al Presidente.");
+        }
+        if (autorizacion.permite(EDITAR, ObjetivoAutorizacion.deLiga())) {
+            throw ReglaNegocioException.prohibida("RF-121",
+                    "Tu cuenta también puede editar la programación; quien programa no puede aprobar la jornada.");
+        }
+    }
+
+    private void auditarDictamen(String accion, UUID id, EstadoJornada estado, String motivo) {
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("estadoAnterior", EstadoJornada.REVISION.name());
+        detalle.put("estado", estado.name());
+        auditar(accion, ENTIDAD_JORNADA, id, motivo, detalle);
+    }
+
+    private JornadaDto conPartidos(DatosJornada jornada) {
+        return aDto(jornada, jornadas.listarPartidos(jornada.id()).stream().map(JornadaService::aDto).toList());
+    }
+
+    /** El {@code UPDATE} condicionado no encontró el estado leído con candado: no debería ocurrir. */
+    private static ReglaNegocioException cambioConcurrente() {
+        return ReglaNegocioException.conflicto("RF-090",
+                "La jornada cambió de estado mientras se procesaba; vuelve a consultarla.");
+    }
+
+    private static String observacionesValidas(String observaciones) {
+        String texto = observaciones == null ? "" : observaciones.strip();
+        if (texto.length() < MINIMO_MOTIVO) {
+            throw ReglaNegocioException.invalida("RF-121",
+                    "Escribe observaciones de al menos " + MINIMO_MOTIVO
+                            + " caracteres para devolver la jornada al Programador.");
+        }
+        return texto;
+    }
+
+    private static String textoOpcional(String texto) {
+        return texto == null || texto.isBlank() ? null : texto.strip();
     }
 
     // ── Partidos ────────────────────────────────────────────────────────────────────────────────
@@ -398,7 +563,9 @@ public class JornadaService {
 
     private static JornadaDto aDto(DatosJornada datos, List<PartidoDto> partidos) {
         return new JornadaDto(datos.id(), datos.grupoId(), datos.faseId(), datos.numero(),
-                datos.estadoPublicacion(), partidos, datos.creadoEn(), datos.actualizadoEn());
+                datos.estadoPublicacion(), partidos, datos.enviadaPor(), datos.enviadaEn(),
+                datos.aprobadaPor(), datos.aprobadaEn(), datos.publicadaEn(), datos.observaciones(),
+                datos.creadoEn(), datos.actualizadoEn());
     }
 
     private static PartidoDto aDto(DatosPartido datos) {

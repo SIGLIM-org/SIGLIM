@@ -36,7 +36,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 /**
  * Contrato HTTP de la programación manual (convenciones de API §6.7) con la cadena de seguridad real.
  *
- * <p>Refs: H-12.1, H-12.3, RF-033, RF-036, RF-039, RF-040
+ * <p>Refs: H-12.1, H-12.3, H-13.1, RF-033, RF-036, RF-039, RF-040, RF-121
  */
 @WebMvcTest(controllers = {JornadaController.class, PartidoController.class}, properties = {
         "SUPABASE_URL=" + SeguridadPrueba.URL_SUPABASE,
@@ -68,7 +68,15 @@ class ProgramacionControllerTest {
             new ReferenciaDto(CANCHA, "Morelos 2"), INICIO, INICIO.plusHours(2),
             EstadoPartido.PROGRAMADO, null, INICIO.minusDays(1), INICIO.minusDays(1));
     private static final JornadaDto JORNADA_DTO = new JornadaDto(JORNADA, GRUPO, null, 3,
-            EstadoJornada.BORRADOR, List.of(PARTIDO_DTO), INICIO.minusDays(1), INICIO.minusDays(1));
+            EstadoJornada.BORRADOR, List.of(PARTIDO_DTO), null, null, null, null, null, null,
+            INICIO.minusDays(1), INICIO.minusDays(1));
+    private static final UUID PROGRAMADOR = UUID.fromString("77777777-7777-4777-8777-777777777777");
+    private static final UUID PRESIDENTE = UUID.fromString("88888888-8888-4888-8888-888888888888");
+    private static final JornadaDto JORNADA_PUBLICADA = new JornadaDto(JORNADA, GRUPO, null, 3,
+            EstadoJornada.PUBLICADO, List.of(PARTIDO_DTO), PROGRAMADOR, INICIO.minusDays(1), PRESIDENTE,
+            INICIO.minusHours(20), INICIO.minusHours(20), null, INICIO.minusDays(2), INICIO.minusHours(20));
+    private static final String CUERPO_DEVOLUCION = "{\"decision\":\"BORRADOR\","
+            + "\"observaciones\":\"Mover el partido de las 10:00 a la cancha 3\"}";
 
     @Autowired
     private MockMvcTester mvc;
@@ -236,6 +244,75 @@ class ProgramacionControllerTest {
         Mockito.verify(servicio).verificar(JORNADA);
     }
 
+    @Test
+    @DisplayName("RF-121: POST /jornadas/{id}/envio no lleva cuerpo y devuelve la jornada en REVISION")
+    void enviarAAprobacion() {
+        JornadaDto enviada = new JornadaDto(JORNADA, GRUPO, null, 3, EstadoJornada.REVISION,
+                List.of(PARTIDO_DTO), PROGRAMADOR, INICIO.minusDays(1), null, null, null, null,
+                INICIO.minusDays(2), INICIO.minusDays(1));
+        given(servicio.enviarAAprobacion(JORNADA)).willReturn(enviada);
+
+        MvcTestResult resultado = post(BASE + "/" + JORNADA + "/envio", null);
+
+        assertThat(resultado).hasStatusOk();
+        assertThat(resultado).bodyJson().extractingPath("$.estadoPublicacion").isEqualTo("REVISION");
+        assertThat(resultado).bodyJson().extractingPath("$.enviadaPor").isEqualTo(PROGRAMADOR.toString());
+        assertThat(resultado).bodyJson().doesNotHavePath("$.aprobadaPor");
+    }
+
+    @Test
+    @DisplayName("RF-039: el 409 del envío con conflictos conserva el código y la lista")
+    void enviarConConflictos() {
+        given(servicio.enviarAAprobacion(JORNADA)).willThrow(ReglaNegocioException.conflicto("RF-039",
+                "La jornada tiene 1 conflicto sin resolver: la cancha está ocupada.")
+                .con("conflictos", List.of(new Aviso(PARTIDO, "VAL-004", "La cancha está ocupada."))));
+
+        MvcTestResult resultado = post(BASE + "/" + JORNADA + "/envio", null);
+
+        assertThat(resultado).hasStatus(HttpStatus.CONFLICT);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo("RF-039");
+        assertThat(resultado).bodyJson().extractingPath("$.conflictos[0].codigo").isEqualTo("VAL-004");
+    }
+
+    @Test
+    @DisplayName("RF-121: POST /jornadas/{id}/resolucion pasa la decisión y las observaciones al servicio")
+    void resolver() {
+        given(servicio.resolver(eq(JORNADA), any(ResolverJornadaRequest.class))).willReturn(JORNADA_PUBLICADA);
+
+        MvcTestResult resultado = post(BASE + "/" + JORNADA + "/resolucion",
+                "{\"decision\":\"PUBLICADO\"}");
+
+        assertThat(resultado).hasStatusOk();
+        assertThat(resultado).bodyJson().extractingPath("$.estadoPublicacion").isEqualTo("PUBLICADO");
+        assertThat(resultado).bodyJson().extractingPath("$.aprobadaPor").isEqualTo(PRESIDENTE.toString());
+        ArgumentCaptor<ResolverJornadaRequest> peticion = ArgumentCaptor.forClass(ResolverJornadaRequest.class);
+        Mockito.verify(servicio).resolver(eq(JORNADA), peticion.capture());
+        assertThat(peticion.getValue().decision()).isEqualTo(DecisionJornada.PUBLICADO);
+        assertThat(peticion.getValue().observaciones()).isNull();
+    }
+
+    @Test
+    @DisplayName("RF-121: la resolución sin decisión responde 400 sin llegar al servicio")
+    void resolverSinDecision() {
+        MvcTestResult resultado = post(BASE + "/" + JORNADA + "/resolucion", "{\"observaciones\":\"x\"}");
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        Mockito.verifyNoInteractions(servicio);
+    }
+
+    @Test
+    @DisplayName("RF-121: el 403 de la separación de funciones conserva el código")
+    void resolverSeparacionDeFunciones() {
+        given(servicio.resolver(eq(JORNADA), any(ResolverJornadaRequest.class)))
+                .willThrow(ReglaNegocioException.prohibida("RF-121",
+                        "Quien programó la jornada no puede dictaminarla."));
+
+        MvcTestResult resultado = post(BASE + "/" + JORNADA + "/resolucion", CUERPO_DEVOLUCION);
+
+        assertThat(resultado).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo("RF-121");
+    }
+
     // ── 401, 403 y 404 de cada endpoint (convenciones de API §10) ───────────────────────────────
 
     @TestFactory
@@ -301,6 +378,28 @@ class ProgramacionControllerTest {
                 .dobles(servicio)
                 .simularDenegacion(error -> given(servicio.actualizarPartido(eq(PARTIDO),
                         any(ActualizarPartidoRequest.class))).willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de POST /api/v1/jornadas/{id}/envio")
+    Stream<DynamicTest> seguridadEnviar() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.POST, BASE + "/{id}/envio", JORNADA)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.enviarAAprobacion(JORNADA)).willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de POST /api/v1/jornadas/{id}/resolucion")
+    Stream<DynamicTest> seguridadResolver() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.POST, BASE + "/{id}/resolucion", JORNADA)
+                .cuerpoJson(CUERPO_DEVOLUCION)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.resolver(eq(JORNADA),
+                        any(ResolverJornadaRequest.class))).willThrow(error))
                 .pruebas();
     }
 }

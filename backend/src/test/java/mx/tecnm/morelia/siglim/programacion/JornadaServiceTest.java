@@ -46,6 +46,10 @@ class JornadaServiceTest {
 
     private static final String CONSULTAR = "programacion.jornada:CONSULTAR";
     private static final String EDITAR = "programacion.jornada:EDITAR";
+    private static final String ENVIAR = "programacion.jornada:ENVIAR";
+    private static final String APROBAR = "programacion.jornada:APROBAR";
+    private static final UUID PROGRAMADOR = UUID.fromString("99999999-9999-4999-8999-999999999999");
+    private static final String OBSERVACIONES = "Mover el partido de las 10:00 a la cancha 3";
     private static final UUID LIGA = UUID.fromString("a0000000-0000-4000-8000-000000000001");
     private static final UUID JORNADA = UUID.fromString("11111111-1111-4111-8111-111111111111");
     private static final UUID PARTIDO = UUID.fromString("22222222-2222-4222-8222-222222222222");
@@ -83,7 +87,13 @@ class JornadaServiceTest {
     // ── Datos de prueba ──────────────────────────────────────────────────────────────────────
 
     private static DatosJornada jornada(EstadoJornada estado) {
-        return new DatosJornada(JORNADA, GRUPO, null, 1, estado, CREADO_EN, CREADO_EN);
+        return jornada(estado, null, null);
+    }
+
+    /** Jornada con su autoría: quién la creó y quién la envió a aprobación (RF-121). */
+    private static DatosJornada jornada(EstadoJornada estado, UUID creadoPor, UUID enviadaPor) {
+        return new DatosJornada(JORNADA, GRUPO, null, 1, estado, creadoPor, enviadaPor,
+                enviadaPor == null ? null : CREADO_EN, null, null, null, null, CREADO_EN, CREADO_EN);
     }
 
     private static DatosPartido partido(EstadoPartido estado, EstadoJornada estadoJornada, OffsetDateTime inicio) {
@@ -552,6 +562,218 @@ class JornadaServiceTest {
 
     private static CrearPartidoRequest peticionPartido(UUID local, UUID visitante) {
         return peticionPartido(local, visitante, CANCHA);
+    }
+
+    // ── Envío a aprobación (H-13.1, RF-121) ─────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-121: una jornada en borrador sin conflictos pasa a REVISION con el Programador y se audita")
+    void enviarAAprobacion() {
+        given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.BORRADOR)));
+        given(jornadas.listarPartidos(JORNADA))
+                .willReturn(List.of(partido(EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, INICIO)));
+        given(jornadas.enviarAAprobacion(JORNADA, PERFIL)).willReturn(1);
+        given(jornadas.buscarJornada(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.REVISION, PERFIL, PERFIL)));
+
+        JornadaDto enviada = servicio.enviarAAprobacion(JORNADA);
+
+        assertThat(enviada.estadoPublicacion()).isEqualTo(EstadoJornada.REVISION);
+        assertThat(enviada.enviadaPor()).isEqualTo(PERFIL);
+        assertThat(enviada.partidos()).hasSize(1);
+        verify(autorizacion).exigir(ENVIAR, ObjetivoAutorizacion.deLiga());
+        verify(jornadas).enviarAAprobacion(JORNADA, PERFIL);
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.accion()).isEqualTo("ENVIAR_JORNADA_A_APROBACION");
+        assertThat(evento.entidadId()).isEqualTo(JORNADA.toString());
+        assertThat(evento.detalle()).containsEntry("estadoAnterior", "BORRADOR")
+                .containsEntry("estado", "REVISION").containsEntry("partidos", 1L);
+    }
+
+    @Test
+    @DisplayName("RF-039: una jornada con conflictos no se envía y responde 409 con la lista")
+    void enviarConConflictos() {
+        given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.BORRADOR)));
+        given(jornadas.listarPartidos(JORNADA))
+                .willReturn(List.of(partido(EstadoPartido.PROGRAMADO, EstadoJornada.BORRADOR, INICIO)));
+        given(validador.evaluar(eq(GRUPO), eq(PARTIDO), any(), any(), any(), any()))
+                .willReturn(List.of(new ValidadorConflictos.Conflicto("VAL-004",
+                        "La cancha «Morelos 2» ya está ocupada.")));
+
+        assertThatThrownBy(() -> servicio.enviarAAprobacion(JORNADA))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
+                    assertThat(excepcion.estado()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(excepcion.codigo()).isEqualTo("RF-039");
+                    assertThat(excepcion.getMessage()).contains("1 conflicto", "Morelos 2");
+                    assertThat(excepcion.propiedades()).containsKey("conflictos");
+                });
+        verify(jornadas, never()).enviarAAprobacion(any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-121: una jornada sin partidos vigentes no se envía (409 RF-121)")
+    void enviarSinPartidos() {
+        given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.BORRADOR)));
+        given(jornadas.listarPartidos(JORNADA))
+                .willReturn(List.of(partido(EstadoPartido.CANCELADO, EstadoJornada.BORRADOR, INICIO)));
+
+        assertThatThrownBy(() -> servicio.enviarAAprobacion(JORNADA))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-121"));
+        verify(jornadas, never()).enviarAAprobacion(any(), any());
+    }
+
+    @Test
+    @DisplayName("RF-090: una jornada que ya está en revisión no se vuelve a enviar")
+    void enviarFueraDeBorrador() {
+        given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.REVISION, PERFIL, PERFIL)));
+
+        assertThatThrownBy(() -> servicio.enviarAAprobacion(JORNADA))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-090"))
+                .hasMessageContaining("revisión");
+        verify(jornadas, never()).enviarAAprobacion(any(), any());
+    }
+
+    @Test
+    @DisplayName("VAL-015: sin permiso de enviar no se lee ni se escribe la jornada")
+    void enviarSinPermiso() {
+        willThrow(Autorizacion.sinPermiso()).given(autorizacion).exigir(ENVIAR, ObjetivoAutorizacion.deLiga());
+
+        assertThatThrownBy(() -> servicio.enviarAAprobacion(JORNADA))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "VAL-015"));
+        verifyNoInteractions(jornadas, auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-121: enviar una jornada inexistente responde 404")
+    void enviarInexistente() {
+        given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.enviarAAprobacion(JORNADA))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
+    // ── Dictamen del Presidente (H-13.1, RF-121) ────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-121: el Presidente aprueba una jornada en revisión y queda PUBLICADO con su aprobación")
+    void aprobar() {
+        given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.REVISION, PROGRAMADOR, PROGRAMADOR)));
+        given(jornadas.resolver(JORNADA, EstadoJornada.PUBLICADO, PERFIL, null)).willReturn(1);
+        given(jornadas.buscarJornada(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.PUBLICADO, PROGRAMADOR, PROGRAMADOR)));
+
+        JornadaDto publicada = servicio.resolver(JORNADA,
+                new ResolverJornadaRequest(DecisionJornada.PUBLICADO, "   "));
+
+        assertThat(publicada.estadoPublicacion()).isEqualTo(EstadoJornada.PUBLICADO);
+        verify(autorizacion).exigir(APROBAR, ObjetivoAutorizacion.deLiga());
+        verify(jornadas).resolver(JORNADA, EstadoJornada.PUBLICADO, PERFIL, null);
+        verify(motivoOperacion, never()).fijar(any());
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.accion()).isEqualTo("APROBAR_JORNADA");
+        assertThat(evento.motivo()).isNull();
+        assertThat(evento.detalle()).containsEntry("estadoAnterior", "REVISION").containsEntry("estado", "PUBLICADO");
+    }
+
+    @Test
+    @DisplayName("RF-121: devolver con observaciones vuelve a BORRADOR, fija el motivo y lo audita")
+    void devolverConObservaciones() {
+        given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.REVISION, PROGRAMADOR, PROGRAMADOR)));
+        given(jornadas.resolver(JORNADA, EstadoJornada.BORRADOR, null, OBSERVACIONES)).willReturn(1);
+        given(jornadas.buscarJornada(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.BORRADOR, PROGRAMADOR, PROGRAMADOR)));
+
+        JornadaDto devuelta = servicio.resolver(JORNADA,
+                new ResolverJornadaRequest(DecisionJornada.BORRADOR, "  " + OBSERVACIONES + "  "));
+
+        assertThat(devuelta.estadoPublicacion()).isEqualTo(EstadoJornada.BORRADOR);
+        verify(motivoOperacion).fijar(OBSERVACIONES);
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.accion()).isEqualTo("DEVOLVER_JORNADA");
+        assertThat(evento.motivo()).isEqualTo(OBSERVACIONES);
+    }
+
+    @Test
+    @DisplayName("RF-121: devolver sin observaciones se rechaza con 400 y la jornada no cambia")
+    void devolverSinObservaciones() {
+        given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.REVISION, PROGRAMADOR, PROGRAMADOR)));
+
+        assertThatThrownBy(() -> servicio.resolver(JORNADA,
+                new ResolverJornadaRequest(DecisionJornada.BORRADOR, "Corto")))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "RF-121"));
+        assertThatThrownBy(() -> servicio.resolver(JORNADA,
+                new ResolverJornadaRequest(DecisionJornada.BORRADOR, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "RF-121"));
+        verify(jornadas, never()).resolver(any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-121: quien envió o creó la jornada no puede dictaminarla (403)")
+    void separacionPorAutoria() {
+        given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.REVISION, PROGRAMADOR, PERFIL)));
+
+        assertThatThrownBy(() -> servicio.resolver(JORNADA,
+                new ResolverJornadaRequest(DecisionJornada.PUBLICADO, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "RF-121"));
+
+        given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.REVISION, PERFIL, PROGRAMADOR)));
+
+        assertThatThrownBy(() -> servicio.resolver(JORNADA,
+                new ResolverJornadaRequest(DecisionJornada.BORRADOR, OBSERVACIONES)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "RF-121"));
+        verify(jornadas, never()).resolver(any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-121: un usuario con permiso de editar la jornada no puede aprobarla (403)")
+    void separacionPorPermisoDeEditar() {
+        given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.REVISION, PROGRAMADOR, PROGRAMADOR)));
+        given(autorizacion.permite(EDITAR, ObjetivoAutorizacion.deLiga())).willReturn(true);
+
+        assertThatThrownBy(() -> servicio.resolver(JORNADA,
+                new ResolverJornadaRequest(DecisionJornada.PUBLICADO, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "RF-121"))
+                .hasMessageContaining("editar");
+        verify(jornadas, never()).resolver(any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-090: solo una jornada en revisión se dictamina; en borrador o publicada responde 409")
+    void resolverFueraDeRevision() {
+        for (EstadoJornada estado : List.of(EstadoJornada.BORRADOR, EstadoJornada.PUBLICADO)) {
+            given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
+                    .willReturn(Optional.of(jornada(estado, PROGRAMADOR, PROGRAMADOR)));
+
+            assertThatThrownBy(() -> servicio.resolver(JORNADA,
+                    new ResolverJornadaRequest(DecisionJornada.PUBLICADO, null)))
+                    .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-090"));
+        }
+        verify(jornadas, never()).resolver(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("VAL-015: sin permiso de aprobar no se lee ni se escribe la jornada")
+    void resolverSinPermiso() {
+        willThrow(Autorizacion.sinPermiso()).given(autorizacion).exigir(APROBAR, ObjetivoAutorizacion.deLiga());
+
+        assertThatThrownBy(() -> servicio.resolver(JORNADA,
+                new ResolverJornadaRequest(DecisionJornada.PUBLICADO, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "VAL-015"));
+        verifyNoInteractions(jornadas, auditoria);
     }
 
     private static CrearPartidoRequest peticionPartido(UUID local, UUID visitante, UUID canchaId) {
