@@ -6,10 +6,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
+import mx.tecnm.morelia.siglim.compartido.api.Pagina;
 import mx.tecnm.morelia.siglim.compartido.config.SeguridadPrueba;
 import mx.tecnm.morelia.siglim.compartido.error.ErroresTecnicos;
+import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.organizacion.OperacionEquipoDto.PerfilDto;
 import mx.tecnm.morelia.siglim.organizacion.OperacionEquipoDto.ReferenciaDto;
@@ -90,6 +93,7 @@ class OperacionEquipoControllerTest {
         MvcTestResult resultado = post(BASE, CUERPO_VENTA);
 
         assertThat(resultado).hasStatus(HttpStatus.CREATED);
+        assertThat(resultado).hasHeader(HttpHeaders.LOCATION, BASE + "/" + ID);
         assertThat(resultado).bodyJson().extractingPath("$.tipo").isEqualTo("VENTA");
         assertThat(resultado).bodyJson().extractingPath("$.estado").isEqualTo("SOLICITADA");
         assertThat(resultado).bodyJson().extractingPath("$.clubOrigen.nombre").isEqualTo("Club Halcones");
@@ -172,6 +176,48 @@ class OperacionEquipoControllerTest {
         assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo("RF-103");
     }
 
+    @Test
+    @DisplayName("B-05.3, RF-103: GET lista las operaciones con sus filtros y su estado")
+    void listar() {
+        given(servicio.listar(any(FiltroOperacionesEquipo.class)))
+                .willReturn(Pagina.de(List.of(operacion(EstadoOperacionEquipo.SOLICITADA)), 0, 20, 1));
+
+        MvcTestResult resultado = mvc.get().uri(BASE + "?estado=SOLICITADA&pagina=0&tamano=20")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatusOk();
+        assertThat(resultado).bodyJson().extractingPath("$.contenido[0].estado").isEqualTo("SOLICITADA");
+        assertThat(resultado).bodyJson().extractingPath("$.contenido[0].equipo.nombre").isEqualTo("Halcones");
+        ArgumentCaptor<FiltroOperacionesEquipo> filtro =
+                ArgumentCaptor.forClass(FiltroOperacionesEquipo.class);
+        Mockito.verify(servicio).listar(filtro.capture());
+        assertThat(filtro.getValue().estado()).isEqualTo(EstadoOperacionEquipo.SOLICITADA);
+    }
+
+    @Test
+    @DisplayName("B-05.3, VAL-024: GET del detalle responde 404 si el servicio no lo encuentra")
+    void consultarFueraDeAmbito() {
+        given(servicio.consultar(ID)).willThrow(new RecursoNoEncontradoException("Operación de equipo " + ID));
+
+        MvcTestResult resultado = mvc.get().uri(BASE + "/" + ID)
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("B-05.3: GET del contexto entrega los clubes destino")
+    void contexto() {
+        given(servicio.contexto()).willReturn(new ContextoOperacionesEquipoDto(
+                List.of(new ReferenciaDto(CLUB, "Club Halcones"))));
+
+        MvcTestResult resultado = mvc.get().uri(BASE + "/contexto")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatusOk();
+        assertThat(resultado).bodyJson().extractingPath("$.clubes[0].nombre").isEqualTo("Club Halcones");
+    }
+
     // ── 401, 403 y 404 de cada endpoint (convenciones de API §10) ───────────────────────────────
 
     @TestFactory
@@ -183,6 +229,37 @@ class OperacionEquipoControllerTest {
                 .dobles(servicio)
                 .simularDenegacion(error -> given(servicio.crear(any(RegistrarOperacionEquipoRequest.class)))
                         .willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de GET /api/v1/operaciones-equipo")
+    Stream<DynamicTest> seguridadListar() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.GET, BASE)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.listar(any(FiltroOperacionesEquipo.class)))
+                        .willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de GET /api/v1/operaciones-equipo/{id}")
+    Stream<DynamicTest> seguridadConsultar() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.GET, BASE + "/{id}", ID)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.consultar(ID)).willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de GET /api/v1/operaciones-equipo/contexto")
+    Stream<DynamicTest> seguridadContexto() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.GET, BASE + "/contexto")
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.contexto()).willThrow(error))
                 .pruebas();
     }
 

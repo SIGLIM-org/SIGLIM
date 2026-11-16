@@ -10,8 +10,10 @@ import java.util.UUID;
 import mx.tecnm.morelia.siglim.organizacion.OperacionEquipoDto.PerfilDto;
 import mx.tecnm.morelia.siglim.organizacion.OperacionEquipoDto.ReferenciaDto;
 import mx.tecnm.morelia.siglim.organizacion.OperacionEquipoDto.TemporadaResumenDto;
+import mx.tecnm.morelia.siglim.seguridad.Autorizacion.AlcanceAutorizacion;
 import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.support.SqlArrayValue;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -57,6 +59,14 @@ class OperacionEquipoRepository {
               JOIN temporadas t ON t.id = ct.temporada_id
               LEFT JOIN perfiles sp ON sp.id = o.solicitada_por
               LEFT JOIN perfiles ap ON ap.id = o.autorizada_por
+            """;
+
+    private static final String CONDICIONES_LISTADO = """
+             WHERE co.liga_id = :ligaId
+               AND (:todaLaLiga OR o.club_origen_id = ANY(:clubes))
+               AND (CAST(:temporadaId AS uuid) IS NULL
+                    OR ct.temporada_id = CAST(:temporadaId AS uuid))
+               AND (CAST(:estado AS text) IS NULL OR CAST(o.estado AS text) = CAST(:estado AS text))
             """;
 
     private final JdbcClient jdbc;
@@ -112,6 +122,35 @@ class OperacionEquipoRepository {
                 .param("ligaId", ligaId)
                 .query(OperacionEquipoRepository::aDto)
                 .optional();
+    }
+
+    /**
+     * Bandeja de operaciones visibles para el alcance del permiso, de la solicitud más reciente a
+     * la más antigua (B-05.3, RF-103, RF-104, ADR-0007).
+     */
+    List<OperacionEquipoDto> listar(UUID ligaId, FiltroOperacionesEquipo filtro,
+            AlcanceAutorizacion alcance) {
+        return conFiltro(jdbc.sql(SELECCION + CONDICIONES_LISTADO
+                        + " ORDER BY o.solicitada_en DESC, o.id LIMIT :limite OFFSET :desplazamiento"),
+                ligaId, filtro, alcance)
+                .param("limite", filtro.tamano())
+                .param("desplazamiento", filtro.desplazamiento())
+                .query(OperacionEquipoRepository::aDto)
+                .list();
+    }
+
+    /** Con la misma condición del listado: {@code totalElementos} no delata filas fuera de ámbito. */
+    long contar(UUID ligaId, FiltroOperacionesEquipo filtro, AlcanceAutorizacion alcance) {
+        return conFiltro(jdbc.sql("""
+                        SELECT count(*)
+                          FROM operaciones_equipo o
+                          JOIN clubes co ON co.id = o.club_origen_id
+                          JOIN equipos e ON e.id = o.equipo_id
+                          JOIN grupos g ON g.id = e.grupo_id
+                          JOIN categorias_temporada ct ON ct.id = g.categoria_temporada_id
+                        """ + CONDICIONES_LISTADO), ligaId, filtro, alcance)
+                .query(Long.class)
+                .single();
     }
 
     /**
@@ -261,6 +300,16 @@ class OperacionEquipoRepository {
 
     private static OffsetDateTime aZona(OffsetDateTime valor) {
         return valor == null ? null : valor.atZoneSameInstant(ZONA_DE_NEGOCIO).toOffsetDateTime();
+    }
+
+    private static JdbcClient.StatementSpec conFiltro(JdbcClient.StatementSpec sentencia, UUID ligaId,
+            FiltroOperacionesEquipo filtro, AlcanceAutorizacion alcance) {
+        return sentencia
+                .param("ligaId", ligaId)
+                .param("todaLaLiga", alcance.todaLaLiga())
+                .param("clubes", new SqlArrayValue("uuid", alcance.clubes().toArray()))
+                .param("temporadaId", filtro.temporadaId())
+                .param("estado", filtro.estado() == null ? null : filtro.estado().name());
     }
 
     /**

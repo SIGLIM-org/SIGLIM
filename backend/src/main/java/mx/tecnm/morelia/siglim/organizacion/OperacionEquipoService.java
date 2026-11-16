@@ -3,20 +3,26 @@ package mx.tecnm.morelia.siglim.organizacion;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
 import mx.tecnm.morelia.siglim.auditoria.EventoAuditoria;
+import mx.tecnm.morelia.siglim.compartido.api.Pagina;
 import mx.tecnm.morelia.siglim.compartido.config.SiglimPropiedades;
 import mx.tecnm.morelia.siglim.compartido.contexto.MotivoOperacion;
 import mx.tecnm.morelia.siglim.compartido.contexto.UsuarioActual;
 import mx.tecnm.morelia.siglim.compartido.error.ErroresTecnicos;
 import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
+import mx.tecnm.morelia.siglim.organizacion.OperacionEquipoDto.ReferenciaDto;
 import mx.tecnm.morelia.siglim.organizacion.OperacionEquipoRepository.EquipoOperable;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
+import mx.tecnm.morelia.siglim.seguridad.Autorizacion.AlcanceAutorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
 import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +48,10 @@ import org.springframework.transaction.annotation.Transactional;
  *       actual del equipo; resolver usa {@code organizacion.venta:APROBAR}. Un equipo o una
  *       operación de otro club responde {@code 404} igual que uno inexistente (VAL-024); nunca se
  *       compara el nombre del rol.</li>
+ *   <li><b>Consulta (B-05.3).</b> La bandeja usa el alcance unificado de {@code SOLICITAR} y
+ *       {@code APROBAR} en el {@code WHERE} y en el {@code COUNT}; el detalle exige el mismo alcance
+ *       sobre el club de origen. El contexto entrega los clubes {@code ACTIVO} de la liga para
+ *       elegir el destino de una venta, sin datos personales.</li>
  *   <li><b>Referencias.</b> El equipo no puede estar {@code BAJA} ({@code 409 RF-009}) ni ser de una
  *       temporada {@code CERRADA} ({@code 409 RF-003}). El club destino debe existir en la liga
  *       ({@code 422 REFERENCIA_INVALIDA}) y estar {@code ACTIVO} ({@code 409 RN-041}).</li>
@@ -83,6 +93,45 @@ public class OperacionEquipoService {
         this.motivoOperacion = motivoOperacion;
         this.reloj = reloj;
         this.ligaId = propiedades.ligaId();
+    }
+
+    /**
+     * Bandeja de operaciones de la liga, filtrada por el alcance de {@code SOLICITAR} o
+     * {@code APROBAR} en el SQL y en el total (B-05.3, RF-103, RF-104, ADR-0007).
+     *
+     * <p>La Directiva ve las operaciones de su club; el Presidente, las de toda la liga. Una
+     * temporada o un estado fuera del alcance del usuario dan una página vacía, no un error.
+     */
+    @Transactional(readOnly = true)
+    public Pagina<OperacionEquipoDto> listar(FiltroOperacionesEquipo filtro) {
+        AlcanceAutorizacion alcance = alcanceConsulta();
+        filtro.validar();
+        return Pagina.de(operaciones.listar(ligaId, filtro, alcance), filtro.pagina(), filtro.tamano(),
+                operaciones.contar(ligaId, filtro, alcance));
+    }
+
+    /**
+     * Detalle de una operación; la de otro club responde {@code 404} igual que una inexistente
+     * (criterio 5 de B-05, VAL-024).
+     */
+    @Transactional(readOnly = true)
+    public OperacionEquipoDto consultar(UUID id) {
+        OperacionEquipoDto operacion = buscar(id);
+        exigirConsulta(operacion.clubOrigen().id());
+        return operacion;
+    }
+
+    /**
+     * Clubes {@code ACTIVO} de la liga para elegir el destino de una venta (B-05.3). La Directiva
+     * necesita el catálogo completo aunque su ámbito de consulta de clubes solo alcance el propio;
+     * solo se expone identificador y nombre, nunca datos personales.
+     */
+    @Transactional(readOnly = true)
+    public ContextoOperacionesEquipoDto contexto() {
+        alcanceConsulta();
+        return new ContextoOperacionesEquipoDto(clubes.listarActivosDeLiga(ligaId).stream()
+                .map(club -> new ReferenciaDto(club.id(), club.nombre()))
+                .toList());
     }
 
     /**
@@ -202,6 +251,55 @@ public class OperacionEquipoService {
 
     private OperacionEquipoDto buscar(UUID id) {
         return operaciones.buscar(ligaId, id).orElseThrow(() -> noExiste(id));
+    }
+
+    // ── Autorización de consulta (SOLICITAR o APROBAR) ─────────────────────────────────────────
+
+    /**
+     * Alcance del listado con cualquiera de los dos permisos de la operación: la Directiva solicita
+     * y el Presidente aprueba. Los alcances se unen para no ocultar filas cuando una persona tiene
+     * ambos.
+     */
+    private AlcanceAutorizacion alcanceConsulta() {
+        AlcanceAutorizacion solicitar = alcanceOpcional(SOLICITAR);
+        AlcanceAutorizacion aprobar = alcanceOpcional(APROBAR);
+        if (solicitar == null && aprobar == null) {
+            throw Autorizacion.sinPermiso();
+        }
+        if (solicitar == null) {
+            return aprobar;
+        }
+        if (aprobar == null) {
+            return solicitar;
+        }
+        Set<UUID> clubes = new LinkedHashSet<>(solicitar.clubes());
+        clubes.addAll(aprobar.clubes());
+        return new AlcanceAutorizacion(solicitar.todaLaLiga() || aprobar.todaLaLiga(), clubes,
+                solicitar.propio() || aprobar.propio());
+    }
+
+    private AlcanceAutorizacion alcanceOpcional(String permiso) {
+        try {
+            return autorizacion.alcance(permiso);
+        } catch (ReglaNegocioException sinPermiso) {
+            if (sinPermiso.estado() == HttpStatus.FORBIDDEN) {
+                return null;
+            }
+            throw sinPermiso;
+        }
+    }
+
+    /**
+     * Exige cualquiera de los dos permisos sobre el club de origen. Se evalúa con el alcance
+     * unificado en lugar de llamar a {@code exigir} dos veces: atrapar su {@code 403} dejaría la
+     * transacción en rollback-only. Un club fuera del alcance responde {@code 404} igual que uno
+     * inexistente (VAL-024).
+     */
+    private void exigirConsulta(UUID clubId) {
+        AlcanceAutorizacion alcance = alcanceConsulta();
+        if (!alcance.todaLaLiga() && !alcance.clubes().contains(clubId)) {
+            throw Autorizacion.fueraDeAmbito(SOLICITAR);
+        }
     }
 
     /**

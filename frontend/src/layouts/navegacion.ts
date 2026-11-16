@@ -73,6 +73,16 @@ export const seccionesApp: SeccionApp[] = [
         descripcion: 'Tarjetón del club por temporada.',
       },
       {
+        // B-09: la Directiva registra y la Presidencia dictamina; basta uno de los dos permisos.
+        nombre: 'Ventas y plazas',
+        ruta: '/app/organizacion/operaciones-equipo',
+        permiso: [
+          'organizacion.venta:SOLICITAR',
+          'organizacion.venta:APROBAR',
+        ],
+        descripcion: 'Venta de un equipo y conservación de su plaza.',
+      },
+      {
         // Plantilla F-17 (DEC-108, DEC-116): exige consultar registros, equipos y clubes a la vez, así
         // que la Comisión y el jugador o tutor, que solo consultan registros, no la ven. El alta ya no
         // va en el menú: se abre desde «Registrar jugador» de la plantilla, con EDITAR.

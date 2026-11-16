@@ -3,6 +3,7 @@ package mx.tecnm.morelia.siglim.organizacion;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
@@ -15,11 +16,14 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
 import mx.tecnm.morelia.siglim.auditoria.EventoAuditoria;
+import mx.tecnm.morelia.siglim.compartido.api.Pagina;
 import mx.tecnm.morelia.siglim.compartido.config.SiglimPropiedades;
 import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
 import mx.tecnm.morelia.siglim.compartido.contexto.MotivoOperacion;
@@ -31,6 +35,7 @@ import mx.tecnm.morelia.siglim.organizacion.OperacionEquipoDto.ReferenciaDto;
 import mx.tecnm.morelia.siglim.organizacion.OperacionEquipoDto.TemporadaResumenDto;
 import mx.tecnm.morelia.siglim.organizacion.OperacionEquipoRepository.EquipoOperable;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
+import mx.tecnm.morelia.siglim.seguridad.Autorizacion.AlcanceAutorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
 import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
 import org.junit.jupiter.api.AfterEach;
@@ -125,6 +130,65 @@ class OperacionEquipoServiceTest {
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(auditoria).registrar(evento.capture());
         return evento.getValue();
+    }
+
+    // ── Consulta de la bandeja y el detalle (B-05.3) ─────────────────────────────────────────
+
+    @Test
+    @DisplayName("B-05.3, ADR-0007: el listado usa el alcance unificado de SOLICITAR y APROBAR")
+    void listarUsaElAlcanceUnificado() {
+        AlcanceAutorizacion alcance = new AlcanceAutorizacion(false, Set.of(CLUB), false);
+        given(autorizacion.alcance(SOLICITAR)).willReturn(alcance);
+        given(autorizacion.alcance(APROBAR)).willThrow(Autorizacion.sinPermiso());
+        given(operaciones.listar(eq(LIGA), any(FiltroOperacionesEquipo.class), eq(alcance)))
+                .willReturn(List.of(operacion(EstadoOperacionEquipo.SOLICITADA, null)));
+        given(operaciones.contar(eq(LIGA), any(FiltroOperacionesEquipo.class), eq(alcance)))
+                .willReturn(1L);
+
+        Pagina<OperacionEquipoDto> pagina = servicio.listar(
+                new FiltroOperacionesEquipo(null, EstadoOperacionEquipo.SOLICITADA, 0, 20));
+
+        assertThat(pagina.contenido()).hasSize(1);
+        assertThat(pagina.totalElementos()).isEqualTo(1);
+        verify(operaciones).listar(eq(LIGA), any(FiltroOperacionesEquipo.class), eq(alcance));
+    }
+
+    @Test
+    @DisplayName("B-05.3, VAL-015: sin SOLICITAR ni APROBAR el listado responde 403")
+    void listarSinPermiso() {
+        given(autorizacion.alcance(SOLICITAR)).willThrow(Autorizacion.sinPermiso());
+        given(autorizacion.alcance(APROBAR)).willThrow(Autorizacion.sinPermiso());
+
+        assertThatThrownBy(() -> servicio.listar(new FiltroOperacionesEquipo(null, null, 0, 20)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error(HttpStatus.FORBIDDEN, ErroresTecnicos.SIN_PERMISO));
+        verify(operaciones, never()).listar(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("B-05.3, VAL-024: el detalle de otro club responde 404")
+    void consultarFueraDeAmbito() {
+        given(operaciones.buscar(LIGA, ID))
+                .willReturn(Optional.of(operacion(EstadoOperacionEquipo.SOLICITADA, null)));
+        given(autorizacion.alcance(SOLICITAR))
+                .willReturn(new AlcanceAutorizacion(false, Set.of(OTRO_CLUB), false));
+        given(autorizacion.alcance(APROBAR)).willThrow(Autorizacion.sinPermiso());
+
+        assertThatThrownBy(() -> servicio.consultar(ID))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
+    @Test
+    @DisplayName("B-05.3, RF-103, RF-104: el contexto entrega los clubes activos para elegir destino")
+    void contextoEntregaClubesDestino() {
+        given(autorizacion.alcance(SOLICITAR))
+                .willReturn(new AlcanceAutorizacion(true, Set.of(), false));
+        given(clubes.listarActivosDeLiga(LIGA)).willReturn(List.of(CLUB_DESTINO));
+
+        ContextoOperacionesEquipoDto contexto = servicio.contexto();
+
+        assertThat(contexto.clubes())
+                .containsExactly(new ReferenciaDto(OTRO_CLUB, "Club Águilas"));
     }
 
     // ── Registro de la operación (criterio 1 y 4) ───────────────────────────────────────────

@@ -299,6 +299,45 @@ class OperacionesEquipoIT extends BaseDatosPrueba {
                 .isZero();
     }
 
+    @Test
+    @DisplayName("B-05.3 · RF-103, VAL-024: la bandeja y el detalle respetan el club; otro club recibe 404")
+    void bandejaYDetallePorAmbito() {
+        UUID grupo = grupoEnTemporada();
+        iniciarSesionComoAdministrador();
+        ClubDto origen = clubes.crear(new CrearClubRequest("Origen " + UUID.randomUUID()));
+        ClubDto destino = clubes.crear(new CrearClubRequest("Destino " + UUID.randomUUID()));
+        EquipoDto equipo = equipos.crear(new CrearEquipoRequest(origen.id(), grupo, "Halcones"));
+        UUID directiva = perfilDeDirectiva(origen.id());
+
+        iniciarSesion(directiva);
+        OperacionEquipoDto venta = operaciones.crear(new RegistrarOperacionEquipoRequest(
+                TipoOperacionEquipo.VENTA, equipo.id(), destino.id(), null));
+
+        assertThat(operaciones.listar(new FiltroOperacionesEquipo(null, null, 0, 20)).contenido())
+                .as("la Directiva ve la operación de su club")
+                .extracting(OperacionEquipoDto::id)
+                .contains(venta.id());
+        assertThat(operaciones.consultar(venta.id()).id()).isEqualTo(venta.id());
+        assertThat(operaciones.contexto().clubes())
+                .as("el catálogo de clubes destino llega completo")
+                .extracting(OperacionEquipoDto.ReferenciaDto::id)
+                .contains(origen.id(), destino.id());
+
+        iniciarSesion(perfilDeDirectiva(destino.id()));
+        assertThat(operaciones.listar(new FiltroOperacionesEquipo(null, null, 0, 20)).contenido())
+                .as("otro club no ve la bandeja del club de origen")
+                .isEmpty();
+        assertThatThrownBy(() -> operaciones.consultar(venta.id()))
+                .as("el detalle de otro club responde 404 (VAL-024)")
+                .isInstanceOf(RecursoNoEncontradoException.class);
+
+        iniciarSesion(perfilConRol("PRESIDENTE"));
+        assertThat(operaciones.listar(new FiltroOperacionesEquipo(null, null, 0, 20)).contenido())
+                .as("el Presidente ve las operaciones de la liga")
+                .extracting(OperacionEquipoDto::id)
+                .contains(venta.id());
+    }
+
     // ── Observaciones de la solicitud y operaciones duplicadas (DEC-132) ──────────────────
 
     @Test

@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.7 · 15 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.8 · 16 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -56,6 +56,7 @@ Versión 5.7 · 15 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../r
 | 5.5 | 14 de noviembre de 2026 | H-23.1: §6.4 con la baja de un registro (`POST /registros-jugador/{id}/baja`): permiso `registros.registro:EDITAR` sobre el club del equipo, motivo obligatorio de 10 a 500 caracteres (`400 RN-021`), solo desde `ACTIVO` con un `409 RF-017` por estado de origen, `409 RF-003` con la temporada cerrada, `UPDATE` condicional con el registro bloqueado, `baja_en` en `America/Mexico_City`, motivo solo en el historial, respuesta `200` con `bajaEn` y `motivoBaja` y auditoría `DAR_BAJA_REGISTRO_JUGADOR`; el alta y el detalle muestran los dos campos nuevos (`null` salvo en `BAJA`) (DEC-118 a DEC-124). |
 | 5.6 | 14 de noviembre de 2026 | B-05.1: §6.3 con el contrato de la venta y la conservación de plaza (`POST /operaciones-equipo` y `POST /operaciones-equipo/{id}/resolucion`), la conservación como operación independiente (RF-104), el dictamen del Presidente, las reglas del club destino, los permisos `organizacion.venta:SOLICITAR`/`APROBAR` y las acciones `SOLICITAR_OPERACION_EQUIPO` (con las observaciones de la solicitud), `AUTORIZAR_OPERACION_EQUIPO` y `RECHAZAR_OPERACION_EQUIPO`; una sola operación vigente por equipo y tipo (`409 RF-103`/`RF-104`, DEC-132); autorizar sin nota conserva las observaciones y revalida la temporada y el club destino; §2.1 con la transición. |
 | 5.7 | 15 de noviembre de 2026 | B-05.2: §6.2 documenta el efecto del cierre de la temporada sobre las operaciones de equipo: en la misma transacción, las `AUTORIZADA` pasan a `APLICADA` con `aplicadaEn`, la venta mueve el equipo a su club destino y las `SOLICITADA` no se aplican; cada aplicación se audita como `APLICAR_OPERACION_EQUIPO` y `CERRAR_TEMPORADA` registra `operacionesAplicadas` (RF-103, RF-104, RN-040). |
+| 5.8 | 16 de noviembre de 2026 | B-05.3: §6.3 con la consulta de operaciones de equipo que necesita B-09: `GET /operaciones-equipo` (filtro `temporadaId`/`estado`, paginación, alcance unificado de `SOLICITAR`/`APROBAR` en el `WHERE` y el `COUNT`), `GET /operaciones-equipo/{id}` (404 fuera de ámbito) y `GET /operaciones-equipo/contexto` (clubes `ACTIVO` de la liga para elegir el destino de una venta); `POST` responde `201` con `Location`. |
 
 ## Índice
 
@@ -919,7 +920,7 @@ la misma forma que `GET /temporadas/{id}/parametros/{version}`:
 | `POST /clubes/{id}/directiva` | Registrar un cambio pendiente | `organizacion.directiva:EDITAR` con ámbito del club | RF-102 | N |
 | `POST /cargos-directiva/{id}/autorizacion` | Autorizar un cambio | `organizacion.directiva:APROBAR` con ámbito del club | RF-102 | N |
 | `GET /equipos?temporadaId=&grupoId=&clubId=&estado=` · `GET /equipos/{id}` · `POST` · `PATCH /equipos/{id}` · `POST /equipos/{id}/baja` | Equipos | `organizacion.equipo:CONSULTAR` en los `GET`; `organizacion.equipo:EDITAR` en `POST`, `PATCH` y la baja | RF-009 | N |
-| `POST /operaciones-equipo` · `POST …/{id}/resolucion` | Venta y conservación de plaza | `organizacion.venta:*` | RF-103, RF-104 | B |
+| `GET /operaciones-equipo?temporadaId=&estado=` · `GET /operaciones-equipo/{id}` · `GET /operaciones-equipo/contexto` · `POST /operaciones-equipo` · `POST …/{id}/resolucion` | Venta y conservación de plaza | `organizacion.venta:*` | RF-103, RF-104 | B |
 | `GET /personas?curp=` · `POST /personas` · `PATCH /personas/{id}` | Identidad única por CURP; `POST` con una CURP existente responde `409 RF-010` con el `personaId` para reutilizarla | `organizacion.persona:CONSULTAR` en el `GET` y `organizacion.persona:EDITAR` en `POST` y `PATCH`, en cualquier ámbito; corregir la identidad exige `EDITAR` en toda la liga (DEC-77) | RF-010, RF-011 | N |
 | `GET /personas/{id}/historial` | Clubes y equipos por temporada | `organizacion.persona:CONSULTAR` | RF-012 | N |
 | `POST /personas/{id}/tutelas` | Vincular menor y tutor | `organizacion.persona:EDITAR` en cualquier ámbito | RF-106 | N |
@@ -1161,6 +1162,15 @@ registra. `POST /operaciones-equipo/{id}/resolucion` lleva `{ "decision":
 del equipo. Un equipo o una operación de otro club responde `404` igual que uno inexistente
 (VAL-024).
 
+- **Consulta (B-05.3).** `GET /operaciones-equipo?temporadaId=&estado=&pagina=&tamano=` es la
+  bandeja de B-09, de la solicitud más reciente a la más antigua; usa el alcance unificado de
+  `SOLICITAR` y `APROBAR` en el `WHERE` y en el `COUNT`, así que la Directiva ve las operaciones de
+  su club y el Presidente las de la liga. Un estado o una temporada fuera del alcance dan una página
+  vacía, no un error. `GET /operaciones-equipo/{id}` responde la operación y, si es de otro club,
+  `404` igual que una inexistente (VAL-024). `GET /operaciones-equipo/contexto` entrega los clubes
+  `ACTIVO` de la liga para elegir el destino de una venta; es un catálogo de identificador y nombre,
+  sin datos personales, que la Directiva necesita completo aunque su ámbito de consulta de clubes
+  solo alcance el propio.
 - **VENTA** exige `clubDestinoId` y que sea distinto del club actual del equipo; ausente o repetido,
   `400 VALIDACION`. **CONSERVACION_PLAZA** es una operación independiente de la venta (RF-104) y no
   lleva club destino; si lo lleva, `400 VALIDACION`. Las dos pueden convivir para el mismo equipo y
@@ -1183,7 +1193,7 @@ del equipo. Un equipo o una operación de otro club responde `404` igual que uno
   reemplaza las observaciones; sin nota se conservan las de la solicitud. Solo `SOLICITADA` se resuelve: una
   operación `AUTORIZADA` pasa a `APLICADA` al cerrar la temporada (H-04.1), que es cuando el equipo
   cambia de club; hasta entonces conserva a su propietario.
-- Respuesta `201` sin `Location` (todavía no hay `GET` del recurso, DEC-92) y `200` con la operación
+- Respuesta `201` con `Location: /api/v1/operaciones-equipo/{id}` y `200` con la operación
   resuelta. Campos: `id`, `tipo`, `estado`, `equipo`, `clubOrigen`, `clubDestino` solo en venta,
   `temporada`, `solicitadaPor`, `solicitadaEn`, `autorizadaPor`, `autorizadaEn`, `aplicadaEn` y
   `observaciones`.
