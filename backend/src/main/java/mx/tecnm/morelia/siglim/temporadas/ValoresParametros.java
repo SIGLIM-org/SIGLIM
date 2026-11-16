@@ -45,6 +45,14 @@ record ValoresParametros(
                 equiposDescienden, permiteCambioClub, equiposPorArbitro, esDemo, otras);
     }
 
+    /** Los mismos valores con otro divisor de la cuota de árbitros (RF-114). */
+    ValoresParametros conEquiposPorArbitro(int otro) {
+        return new ValoresParametros(puntosVictoria, puntosEmpate, puntosDerrota, criteriosDesempate,
+                golesDefaultGanador, golesDefaultPerdedor, plazoValidacionCedulaHoras, duracionJuegoMin,
+                bloqueCanchaMin, clasificadosLiguilla, formatoLiguilla, empateLiguillaPorPenales, equiposAscienden,
+                equiposDescienden, permiteCambioClub, otro, esDemo, categorias);
+    }
+
     /** Duración de juego y bloque de cancha de una categoría (D7). */
     record ValorCategoria(UUID categoriaId, int duracionJuegoMin, int bloqueCanchaMin) {
     }

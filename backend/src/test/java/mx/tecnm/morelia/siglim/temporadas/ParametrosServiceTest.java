@@ -250,6 +250,38 @@ class ParametrosServiceTest {
     }
 
     @Test
+    @DisplayName("RF-114: versión nueva sin equiposPorArbitro conserva el valor anterior")
+    void versionNuevaSinEquiposPorArbitroConservaElValorAnterior() {
+        existeTemporada(EstadoTemporada.ACTIVA);
+        ValoresParametros vigentes = predeterminados(true).conEquiposPorArbitro(7);
+        given(parametros.buscarVigente(TEMPORADA)).willReturn(Optional.of(fila(VERSION_1, 1, vigentes)));
+        given(parametros.categoriasDeVersion(VERSION_1)).willReturn(List.of());
+        seInserta(VERSION_2, 2, vigentes, List.of());
+
+        ParametrosDto creada = servicio.registrar(TEMPORADA,
+                ParametrosPrueba.juego().sinEquiposPorArbitro().peticion());
+
+        assertThat(valoresInsertados().equiposPorArbitro()).as("hereda el divisor de la versión 1").isEqualTo(7);
+        assertThat(creada.equiposPorArbitro()).isEqualTo(7);
+        assertThat(eventoAuditado().detalle()).containsEntry("versionAnterior", 1)
+                .containsEntry("campos", List.of());
+    }
+
+    @Test
+    @DisplayName("RF-114: sin equiposPorArbitro la primera versión usa el 4 [DEMO] de la tabla")
+    void primeraVersionSinEquiposPorArbitroUsaElValorDeLaTabla() {
+        existeTemporada(EstadoTemporada.CONFIGURACION);
+        seInserta(VERSION_1, 1, predeterminados(true), List.of());
+
+        ParametrosDto creada = servicio.registrar(TEMPORADA,
+                ParametrosPrueba.juego().sinEquiposPorArbitro().peticion());
+
+        assertThat(valoresInsertados().equiposPorArbitro()).isEqualTo(
+                ParametrosPredeterminadosDto.DE_LA_TABLA.equiposPorArbitro());
+        assertThat(creada.equiposPorArbitro()).isEqualTo(4);
+    }
+
+    @Test
     @DisplayName("D9: la temporada se bloquea antes de leer la versión vigente e insertar la nueva")
     void candadoAntesDeInsertar() {
         existeTemporada(EstadoTemporada.CONFIGURACION);

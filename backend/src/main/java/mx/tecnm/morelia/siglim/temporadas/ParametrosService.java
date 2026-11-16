@@ -44,8 +44,9 @@ import org.springframework.transaction.annotation.Transactional;
  *       respuesta lista en {@code camposDemo} los campos que la interfaz rotula «No oficial»
  *       ({@link #CAMPOS_DEMO}); sin él, la lista va vacía. «Oficial» significa que la Liga confirmó
  *       los valores (PEN-021).</li>
- *   <li><b>Juego completo (D3).</b> Cada versión se registra con todos sus valores; nada se hereda
- *       de la anterior. Las versiones no se editan ni se borran (RF-006).</li>
+ *   <li><b>Juego completo (D3).</b> Cada versión se registra con todos sus valores; nada se hereda de
+ *       la anterior salvo {@code equiposPorArbitro}, que si se omite conserva el de la versión
+ *       vigente (RF-114). Las versiones no se editan ni se borran (RF-006).</li>
  *   <li><b>Estado (D4).</b> Se registra con la temporada en {@code CONFIGURACION} o {@code ACTIVA};
  *       {@code CERRADA} responde {@code 409 RF-003} (RN-005).</li>
  *   <li><b>Motivo (D5, RN-021).</b> Obligatorio, de 10 a 500 caracteres sin espacios en los extremos:
@@ -187,6 +188,9 @@ public class ParametrosService {
      * ({@code 400 VALIDACION} con la extensión {@code errores}) → temporada, con candado
      * ({@code 404}) → categorías asignadas ({@code 422 REFERENCIA_INVALIDA}) → temporada cerrada
      * ({@code 409 RF-003}).
+     *
+     * <p>Si la petición omite {@code equiposPorArbitro}, la versión nueva conserva el de la versión
+     * vigente; solo la primera versión usa el 4 [DEMO] de la tabla (RF-114).
      */
     @Transactional
     public ParametrosDto registrar(UUID temporadaId, RegistrarParametrosRequest peticion) {
@@ -206,6 +210,7 @@ public class ParametrosService {
         }
 
         FilaVersion vigente = parametros.buscarVigente(temporada.id()).orElse(null);
+        valores = heredarEquiposPorArbitro(valores, peticion, vigente);
         ValoresParametros anterior = vigente == null ? null
                 : completos(vigente, parametros.categoriasDeVersion(vigente.id()));
 
@@ -221,6 +226,22 @@ public class ParametrosService {
         auditoria.registrar(new EventoAuditoria(ligaId, MODULO, ACCION, ENTIDAD, creada.id().toString(), motivo,
                 detalle));
         return version(temporada.id(), creada.version());
+    }
+
+    /**
+     * RF-114: una petición sin {@code equiposPorArbitro} conserva el divisor de la versión vigente;
+     * solo la primera versión usa el 4 [DEMO] de la tabla. Se resuelve con la temporada ya bloqueada
+     * para heredar el mismo valor con el que se compara la versión nueva.
+     */
+    private static ValoresParametros heredarEquiposPorArbitro(ValoresParametros valores,
+            RegistrarParametrosRequest peticion, FilaVersion vigente) {
+        if (peticion.equiposPorArbitro() != null) {
+            return valores;
+        }
+        int heredado = vigente == null
+                ? ParametrosPredeterminadosDto.DE_LA_TABLA.equiposPorArbitro()
+                : vigente.valores().equiposPorArbitro();
+        return valores.conEquiposPorArbitro(heredado);
     }
 
     // ── Validación del cuerpo ──────────────────────────────────────────────────────────────────
@@ -290,6 +311,7 @@ public class ParametrosService {
         int descienden = errores.entero("equiposDescienden", p.equiposDescienden(), 0, MAXIMO_MOVIMIENTOS,
                 "los equipos que descienden");
         errores.obligatorio("permiteCambioClub", p.permiteCambioClub(), "indicar si se permite el cambio de club");
+        // RF-114: si se omite, registrar() lo reemplaza por el de la versión vigente tras el candado.
         int equiposPorArbitro = p.equiposPorArbitro() == null
                 ? ParametrosPredeterminadosDto.DE_LA_TABLA.equiposPorArbitro()
                 : errores.entero("equiposPorArbitro", p.equiposPorArbitro(), 1, MAXIMO_EQUIPOS_POR_ARBITRO,

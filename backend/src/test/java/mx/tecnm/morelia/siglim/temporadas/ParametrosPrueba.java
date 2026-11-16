@@ -87,6 +87,12 @@ final class ParametrosPrueba {
             return this;
         }
 
+        /** Omite {@code equiposPorArbitro} para probar la herencia de la versión vigente (RF-114). */
+        Juego sinEquiposPorArbitro() {
+            equiposPorArbitro = null;
+            return this;
+        }
+
         Juego categoria(UUID categoriaId, Integer duracion, Integer bloque) {
             if (categorias == null) {
                 categorias = new ArrayList<>();
