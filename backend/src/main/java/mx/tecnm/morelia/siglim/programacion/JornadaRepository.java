@@ -21,7 +21,11 @@ import org.springframework.stereotype.Repository;
  * <p>El bloque de cancha ({@code fin_bloque}) lo calcula el trigger {@code tg_partidos_programacion};
  * este repositorio nunca lo escribe.
  *
- * <p>Refs: H-12.1, RF-033, RF-036, RF-040, DEC-25, ADR-0011
+ * <p><b>Publicación (H-13.1).</b> El envío y el dictamen cambian {@code estado_publicacion} con un
+ * {@code UPDATE} condicionado al estado de origen; el trigger {@code tg_jornadas_publicacion}
+ * valida la transición, fija {@code publicada_en} y deja el paso en {@code historial_publicacion}.
+ *
+ * <p>Refs: H-12.1, H-13.1, RF-033, RF-036, RF-040, RF-090, RF-121, DEC-25, ADR-0011
  */
 @Repository
 class JornadaRepository {
@@ -30,7 +34,8 @@ class JornadaRepository {
 
     private static final String SELECCION_JORNADA = """
             SELECT j.id, j.grupo_id, j.fase_id, j.numero, j.estado_publicacion,
-                   j.creado_en, j.actualizado_en
+                   j.creado_por, j.enviada_por, j.enviada_en, j.aprobada_por, j.aprobada_en,
+                   j.publicada_en, j.observaciones, j.creado_en, j.actualizado_en
               FROM jornadas j
               JOIN grupos g ON g.id = j.grupo_id
               JOIN categorias_temporada ct ON ct.id = g.categoria_temporada_id
@@ -140,6 +145,8 @@ class JornadaRepository {
             long desplazamiento) {
         return jdbc.sql("""
                         SELECT j.id, j.grupo_id, j.fase_id, j.numero, j.estado_publicacion,
+                               j.creado_por, j.enviada_por, j.enviada_en, j.aprobada_por,
+                               j.aprobada_en, j.publicada_en, j.observaciones,
                                j.creado_en, j.actualizado_en
                           FROM jornadas j
                           JOIN grupos g ON g.id = j.grupo_id
@@ -227,6 +234,48 @@ class JornadaRepository {
                 .single();
     }
 
+    /**
+     * Pasa la jornada de {@code BORRADOR} a {@code REVISION} con quien la envía y la hora de la base
+     * (RF-121). El {@code WHERE} por estado evita sobrescribir un envío concurrente.
+     *
+     * @return filas actualizadas: 0 si la jornada ya no estaba en borrador
+     */
+    int enviarAAprobacion(UUID id, UUID enviadaPor) {
+        return jdbc.sql("""
+                        UPDATE jornadas
+                           SET estado_publicacion = 'REVISION',
+                               enviada_por = :enviadaPor,
+                               enviada_en = now()
+                         WHERE id = :id AND estado_publicacion = 'BORRADOR'
+                        """)
+                .param("id", id)
+                .param("enviadaPor", enviadaPor)
+                .update();
+    }
+
+    /**
+     * Aplica el dictamen del Presidente a una jornada en {@code REVISION} (RF-121). Con
+     * {@code PUBLICADO} fija {@code aprobada_por} y {@code aprobada_en}; con {@code BORRADOR} los deja
+     * nulos. Las observaciones reemplazan las anteriores; el historial conserva cada motivo.
+     *
+     * @return filas actualizadas: 0 si la jornada ya no estaba en revisión
+     */
+    int resolver(UUID id, EstadoJornada estado, UUID aprobadaPor, String observaciones) {
+        return jdbc.sql("""
+                        UPDATE jornadas
+                           SET estado_publicacion = CAST(:estado AS estado_publicacion),
+                               aprobada_por = CAST(:aprobadaPor AS uuid),
+                               aprobada_en = CASE WHEN :estado = 'PUBLICADO' THEN now() END,
+                               observaciones = :observaciones
+                         WHERE id = :id AND estado_publicacion = 'REVISION'
+                        """)
+                .param("id", id)
+                .param("estado", estado.name())
+                .param("aprobadaPor", aprobadaPor)
+                .param("observaciones", observaciones)
+                .update();
+    }
+
     // ── Partidos ────────────────────────────────────────────────────────────────────────────────
 
     /** Partidos de la jornada ordenados por inicio. */
@@ -309,8 +358,13 @@ class JornadaRepository {
     record CanchaDeLiga(UUID id, String nombre, boolean activa) {
     }
 
-    /** Fila de {@code jornadas} con las fechas en la zona de negocio. */
+    /**
+     * Fila de {@code jornadas} con las fechas en la zona de negocio. {@code creadoPor} y
+     * {@code enviadaPor} sirven para la separación de funciones del dictamen (RF-121).
+     */
     record DatosJornada(UUID id, UUID grupoId, UUID faseId, int numero, EstadoJornada estadoPublicacion,
+                        UUID creadoPor, UUID enviadaPor, OffsetDateTime enviadaEn, UUID aprobadaPor,
+                        OffsetDateTime aprobadaEn, OffsetDateTime publicadaEn, String observaciones,
                         OffsetDateTime creadoEn, OffsetDateTime actualizadoEn) {
     }
 
@@ -334,6 +388,13 @@ class JornadaRepository {
                 fila.getObject("fase_id", UUID.class),
                 fila.getInt("numero"),
                 EstadoJornada.valueOf(fila.getString("estado_publicacion")),
+                fila.getObject("creado_por", UUID.class),
+                fila.getObject("enviada_por", UUID.class),
+                aZona(fila.getObject("enviada_en", OffsetDateTime.class)),
+                fila.getObject("aprobada_por", UUID.class),
+                aZona(fila.getObject("aprobada_en", OffsetDateTime.class)),
+                aZona(fila.getObject("publicada_en", OffsetDateTime.class)),
+                fila.getString("observaciones"),
                 aZona(fila.getObject("creado_en", OffsetDateTime.class)),
                 aZona(fila.getObject("actualizado_en", OffsetDateTime.class)));
     }

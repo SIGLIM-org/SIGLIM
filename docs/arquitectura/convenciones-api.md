@@ -56,6 +56,7 @@ Versión 5.10 · 16 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.5 | 14 de noviembre de 2026 | H-23.1: §6.4 con la baja de un registro (`POST /registros-jugador/{id}/baja`): permiso `registros.registro:EDITAR` sobre el club del equipo, motivo obligatorio de 10 a 500 caracteres (`400 RN-021`), solo desde `ACTIVO` con un `409 RF-017` por estado de origen, `409 RF-003` con la temporada cerrada, `UPDATE` condicional con el registro bloqueado, `baja_en` en `America/Mexico_City`, motivo solo en el historial, respuesta `200` con `bajaEn` y `motivoBaja` y auditoría `DAR_BAJA_REGISTRO_JUGADOR`; el alta y el detalle muestran los dos campos nuevos (`null` salvo en `BAJA`) (DEC-118 a DEC-124). |
 | 5.6 | 14 de noviembre de 2026 | B-05.1: §6.3 con el contrato de la venta y la conservación de plaza (`POST /operaciones-equipo` y `POST /operaciones-equipo/{id}/resolucion`), la conservación como operación independiente (RF-104), el dictamen del Presidente, las reglas del club destino, los permisos `organizacion.venta:SOLICITAR`/`APROBAR` y las acciones `SOLICITAR_OPERACION_EQUIPO` (con las observaciones de la solicitud), `AUTORIZAR_OPERACION_EQUIPO` y `RECHAZAR_OPERACION_EQUIPO`; una sola operación vigente por equipo y tipo (`409 RF-103`/`RF-104`, DEC-132); autorizar sin nota conserva las observaciones y revalida la temporada y el club destino; §2.1 con la transición. |
 | 5.7 | 15 de noviembre de 2026 | B-05.2: §6.2 documenta el efecto del cierre de la temporada sobre las operaciones de equipo: en la misma transacción, las `AUTORIZADA` pasan a `APLICADA` con `aplicadaEn`, la venta mueve el equipo a su club destino y las `SOLICITADA` no se aplican; cada aplicación se audita como `APLICAR_OPERACION_EQUIPO` y `CERRAR_TEMPORADA` registra `operacionesAplicadas` (RF-103, RF-104, RN-040). |
+| 5.8 | 16 de noviembre de 2026 | H-13.1: §6.7 con el envío a aprobación (`POST /jornadas/{id}/envio`, `409 RF-039` con la extensión `conflictos`, `409 RF-121` sin partidos vigentes) y el dictamen (`POST /jornadas/{id}/resolucion`) con la separación de funciones (`403 RF-121` si quien dictamina creó o envió la jornada o tiene también `programacion.jornada:EDITAR`), la devolución con observaciones (`400 RF-121`), los campos de publicación del detalle y la auditoría `ENVIAR_JORNADA_A_APROBACION`, `APROBAR_JORNADA` y `DEVOLVER_JORNADA`; §6.11 con el contrato de `GET /publicaciones/pendientes`. |
 | 5.10 | 16 de noviembre de 2026 | B-08.1: §6.5 con el contrato de `GET /clubes/{id}/cuota-arbitros?temporadaId=` (equipos activos, árbitros `VALIDADO`, redondeo hacia arriba y `cumple`), su ámbito de club, errores y la temporada activa por omisión; §6.2 con el parámetro `equiposPorArbitro` de la temporada (4 **[DEMO]**, DEC-72), su herencia de la versión vigente cuando se omite y su inclusión en `camposDemo` (RF-114, DEC-17). |
 
 ## Índice
@@ -1849,6 +1850,33 @@ La verificación y el guardado usan las mismas reglas: VAL-003 (equipo duplicado
 VAL-004 (cancha ocupada), VAL-005 (cancha bloqueada o fuera de disponibilidad), VAL-006 (equipo con
 baja o sanción). Cada conflicto nombra los partidos, la cancha y el horario que chocan.
 
+**Aprobación y publicación (H-13.1).** El detalle y las respuestas de las dos acciones traen, además,
+`enviadaPor`, `enviadaEn`, `aprobadaPor`, `aprobadaEn`, `publicadaEn` y `observaciones` (los vacíos
+se omiten). El trigger `tg_jornadas_publicacion` valida la misma máquina de estados y registra cada
+paso en `historial_publicacion` con quien lo hizo y su motivo.
+
+- `POST /jornadas/{id}/envio` no lleva cuerpo y exige `programacion.jornada:ENVIAR`. Orden de
+  errores: permiso (`403`) → jornada de la liga (`404`) → en `BORRADOR` (`409 RF-090`) → al menos un
+  partido no cancelado (`409 RF-121`, **[PROPUESTA]**) → sin conflictos duros (`409 RF-039`, con la
+  extensión `conflictos: [ { partidoId, codigo, mensaje } ]` igual que la verificación). Fija
+  `enviadaPor` con el perfil de la sesión y `enviadaEn`, y responde `200` con la jornada en
+  `REVISION` y sus partidos.
+- `POST /jornadas/{id}/resolucion` lleva `{ "decision": "PUBLICADO"|"BORRADOR", "observaciones"? }` y
+  exige `programacion.jornada:APROBAR`. Orden: permiso (`403`) → `404` → en `REVISION`
+  (`409 RF-090`) → `decision` presente (`400`) → separación de funciones (`403 RF-121`) →
+  observaciones de la devolución (`400 RF-121`). **Quien programa no aprueba:** se rechaza si quien
+  dictamina creó o envió la jornada, o si alguna de sus asignaciones le da también
+  `programacion.jornada:EDITAR` (par incompatible del Apéndice E); `ck_jornadas_aprobacion` es la
+  última garantía.
+  - `PUBLICADO` fija `aprobadaPor` y `aprobadaEn`; el trigger fija `publicadaEn` y los partidos
+    aparecen en `v_publica_programacion`. Las observaciones son opcionales y, si llegan, son el motivo
+    del historial.
+  - `BORRADOR` exige observaciones de al menos 10 caracteres, las guarda y las usa como motivo del
+    historial; la jornada vuelve a admitir altas y ajustes.
+- Auditoría en `M-07` sobre `jornadas`: `ENVIAR_JORNADA_A_APROBACION` (`{ estadoAnterior, estado,
+  partidos }`), `APROBAR_JORNADA` y `DEVOLVER_JORNADA` (`{ estadoAnterior, estado }`, con las
+  observaciones como motivo). Generar los cobros de la jornada al publicarla es backlog B-30 (RF-136).
+
 ### 6.8 M-08 Partidos, cédula y resultados
 
 | Método y ruta | Propósito | Permiso | RF | E |
@@ -1940,8 +1968,17 @@ estado responde `409 RF-090`. `POST /comunicados/{id}/envio` no lleva cuerpo y p
 
 En ambos casos, si el comunicado no está en `REVISION` la acción responde `409 RF-090`. Las altas,
 ediciones y transiciones se auditan como `REDACTAR_COMUNICADO`, `EDITAR_COMUNICADO`,
-`ENVIAR_COMUNICADO_A_REVISION`, `APROBAR_COMUNICADO` y `DEVOLVER_COMUNICADO`. La lista combinada de
-`GET /publicaciones/pendientes` se completará cuando exista la consulta de jornadas de M-07.
+`ENVIAR_COMUNICADO_A_REVISION`, `APROBAR_COMUNICADO` y `DEVOLVER_COMUNICADO`.
+
+**Pendientes (H-13.1).** `GET /publicaciones/pendientes?pagina=&tamano=` responde la envoltura de
+paginación (§4) con las jornadas y los comunicados en `REVISION`, del envío más antiguo al más
+reciente. Cada fila trae `tipo` (`JORNADA`|`COMUNICADO`), `id`, `titulo` («Jornada 3» o el título
+del comunicado), `contexto` (temporada · categoría · grupo, solo en jornadas), `partidos` (no
+cancelados, solo en jornadas), `enviadoPor: { id, nombre }` y `enviadoEn` (en el comunicado, su último
+paso a `REVISION` del historial). Las jornadas se incluyen con `programacion.jornada:APROBAR` y los
+comunicados con `publicacion.comunicado:APROBAR`, ambos con ámbito de liga; con uno solo, la bandeja
+trae solo ese tipo. Sin ninguno responde `403 VAL-015`; con alguno sin ámbito de liga, `404`
+(VAL-024). La consulta no se audita.
 
 ### 6.12 M-12 Reportes (B)
 
