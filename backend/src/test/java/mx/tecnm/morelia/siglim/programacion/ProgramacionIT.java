@@ -14,6 +14,9 @@ import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
 import mx.tecnm.morelia.siglim.compartido.error.ErrorTraducido;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.compartido.error.TraductorErroresBd;
+import mx.tecnm.morelia.siglim.publicacion.PublicacionPendienteDto;
+import mx.tecnm.morelia.siglim.publicacion.PublicacionPendienteService;
+import mx.tecnm.morelia.siglim.publicacion.TipoPublicacion;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +31,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * atraviesan autorización por permiso y ámbito, el validador de conflictos (VAL-003 a VAL-006), el
  * trigger del bloque de cancha, la restricción GiST, el historial del partido y la auditoría. La
  * verificación lista los conflictos posteriores de ambos equipos sin escribir y el trigger respalda
- * al servicio.
+ * al servicio. El flujo de publicación (H-13.1) deja cada paso en {@code historial_publicacion},
+ * publica en {@code v_publica_programacion} y separa a quien programa de quien aprueba.
  */
 class ProgramacionIT extends BaseDatosPrueba {
 
@@ -47,6 +51,163 @@ class ProgramacionIT extends BaseDatosPrueba {
 
     @Autowired
     private PlatformTransactionManager transacciones;
+
+    @Autowired
+    private PublicacionPendienteService pendientes;
+
+    private static final String OBSERVACIONES = "Mover el partido de las 10:00 a otra cancha";
+
+    // ── Publicación de la jornada (H-13.1, RF-121, RF-090) ─────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-121: el Programador envía, el Presidente la ve pendiente, la aprueba y se publica con historial")
+    void flujoDePublicacion() {
+        UUID programador = iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        PartidoDto partido = servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), crearEquipo(grupo, "Toros"), crearCancha(), INICIO));
+
+        JornadaDto enviada = servicio.enviarAAprobacion(jornada);
+
+        assertThat(enviada.estadoPublicacion()).isEqualTo(EstadoJornada.REVISION);
+        assertThat(enviada.enviadaPor()).isEqualTo(programador);
+        assertThat(enviada.enviadaEn()).isNotNull();
+        assertThat(enPortal(jornada)).as("en revisión no se publica").isZero();
+
+        UUID presidente = iniciarSesion(perfilConRol("PRESIDENTE"));
+        List<PublicacionPendienteDto> bandeja = pendientes.listar(0, 100).contenido();
+        assertThat(bandeja).filteredOn(fila -> fila.id().equals(jornada)).singleElement().satisfies(fila -> {
+            assertThat(fila.tipo()).isEqualTo(TipoPublicacion.JORNADA);
+            assertThat(fila.titulo()).isEqualTo("Jornada 1");
+            assertThat(fila.partidos()).isEqualTo(1L);
+            assertThat(fila.enviadoPor().id()).isEqualTo(programador);
+        });
+
+        JornadaDto publicada = servicio.resolver(jornada,
+                new ResolverJornadaRequest(DecisionJornada.PUBLICADO, null));
+
+        assertThat(publicada.estadoPublicacion()).isEqualTo(EstadoJornada.PUBLICADO);
+        assertThat(publicada.aprobadaPor()).isEqualTo(presidente);
+        assertThat(publicada.aprobadaEn()).isNotNull();
+        assertThat(publicada.publicadaEn()).as("la fija el trigger").isNotNull();
+        assertThat(enPortal(jornada)).as("visible en v_publica_programacion").isEqualTo(1L);
+        assertThat(jdbc.sql("SELECT partido_id FROM siglim.v_publica_programacion WHERE jornada_id = :id")
+                .param("id", jornada).query(UUID.class).single()).isEqualTo(partido.id());
+        assertThat(pendientes.listar(0, 100).contenido()).extracting(PublicacionPendienteDto::id)
+                .doesNotContain(jornada);
+
+        assertThat(historialDePublicacion(jornada)).extracting(PasoPublicacion::resumen)
+                .containsExactly("BORRADOR→REVISION por " + programador, "REVISION→PUBLICADO por " + presidente);
+        assertThat(accionesAuditadas(jornada))
+                .containsSubsequence("REGISTRAR_JORNADA", "ENVIAR_JORNADA_A_APROBACION", "APROBAR_JORNADA");
+    }
+
+    @Test
+    @DisplayName("RF-121: devolver sin observaciones se rechaza; con observaciones vuelve a BORRADOR y admite cambios")
+    void devolucionConObservaciones() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), crearEquipo(grupo, "Toros"), crearCancha(), INICIO));
+        servicio.enviarAAprobacion(jornada);
+
+        UUID presidente = iniciarSesion(perfilConRol("PRESIDENTE"));
+        assertThatThrownBy(() -> servicio.resolver(jornada,
+                new ResolverJornadaRequest(DecisionJornada.BORRADOR, "  ")))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "RF-121"));
+        assertThat(servicio.consultar(jornada).estadoPublicacion()).isEqualTo(EstadoJornada.REVISION);
+
+        JornadaDto devuelta = servicio.resolver(jornada,
+                new ResolverJornadaRequest(DecisionJornada.BORRADOR, OBSERVACIONES));
+
+        assertThat(devuelta.estadoPublicacion()).isEqualTo(EstadoJornada.BORRADOR);
+        assertThat(devuelta.observaciones()).isEqualTo(OBSERVACIONES);
+        assertThat(devuelta.aprobadaPor()).isNull();
+        assertThat(enPortal(jornada)).isZero();
+        assertThat(historialDePublicacion(jornada)).last().satisfies(paso -> {
+            assertThat(paso.resumen()).isEqualTo("REVISION→BORRADOR por " + presidente);
+            assertThat(paso.motivo()).isEqualTo(OBSERVACIONES);
+        });
+        assertThat(accionesAuditadas(jornada)).contains("DEVOLVER_JORNADA");
+
+        iniciarSesionComoProgramador();
+        servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Águilas"), crearEquipo(grupo, "Pumas"), crearCancha(), INICIO));
+        assertThat(servicio.enviarAAprobacion(jornada).estadoPublicacion())
+                .as("se vuelve a enviar tras corregir").isEqualTo(EstadoJornada.REVISION);
+    }
+
+    @Test
+    @DisplayName("RF-121: un usuario que además puede editar la jornada no puede aprobarla, ni el Programador")
+    void separacionDeFunciones() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), crearEquipo(grupo, "Toros"), crearCancha(), INICIO));
+        servicio.enviarAAprobacion(jornada);
+
+        assertThatThrownBy(() -> servicio.resolver(jornada,
+                new ResolverJornadaRequest(DecisionJornada.PUBLICADO, null)))
+                .as("el Programador no tiene APROBAR")
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "VAL-015"));
+        assertThatThrownBy(() -> pendientes.listar(0, 20))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "VAL-015"));
+
+        UUID ambos = perfilConRol("PRESIDENTE");
+        asignarRol(ambos, "PROGRAMADOR");
+        iniciarSesion(ambos);
+        assertThatThrownBy(() -> servicio.resolver(jornada,
+                new ResolverJornadaRequest(DecisionJornada.PUBLICADO, null)))
+                .as("con EDITAR y APROBAR a la vez")
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "RF-121"));
+
+        assertThat(servicio.consultar(jornada).estadoPublicacion()).isEqualTo(EstadoJornada.REVISION);
+        assertThat(enPortal(jornada)).isZero();
+    }
+
+    @Test
+    @DisplayName("RF-121: la base respalda la separación: quien envió no queda como aprobador")
+    void restriccionDeAprobacionEnLaBase() {
+        UUID programador = iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                crearEquipo(grupo, "Halcones"), crearEquipo(grupo, "Toros"), crearCancha(), INICIO));
+        servicio.enviarAAprobacion(jornada);
+
+        assertThatThrownBy(() -> jdbc.sql("""
+                        UPDATE siglim.jornadas
+                           SET estado_publicacion = 'PUBLICADO', aprobada_por = :perfil, aprobada_en = now()
+                         WHERE id = :id
+                        """)
+                .param("perfil", programador).param("id", jornada).update())
+                .hasMessageContaining("ck_jornadas_aprobacion");
+    }
+
+    @Test
+    @DisplayName("RF-039: una jornada con conflictos no se envía y queda en BORRADOR")
+    void envioConConflictos() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        UUID local = crearEquipo(grupo, "Halcones");
+        servicio.registrarPartido(jornada, new CrearPartidoRequest(
+                local, crearEquipo(grupo, "Toros"), crearCancha(), INICIO));
+        // El equipo queda dado de baja después de programarse: VAL-006 al verificar.
+        jdbc.sql("""
+                        UPDATE siglim.equipos
+                           SET estado = 'BAJA', baja_en = DATE '2031-03-01', motivo_baja = 'Baja de prueba'
+                         WHERE id = :id
+                        """).param("id", local).update();
+
+        assertThatThrownBy(() -> servicio.enviarAAprobacion(jornada))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-039"));
+        assertThat(servicio.consultar(jornada).estadoPublicacion()).isEqualTo(EstadoJornada.BORRADOR);
+        assertThat(historialDePublicacion(jornada)).isEmpty();
+    }
 
     // ── Registro y ajuste (RF-033, RF-036, RF-040) ─────────────────────────────────────────────
 
@@ -533,7 +694,10 @@ class ProgramacionIT extends BaseDatosPrueba {
     // ── Apoyo ───────────────────────────────────────────────────────────────────────────────────
 
     private UUID iniciarSesionComoProgramador() {
-        UUID perfil = perfilConRol("PROGRAMADOR");
+        return iniciarSesion(perfilConRol("PROGRAMADOR"));
+    }
+
+    private UUID iniciarSesion(UUID perfil) {
         Jwt token = Jwt.withTokenValue("token-de-prueba").header("alg", "ES256")
                 .subject(UUID.randomUUID().toString())
                 .issuedAt(Instant.now())
@@ -541,6 +705,46 @@ class ProgramacionIT extends BaseDatosPrueba {
                 .build();
         SecurityContextHolder.getContext().setAuthentication(new AutenticacionSiglim(token, perfil));
         return perfil;
+    }
+
+    /** Agrega a la cuenta otro rol sembrado con ámbito de liga. */
+    private void asignarRol(UUID perfil, String codigoRol) {
+        jdbc.sql("""
+                        INSERT INTO siglim.asignaciones_rol (perfil_id, rol_id, liga_id, ambito)
+                        SELECT :perfil, r.id, r.liga_id, 'LIGA'
+                          FROM siglim.roles r
+                         WHERE r.codigo = :rol
+                        """)
+                .param("perfil", perfil)
+                .param("rol", codigoRol)
+                .update();
+    }
+
+    /** Partidos de la jornada visibles en la vista pública de programación (RF-056). */
+    private long enPortal(UUID jornada) {
+        return jdbc.sql("SELECT count(*) FROM siglim.v_publica_programacion WHERE jornada_id = :id")
+                .param("id", jornada).query(Long.class).single();
+    }
+
+    private List<PasoPublicacion> historialDePublicacion(UUID jornada) {
+        return jdbc.sql("""
+                        SELECT estado_anterior, estado_nuevo, motivo, cambiado_por
+                          FROM siglim.historial_publicacion
+                         WHERE entidad = 'JORNADA' AND entidad_id = :id
+                         ORDER BY id
+                        """)
+                .param("id", jornada)
+                .query((fila, numero) -> new PasoPublicacion(fila.getString("estado_anterior"),
+                        fila.getString("estado_nuevo"), fila.getString("motivo"),
+                        fila.getObject("cambiado_por", UUID.class)))
+                .list();
+    }
+
+    private record PasoPublicacion(String estadoAnterior, String estadoNuevo, String motivo, UUID cambiadoPor) {
+
+        String resumen() {
+            return estadoAnterior + "→" + estadoNuevo + " por " + cambiadoPor;
+        }
     }
 
     /** Crea una cuenta con el rol sembrado, con ámbito de liga. */

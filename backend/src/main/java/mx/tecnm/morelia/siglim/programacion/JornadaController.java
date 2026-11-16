@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
  * de negocio: el permiso, el estado {@code BORRADOR} de la jornada y los conflictos los valida el
  * servicio y, en última instancia, el trigger.
  *
- * <p>Refs: H-12.1, H-12.3, RF-033, RF-036, RF-039
+ * <p>Refs: H-12.1, H-12.3, H-13.1, RF-033, RF-036, RF-039, RF-121
  */
 @RestController
 @RequestMapping("/api/v1/jornadas")
@@ -60,5 +60,17 @@ class JornadaController {
     @PostMapping("/{id}/verificacion")
     VerificacionJornadaDto verificar(@PathVariable UUID id) {
         return servicio.verificar(id);
+    }
+
+    /** Envía la jornada a aprobación del Presidente, sin cuerpo (H-13.1, RF-121). */
+    @PostMapping("/{id}/envio")
+    JornadaDto enviarAAprobacion(@PathVariable UUID id) {
+        return servicio.enviarAAprobacion(id);
+    }
+
+    /** Aprueba y publica, o devuelve con observaciones (H-13.1, RF-121, DEC-21). */
+    @PostMapping("/{id}/resolucion")
+    JornadaDto resolver(@PathVariable UUID id, @Valid @RequestBody ResolverJornadaRequest peticion) {
+        return servicio.resolver(id, peticion);
     }
 }
