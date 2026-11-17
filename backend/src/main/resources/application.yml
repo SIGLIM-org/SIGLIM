@@ -62,6 +62,12 @@ siglim:
       # [PROPUESTA] ADR-0009 §5: diaria a las 00:05 en America/Mexico_City (la zona va en el código).
       # Formato de Spring: segundo minuto hora día mes día-de-la-semana. También corre al arrancar (DEC-60).
       cron: "0 5 0 * * *"
+  # Cobros automáticos al publicar la jornada (B-30, RF-136).
+  tesoreria:
+    cobros-automaticos:
+      # [PROPUESTA] El ERS no fija el periodo de pago: la fecha límite es el día del partido (o hoy,
+      # si ya pasó) más estos días, en America/Mexico_City. Después lo vence la tarea (RF-141).
+      dias-para-pagar: 7
 
 # Monitoreo (RNF-001, RNF-011): solo /actuator/health, sin detalles internos hacia afuera.
 management:

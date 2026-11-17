@@ -30,6 +30,7 @@ import mx.tecnm.morelia.siglim.programacion.JornadaRepository.DatosJornada;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.DatosPartido;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.EquipoDeLiga;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.GrupoDeLiga;
+import mx.tecnm.morelia.siglim.programacion.eventos.JornadaPublicada;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
 import org.junit.jupiter.api.AfterEach;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -70,8 +72,9 @@ class JornadaServiceTest {
     private final Autorizacion autorizacion = mock(Autorizacion.class);
     private final AuditoriaService auditoria = mock(AuditoriaService.class);
     private final MotivoOperacion motivoOperacion = mock(MotivoOperacion.class);
+    private final ApplicationEventPublisher eventos = mock(ApplicationEventPublisher.class);
     private final JornadaService servicio = new JornadaService(jornadas, validador, localia, autorizacion, auditoria,
-            motivoOperacion, new SiglimPropiedades(null, null, null, LIGA));
+            motivoOperacion, eventos, new SiglimPropiedades(null, null, null, LIGA));
 
     @BeforeEach
     void iniciarSesion() {
@@ -826,7 +829,7 @@ class JornadaServiceTest {
     // ── Dictamen del Presidente (H-13.1, RF-121) ────────────────────────────────────────────
 
     @Test
-    @DisplayName("RF-121: el Presidente aprueba una jornada en revisión y queda PUBLICADO con su aprobación")
+    @DisplayName("RF-121, RF-136: el Presidente aprueba una jornada en revisión, queda PUBLICADO y se emite JornadaPublicada")
     void aprobar() {
         given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
                 .willReturn(Optional.of(jornada(EstadoJornada.REVISION, PROGRAMADOR, PROGRAMADOR)));
@@ -845,6 +848,7 @@ class JornadaServiceTest {
         assertThat(evento.accion()).isEqualTo("APROBAR_JORNADA");
         assertThat(evento.motivo()).isNull();
         assertThat(evento.detalle()).containsEntry("estadoAnterior", "REVISION").containsEntry("estado", "PUBLICADO");
+        verify(eventos).publishEvent(new JornadaPublicada(LIGA, JORNADA, PERFIL));
     }
 
     @Test
@@ -864,6 +868,7 @@ class JornadaServiceTest {
         EventoAuditoria evento = eventoAuditado();
         assertThat(evento.accion()).isEqualTo("DEVOLVER_JORNADA");
         assertThat(evento.motivo()).isEqualTo(OBSERVACIONES);
+        verify(eventos, never()).publishEvent(any(Object.class));
     }
 
     @Test

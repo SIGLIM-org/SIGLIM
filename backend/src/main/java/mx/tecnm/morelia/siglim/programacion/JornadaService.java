@@ -24,8 +24,10 @@ import mx.tecnm.morelia.siglim.programacion.JornadaRepository.GrupoDeLiga;
 import mx.tecnm.morelia.siglim.programacion.PartidoDto.ReferenciaDto;
 import mx.tecnm.morelia.siglim.programacion.ValidadorLocalia.Advertencia;
 import mx.tecnm.morelia.siglim.programacion.VerificacionJornadaDto.Aviso;
+import mx.tecnm.morelia.siglim.programacion.eventos.JornadaPublicada;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -76,7 +78,7 @@ import org.springframework.transaction.annotation.Transactional;
  *       personales.</li>
  * </ul>
  *
- * <p>Refs: H-12.1, H-12.3, H-13.1, B-15.1, RF-033, RF-036, RF-039, RF-040, RF-093, RF-090, RF-120, RF-121, RN-018,
+ * <p>Refs: H-12.1, H-12.3, H-13.1, B-15.1, B-30, RF-136, RF-033, RF-036, RF-039, RF-040, RF-093, RF-090, RF-120, RF-121, RN-018,
  * RN-021, RN-049, RN-053, VAL-003 a VAL-006, VAL-027, DEC-34, ADR-0007, ADR-0011
  */
 @Service
@@ -99,17 +101,19 @@ public class JornadaService {
     private final Autorizacion autorizacion;
     private final AuditoriaService auditoria;
     private final MotivoOperacion motivoOperacion;
+    private final ApplicationEventPublisher eventos;
     private final UUID ligaId;
 
     JornadaService(JornadaRepository jornadas, ValidadorConflictos validador, ValidadorLocalia localia,
             Autorizacion autorizacion, AuditoriaService auditoria, MotivoOperacion motivoOperacion,
-            SiglimPropiedades propiedades) {
+            ApplicationEventPublisher eventos, SiglimPropiedades propiedades) {
         this.jornadas = jornadas;
         this.validador = validador;
         this.localia = localia;
         this.autorizacion = autorizacion;
         this.auditoria = auditoria;
         this.motivoOperacion = motivoOperacion;
+        this.eventos = eventos;
         this.ligaId = propiedades.ligaId();
     }
 
@@ -316,7 +320,9 @@ public class JornadaService {
      * <ul>
      *   <li>{@link DecisionJornada#PUBLICADO} fija {@code aprobada_por} y {@code aprobada_en}; el
      *       trigger fija {@code publicada_en} y la jornada aparece en {@code v_publica_programacion}.
-     *       Las observaciones son opcionales.</li>
+     *       Las observaciones son opcionales. Publica {@link JornadaPublicada} en la misma
+     *       transacción: {@code tesoreria} genera los cobros de la jornada (B-30, RF-136) y, si
+     *       falla, la publicación se revierte.</li>
      *   <li>{@link DecisionJornada#BORRADOR} exige observaciones de al menos 10 caracteres, las
      *       guarda y las fija como motivo para que el trigger registre la devolución.</li>
      * </ul>
@@ -347,6 +353,7 @@ public class JornadaService {
                 throw cambioConcurrente();
             }
             auditarDictamen("APROBAR_JORNADA", id, EstadoJornada.PUBLICADO, null);
+            eventos.publishEvent(new JornadaPublicada(ligaId, id, perfil));
         } else {
             String motivo = observacionesValidas(peticion.observaciones());
             motivoOperacion.fijar(motivo);
