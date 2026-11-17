@@ -1933,7 +1933,8 @@ paso en `historial_publicacion` con quien lo hizo y su motivo.
     historial; la jornada vuelve a admitir altas y ajustes.
 - Auditoría en `M-07` sobre `jornadas`: `ENVIAR_JORNADA_A_APROBACION` (`{ estadoAnterior, estado,
   partidos }`), `APROBAR_JORNADA` y `DEVOLVER_JORNADA` (`{ estadoAnterior, estado }`, con las
-  observaciones como motivo). Generar los cobros de la jornada al publicarla es backlog B-30 (RF-136).
+  observaciones como motivo). Al publicarse, la jornada emite `JornadaPublicada` y `tesoreria` genera
+  sus cobros en la misma transacción (B-30, RF-136; ver §6.13 «Cobros automáticos»).
 
 ### 6.8 M-08 Partidos, cédula y resultados
 
@@ -2144,14 +2145,37 @@ cobro. El cuerpo es:
   `400`, como `10.123`).
 - `periodoInicio` es opcional (se usa el día de negocio en `America/Mexico_City`); `fechaLimite` es
   obligatoria y no puede ser anterior al inicio.
-- No se aceptan `tipo`, `estado`, `partidoId` ni `sancionId`: los cobros automáticos son RF-136 y
-  RF-133 (backlog) y sus flujos los generan.
+- No se aceptan `tipo`, `estado`, `partidoId` ni `sancionId`: los cobros automáticos los generan
+  sus flujos (RF-136 al publicar la jornada, B-30; RF-133 por multa, backlog).
 - Errores: `404` si el club no existe o está fuera del ámbito (VAL-024); `403 VAL-015` sin
   `tesoreria.cobro:CREAR`; `422 REFERENCIA_INVALIDA` si el equipo no existe o es de otro club (el
   mensaje no revela el nombre del equipo, que puede estar fuera del ámbito); `400 VALIDACION` si el
   concepto, el monto o las fechas no cumplen.
 - Auditoría: `REGISTRAR_COBRO` en `M-13`, entidad `cobros`, con club, equipo, tipo, monto, periodo,
   fecha límite y estado; el detalle no lleva concepto ni datos personales.
+
+#### Cobros automáticos al publicar la jornada (B-30, RF-136)
+
+No hay endpoint: los genera `POST /jornadas/{id}/resolucion` con `decision: PUBLICADO` (§6.7). La
+jornada emite `JornadaPublicada` y el oyente síncrono de `tesoreria` corre en la misma transacción
+(ADR-0006): si falla, la publicación se revierte. La respuesta del dictamen no cambia.
+
+- Por cada partido de la jornada que no esté `CANCELADO`, a **cada** equipo: un cobro `ARBITRAJE` y
+  uno `CANCHA` cargados a su club, con `partidoId`, `equipoId` y el monto de la tarifa de la temporada
+  y la categoría (§ «Tarifas»). **[PROPUESTA]** Cada equipo paga la tarifa completa.
+- **Sin cobro de cancha** al equipo cuyo club es dueño de la cancha (`propietario = CLUB`, DEC-33);
+  en una cancha de la liga o de un tercero pagan los dos.
+- **[PROPUESTA]** Sin tarifa del concepto, o con tarifa en cero, ese cobro se omite y la omisión queda
+  en la auditoría; la publicación no se bloquea.
+- **[PROPUESTA]** Periodo: desde el día de la publicación hasta el día del partido (o hoy, si ya pasó)
+  más `siglim.tesoreria.cobros-automaticos.dias-para-pagar` días (7 por defecto), en
+  `America/Mexico_City`. Después, la tarea de vencimiento lo vence (RF-141).
+- Concepto que ve el club: `Arbitraje · Jornada 3 · Halcones vs Toros` (hasta 200 caracteres).
+- Idempotente: `ux_cobros_partido` impide un segundo cobro del mismo partido, equipo y tipo.
+- Auditoría en `M-13`: `GENERAR_COBRO` por cobro (entidad `cobros`, con jornada, partido, club,
+  equipo, tipo, monto, periodo y estado) y `GENERAR_COBROS_JORNADA` sobre la jornada con
+  `{ partidos, cobrosGenerados, omitidos }`; sin concepto ni datos personales. `creadoPor` es el
+  Presidente que publicó.
 
 #### Adeudos (H-29.1, RF-140)
 
