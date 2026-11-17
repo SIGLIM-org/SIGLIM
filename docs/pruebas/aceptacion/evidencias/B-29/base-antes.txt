@@ -1,0 +1,25 @@
+B-29.3 · Estado del Supabase compartido antes de la prueba
+Consultado: 2026-11-17 16:38 (America/Mexico_City), develop en 5911a87
+
+-- Temporadas y categorías
+Temporada 2026–2027     | CONFIGURACION | Libre Demostración, Veteranos Demostración
+Temporada prueba B-05   | CERRADA       | Libre Demostración, Veteranos Demostración
+Temporada prueba H-13   | CERRADA       | Libre Demostración
+
+-- siglim.tarifas (antes de la siembra: 0 filas)
+Única fila, sembrada por SQL para el CA-3 (no pasa por la API ni se audita):
+id                                   | temporada             | categoria          | concepto  | monto
+86595834-b0ce-4152-b23c-841ae5ad8a67 | Temporada prueba H-13 | Libre Demostración | ARBITRAJE | 250.00
+
+-- siglim.auditoria
+REGISTRAR_TARIFA + EDITAR_TARIFA: 0
+Total de eventos: 137
+
+-- Restricciones de siglim.tarifas
+ck_tarifas_monto                               CHECK (monto >= 0)
+tarifas_temporada_id_categoria_id_concepto_key UNIQUE (temporada_id, categoria_id, concepto)
+monto                                          numeric(12,2)
+concepto                                       ARBITRAJE | CANCHA
+
+-- Permiso tesoreria.tarifa:EDITAR
+Solo el rol Tesorero (liga). Administrador general y Presidente tienen auditoria.registro:CONSULTAR.
