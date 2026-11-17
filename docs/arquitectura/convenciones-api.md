@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.12 · 16 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.13 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -61,6 +61,7 @@ Versión 5.12 · 16 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.10 | 16 de noviembre de 2026 | B-08.1: §6.5 con el contrato de `GET /clubes/{id}/cuota-arbitros?temporadaId=` (equipos activos, árbitros `VALIDADO`, redondeo hacia arriba y `cumple`), su ámbito de club, errores y la temporada activa por omisión; §6.2 con el parámetro `equiposPorArbitro` de la temporada (4 **[DEMO]**, DEC-72), su herencia de la versión vigente cuando se omite y su inclusión en `camposDemo` (RF-114, DEC-17). |
 | 5.11 | 16 de noviembre de 2026 | B-15.1: §6.7 con las advertencias de localía (VAL-027): las reglas de la cancha del local (DEC-33, DEC-34) y de las últimas fechas en la unidad deportiva (RN-049), el `409 VAL-027` con `aceptable` y `advertencias` al registrar o ajustar un partido sin `motivoAceptacion`, el motivo guardado en `motivoLocalia`, su conservación en los ajustes, la lista `advertencias` de la verificación y la auditoría `ACEPTAR_LOCALIA`; §6.2 con los parámetros `fechasFaseRegular` (sin default) y `fechasFinalesUnidadDeportiva` (10 **[DEMO]**), heredados de la versión vigente cuando se omiten. |
 | 5.12 | 16 de noviembre de 2026 | B-29.1: §6.13 con el contrato de tarifas (`GET /tarifas?temporadaId=` sin paginar, `POST /tarifas` y `PATCH /tarifas/{id}` solo del monto): una tarifa por temporada, categoría y concepto (`409 DUPLICADO`), monto mayor o igual a cero, categoría asignada a la temporada (`422 REFERENCIA_INVALIDA`), temporada cerrada de solo lectura (`409 RF-003`), `esDemo` siempre `true` mientras siga PEN-042 y auditoría `REGISTRAR_TARIFA` y `EDITAR_TARIFA` (RF-135). |
+| 5.13 | 17 de noviembre de 2026 | B-15.2: §6.7 aclara que un `PATCH /partidos/{id}` que solo trae `motivoAceptacion` registra la aceptación de la advertencia de localía sin cambiar equipos, cancha ni inicio (VAL-027), y la audita como `ACEPTAR_LOCALIA`; si el partido ya respeta la localía, no escribe. |
 
 ## Índice
 
@@ -1879,7 +1880,7 @@ La verificación y el guardado usan las mismas reglas: VAL-003 (equipo duplicado
 VAL-004 (cancha ocupada), VAL-005 (cancha bloqueada o fuera de disponibilidad), VAL-006 (equipo con
 baja o sanción). Cada conflicto nombra los partidos, la cancha y el horario que chocan.
 
-**Advertencias de localía (B-15.1, RF-120, VAL-027).** No son conflictos duros: se aceptan con
+**Advertencias de localía (B-15.1, B-15.2, RF-120, VAL-027).** No son conflictos duros: se aceptan con
 motivo (§3.1) y no impiden enviar la jornada a aprobación. Se evalúan dos reglas con los datos de la
 base, nunca con valores fijos en el código:
 
@@ -1901,7 +1902,9 @@ partido se guarda con `motivoLocalia` y se audita `ACEPTAR_LOCALIA` en `M-07` so
 motivo y `{ jornadaId, reglas: ["CANCHA_DEL_LOCAL" | "UNIDAD_DEPORTIVA"] }`. Un ajuste sin
 `motivoAceptacion` conserva el `motivoLocalia` guardado si la advertencia sigue **[PROPUESTA]**; si el
 partido ya respeta la localía, `motivoLocalia` se borra. Un `PATCH` que solo trae `motivoAceptacion`
-no cambia nada. La verificación devuelve las advertencias de todos los partidos no cancelados en
+registra la aceptación sin cambiar equipos, cancha ni inicio (B-15.2): si el partido ya respeta la
+localía no escribe; si la advertencia sigue, guarda el motivo y audita `ACEPTAR_LOCALIA`. La
+verificación devuelve las advertencias de todos los partidos no cancelados en
 `advertencias` con `codigo: "VAL-027"`; si el partido ya tiene motivo, el mensaje lo indica.
 
 **Aprobación y publicación (H-13.1).** El detalle y las respuestas de las dos acciones traen, además,

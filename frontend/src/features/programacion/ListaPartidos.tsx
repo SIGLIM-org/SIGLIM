@@ -7,8 +7,10 @@ import type { AvisoVerificacion, Partido } from '@/features/programacion/tipos'
 type Props = {
   partidos: readonly Partido[]
   conflictosPorPartido: ReadonlyMap<string, readonly AvisoVerificacion[]>
+  advertenciasPorPartido: ReadonlyMap<string, readonly AvisoVerificacion[]>
   puedeEditar: boolean
   onEditar: (partido: Partido) => void
+  onAceptarLocalia: (partido: Partido) => void
   onNuevo: () => void
 }
 
@@ -16,8 +18,10 @@ type Props = {
 export function ListaPartidos({
   partidos,
   conflictosPorPartido,
+  advertenciasPorPartido,
   puedeEditar,
   onEditar,
+  onAceptarLocalia,
   onNuevo,
 }: Props) {
   if (partidos.length === 0) {
@@ -45,8 +49,10 @@ export function ListaPartidos({
           partido={partido}
           numero={indice + 1}
           avisos={conflictosPorPartido.get(partido.id) ?? []}
+          advertencias={advertenciasPorPartido.get(partido.id) ?? []}
           puedeEditar={puedeEditar}
           onEditar={onEditar}
+          onAceptarLocalia={onAceptarLocalia}
         />
       ))}
     </ol>

@@ -351,6 +351,21 @@ class JornadaRepository {
                 .update();
     }
 
+    /**
+     * Guarda solo el motivo con el que se acepta una advertencia de localía (B-15.2, RF-120): el
+     * partido no cambia de equipos, cancha ni horario, así que no pasa por el trigger de programación.
+     */
+    void actualizarMotivoLocalia(UUID id, String motivoLocalia) {
+        jdbc.sql("""
+                        UPDATE partidos
+                           SET motivo_localia = :motivoLocalia
+                         WHERE id = :id
+                        """)
+                .param("id", id)
+                .param("motivoLocalia", motivoLocalia, java.sql.Types.VARCHAR)
+                .update();
+    }
+
     // ── Filas ───────────────────────────────────────────────────────────────────────────────────
 
     /** Grupo de la liga con la categoría de temporada a la que pertenece. */

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
   ActualizarPartidoPeticion,
+  AdvertenciaAceptable,
   CrearJornadaPeticion,
   CrearPartidoPeticion,
   Jornada,
@@ -10,6 +11,7 @@ import type {
 } from '@/features/programacion/tipos'
 import { clavesPublicaciones } from '@/features/publicacion/api'
 import type { Temporada } from '@/features/temporadas/tipos'
+import { ApiError } from '@/lib/api/ApiError'
 import { api } from '@/lib/api/cliente'
 import type { Pagina } from '@/lib/api/tipos'
 
@@ -157,4 +159,45 @@ export function useActualizarPartido(partidoId: string) {
       api.patch<Partido>(`partidos/${partidoId}`, peticion),
     onSuccess: invalidar,
   })
+}
+
+/**
+ * Acepta una advertencia de localía desde la fila del partido (B-15.2, RF-120, VAL-027): el `PATCH`
+ * solo lleva `motivoAceptacion`, así que no cambia equipos, cancha ni inicio y el motivo queda en
+ * el detalle del partido y en la auditoría.
+ */
+export function useAceptarLocalia() {
+  const invalidar = useInvalidarProgramacion()
+
+  return useMutation({
+    mutationFn: ({ id, motivoAceptacion }: { id: string; motivoAceptacion: string }) =>
+      api.patch<Partido>(`partidos/${id}`, { motivoAceptacion }),
+    onSuccess: invalidar,
+  })
+}
+
+/** Un `409 VAL-027` aceptable: la advertencia de localía se puede aceptar con un motivo. */
+export function esAdvertenciaDeLocaliaAceptable(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.problema.status === 409 &&
+    error.problema.codigo === 'VAL-027' &&
+    error.problema.aceptable === true
+  )
+}
+
+function esAdvertenciaAceptable(valor: unknown): valor is AdvertenciaAceptable {
+  const aviso = valor as Partial<AdvertenciaAceptable> | null
+
+  return typeof aviso?.codigo === 'string' && typeof aviso.mensaje === 'string'
+}
+
+/** Advertencias de la extensión `advertencias` de un `409 VAL-027`; `[]` si no aplica. */
+export function advertenciasAceptablesDe(error: unknown): AdvertenciaAceptable[] {
+  if (!(error instanceof ApiError) || !esAdvertenciaDeLocaliaAceptable(error)) {
+    return []
+  }
+  const avisos = error.problema.extensiones?.advertencias
+
+  return Array.isArray(avisos) ? avisos.filter(esAdvertenciaAceptable) : []
 }
