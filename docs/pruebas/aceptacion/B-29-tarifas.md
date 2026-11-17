@@ -68,7 +68,9 @@ Estado inicial verificado el 2026-11-17 a las 16:38 en el Supabase compartido
 2. **Ayudante de consola para los pasos de API.** En DevTools → **Red**, recargar la pestaña
    Tarifas, abrir cualquier petición `/api/v1/…` y copiar el valor de `Authorization`. En la
    **Consola**, pegar el bloque siguiente y **limpiar la consola** (Ctrl+L) para que el token no
-   aparezca en las capturas:
+   aparezca en las capturas. Las variables se pierden al recargar la página: después de cada recarga
+   hay que volver a pegar el bloque. Si una llamada responde `401`, la sesión expiró: recargar y
+   copiar el token de nuevo.
 
    ```js
    const T = '<valor de Authorization>'
@@ -319,7 +321,14 @@ categoría que no participa en la temporada responde 422 REFERENCIA_INVALIDA»).
 **Pasos**
 
 1. En la pantalla, sin cambiar ningún monto de **Libre Demostración**, revisar el botón **Guardar**.
-2. Con el ayudante de consola, después del paso 1 del CA-4: `api('PATCH', '/tarifas/' + libreArb, { monto: 400 })`.
+2. Con el ayudante de consola, después del paso 1 del CA-4 (si la página se recargó, primero se
+   vuelve a pegar el ayudante y se recalcula `libreArb` como en el paso 3 del CA-2):
+
+   ```js
+   const lista = await api('GET', '/tarifas?temporadaId=' + TEMP)
+   const libreArb = lista.find((t) => t.categoria.id === LIBRE && t.concepto === 'ARBITRAJE').id
+   api('PATCH', '/tarifas/' + libreArb, { monto: 400 })
+   ```
 
 **Resultado esperado**
 
