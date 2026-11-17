@@ -41,6 +41,8 @@ const EDITAR = 'programacion.jornada:EDITAR'
 const ENVIAR = 'programacion.jornada:ENVIAR'
 const APROBAR = 'programacion.jornada:APROBAR'
 const MOTIVO = 'Cambio de horario por lluvia'
+const MOTIVO_LOCALIA = 'Convenio interclub por remodelación de la cancha'
+const ADVERTENCIA_LOCALIA = 'El equipo local tiene cancha y el partido se programó en otra.'
 
 const TEMPORADA: Temporada = {
   id: 't1',
@@ -531,5 +533,207 @@ describe('PantallaProgramacion (F-22, H-12.4)', () => {
     montarPantalla()
 
     expect(await screen.findByText('No hay jornadas por revisar')).toBeInTheDocument()
+  })
+
+  it('B-15.2: muestra la advertencia de localía en la fila y la acepta con motivo', async () => {
+    otorgar(CONSULTAR, EDITAR, ENVIAR)
+    responder({
+      verificacion: {
+        conflictos: [],
+        advertencias: [{ partidoId: 'p1', codigo: 'VAL-027', mensaje: ADVERTENCIA_LOCALIA }],
+      },
+    })
+    patch.mockResolvedValue({ ...PARTIDO_UNO, motivoLocalia: MOTIVO_LOCALIA })
+    montarPantalla()
+
+    const franja = await screen.findByRole('group', {
+      name: 'Advertencia de localía del partido Halcones vs. Toros',
+    })
+    expect(within(franja).getByText(ADVERTENCIA_LOCALIA)).toBeInTheDocument()
+    expect(
+      within(franja).getByText(
+        'No impide enviar la jornada: se acepta con un motivo que queda en el detalle.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Enviar a aprobación' })).toBeEnabled()
+
+    await userEvent.click(within(franja).getByRole('button', { name: 'Aceptar con motivo' }))
+
+    const dialogo = await screen.findByRole('dialog', {
+      name: 'Aceptar advertencia de localía',
+    })
+    await userEvent.type(within(dialogo).getByLabelText(/^Motivo/), MOTIVO_LOCALIA)
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Aceptar advertencia' }))
+
+    await waitFor(() =>
+      expect(patch).toHaveBeenCalledWith('partidos/p1', { motivoAceptacion: MOTIVO_LOCALIA }),
+    )
+    expect(
+      await screen.findByText(
+        'Advertencia de localía aceptada. El motivo quedó en el detalle del partido y en la auditoría.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('B-15.2: un ajuste con VAL-027 conserva el motivo del ajuste y añade el de localía', async () => {
+    otorgar(CONSULTAR, EDITAR, ENVIAR)
+    responder({ verificacion: { conflictos: [], advertencias: [] } })
+    patch
+      .mockRejectedValueOnce(
+        new ApiError({
+          title: 'Conflicto',
+          status: 409,
+          codigo: 'VAL-027',
+          detail: `${ADVERTENCIA_LOCALIA} Para aceptarlo escribe un motivo de localía de al menos 10 caracteres.`,
+          aceptable: true,
+          extensiones: {
+            advertencias: [{ partidoId: 'p1', codigo: 'VAL-027', mensaje: ADVERTENCIA_LOCALIA }],
+          },
+        }),
+      )
+      .mockResolvedValueOnce(PARTIDO_UNO)
+    montarPantalla()
+
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Editar el partido Halcones vs. Toros',
+      }),
+    )
+
+    const dialogo = await screen.findByRole('dialog', { name: 'Ajustar partido' })
+    fireEvent.change(within(dialogo).getByLabelText(/Inicio/), {
+      target: { value: '2026-11-15T12:00' },
+    })
+    await userEvent.type(within(dialogo).getByLabelText(/Motivo del ajuste/), MOTIVO)
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Guardar cambios' }))
+
+    const aviso = await within(dialogo).findByRole('alert')
+    await userEvent.click(within(aviso).getByRole('button', { name: 'Aceptar con motivo' }))
+
+    const motivo = await screen.findByRole('dialog', {
+      name: 'Aceptar advertencia de localía',
+    })
+    await userEvent.type(within(motivo).getByLabelText(/^Motivo/), MOTIVO_LOCALIA)
+    await userEvent.click(within(motivo).getByRole('button', { name: 'Guardar con motivo' }))
+
+    await waitFor(() =>
+      expect(patch).toHaveBeenLastCalledWith('partidos/p1', {
+        inicio: aIsoConDesplazamiento('2026-11-15T12:00'),
+        motivo: MOTIVO,
+        motivoAceptacion: MOTIVO_LOCALIA,
+      }),
+    )
+    expect(
+      await screen.findByText(
+        'Partido ajustado. El cambio quedó en el historial y la auditoría.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('B-15.2: el motivo aceptado se ve en el detalle del partido', async () => {
+    otorgar(CONSULTAR, EDITAR)
+    responder({
+      detalle: {
+        ...JORNADA,
+        partidos: [{ ...PARTIDO_UNO, motivoLocalia: MOTIVO_LOCALIA }, PARTIDO_DOS],
+      },
+      verificacion: {
+        conflictos: [],
+        advertencias: [
+          {
+            partidoId: 'p1',
+            codigo: 'VAL-027',
+            mensaje: `${ADVERTENCIA_LOCALIA} Aceptada con el motivo de localía registrado.`,
+          },
+        ],
+      },
+    })
+    montarPantalla()
+
+    const franja = await screen.findByRole('group', {
+      name: 'Advertencia de localía del partido Halcones vs. Toros',
+    })
+    expect(within(franja).getByText('Advertencia de localía aceptada')).toBeInTheDocument()
+    expect(within(franja).getByText('Motivo registrado')).toBeInTheDocument()
+    expect(within(franja).getByText(MOTIVO_LOCALIA)).toBeInTheDocument()
+    expect(
+      within(franja).queryByRole('button', { name: 'Aceptar con motivo' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('B-15.2: si el alta devuelve VAL-027, permite aceptar la advertencia con motivo', async () => {
+    otorgar(CONSULTAR, EDITAR, ENVIAR)
+    responder({ verificacion: { conflictos: [], advertencias: [] } })
+    let intentos = 0
+    post.mockImplementation(async (ruta: string) => {
+      if (ruta === 'jornadas/j1/partidos') {
+        intentos += 1
+
+        if (intentos === 1) {
+          throw new ApiError({
+            title: 'Conflicto',
+            status: 409,
+            codigo: 'VAL-027',
+            detail: `${ADVERTENCIA_LOCALIA} Para aceptarlo escribe un motivo de localía de al menos 10 caracteres.`,
+            aceptable: true,
+            extensiones: {
+              advertencias: [
+                { partidoId: null, codigo: 'VAL-027', mensaje: ADVERTENCIA_LOCALIA },
+              ],
+            },
+          })
+        }
+
+        return PARTIDO_UNO
+      }
+      if (ruta === 'jornadas/j1/verificacion') {
+        return { conflictos: [], advertencias: [] }
+      }
+
+      throw new Error(`POST no simulado: ${ruta}`)
+    })
+    montarPantalla()
+
+    await screen.findByRole('heading', { name: 'Jornada 1' })
+    await userEvent.click(screen.getByRole('button', { name: 'Programar partido' }))
+
+    const dialogo = await screen.findByRole('dialog', { name: 'Programar partido' })
+    const local = await within(dialogo).findByLabelText(/Equipo local/)
+    await waitFor(() => expect(local).toBeEnabled())
+    fireEvent.change(local, { target: { value: 'e1' } })
+    fireEvent.change(within(dialogo).getByLabelText(/Equipo visitante/), {
+      target: { value: 'e2' },
+    })
+    fireEvent.change(within(dialogo).getByLabelText(/Cancha/), { target: { value: 'ca1' } })
+    fireEvent.change(within(dialogo).getByLabelText(/Inicio/), {
+      target: { value: '2026-11-20T10:00' },
+    })
+
+    const programar = within(dialogo).getByRole('button', { name: 'Programar partido' })
+    await waitFor(() => expect(programar).toBeEnabled())
+    await userEvent.click(programar)
+
+    const aviso = await within(dialogo).findByRole('alert')
+    expect(within(aviso).getByText(ADVERTENCIA_LOCALIA)).toBeInTheDocument()
+    await userEvent.click(within(aviso).getByRole('button', { name: 'Aceptar con motivo' }))
+
+    const motivo = await screen.findByRole('dialog', {
+      name: 'Aceptar advertencia de localía',
+    })
+    await userEvent.type(within(motivo).getByLabelText(/^Motivo/), MOTIVO_LOCALIA)
+    await userEvent.click(within(motivo).getByRole('button', { name: 'Programar con motivo' }))
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith('jornadas/j1/partidos', {
+        equipoLocalId: 'e1',
+        equipoVisitanteId: 'e2',
+        canchaId: 'ca1',
+        inicio: aIsoConDesplazamiento('2026-11-20T10:00'),
+        motivoAceptacion: MOTIVO_LOCALIA,
+      }),
+    )
+    expect(
+      await screen.findByText('Partido programado en la jornada 1.'),
+    ).toBeInTheDocument()
   })
 })

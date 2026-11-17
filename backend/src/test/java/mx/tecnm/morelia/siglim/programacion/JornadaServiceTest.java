@@ -442,6 +442,66 @@ class JornadaServiceTest {
     }
 
     @Test
+    @DisplayName("B-15.2: aceptar la localía desde la fila guarda solo el motivo y audita ACEPTAR_LOCALIA")
+    void aceptarLocaliaSinAjuste() {
+        DatosPartido pendiente = partidoConMotivoLocalia(null);
+        DatosPartido aceptado = partidoConMotivoLocalia(MOTIVO_LOCALIA);
+        given(jornadas.buscarPartidoParaActualizar(LIGA, PARTIDO)).willReturn(Optional.of(pendiente));
+        given(jornadas.buscarPartido(LIGA, PARTIDO)).willReturn(Optional.of(aceptado));
+        given(localia.evaluar(eq(GRUPO), eq(JORNADA), any(), eq(CANCHA))).willReturn(List.of(CANCHA_AJENA));
+
+        PartidoDto resultado = servicio.actualizarPartido(PARTIDO,
+                new ActualizarPartidoRequest(null, null, null, null, null, "  " + MOTIVO_LOCALIA + " "));
+
+        assertThat(resultado.motivoLocalia()).isEqualTo(MOTIVO_LOCALIA);
+        verify(jornadas).actualizarMotivoLocalia(PARTIDO, MOTIVO_LOCALIA);
+        verify(jornadas, never()).actualizarPartido(any(), any(), any(), any(), any(), any());
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.accion()).isEqualTo("ACEPTAR_LOCALIA");
+        assertThat(evento.motivo()).isEqualTo(MOTIVO_LOCALIA);
+        assertThat(evento.detalle()).containsEntry("reglas", List.of("CANCHA_DEL_LOCAL"));
+    }
+
+    @Test
+    @DisplayName("B-15.2: aceptar sin un motivo de 10 caracteres responde 409 VAL-027 y no escribe")
+    void aceptarLocaliaSinMotivoSuficiente() {
+        given(jornadas.buscarPartidoParaActualizar(LIGA, PARTIDO))
+                .willReturn(Optional.of(partidoConMotivoLocalia(null)));
+        given(localia.evaluar(eq(GRUPO), eq(JORNADA), any(), eq(CANCHA))).willReturn(List.of(CANCHA_AJENA));
+
+        assertThatThrownBy(() -> servicio.actualizarPartido(PARTIDO,
+                new ActualizarPartidoRequest(null, null, null, null, null, "Corto")))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "VAL-027"))
+                .satisfies(error -> assertThat(((ReglaNegocioException) error).propiedades())
+                        .containsEntry("aceptable", true).containsKey("advertencias"));
+        verify(jornadas, never()).actualizarMotivoLocalia(any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("B-15.2: si el partido ya respeta la localía, el motivo de aceptación se ignora")
+    void aceptarLocaliaSinAdvertencia() {
+        given(jornadas.buscarPartidoParaActualizar(LIGA, PARTIDO))
+                .willReturn(Optional.of(partidoConMotivoLocalia(null)));
+        given(localia.evaluar(eq(GRUPO), eq(JORNADA), any(), eq(CANCHA))).willReturn(List.of());
+
+        PartidoDto resultado = servicio.actualizarPartido(PARTIDO,
+                new ActualizarPartidoRequest(null, null, null, null, null, MOTIVO_LOCALIA));
+
+        assertThat(resultado.motivoLocalia()).isNull();
+        verify(jornadas, never()).actualizarMotivoLocalia(any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    /** Partido de la jornada en borrador con el motivo de localía indicado (B-15.2). */
+    private static DatosPartido partidoConMotivoLocalia(String motivoLocalia) {
+        return new DatosPartido(PARTIDO, JORNADA, GRUPO, EstadoJornada.BORRADOR, LOCAL, "Halcones",
+                UUID.randomUUID(), VISITANTE, "Toros", UUID.randomUUID(), CANCHA, "Morelos 2",
+                INICIO, INICIO.plusHours(2), EstadoPartido.PROGRAMADO, motivoLocalia, CREADO_EN, CREADO_EN,
+                "ACTIVO", "ACTIVO", true);
+    }
+
+    @Test
     @DisplayName("VAL-027: la verificación lista las advertencias de localía sin escribir")
     void verificarListaAdvertencias() {
         given(jornadas.buscarJornada(LIGA, JORNADA)).willReturn(Optional.of(jornada(EstadoJornada.BORRADOR)));
