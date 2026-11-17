@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.14 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.15 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -63,6 +63,7 @@ Versión 5.14 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.12 | 16 de noviembre de 2026 | B-29.1: §6.13 con el contrato de tarifas (`GET /tarifas?temporadaId=` sin paginar, `POST /tarifas` y `PATCH /tarifas/{id}` solo del monto): una tarifa por temporada, categoría y concepto (`409 DUPLICADO`), monto mayor o igual a cero, categoría asignada a la temporada (`422 REFERENCIA_INVALIDA`), temporada cerrada de solo lectura (`409 RF-003`), `esDemo` siempre `true` mientras siga PEN-042 y auditoría `REGISTRAR_TARIFA` y `EDITAR_TARIFA` (RF-135). |
 | 5.13 | 17 de noviembre de 2026 | B-15.2: §6.7 aclara que un `PATCH /partidos/{id}` que solo trae `motivoAceptacion` registra la aceptación de la advertencia de localía sin cambiar equipos, cancha ni inicio (VAL-027), y la audita como `ACEPTAR_LOCALIA`; si el partido ya respeta la localía, no escribe. |
 | 5.14 | 17 de noviembre de 2026 | B-29.2: §6.13 con `GET /tarifas/contexto`: temporadas de la liga (de la más reciente a la más antigua) con su estado y sus categorías en el orden del catálogo, autorizado con `tesoreria.tarifa:EDITAR` porque el Tesorero no tiene `temporadas.temporada:CONSULTAR`, como los contextos de afiliaciones y de operaciones de equipo. |
+| 5.15 | 17 de noviembre de 2026 | B-09.1: §6.5 con el contrato de la disponibilidad arbitral (`GET /arbitros/{id}/disponibilidad?desde=&hasta=`, `POST` y `DELETE …/{disponibilidadId}`): intervalos `[desde, hasta)`, `disponible` opcional con `true` por omisión, solo árbitros `VALIDADO`, borrado físico porque no es historial deportivo, permiso `arbitraje.disponibilidad:EDITAR` sobre la persona del árbitro (Comisión en `LIGA`, árbitro en `PROPIO`) y auditoría `REGISTRAR_DISPONIBILIDAD_ARBITRAL`/`ELIMINAR_DISPONIBILIDAD_ARBITRAL` (RF-022). |
 
 ## Índice
 
@@ -1710,7 +1711,7 @@ Responde `200` con `Cache-Control: no-store` y el registro, con los mismos campo
 | `GET /arbitros?estado=&clubId=` · `POST /arbitros` | Árbitros presentados por el club | `GET`: `arbitraje.arbitro:CONSULTAR` · `POST`: `arbitraje.arbitro:PROPONER` | RF-112, RF-021 | N |
 | `POST /arbitros/{id}/validacion` | Validar o rechazar | `arbitraje.arbitro:VALIDAR` | RF-113 | N |
 | `GET /clubes/{id}/cuota-arbitros` | Árbitros presentados frente a los requeridos | `arbitraje.arbitro:CONSULTAR` | RF-114 | B |
-| `GET /arbitros/{id}/disponibilidad` · `PUT` | Disponibilidad | `arbitraje.disponibilidad:EDITAR` | RF-022 | B |
+| `GET /arbitros/{id}/disponibilidad?desde=&hasta=` · `POST` · `DELETE …/{disponibilidadId}` | Disponibilidad por fecha y horario; el `POST` responde `201` sin `Location` y el `DELETE`, `204` | `arbitraje.disponibilidad:EDITAR` | RF-022 | B |
 | `GET /designaciones?jornadaId=&arbitroId=` · `POST /partidos/{id}/designaciones` | Designar; `422 VAL-019` si el árbitro es de un club del partido | `arbitraje.designacion:*` | RF-023, RF-115 | N |
 | `GET /mis-designaciones` | Partidos asignados al árbitro | ámbito `PROPIO` | RF-123 | N |
 
@@ -1738,6 +1739,35 @@ faltan); la validación las admite como nota. Se guardan el perfil y la fecha de
 auditan como `PROPONER_ARBITRO`, `VALIDAR_ARBITRO` y `RECHAZAR_ARBITRO` en `M-05` sobre `arbitros`,
 sin nombres ni CURP. Solo los `VALIDADO` pueden designarse: el trigger de `designaciones` responde
 `RF-113` para cualquier otro estado.
+
+**Disponibilidad arbitral (B-09.1, RF-022).** `GET /api/v1/arbitros/{id}/disponibilidad` responde
+`200` con la lista de periodos del árbitro, ordenada por inicio. `desde` y `hasta` son opcionales: si
+se envían, **ambos** son obligatorios y se devuelven los periodos que se traslapan con ese rango
+(`400 VALIDACION` si falta uno o el orden es incorrecto); sin ellos se devuelven todos. Cada
+elemento lleva `{ "id", "arbitroId", "periodo": { "desde", "hasta" }, "disponible", "creadoEn" }`,
+con las fechas en `America/Mexico_City` y el intervalo `[desde, hasta)`, igual que el `tstzrange` de
+la tabla.
+
+`POST /api/v1/arbitros/{id}/disponibilidad` lleva
+`{ "periodo": { "desde", "hasta" }, "disponible": true|false }`. `disponible` es opcional y vale
+`true` por omisión; con `false` el árbitro declara que no puede ser designado en ese periodo.
+Responde `201` con el registro y **sin** `Location` (no hay `GET` por identificador). El inicio debe
+ser anterior al fin (`400 VALIDACION`; la restricción `ck_disponibilidad_arbitral` no admite un
+periodo vacío). Solo se registra para un árbitro en estado `VALIDADO`: cualquier otro responde
+`409 RF-022` sin guardar. Los periodos ya creados se pueden consultar y retirar aunque el estado del
+árbitro cambie, para que la Comisión limpie el calendario sin tocar el catálogo.
+
+`DELETE /api/v1/arbitros/{id}/disponibilidad/{disponibilidadId}` responde `204` sin cuerpo y borra
+la fila: la disponibilidad no es historial deportivo y el diccionario no la marca como histórica. Si
+la regla del equipo cambiara, se sustituiría por una desactivación. Un periodo que no pertenece al
+árbitro, o un árbitro de otra liga, responde `404` (VAL-024).
+
+Los tres endpoints exigen `arbitraje.disponibilidad:EDITAR` sobre la **persona del árbitro**: la
+Comisión de Arbitraje (ámbito `LIGA`) opera con cualquiera y el árbitro (ámbito `PROPIO`) solo con la
+suya; un ámbito de club no la alcanza y responde `404` (VAL-024, ADR-0007). El alta y el borrado se
+auditan en `M-05` sobre `disponibilidad_arbitral` como `REGISTRAR_DISPONIBILIDAD_ARBITRAL` y
+`ELIMINAR_DISPONIBILIDAD_ARBITRAL`, con `{ "arbitroId", "desde", "hasta", "disponible" }` y sin
+nombres, CURP ni datos de contacto. La usará H-14 (Sprint 4) para filtrar designaciones.
 
 **Cuota de árbitros del club (B-08.1, RF-114, RN-042, DEC-17, DEC-72).**
 `GET /clubes/{id}/cuota-arbitros?temporadaId=` exige `arbitraje.arbitro:CONSULTAR` sobre el club
