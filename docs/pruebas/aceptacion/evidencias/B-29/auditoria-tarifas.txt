@@ -1,0 +1,23 @@
+B-29.3 · Eventos de auditoría desde el inicio de la prueba (2026-11-17 16:38, America/Mexico_City)
+Consulta: siglim.auditoria con ocurrido_en posterior al estado inicial (base-antes.txt), unida a perfiles.
+
+ocurrido            | accion           | modulo | entidad | entidad_id                           | perfil
+2026-11-17 16:59:23 | REGISTRAR_TARIFA | M-13   | tarifas | 9c7ae683-99b0-48f9-af6c-9d9ad21b4f21 | Tesorero
+  detalle: {"concepto":"ARBITRAJE","monto":350,"esDemo":true,"categoriaId":"214171a4-…"(Libre),"temporadaId":"bae83713-…"(2026–2027)}
+2026-11-17 16:59:24 | REGISTRAR_TARIFA | M-13   | tarifas | 5bb4ab70-39ab-4878-b794-a1cadb5ef20a | Tesorero
+  detalle: {"concepto":"CANCHA","monto":200,"esDemo":true,"categoriaId":"214171a4-…"(Libre),"temporadaId":"bae83713-…"}
+2026-11-17 16:59:43 | REGISTRAR_TARIFA | M-13   | tarifas | decbca57-b7a0-453c-bc38-2ea5f6f23c8d | Tesorero
+  detalle: {"concepto":"ARBITRAJE","monto":300,"esDemo":true,"categoriaId":"fe2a0e5e-…"(Veteranos),"temporadaId":"bae83713-…"}
+2026-11-17 17:05:08 | REGISTRAR_TARIFA | M-13   | tarifas | d04d3c19-4f10-49d7-9655-9584789712b9 | Tesorero
+  detalle: {"concepto":"CANCHA","monto":0,"esDemo":true,"categoriaId":"fe2a0e5e-…"(Veteranos),"temporadaId":"bae83713-…"}
+2026-11-17 17:17:29 | EDITAR_TARIFA    | M-13   | tarifas | 9c7ae683-99b0-48f9-af6c-9d9ad21b4f21 | Tesorero
+  detalle: {"concepto":"ARBITRAJE","montoAnterior":350,"monto":400,"esDemo":true,"categoriaId":"214171a4-…"(Libre),"temporadaId":"bae83713-…"}
+
+Totales de la corrida: 4 REGISTRAR_TARIFA y 1 EDITAR_TARIFA; ningún otro evento.
+- Ningún evento por los intentos rechazados: 409 DUPLICADO (CA-1), 400 VALIDACION (CA-2),
+  409 RF-003 (CA-3), 422 REFERENCIA_INVALIDA (V-2) ni 403 VAL-015 (V-1).
+- Ningún EDITAR_TARIFA posterior a las 17:17:29: el PATCH con el mismo monto (V-3) no se auditó.
+- La tarifa sembrada por SQL en H-13 no tiene evento (no pasó por la API).
+- motivo vacío en todos; el detalle no contiene datos personales.
+- Los montos del detalle (JSONB) se guardan sin ceros finales (350, 0); la columna y la API conservan
+  dos decimales (350.00, 0.00).
