@@ -3,17 +3,20 @@ import { CalendarClock, CircleAlert, RotateCw, TriangleAlert } from 'lucide-reac
 import { Button } from '@/components/ui/Button'
 import { CampoSeleccion } from '@/components/ui/CampoSeleccion'
 import { CampoTexto } from '@/components/ui/CampoTexto'
-import { MAXIMO_MOTIVO, MINIMO_MOTIVO } from '@/components/ui/ModalMotivo'
+import { MAXIMO_MOTIVO, MINIMO_MOTIVO, ModalMotivo } from '@/components/ui/ModalMotivo'
 import { useDialogoModal } from '@/components/ui/useDialogoModal'
 import { useCanchas } from '@/features/canchas/api'
 import { etiquetaUbicacion } from '@/features/canchas/etiquetas'
 import { aIsoConDesplazamiento, valorDatetimeLocal } from '@/features/programacion/fechas'
 import {
+  advertenciasAceptablesDe,
+  esAdvertenciaDeLocaliaAceptable,
   useActualizarPartido,
   useCrearPartido,
 } from '@/features/programacion/api'
 import type {
   ActualizarPartidoPeticion,
+  AdvertenciaAceptable,
   CrearPartidoPeticion,
   Jornada,
   Partido,
@@ -39,6 +42,26 @@ type Valores = {
 }
 
 type ErroresCampos = Partial<Record<keyof Valores, string>>
+
+/** Petición que quedó en espera de un motivo de localía (B-15.2). */
+type PeticionGuardado =
+  | { tipo: 'crear'; peticion: CrearPartidoPeticion }
+  | { tipo: 'ajustar'; peticion: ActualizarPartidoPeticion }
+
+/** Un `409 VAL-027` aceptable, con la petición que se reintenta al confirmar el motivo. */
+type AceptacionLocalia =
+  | {
+      tipo: 'crear'
+      peticion: CrearPartidoPeticion
+      advertencias: AdvertenciaAceptable[]
+      detalle: string
+    }
+  | {
+      tipo: 'ajustar'
+      peticion: ActualizarPartidoPeticion
+      advertencias: AdvertenciaAceptable[]
+      detalle: string
+    }
 
 const CAMPOS_FORMULARIO = new Set<keyof Valores>([
   'equipoLocalId',
@@ -142,6 +165,8 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
   const [valores, setValores] = useState(() => valoresDe(partido))
   const [errores, setErrores] = useState<ErroresCampos>({})
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
+  const [aceptacionLocalia, setAceptacionLocalia] = useState<AceptacionLocalia | null>(null)
+  const [pidiendoMotivo, setPidiendoMotivo] = useState(false)
   const guardando = crear.isPending || actualizar.isPending
   const cargandoCatalogos = equipos.isPending || canchas.isPending
   const errorCatalogos = equipos.error ?? canchas.error
@@ -208,16 +233,66 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
     setValores((actuales) => ({ ...actuales, [campo]: valor }))
     setErrores(({ [campo]: _quitado, ...resto }) => resto)
     setErrorGeneral(null)
+    setAceptacionLocalia(null)
+    setPidiendoMotivo(false)
   }
 
-  const alFallar = (error: unknown) => {
+  const alFallar = (error: unknown, peticion: PeticionGuardado) => {
+    setPidiendoMotivo(false)
+
     if (!(error instanceof ApiError)) {
+      setAceptacionLocalia(null)
       setErrorGeneral('No se pudo guardar el partido. Intenta de nuevo.')
       return
     }
 
+    if (esAdvertenciaDeLocaliaAceptable(error)) {
+      const advertencias = advertenciasAceptablesDe(error)
+      const detalle = error.problema.detail
+
+      setErrores({})
+      setErrorGeneral(null)
+      setAceptacionLocalia(
+        peticion.tipo === 'crear'
+          ? { tipo: 'crear', peticion: peticion.peticion, advertencias, detalle }
+          : { tipo: 'ajustar', peticion: peticion.peticion, advertencias, detalle },
+      )
+      return
+    }
+
+    setAceptacionLocalia(null)
     setErrores(erroresDeApi(error))
     setErrorGeneral(error.problema.detail)
+  }
+
+  /** Reintenta la misma petición con el motivo de localía que confirma la persona (B-15.2). */
+  const confirmarAceptacion = (motivo: string) => {
+    if (!aceptacionLocalia) {
+      return
+    }
+
+    if (aceptacionLocalia.tipo === 'crear') {
+      const peticion: CrearPartidoPeticion = {
+        ...aceptacionLocalia.peticion,
+        motivoAceptacion: motivo,
+      }
+
+      crear.mutate(peticion, {
+        onSuccess: onGuardado,
+        onError: (error) => alFallar(error, { tipo: 'crear', peticion }),
+      })
+      return
+    }
+
+    const peticion: ActualizarPartidoPeticion = {
+      ...aceptacionLocalia.peticion,
+      motivoAceptacion: motivo,
+    }
+
+    actualizar.mutate(peticion, {
+      onSuccess: onGuardado,
+      onError: (error) => alFallar(error, { tipo: 'ajustar', peticion }),
+    })
   }
 
   const validar = (): ErroresCampos => {
@@ -255,16 +330,18 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
     }
 
     setErrorGeneral(null)
+    setAceptacionLocalia(null)
 
     if (partido) {
       if (!cambios || !hayCambios) {
         return
       }
 
-      actualizar.mutate(
-        { ...cambios, motivo: motivoLimpio },
-        { onSuccess: onGuardado, onError: alFallar },
-      )
+      const peticion: ActualizarPartidoPeticion = { ...cambios, motivo: motivoLimpio }
+      actualizar.mutate(peticion, {
+        onSuccess: onGuardado,
+        onError: (error) => alFallar(error, { tipo: 'ajustar', peticion }),
+      })
       return
     }
 
@@ -275,7 +352,10 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
       inicio: aIsoConDesplazamiento(valores.inicio),
     }
 
-    crear.mutate(peticion, { onSuccess: onGuardado, onError: alFallar })
+    crear.mutate(peticion, {
+      onSuccess: onGuardado,
+      onError: (error) => alFallar(error, { tipo: 'crear', peticion }),
+    })
   }
 
   return (
@@ -315,6 +395,21 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
                 : `Los equipos «${equiposDeBaja[0].nombre}» y «${equiposDeBaja[1].nombre}» están dados de baja y no pueden jugar. Elige equipos activos para guardar el ajuste.`}
             </span>
           </p>
+        )}
+
+        {partido?.motivoLocalia && (
+          <div className="rounded-md border border-warning/30 bg-warning/8 p-3">
+            <p className="flex items-center gap-2 text-label-md font-semibold text-warning-strong">
+              <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
+              Advertencia de localía aceptada
+            </p>
+            <p className="mt-1 break-words text-body-md text-text-main">
+              <span className="font-medium">Motivo registrado:</span> {partido.motivoLocalia}
+            </p>
+            <p className="mt-1 text-body-sm text-text-muted">
+              Si el ajuste deja de incumplir la localía, el motivo se borra.
+            </p>
+          </div>
         )}
 
         {errorCatalogos ? (
@@ -433,6 +528,44 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
           </div>
         )}
 
+        {aceptacionLocalia && (
+          <div
+            role="alert"
+            className="flex flex-col gap-2 rounded-md border border-warning/30 bg-warning/8 p-3"
+          >
+            <p className="flex items-center gap-2 text-label-md font-semibold text-warning-strong">
+              <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
+              Advertencia de localía
+            </p>
+            <p className="break-words text-body-md text-text-main">
+              El partido no respeta la localía. Revisa la advertencia y, si corresponde, acéptala
+              con un motivo.
+            </p>
+            {aceptacionLocalia.advertencias.length > 0 ? (
+              <ul className="flex flex-col gap-1">
+                {aceptacionLocalia.advertencias.map((advertencia, indice) => (
+                  <li
+                    key={`${advertencia.codigo}-${indice}`}
+                    className="break-words text-body-md text-text-main"
+                  >
+                    {advertencia.mensaje}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="break-words text-body-md text-text-main">{aceptacionLocalia.detalle}</p>
+            )}
+            <Button
+              variante="secundario"
+              onClick={() => setPidiendoMotivo(true)}
+              disabled={guardando}
+              className="w-full sm:w-auto"
+            >
+              Aceptar con motivo
+            </Button>
+          </div>
+        )}
+
         {partido && (
           <div className="flex flex-col gap-1">
             <label htmlFor={idMotivo} className="text-label-md text-text-main">
@@ -502,6 +635,38 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
           </Button>
         </div>
       </form>
+
+      {aceptacionLocalia && pidiendoMotivo && (
+        <ModalMotivo
+          abierto={pidiendoMotivo}
+          titulo="Aceptar advertencia de localía"
+          descripcion="El motivo quedará en el detalle del partido y en la auditoría de la jornada. Se guardará el partido con los datos que capturaste."
+          aviso={
+            <div className="rounded-md border border-warning/30 bg-warning/8 p-3">
+              <ul className="flex flex-col gap-1">
+                {aceptacionLocalia.advertencias.length > 0 ? (
+                  aceptacionLocalia.advertencias.map((advertencia, indice) => (
+                    <li
+                      key={`${advertencia.codigo}-${indice}`}
+                      className="break-words text-body-md text-text-main"
+                    >
+                      {advertencia.mensaje}
+                    </li>
+                  ))
+                ) : (
+                  <li className="break-words text-body-md text-text-main">
+                    {aceptacionLocalia.detalle}
+                  </li>
+                )}
+              </ul>
+            </div>
+          }
+          etiquetaConfirmar={partido ? 'Guardar con motivo' : 'Programar con motivo'}
+          procesando={guardando}
+          onConfirmar={confirmarAceptacion}
+          onCancelar={() => setPidiendoMotivo(false)}
+        />
+      )}
     </dialog>
   )
 }

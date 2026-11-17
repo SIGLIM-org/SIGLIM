@@ -9,6 +9,7 @@ import {
   Info,
   Lock,
   Plus,
+  TriangleAlert,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { CampoSeleccion } from '@/components/ui/CampoSeleccion'
@@ -16,12 +17,14 @@ import { ErrorConsulta } from '@/components/ui/ErrorConsulta'
 import { EstadoCarga } from '@/components/ui/EstadoCarga'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { Insignia } from '@/components/ui/Insignia'
+import { ModalMotivo } from '@/components/ui/ModalMotivo'
 import { ListaPartidos } from '@/features/programacion/ListaPartidos'
 import { ModalEnvioJornada } from '@/features/programacion/ModalEnvioJornada'
 import { ModalNuevaJornada } from '@/features/programacion/ModalNuevaJornada'
 import { ModalPartido } from '@/features/programacion/ModalPartido'
 import { ResumenVerificacion } from '@/features/programacion/ResumenVerificacion'
 import {
+  useAceptarLocalia,
   useJornada,
   useJornadas,
   useTemporadaActiva,
@@ -40,13 +43,34 @@ import type {
 } from '@/features/programacion/tipos'
 import { formatearFechaHora } from '@/features/publicacion/fechas'
 import { useCategoriasTemporada } from '@/features/temporadas/api'
+import { ApiError } from '@/lib/api/ApiError'
+
+/** Agrupa los avisos de la verificación por partido; la fila solo muestra los suyos. */
+function agruparPorPartido(
+  avisos: readonly AvisoVerificacion[],
+): Map<string, AvisoVerificacion[]> {
+  const porPartido = new Map<string, AvisoVerificacion[]>()
+
+  for (const aviso of avisos) {
+    const delPartido = porPartido.get(aviso.partidoId)
+
+    if (delPartido) {
+      delPartido.push(aviso)
+    } else {
+      porPartido.set(aviso.partidoId, [aviso])
+    }
+  }
+
+  return porPartido
+}
 
 /**
  * Programación manual de una jornada (F-22, H-12.4). El Programador elige el grupo y la jornada,
  * registra o ajusta partidos con motivo y ve en línea los conflictos que reporta
  * `POST /jornadas/{id}/verificacion`. El envío a aprobación (H-13.2, RF-121) queda deshabilitado
  * mientras haya conflictos y pide confirmación; si la Presidencia devuelve la jornada, sus
- * observaciones se muestran arriba de los partidos.
+ * observaciones se muestran arriba de los partidos. Las advertencias de localía se aceptan con
+ * motivo desde la fila y el motivo queda en el detalle (B-15.2, RF-120).
  */
 export function ProgramacionJornadas() {
   const permisos = usePermisosProgramacion()
@@ -57,6 +81,7 @@ export function ProgramacionJornadas() {
   const [creandoJornada, setCreandoJornada] = useState(false)
   const [creandoPartido, setCreandoPartido] = useState(false)
   const [partidoEnEdicion, setPartidoEnEdicion] = useState<Partido | null>(null)
+  const [partidoAceptando, setPartidoAceptando] = useState<Partido | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [mensaje, setMensaje] = useState<{
     texto: string
@@ -101,19 +126,12 @@ export function ProgramacionJornadas() {
   const verificacion = useVerificacion(jornada?.id, {
     habilitada: permisos.editar && Boolean(jornada),
   })
+  const aceptarLocalia = useAceptarLocalia()
   const conflictos = verificacion.data?.conflictos ?? []
   const advertencias = verificacion.data?.advertencias ?? []
 
-  const conflictosPorPartido = new Map<string, AvisoVerificacion[]>()
-  for (const conflicto of conflictos) {
-    const avisos = conflictosPorPartido.get(conflicto.partidoId)
-
-    if (avisos) {
-      avisos.push(conflicto)
-    } else {
-      conflictosPorPartido.set(conflicto.partidoId, [conflicto])
-    }
-  }
+  const conflictosPorPartido = agruparPorPartido(conflictos)
+  const advertenciasPorPartido = agruparPorPartido(advertencias)
 
   const puedeEditarJornada = permisos.editar && jornada?.estadoPublicacion === 'BORRADOR'
   const verificacionLista = !verificacion.isPending && !verificacion.isError
@@ -131,11 +149,13 @@ export function ProgramacionJornadas() {
   const cambiarGrupo = (siguiente: string) => {
     setGrupoElegido(siguiente)
     setJornadaElegida(null)
+    setPartidoAceptando(null)
     setMensaje(null)
   }
 
   const cambiarJornada = (siguiente: string) => {
     setJornadaElegida(siguiente)
+    setPartidoAceptando(null)
     setMensaje(null)
   }
 
@@ -159,6 +179,32 @@ export function ProgramacionJornadas() {
         : `Partido programado en la jornada ${jornada?.numero ?? ''}.`,
       tono: 'exito',
     })
+  }
+
+  const errorAceptacion = aceptarLocalia.isError
+    ? aceptarLocalia.error instanceof ApiError
+      ? aceptarLocalia.error.problema.detail
+      : 'No se pudo aceptar la advertencia de localía. Intenta de nuevo.'
+    : null
+
+  const confirmarAceptacion = (motivo: string) => {
+    if (!partidoAceptando) {
+      return
+    }
+
+    aceptarLocalia.mutate(
+      { id: partidoAceptando.id, motivoAceptacion: motivo },
+      {
+        onSuccess: () => {
+          setPartidoAceptando(null)
+          setMensaje({
+            texto:
+              'Advertencia de localía aceptada. El motivo quedó en el detalle del partido y en la auditoría.',
+            tono: 'exito',
+          })
+        },
+      },
+    )
   }
 
   const alEnviar = () => {
@@ -452,10 +498,16 @@ export function ProgramacionJornadas() {
                   <ListaPartidos
                     partidos={partidos}
                     conflictosPorPartido={conflictosPorPartido}
+                    advertenciasPorPartido={advertenciasPorPartido}
                     puedeEditar={puedeEditarJornada}
                     onEditar={(partido) => {
                       setMensaje(null)
                       setPartidoEnEdicion(partido)
+                    }}
+                    onAceptarLocalia={(partido) => {
+                      setMensaje(null)
+                      aceptarLocalia.reset()
+                      setPartidoAceptando(partido)
                     }}
                     onNuevo={() => {
                       setMensaje(null)
@@ -511,6 +563,52 @@ export function ProgramacionJornadas() {
             setPartidoEnEdicion(null)
           }}
           onGuardado={alGuardarPartido}
+        />
+      )}
+
+      {partidoAceptando && (
+        <ModalMotivo
+          abierto
+          titulo="Aceptar advertencia de localía"
+          descripcion="El motivo quedará en el detalle del partido y en la auditoría de la jornada. La advertencia no impide enviar la jornada a aprobación."
+          aviso={
+            <div className="flex flex-col gap-2">
+              <div className="rounded-md border border-warning/30 bg-warning/8 p-3">
+                <p className="flex items-center gap-2 text-label-md font-semibold text-warning-strong">
+                  <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
+                  {partidoAceptando.equipoLocal.nombre} vs.{' '}
+                  {partidoAceptando.equipoVisitante.nombre}
+                </p>
+                <ul className="mt-1.5 flex flex-col gap-1">
+                  {(advertenciasPorPartido.get(partidoAceptando.id) ?? []).map(
+                    (advertencia, indice) => (
+                      <li
+                        key={`${advertencia.codigo}-${indice}`}
+                        className="break-words text-body-md text-text-main"
+                      >
+                        {advertencia.mensaje}
+                      </li>
+                    ),
+                  )}
+                </ul>
+              </div>
+              {errorAceptacion && (
+                <p
+                  role="alert"
+                  className="rounded-md border border-error/30 bg-error/8 p-3 text-body-md text-error-strong"
+                >
+                  {errorAceptacion}
+                </p>
+              )}
+            </div>
+          }
+          etiquetaConfirmar="Aceptar advertencia"
+          procesando={aceptarLocalia.isPending}
+          onConfirmar={confirmarAceptacion}
+          onCancelar={() => {
+            aceptarLocalia.reset()
+            setPartidoAceptando(null)
+          }}
         />
       )}
     </div>

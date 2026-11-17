@@ -34,7 +34,8 @@ type Props = {
 /**
  * Panel de validación de F-22 (H-12.4): resume la verificación en línea y controla el envío a
  * aprobación (H-13.2), que se deshabilita mientras haya conflictos o la jornada no esté en
- * borrador y explica la causa.
+ * borrador y explica la causa. Las advertencias de localía se listan aparte porque no bloquean el
+ * envío: se aceptan con motivo en la fila del partido (B-15.2, VAL-027).
  */
 export function ResumenVerificacion({
   estadoJornada,
@@ -153,11 +154,14 @@ export function ResumenVerificacion({
               </p>
               <ul className="mt-2 flex flex-col gap-1.5">
                 {advertencias.map((advertencia, indice) => (
-                  <li key={`${advertencia.partidoId}-${indice}`} className="text-body-md text-warning-strong">
+                  <li key={`${advertencia.partidoId}-${indice}`} className="break-words text-body-md text-warning-strong">
                     {advertencia.mensaje}
                   </li>
                 ))}
               </ul>
+              <p className="mt-2 text-body-sm text-warning-strong">
+                No impiden enviar la jornada: se aceptan con motivo en la fila del partido.
+              </p>
             </div>
           )}
         </div>

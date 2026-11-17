@@ -236,6 +236,27 @@ class ProgramacionControllerTest {
     }
 
     @Test
+    @DisplayName("B-15.2: PATCH con solo motivoAceptacion llega al servicio y responde el partido")
+    void aceptarLocaliaSinAjuste() {
+        given(servicio.actualizarPartido(eq(PARTIDO), any(ActualizarPartidoRequest.class)))
+                .willReturn(PARTIDO_DTO);
+        String cuerpo = "{\"motivoAceptacion\":\"La cancha del club está en remodelación\"}";
+
+        MvcTestResult resultado = mvc.patch().uri("/api/v1/partidos/" + PARTIDO)
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(cuerpo).exchange();
+
+        assertThat(resultado).hasStatusOk();
+        ArgumentCaptor<ActualizarPartidoRequest> peticion =
+                ArgumentCaptor.forClass(ActualizarPartidoRequest.class);
+        Mockito.verify(servicio).actualizarPartido(eq(PARTIDO), peticion.capture());
+        assertThat(peticion.getValue().motivoAceptacion())
+                .isEqualTo("La cancha del club está en remodelación");
+        assertThat(peticion.getValue().motivo()).isNull();
+        assertThat(peticion.getValue().inicio()).isNull();
+    }
+
+    @Test
     @DisplayName("RN-021: el 400 por ajustar sin motivo conserva el código")
     void ajustarSinMotivo() {
         given(servicio.actualizarPartido(eq(PARTIDO), any(ActualizarPartidoRequest.class)))

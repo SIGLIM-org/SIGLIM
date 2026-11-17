@@ -346,6 +346,45 @@ class ProgramacionIT extends BaseDatosPrueba {
     }
 
     @Test
+    @DisplayName("B-15.2: aceptar la localía desde la fila guarda el motivo sin ajustar el partido y lo audita")
+    void aceptarLocaliaSinAjuste() {
+        iniciarSesionComoProgramador();
+        UUID grupo = crearGrupo();
+        UUID local = crearEquipo(grupo, "Halcones");
+        UUID visitante = crearEquipo(grupo, "Toros");
+        crearCanchaDelClub(local);
+        UUID canchaDeLiga = crearCancha();
+        UUID jornada = servicio.crear(new CrearJornadaRequest(grupo, null, 1)).id();
+        PartidoDto partido = servicio.registrarPartido(jornada,
+                new CrearPartidoRequest(local, visitante, canchaDeLiga, INICIO, MOTIVO_LOCALIA));
+        jdbc.sql("UPDATE siglim.partidos SET motivo_localia = NULL WHERE id = :id")
+                .param("id", partido.id()).update();
+
+        PartidoDto aceptado = servicio.actualizarPartido(partido.id(),
+                new ActualizarPartidoRequest(null, null, null, null, null, MOTIVO_LOCALIA));
+
+        assertThat(aceptado.motivoLocalia()).isEqualTo(MOTIVO_LOCALIA);
+        assertThat(aceptado.cancha().id()).as("no cambia la cancha").isEqualTo(canchaDeLiga);
+        assertThat(aceptado.inicio()).as("no cambia el inicio").isEqualTo(INICIO);
+        assertThat(jdbc.sql("""
+                        SELECT motivo FROM siglim.auditoria
+                         WHERE entidad_id = :id AND accion = 'ACEPTAR_LOCALIA'
+                         ORDER BY id DESC LIMIT 1
+                        """)
+                .param("id", partido.id().toString()).query(String.class).single())
+                .isEqualTo(MOTIVO_LOCALIA);
+        assertThat(jdbc.sql("""
+                        SELECT count(*) FROM siglim.auditoria
+                         WHERE entidad_id = :id AND accion = 'ACEPTAR_LOCALIA'
+                        """)
+                .param("id", partido.id().toString()).query(Long.class).single())
+                .as("la aceptación desde la fila deja una auditoría nueva").isEqualTo(2L);
+        assertThat(accionesAuditadas(partido.id())).contains("ACEPTAR_LOCALIA").doesNotContain("AJUSTAR_PARTIDO");
+        assertThat(servicio.verificar(jornada).advertencias()).singleElement()
+                .satisfies(aviso -> assertThat(aviso.mensaje()).contains("Aceptada"));
+    }
+
+    @Test
     @DisplayName("RN-021: un ajuste sin motivo se rechaza y el partido no cambia")
     void ajusteSinMotivo() {
         iniciarSesionComoProgramador();

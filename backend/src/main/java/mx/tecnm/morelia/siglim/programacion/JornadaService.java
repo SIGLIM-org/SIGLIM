@@ -43,7 +43,8 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li><b>Ajuste con motivo (RF-040, RN-018).</b> Todo cambio de equipos, cancha o inicio exige
  *       motivo de al menos 10 caracteres ({@code 400 RN-021}); queda en la auditoría y el servicio
  *       fija el motivo de la operación para los triggers. Un {@code PATCH} sin cambios no escribe ni
- *       audita.</li>
+ *       audita, salvo que traiga solo {@code motivoAceptacion}: entonces registra la aceptación de la
+ *       advertencia de localía sin tocar el resto del partido (B-15.2).</li>
  *   <li><b>Conflictos duros (RF-039, VAL-003 a VAL-006).</b> {@link ValidadorConflictos} rechaza,
  *       antes de escribir, el equipo duplicado, la cancha ocupada, la cancha inactiva o restringida y
  *       el equipo dado de baja o sancionado, con un mensaje que nombra el otro partido, la cancha y
@@ -57,7 +58,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       {@code 409 VAL-027} con la explicación y las extensiones {@code aceptable: true} y
  *       {@code advertencias} (convenciones de API §3.1). El motivo se
  *       guarda en {@code partidos.motivo_localia} y se audita como {@code ACEPTAR_LOCALIA}. Las
- *       advertencias no impiden enviar la jornada a aprobación.</li>
+ *       advertencias no impiden enviar la jornada a aprobación. Desde B-15.2, un ajuste que solo
+ *       trae {@code motivoAceptacion} registra la aceptación sin cambiar el partido.</li>
  *   <li><b>Publicación (H-13.1, RF-121, RF-090).</b> {@code BORRADOR → REVISION → PUBLICADO}, con
  *       la devolución {@code REVISION → BORRADOR}. El envío exige {@code programacion.jornada:ENVIAR},
  *       al menos un partido vigente y ningún conflicto duro ({@code 409 RF-039} con la lista). El
@@ -453,11 +455,13 @@ public class JornadaService {
      *
      * <p>Un campo ausente conserva su valor. Si hay cambios, el motivo es obligatorio
      * ({@code 400 RN-021}) y se registra en la auditoría (RN-018); sin cambios, la petición es
-     * inocua. Un partido finalizado o cancelado no se modifica ({@code 409 RF-046}). Antes de
-     * escribir se repiten los conflictos duros ({@code 409 VAL-003} a {@code VAL-006}), sin contar
-     * el propio partido, y la localía ({@code 409 VAL-027}): si el partido sigue sin respetarla y la
-     * petición no trae {@code motivoAceptacion}, se conserva el que ya tenía; si ya la respeta, el
-     * motivo se borra porque dejó de aplicar.
+     * inocua, salvo que traiga solo {@code motivoAceptacion}: entonces registra la aceptación de la
+     * advertencia de localía sin tocar el partido (B-15.2). Un partido finalizado o cancelado no se
+     * modifica ({@code 409 RF-046}). Antes de escribir se repiten los conflictos duros
+     * ({@code 409 VAL-003} a {@code VAL-006}), sin contar el propio partido, y la localía
+     * ({@code 409 VAL-027}): si el partido sigue sin respetarla y la petición no trae
+     * {@code motivoAceptacion}, se conserva el que ya tenía; si ya la respeta, el motivo se borra
+     * porque dejó de aplicar.
      */
     @Transactional
     public PartidoDto actualizarPartido(UUID id, ActualizarPartidoRequest peticion) {
@@ -486,7 +490,7 @@ public class JornadaService {
 
         List<String> campos = camposCambiados(actual, localId, visitanteId, canchaId, inicio);
         if (campos.isEmpty()) {
-            return aDto(actual);
+            return aceptarLocaliaSinAjuste(actual, peticion);
         }
         if (localId.equals(visitanteId)) {
             throw invalida("El equipo local y el visitante deben ser distintos.");
@@ -512,6 +516,39 @@ public class JornadaService {
             auditarLocalia(id, actual.jornadaId(), advertencias, motivoLocalia);
         }
         return aDto(buscarPartido(id));
+    }
+
+    /**
+     * Registra la aceptación de una advertencia de localía sin ajustar equipos, cancha ni inicio
+     * (B-15.2, RF-120, VAL-027). La fila del partido en F-22 abre el modal de motivo y guarda solo
+     * {@code motivo_localia}.
+     *
+     * <p>Un {@code PATCH} sin cambios y sin {@code motivoAceptacion} sigue siendo inocuo. Con
+     * {@code motivoAceptacion} se evalúa la localía con los datos actuales: sin advertencias no hay
+     * nada que aceptar y no se escribe; con advertencias, el motivo debe tener al menos 10 caracteres
+     * ({@code 409 VAL-027}) y la aceptación se audita como {@code ACEPTAR_LOCALIA}. Repetir el
+     * mismo motivo no vuelve a escribir ni a auditar.
+     */
+    private PartidoDto aceptarLocaliaSinAjuste(DatosPartido actual, ActualizarPartidoRequest peticion) {
+        String enviado = peticion == null ? null : peticion.motivoAceptacion();
+        if (enviado == null || enviado.isBlank()) {
+            return aDto(actual);
+        }
+        EquipoDeLiga local = new EquipoDeLiga(actual.equipoLocalId(), actual.equipoLocalNombre(),
+                actual.grupoId(), actual.clubLocalId(), actual.equipoLocalEstado());
+        List<Advertencia> advertencias =
+                localia.evaluar(actual.grupoId(), actual.jornadaId(), local, actual.canchaId());
+        if (advertencias.isEmpty()) {
+            // [PROPUESTA] El partido ya respeta la localía: no hay aceptación que registrar.
+            return aDto(actual);
+        }
+        String motivoLocalia = motivoLocalia(advertencias, enviado, actual.motivoLocalia(), actual.id());
+        if (Objects.equals(motivoLocalia, actual.motivoLocalia())) {
+            return aDto(actual);
+        }
+        jornadas.actualizarMotivoLocalia(actual.id(), motivoLocalia);
+        auditarLocalia(actual.id(), actual.jornadaId(), advertencias, motivoLocalia);
+        return aDto(buscarPartido(actual.id()));
     }
 
     // ── Reglas ─────────────────────────────────────────────────────────────────────────────────
