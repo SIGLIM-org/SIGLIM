@@ -1772,7 +1772,7 @@ responden `404` idéntico (VAL-024). Es una consulta calculada: no se guarda ni 
 | `GET /canchas/{id}/disponibilidad?desde=&hasta=` · `POST` | Disponibilidad, bloqueos y mantenimiento con motivo. El `POST` responde `{ disponibilidad, partidosAfectados }` | `canchas.cancha:CONSULTAR` en el `GET`, `canchas.cancha:EDITAR` en el `POST` | RF-029, RF-030, RF-031 | N · B |
 | `GET /canchas/{id}/ocupacion?desde=&hasta=` | Disponibilidad, bloqueos, mantenimiento y partidos no cancelados del rango (calendario semanal y apoyo a la programación) | `canchas.cancha:CONSULTAR` | RF-032, RF-039 | N |
 | `GET /canchas/{id}/horarios-club?temporadaId=` · `PUT` | Horarios por categoría de la cancha de club y comodato de la cancha de la liga, por temporada (§6.6.1) | `canchas.cancha:CONSULTAR` en el `GET`, `canchas.cancha:EDITAR` en el `PUT` | RF-119 | B |
-| `GET /solicitudes-cancha` · `POST` · `POST …/{id}/resolucion` · `GET …/{id}/oficio` | Formatos 1 y 2 y su carta | `canchas.solicitud:*`, `canchas.oficio:GENERAR` | RF-116 a RF-118 | B |
+| `GET /solicitudes-cancha?tipo=&estado=` · `GET …/contexto` · `POST` · `POST …/{id}/resolucion` · `GET …/{id}/oficio` | Formatos 1 y 2 y su carta (§6.6.2) | `CREAR`, `APROBAR` o `GENERAR` en los `GET` de la bandeja y el contexto; `canchas.solicitud:CREAR` en el `POST`; `canchas.solicitud:APROBAR` en la resolución; `canchas.oficio:GENERAR` en el oficio | RF-116 a RF-118 | B |
 
 - **Sede de una cancha (RF-028, [PROPUESTA]).** `POST /canchas` acepta `sedeId` opcional. En el
   `PATCH`, sin `sedeId` ni `quitarSede` la sede se conserva; `sedeId` asigna esa sede y
@@ -1866,6 +1866,42 @@ la temporada no es de la liga.
 (`entidad = canchas`, `entidadId` = la cancha), sin motivo, con el detalle
 `{ "canchaId", "temporadaId", "horarios": <número de horarios guardados> }`. Se registra también al
 vaciar la lista.
+
+#### 6.6.2 Trámites de cancha: Formatos 1 y 2 (B-14, RF-116 a RF-118, DEC-35)
+
+- **Alta.** `POST /solicitudes-cancha` lleva `tipo` (`PRESTAMO`, `COMODATO` u `OFERTA`), el
+  solicitante y el bloque del formato: `prestamo` (Formato 1) u `oferta` (Formato 2), con los campos
+  de la plantilla del cliente (R8); el otro bloque no se admite (`400 VALIDACION`). El préstamo y el
+  comodato los pide un club (`clubId`); la oferta, un club o un oferente externo
+  (`solicitanteExterno`), nunca los dos (`400 VALIDACION`). Un club inexistente o cerrado, o un
+  `canchaId` que no es de la liga, responden `422 REFERENCIA_INVALIDA`; la hora de término no
+  posterior al inicio, `400 VALIDACION`. Responde `201` con `Location`.
+- **Permiso y ámbito.** El alta exige `canchas.solicitud:CREAR` sobre el club; la oferta de un
+  externo, sobre la liga (la captura el Secretario). Un club o un trámite fuera del ámbito responde
+  `404` (VAL-024).
+- **Número de oficio (RF-118, [PROPUESTA]).** Lo asigna el sistema al capturar:
+  `OF-<año>-<consecutivo de cuatro dígitos>` por liga y año de la zona de negocio (el ejemplo
+  `OF-2025-0089` de B-07). Un candado consultivo de la transacción evita repetir el consecutivo y
+  `UNIQUE (liga_id, numero_oficio)` es la última garantía.
+- **Estados.** El Formato 1 nace `PENDIENTE` y el Formato 2 `PENDIENTE_NEGOCIACION`.
+  `POST …/{id}/resolucion` lleva `{ "decision", "observaciones" }`: `APROBADA` o `NO_APROBADA` en el
+  Formato 1, `ACEPTADA` o `RECHAZADA` en el Formato 2 (otra decisión, `400 VALIDACION`). La decisión
+  desfavorable exige observaciones de 10 a 500 caracteres (`400 RN-021`) y las guarda como motivo.
+  Los estados finales no cambian: dictaminar otra vez responde `409 RF-117` (Formato 1) o
+  `409 RF-116` (Formato 2). Aceptar una oferta o aprobar un comodato **no** da de alta la cancha ni
+  sus horarios (eso es RF-119, §6.6.1).
+- **Bandeja.** `GET /solicitudes-cancha` admite `tipo` repetido (la pestaña del Formato 1 manda
+  `tipo=PRESTAMO&tipo=COMODATO`), `estado`, `pagina` y `tamano`, por captura descendente. Como el
+  catálogo no tiene permiso de consulta propio, basta cualquiera de los tres permisos **[PROPUESTA]**;
+  el alcance se une en el `WHERE` y en el `COUNT`, y las ofertas de externos solo las ve un ámbito de
+  liga. `GET …/contexto` responde `{ clubes, canchas, capturaExternos }`: los clubes `ACTIVO` del
+  alcance de `CREAR`, las canchas activas y si la sesión captura ofertas de externos; sin `CREAR`, las
+  listas van vacías.
+- **Carta.** `GET …/{id}/oficio` responde los datos de la carta (`numeroOficio`, `asunto`, `liga`,
+  `fechaEmision`, `solicitante`, el bloque del formato y el estado con su dictamen). La interfaz la
+  compone con la plantilla del formato y la guarda en PDF con el diálogo de impresión del navegador.
+- **Auditoría.** `REGISTRAR_SOLICITUD_CANCHA` y `RESOLVER_SOLICITUD_CANCHA` en `M-06`, con
+  identificadores, tipo, número de oficio y estados; nunca nombres, teléfonos ni correos del formato.
 
 ### 6.7 M-07 Programación manual
 
