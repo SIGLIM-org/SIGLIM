@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.12 · 16 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.13 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -61,6 +61,7 @@ Versión 5.12 · 16 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.10 | 16 de noviembre de 2026 | B-08.1: §6.5 con el contrato de `GET /clubes/{id}/cuota-arbitros?temporadaId=` (equipos activos, árbitros `VALIDADO`, redondeo hacia arriba y `cumple`), su ámbito de club, errores y la temporada activa por omisión; §6.2 con el parámetro `equiposPorArbitro` de la temporada (4 **[DEMO]**, DEC-72), su herencia de la versión vigente cuando se omite y su inclusión en `camposDemo` (RF-114, DEC-17). |
 | 5.11 | 16 de noviembre de 2026 | B-15.1: §6.7 con las advertencias de localía (VAL-027): las reglas de la cancha del local (DEC-33, DEC-34) y de las últimas fechas en la unidad deportiva (RN-049), el `409 VAL-027` con `aceptable` y `advertencias` al registrar o ajustar un partido sin `motivoAceptacion`, el motivo guardado en `motivoLocalia`, su conservación en los ajustes, la lista `advertencias` de la verificación y la auditoría `ACEPTAR_LOCALIA`; §6.2 con los parámetros `fechasFaseRegular` (sin default) y `fechasFinalesUnidadDeportiva` (10 **[DEMO]**), heredados de la versión vigente cuando se omiten. |
 | 5.12 | 16 de noviembre de 2026 | B-29.1: §6.13 con el contrato de tarifas (`GET /tarifas?temporadaId=` sin paginar, `POST /tarifas` y `PATCH /tarifas/{id}` solo del monto): una tarifa por temporada, categoría y concepto (`409 DUPLICADO`), monto mayor o igual a cero, categoría asignada a la temporada (`422 REFERENCIA_INVALIDA`), temporada cerrada de solo lectura (`409 RF-003`), `esDemo` siempre `true` mientras siga PEN-042 y auditoría `REGISTRAR_TARIFA` y `EDITAR_TARIFA` (RF-135). |
+| 5.13 | 17 de noviembre de 2026 | B-29.2: §6.13 con `GET /tarifas/contexto`: temporadas de la liga (de la más reciente a la más antigua) con su estado y sus categorías en el orden del catálogo, autorizado con `tesoreria.tarifa:EDITAR` porque el Tesorero no tiene `temporadas.temporada:CONSULTAR`, como los contextos de afiliaciones y de operaciones de equipo. |
 
 ## Índice
 
@@ -2048,7 +2049,7 @@ los módulos; los endpoints `/reportes` y la exportación son B.
 
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
-| `GET /tarifas?temporadaId=` · `POST /tarifas` · `PATCH /tarifas/{id}` | Tarifas por temporada y categoría | `tesoreria.tarifa:EDITAR` | RF-135 | B |
+| `GET /tarifas/contexto` · `GET /tarifas?temporadaId=` · `POST /tarifas` · `PATCH /tarifas/{id}` | Tarifas por temporada y categoría | `tesoreria.tarifa:EDITAR` | RF-135 | B |
 | `GET /cobros?clubId=&equipoId=&estado=` · `POST /cobros` | Cobros (manuales en N; los automáticos los genera la publicación de la jornada, B) | `tesoreria.cobro:*` | RF-137, RF-136 | N · B |
 | `GET /adeudos?clubId=` | Suma de cobros pendientes y vencidos por club y equipo | `tesoreria.cobro:CONSULTAR` | RF-140 | N |
 | `POST /cobros/{id}/intentos-pago` · `POST /intentos-pago/{id}/confirmacion` | Pago en línea simulado | `tesoreria.pago:PAGAR` | RF-138, ADR-0012 | N |
@@ -2074,6 +2075,13 @@ por categoría), ordenada por el orden del catálogo de categorías y después p
 se representa con `id`, `temporada` y `categoria` anidados (`{ id, nombre }`), `concepto`
 (`ARBITRAJE` o `CANCHA`), `monto` (`BigDecimal`, dos decimales) y `esDemo`. Sin `temporadaId`
 responde `400 VALIDACION`; una temporada que no es de la liga, `404`.
+
+`GET /tarifas/contexto` alimenta la pestaña «Tarifas» de F-33 (B-29.2): devuelve
+`{ "temporadas": [{ "id", "nombre", "estado", "categorias": [{ "id", "nombre" }] }] }` con las
+temporadas de la liga de la más reciente a la más antigua y, en cada una, las categorías asignadas en
+el orden del catálogo (una temporada sin categorías trae la lista vacía). Se autoriza con
+`tesoreria.tarifa:EDITAR` y no con `temporadas.temporada:CONSULTAR`, que el Tesorero no tiene en la
+matriz inicial; solo lleva identificadores, nombres y estado.
 
 `POST /tarifas` responde `201` con `Location` y la tarifa. El cuerpo es:
 

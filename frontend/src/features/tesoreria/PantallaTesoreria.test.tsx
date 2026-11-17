@@ -877,4 +877,25 @@ describe('PantallaTesoreria', () => {
       })
     })
   })
+  describe('pestaña Tarifas (B-29.2)', () => {
+    it('B-29.2: solo aparece con tesoreria.tarifa:EDITAR', async () => {
+      montar()
+      await screen.findByText('Cuota de afiliación')
+      expect(screen.queryByRole('tab', { name: /Tarifas/ })).not.toBeInTheDocument()
+    })
+
+    it('B-29.2: con el permiso, la pestaña carga el contexto de tarifas', async () => {
+      otorgar(CONSULTAR, 'tesoreria.tarifa:EDITAR')
+      const anterior = get.getMockImplementation()
+      get.mockImplementation(async (ruta: string) =>
+        ruta === 'tarifas/contexto' ? { temporadas: [] } : anterior?.(ruta),
+      )
+      montar()
+
+      await userEvent.click(await screen.findByRole('tab', { name: /Tarifas/ }))
+
+      expect(await screen.findByText('Aún no hay temporadas')).toBeInTheDocument()
+      expect(get).toHaveBeenCalledWith('tarifas/contexto')
+    })
+  })
 })

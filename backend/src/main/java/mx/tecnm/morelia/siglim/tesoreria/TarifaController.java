@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
  * llegan al servicio, que valida y autoriza. El listado de una temporada no se pagina: tiene a lo
  * sumo dos tarifas por categoría.
  *
- * <p>Refs: B-29.1, RF-135
+ * <p>Refs: B-29.1, B-29.2, RF-135
  */
 @RestController
 @RequestMapping("/api/v1/tarifas")
@@ -34,6 +34,12 @@ class TarifaController {
     @GetMapping
     List<TarifaDto> listar(@RequestParam(required = false) UUID temporadaId) {
         return servicio.listar(temporadaId);
+    }
+
+    /** Temporadas con sus categorías para la pestaña «Tarifas» de F-33 (B-29.2). */
+    @GetMapping("/contexto")
+    ContextoTarifasDto contexto() {
+        return servicio.contexto();
     }
 
     @PostMapping

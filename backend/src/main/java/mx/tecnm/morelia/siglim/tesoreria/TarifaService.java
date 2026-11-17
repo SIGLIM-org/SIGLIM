@@ -1,6 +1,7 @@
 package mx.tecnm.morelia.siglim.tesoreria;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +15,7 @@ import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
 import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
+import mx.tecnm.morelia.siglim.tesoreria.TarifaRepository.CategoriaDeTemporada;
 import mx.tecnm.morelia.siglim.tesoreria.TarifaRepository.TemporadaTarifas;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
  *       transacción; la edición guarda el monto anterior y el nuevo.</li>
  * </ul>
  *
- * <p>Refs: B-29.1, RF-135, RF-003, RF-093, PEN-042, ADR-0007
+ * <p>Refs: B-29.1, B-29.2, RF-135, RF-003, RF-093, PEN-042, ADR-0007
  */
 @Service
 public class TarifaService {
@@ -63,6 +65,24 @@ public class TarifaService {
         this.autorizacion = autorizacion;
         this.auditoria = auditoria;
         this.ligaId = propiedades.ligaId();
+    }
+
+    /**
+     * Temporadas de la liga con sus categorías, para elegir dónde capturar tarifas en F-33
+     * (B-29.2). Se autoriza con {@code tesoreria.tarifa:EDITAR} y no con el permiso de M-02: el
+     * Tesorero no tiene {@code temporadas.temporada:CONSULTAR} en la matriz inicial.
+     */
+    @Transactional(readOnly = true)
+    public ContextoTarifasDto contexto() {
+        autorizacion.exigir(EDITAR, ObjetivoAutorizacion.deLiga());
+        Map<UUID, List<TarifaDto.ReferenciaDto>> categorias = new LinkedHashMap<>();
+        for (CategoriaDeTemporada fila : tarifas.categoriasDeTemporadas(ligaId)) {
+            categorias.computeIfAbsent(fila.temporadaId(), clave -> new ArrayList<>()).add(fila.categoria());
+        }
+        return new ContextoTarifasDto(tarifas.temporadasDeLiga(ligaId).stream()
+                .map(temporada -> new ContextoTarifasDto.TemporadaDto(temporada.id(), temporada.nombre(),
+                        temporada.estado(), List.copyOf(categorias.getOrDefault(temporada.id(), List.of()))))
+                .toList());
     }
 
     /**

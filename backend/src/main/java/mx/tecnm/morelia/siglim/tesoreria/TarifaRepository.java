@@ -15,7 +15,7 @@ import org.springframework.stereotype.Repository;
  * temporada y la categoría se leen con {@code JOIN} de solo lectura, sin depender del repositorio de
  * otro módulo (ADR-0006).
  *
- * <p>Refs: B-29.1, RF-135, RF-003
+ * <p>Refs: B-29.1, B-29.2, RF-135, RF-003
  */
 @Repository
 class TarifaRepository {
@@ -84,6 +84,34 @@ class TarifaRepository {
                 .optional();
     }
 
+    /** Temporadas de la liga, de la más reciente a la más antigua (contexto de F-33, B-29.2). */
+    List<TemporadaTarifas> temporadasDeLiga(UUID ligaId) {
+        return jdbc.sql("""
+                        SELECT id, nombre, estado FROM temporadas
+                         WHERE liga_id = :ligaId
+                         ORDER BY fecha_inicio DESC, nombre
+                        """)
+                .param("ligaId", ligaId)
+                .query((fila, numero) -> new TemporadaTarifas(fila.getObject("id", UUID.class),
+                        fila.getString("nombre"), EstadoTemporada.valueOf(fila.getString("estado"))))
+                .list();
+    }
+
+    /** Categorías asignadas a las temporadas de la liga, en el orden del catálogo. */
+    List<CategoriaDeTemporada> categoriasDeTemporadas(UUID ligaId) {
+        return jdbc.sql("""
+                        SELECT ct.temporada_id, c.id, c.nombre
+                          FROM categorias_temporada ct
+                          JOIN categorias c ON c.id = ct.categoria_id AND c.liga_id = :ligaId
+                          JOIN temporadas t ON t.id = ct.temporada_id AND t.liga_id = :ligaId
+                         ORDER BY c.orden, c.nombre
+                        """)
+                .param("ligaId", ligaId)
+                .query((fila, numero) -> new CategoriaDeTemporada(fila.getObject("temporada_id", UUID.class),
+                        new TarifaDto.ReferenciaDto(fila.getObject("id", UUID.class), fila.getString("nombre"))))
+                .list();
+    }
+
     /** Verdadero si la categoría está asignada a la temporada ({@code categorias_temporada}). */
     boolean categoriaEnTemporada(UUID temporadaId, UUID categoriaId) {
         return jdbc.sql("""
@@ -142,6 +170,10 @@ class TarifaRepository {
                 ConceptoTarifa.valueOf(fila.getString("concepto")),
                 fila.getBigDecimal("monto"),
                 TarifaService.TARIFAS_DEMO);
+    }
+
+    /** Categoría asignada a una temporada. */
+    record CategoriaDeTemporada(UUID temporadaId, TarifaDto.ReferenciaDto categoria) {
     }
 
     /** Temporada a la que pertenece la tarifa, con su estado para la regla de solo lectura (RF-003). */
