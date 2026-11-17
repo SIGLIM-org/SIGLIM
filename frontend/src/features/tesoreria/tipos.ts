@@ -1,5 +1,6 @@
 /** DTO de tesorería: los mismos nombres del contrato (convenciones de API §6.13). */
 
+import type { EstadoTemporada } from '@/features/temporadas/tipos'
 import type { Pagina } from '@/lib/api/tipos'
 
 /** Tipo del cobro; el alta manual siempre crea `MANUAL` (RF-137). */
@@ -158,3 +159,41 @@ export type PaginaClubes = Pagina<ClubResumen>
 
 /** Respuesta paginada de `GET /equipos`. */
 export type PaginaEquipos = Pagina<EquipoResumen>
+
+/** Concepto de una tarifa (RF-135). */
+export type ConceptoTarifa = 'ARBITRAJE' | 'CANCHA'
+
+/** Tarifa de un concepto para una categoría en una temporada (RF-135, convenciones §6.13). */
+export type Tarifa = {
+  id: string
+  temporada: ReferenciaCobro
+  categoria: ReferenciaCobro
+  concepto: ConceptoTarifa
+  /** BigDecimal con dos decimales, mayor o igual a cero. */
+  monto: number
+  /** Valor [DEMO]: siempre `true` mientras PEN-042 siga abierto. */
+  esDemo: boolean
+}
+
+/** Temporada del contexto de tarifas, con su estado y sus categorías (B-29.2). */
+export type TemporadaTarifas = {
+  id: string
+  nombre: string
+  estado: EstadoTemporada
+  categorias: ReferenciaCobro[]
+}
+
+/** Respuesta de `GET /tarifas/contexto` (B-29.2). */
+export type ContextoTarifas = {
+  temporadas: TemporadaTarifas[]
+}
+
+/** Guardado de la tarifa de un concepto: alta si no existe, cambio de monto si ya existe. */
+export type GuardarTarifaPeticion = {
+  temporadaId: string
+  categoriaId: string
+  concepto: ConceptoTarifa
+  monto: number
+  /** Tarifa vigente del concepto; sin ella se crea. */
+  tarifaId?: string
+}

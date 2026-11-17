@@ -74,6 +74,36 @@ class TarifaServiceTest {
         return evento.getValue();
     }
 
+    // ── Contexto de F-33 (B-29.2) ─────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("B-29.2 · RF-135: el contexto agrupa las categorías por temporada con su estado")
+    void contexto() {
+        UUID otra = UUID.fromString("44444444-4444-4444-8444-444444444444");
+        given(tarifas.temporadasDeLiga(LIGA)).willReturn(List.of(ABIERTA,
+                new TemporadaTarifas(otra, "Temporada 2025", EstadoTemporada.CERRADA)));
+        given(tarifas.categoriasDeTemporadas(LIGA)).willReturn(List.of(
+                new TarifaRepository.CategoriaDeTemporada(TEMPORADA, TARIFA.categoria())));
+
+        ContextoTarifasDto contexto = servicio.contexto();
+
+        verify(autorizacion).exigir(EDITAR, ObjetivoAutorizacion.deLiga());
+        assertThat(contexto.temporadas()).extracting(ContextoTarifasDto.TemporadaDto::estado)
+                .containsExactly(EstadoTemporada.ACTIVA, EstadoTemporada.CERRADA);
+        assertThat(contexto.temporadas().get(0).categorias()).containsExactly(TARIFA.categoria());
+        assertThat(contexto.temporadas().get(1).categorias()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("VAL-015: sin el permiso no se consulta el contexto de tarifas")
+    void contextoSinPermiso() {
+        willThrow(Autorizacion.sinPermiso()).given(autorizacion)
+                .exigir(EDITAR, ObjetivoAutorizacion.deLiga());
+
+        assertThatThrownBy(servicio::contexto).isInstanceOf(RuntimeException.class);
+        verifyNoInteractions(tarifas);
+    }
+
     // ── Consulta ──────────────────────────────────────────────────────────────────────────────
 
     @Test

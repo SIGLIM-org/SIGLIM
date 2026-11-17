@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 import mx.tecnm.morelia.siglim.compartido.config.SeguridadPrueba;
 import mx.tecnm.morelia.siglim.compartido.error.ErroresTecnicos;
 import mx.tecnm.morelia.siglim.seguridad.ArnesAutorizacionEndpoint;
+import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
@@ -145,6 +146,30 @@ class TarifaControllerTest {
     void actualizarMontoNegativo() {
         assertThat(enviar(HttpMethod.PATCH, BASE + "/" + ID, "{\"monto\":-0.01}")).hasStatus(HttpStatus.BAD_REQUEST);
         Mockito.verifyNoInteractions(servicio);
+    }
+
+    @Test
+    @DisplayName("B-29.2 · RF-135: GET /contexto devuelve las temporadas con su estado y categorías")
+    void contexto() {
+        given(servicio.contexto()).willReturn(new ContextoTarifasDto(List.of(new ContextoTarifasDto.TemporadaDto(
+                TEMPORADA, "Temporada 2026", EstadoTemporada.ACTIVA, List.of(TARIFA.categoria())))));
+
+        MvcTestResult resultado = mvc.get().uri(BASE + "/contexto")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.OK);
+        assertThat(resultado).bodyJson().extractingPath("$.temporadas[0].estado").isEqualTo("ACTIVA");
+        assertThat(resultado).bodyJson().extractingPath("$.temporadas[0].categorias[0].nombre").isEqualTo("Libre");
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de GET /api/v1/tarifas/contexto")
+    Stream<DynamicTest> seguridadContexto() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.GET, BASE + "/contexto")
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.contexto()).willThrow(error))
+                .pruebas();
     }
 
     @TestFactory

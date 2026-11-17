@@ -20,17 +20,19 @@ import { ModalPagoSimulado } from '@/features/tesoreria/ModalPagoSimulado'
 import { ModalRegistrarPago } from '@/features/tesoreria/ModalRegistrarPago'
 import { PaginacionCobros } from '@/features/tesoreria/PaginacionCobros'
 import { PestanaAdeudos } from '@/features/tesoreria/PestanaAdeudos'
+import { PestanaTarifas } from '@/features/tesoreria/PestanaTarifas'
 import { ResumenAdeudos } from '@/features/tesoreria/ResumenAdeudos'
 import { TablaCobros } from '@/features/tesoreria/TablaCobros'
 import type { Cobro, FiltrosCobros, Pago } from '@/features/tesoreria/tipos'
 import { esSinPermiso, reintentarConsulta } from '@/lib/api/errores'
 import { PaginaSinPermiso } from '@/pages/PaginaSinPermiso'
 
-type Pestana = 'COBROS' | 'ADEUDOS'
+type Pestana = 'COBROS' | 'ADEUDOS' | 'TARIFAS'
 
 const PESTANAS: readonly { valor: Pestana; texto: string }[] = [
   { valor: 'COBROS', texto: 'Cobros' },
   { valor: 'ADEUDOS', texto: 'Adeudos por club' },
+  { valor: 'TARIFAS', texto: 'Tarifas' },
 ]
 
 const formatoEntero = new Intl.NumberFormat('es-MX')
@@ -42,13 +44,18 @@ function contar(total: number, singular: string, plural: string): string {
 /**
  * Pantalla de tesorería F-33 (H-29.2, RF-137, RF-140, UI-027): resumen de adeudos, cobros con
  * filtros y paginación, desglose por club y equipo, alta de un cobro manual, pago simulado
- * (H-30.2, RF-138) y registro de un pago externo con comprobante (H-31.2, RF-139). Las acciones
+ * (H-30.2, RF-138), registro de un pago externo con comprobante (H-31.2, RF-139) y tarifas de
+ * arbitraje y cancha por temporada y categoría (B-29.2, RF-135). Las acciones
  * de escritura se ocultan sin permiso; el backend vuelve a autorizar cada una (VAL-015).
  */
 export function GestionTesoreria() {
   const { yo } = useSesionActual()
   const puedePagar = tienePermiso(yo.permisos, 'tesoreria.pago:PAGAR')
   const puedeRegistrarPago = tienePermiso(yo.permisos, 'tesoreria.pago:REGISTRAR')
+  const puedeConfigurarTarifas = tienePermiso(yo.permisos, 'tesoreria.tarifa:EDITAR')
+  const pestanas = PESTANAS.filter(
+    ({ valor }) => valor !== 'TARIFAS' || puedeConfigurarTarifas,
+  )
   const [pestana, setPestana] = useState<Pestana>('COBROS')
   const [filtros, setFiltros] = useState<FiltrosCobros>(FILTROS_COBROS_INICIALES)
   const [creando, setCreando] = useState(false)
@@ -108,29 +115,33 @@ export function GestionTesoreria() {
   }
 
   const navegarPestanas = (evento: KeyboardEvent<HTMLDivElement>) => {
-    const actual = PESTANAS.findIndex(({ valor }) => valor === pestana)
+    const actual = pestanas.findIndex(({ valor }) => valor === pestana)
     let siguiente: number
 
     if (evento.key === 'ArrowRight') {
-      siguiente = (actual + 1) % PESTANAS.length
+      siguiente = (actual + 1) % pestanas.length
     } else if (evento.key === 'ArrowLeft') {
-      siguiente = (actual - 1 + PESTANAS.length) % PESTANAS.length
+      siguiente = (actual - 1 + pestanas.length) % pestanas.length
     } else if (evento.key === 'Home') {
       siguiente = 0
     } else if (evento.key === 'End') {
-      siguiente = PESTANAS.length - 1
+      siguiente = pestanas.length - 1
     } else {
       return
     }
 
     evento.preventDefault()
-    const destino = PESTANAS[siguiente].valor
+    const destino = pestanas[siguiente].valor
     setPestana(destino)
     document.getElementById(`${id}-tab-${destino.toLowerCase()}`)?.focus()
   }
 
-  const conteoDe = (valor: Pestana): number | undefined =>
-    valor === 'COBROS' ? datos?.totalElementos : adeudos.data?.clubes.length
+  const conteoDe = (valor: Pestana): number | undefined => {
+    if (valor === 'COBROS') {
+      return datos?.totalElementos
+    }
+    return valor === 'ADEUDOS' ? adeudos.data?.clubes.length : undefined
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -202,7 +213,7 @@ export function GestionTesoreria() {
           onKeyDown={navegarPestanas}
           className="flex flex-wrap gap-1 border-b border-border"
         >
-          {PESTANAS.map(({ valor, texto }) => {
+          {pestanas.map(({ valor, texto }) => {
             const activa = pestana === valor
             const conteo = conteoDe(valor)
 
@@ -334,6 +345,15 @@ export function GestionTesoreria() {
                 )}
               </section>
             )}
+          </div>
+        ) : pestana === 'TARIFAS' ? (
+          <div
+            role="tabpanel"
+            id={`${id}-panel-tarifas`}
+            aria-labelledby={`${id}-tab-tarifas`}
+            className="flex flex-col gap-4"
+          >
+            <PestanaTarifas />
           </div>
         ) : (
           <div

@@ -11,6 +11,7 @@ import java.util.function.Consumer;
 import mx.tecnm.morelia.siglim.BaseDatosPrueba;
 import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
+import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -106,6 +107,26 @@ class TarifasIT extends BaseDatosPrueba {
                 new BigDecimal("1.00"))))
                 .isInstanceOfSatisfying(ReglaNegocioException.class,
                         error(HttpStatus.UNPROCESSABLE_CONTENT, "REFERENCIA_INVALIDA"));
+    }
+
+    @Test
+    @DisplayName("B-29.2 · RF-135: el TESORERO, sin temporadas.temporada:CONSULTAR, ve las temporadas y sus categorías en el contexto")
+    void contextoDelTesorero() {
+        UUID temporada = crearTemporada();
+        UUID categoria = asignarCategoriaNueva(temporada);
+        iniciarSesion(perfilConRol("TESORERO"));
+
+        assertThat(tarifas.contexto().temporadas())
+                .filteredOn(fila -> fila.id().equals(temporada))
+                .singleElement()
+                .satisfies(fila -> {
+                    assertThat(fila.estado()).isEqualTo(EstadoTemporada.CONFIGURACION);
+                    assertThat(fila.categorias()).extracting(TarifaDto.ReferenciaDto::id).containsExactly(categoria);
+                });
+
+        iniciarSesion(perfilConRol("ARBITRO"));
+        assertThatThrownBy(tarifas::contexto)
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "VAL-015"));
     }
 
     @Test
