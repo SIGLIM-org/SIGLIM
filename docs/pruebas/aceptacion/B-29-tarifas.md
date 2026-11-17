@@ -9,7 +9,7 @@
 | Versión probada | `develop` en `5911a87` (incluye B-29.1 `25cc809` y B-29.2 `e84ee51`) |
 | Fecha | 2026-11-17 |
 | Ejecutó | Leonardo López (prueba cruzada, DEC-50) |
-| Resultado global | _Pendiente de ejecutar_ |
+| Resultado global | **Aprobado** (4 de 4 criterios de SCRUM-238 y 3 de 3 casos adicionales), sin defectos |
 
 Los criterios de B-29 se precisaron el 17 de noviembre en SCRUM-238 a partir de las pruebas
 automáticas (`TarifaServiceTest`, `TarifaControllerTest`, `TarifasIT`) y de DEC-66. Conservan la
@@ -126,7 +126,15 @@ Montos que quedan al final en la «Temporada 2026–2027» (se reutilizan en B-3
 - Paso 5: `409` con `codigo: "DUPLICADO"` y «Ya existe la tarifa de arbitraje para esa categoría
   en la temporada: edita su monto.» La tarifa sigue en 350.00.
 
-**Resultado obtenido:** _Pendiente de ejecutar._
+**Resultado obtenido:** **Aprobado.** En «Temporada 2026–2027» la pestaña mostró las insignias
+**Configuración** y **No oficial**, el aviso de montos de demostración y las dos categorías con «Sin
+tarifa». Al guardar Libre apareció la confirmación de arbitraje $350.00 y cancha $200.00, y al
+guardar Veteranos, «Tarifas de «Veteranos Demostración» guardadas: arbitraje $300.00.», con la tabla
+en 350.00 / 200.00 y 300.00 / «Sin tarifa». El `POST` repetido de Libre · Arbitraje respondió
+**409 (Conflict)** con `type: https://siglim.mx/errores/duplicado` y «Ya existe la tarifa de
+arbitraje para esa categoría en la temporada…»; la tarifa siguió en 350.00 y no se creó otra fila
+(`base-despues.txt`). La apertura en «Temporada prueba H-13 · Cerrada» (paso 1) no se capturó; la
+cubre `tarifas.test.ts` («B-29.2: abre en la temporada activa o, sin ella, en la más reciente»).
 
 **Evidencia:** `CA1-tabla-vacia.png`, `CA1-tarifas-guardadas.png`, `CA1-consola-409.png`
 
@@ -164,13 +172,21 @@ RF-135: el TESORERO registra una tarifa única por temporada, categoría y conce
 
 - Paso 1: en la celda, «El monto no puede ser negativo.»; no se envía ninguna petición.
 - Paso 2: «Escribe un monto en pesos con hasta dos decimales, por ejemplo 350.00.»; no se envía.
-- Paso 3: las tres respuestas son `400` con `codigo: "VALIDACION"`; la de decimales indica «El monto
-  admite hasta dos decimales». El backend rechaza aunque la pantalla no haya enviado nada.
+- Paso 3: las tres respuestas son `400` con `codigo: "VALIDACION"` y el mensaje del campo `monto` en
+  `errores` («El monto no puede ser negativo» o «El monto admite hasta dos decimales»). El backend
+  rechaza aunque la pantalla no haya enviado nada.
 - Paso 4: «Tarifas de «Veteranos Demostración» guardadas: cancha $0.00.»
 - Paso 5: no hay ninguna fila con `-50` ni con `10.56` (la columna `numeric(12,2)` redondearía en
   silencio, así que el rechazo tiene que venir de la API).
 
-**Resultado obtenido:** _Pendiente de ejecutar._
+**Resultado obtenido:** **Aprobado.** La pantalla explicó en la celda «El monto no puede ser
+negativo.» con `-50` y «Escribe un monto en pesos con hasta dos decimales, por ejemplo 350.00.» con
+`10.555`, sin enviar nada. Por la API, los dos `POST` (`-50` y `10.555`) y el `PATCH` con `-1`
+respondieron **400 (Bad Request)** con `title: Solicitud inválida`,
+`type: https://siglim.mx/errores/validacion` y `detail: Revisa los campos marcados.`; el mensaje del
+campo `monto` viaja en la propiedad `errores`, que no se expandió en la captura. Al guardar `0`, «Tarifas de «Veteranos Demostración» guardadas:
+cancha $0.00.» y la celda quedó en 0.00. En la base no hay ninguna fila con `-50`, `-1`, `10.555`
+ni `10.56`.
 
 **Evidencia:** `CA2-negativo-pantalla.png`, `CA2-decimales-pantalla.png`, `CA2-consola-400.png`,
 `CA2-tarifa-cero.png`, `base-despues.txt`
@@ -212,7 +228,13 @@ se envía»).
 - Paso 3: H-13 sigue con una sola tarifa, Arbitraje de Libre en 250.00, y no hay auditoría de esos
   intentos.
 
-**Resultado obtenido:** _Pendiente de ejecutar._
+**Resultado obtenido:** **Aprobado.** «Temporada prueba H-13 · Cerrada» mostró las insignias
+**Cerrada** y **No oficial**, el aviso «La temporada «Temporada prueba H-13» está cerrada: sus
+tarifas son de solo lectura.» y Libre Demostración con Arbitraje **$250.00** y Cancha «Sin tarifa»
+como texto, sin campos ni botón **Guardar**. El `POST` de Cancha y el `PATCH` de la tarifa sembrada
+respondieron **409 (Conflict)** con `title: Conflicto con el estado actual`,
+`type: https://siglim.mx/errores/rf-003` y el mismo mensaje del aviso. La temporada cerrada sigue con
+su única tarifa en 250.00 y sin auditoría de esos intentos.
 
 **Evidencia:** `CA3-solo-lectura.png`, `CA3-consola-409.png`, `base-despues.txt`
 
@@ -252,7 +274,15 @@ bloqueo y relee el contexto»).
 - Paso 5: exactamente 4 `REGISTRAR_TARIFA` y 1 `EDITAR_TARIFA`: ningún evento por los intentos
   rechazados (CA-1, CA-2, CA-3, V-1, V-2) ni por el mismo monto (V-3).
 
-**Resultado obtenido:** _Pendiente de ejecutar._
+**Resultado obtenido:** **Aprobado.** El cambio de Libre · Arbitraje mostró «Tarifas de «Libre
+Demostración» guardadas: arbitraje $400.00.» y la tabla quedó en 400.00 / 200.00 y 300.00 / 0.00. El
+`GET /tarifas?temporadaId=…` respondió **200** con 4 tarifas, todas con `esDemo: true`. En F-14,
+filtrando por **M-13 · Tesorería y cobros**, aparecieron **4 `REGISTRAR_TARIFA`** (16:59:22,
+16:59:23, 16:59:43 y 17:05:08) y **1 `EDITAR_TARIFA`** (17:17:29), todos de «Lio tesorero» y con
+entidad `tarifas`; el resto de los 11 eventos de M-13 son cobros del 7 de noviembre. El detalle del
+`EDITAR_TARIFA` muestra `concepto: ARBITRAJE`, `montoAnterior: 350`, `monto: 400`, `esDemo: true`,
+`categoriaId` y `temporadaId`, sin datos personales. En la base hay exactamente esos 5 eventos
+(ids 138 a 142) y ninguno por los rechazos ni por el mismo monto.
 
 **Evidencia:** `CA4-edicion.png`, `CA4-consola-esdemo.png`, `CA4-auditoria.png`,
 `CA4-detalle-edicion.png`, `auditoria-tarifas.txt`
@@ -283,7 +313,11 @@ categoría × concepto y la insignia «No oficial»»).
   **Tarifas**.
 - Paso 2: las dos respuestas son `403` con `codigo: "VAL-015"`.
 
-**Resultado obtenido:** _Pendiente de ejecutar._
+**Resultado obtenido:** **Aprobado.** La **Directiva** vio F-33 con sus cobros y las pestañas
+**Cobros** y **Adeudos por club**, **sin** la pestaña **Tarifas**. `GET /tarifas/contexto` y
+`POST /tarifas` respondieron **403 (Forbidden)** con `title: Acción no permitida`,
+`type: https://siglim.mx/errores/val-015` y «Tu cuenta no tiene el permiso necesario…». No se
+registró auditoría.
 
 **Evidencia:** `V1-directiva-sin-pestana.png`, `V1-consola-403.png`
 
@@ -308,7 +342,9 @@ hay una categoría ajena real; la pantalla tampoco la ofrece, porque arma la tab
 **Resultado esperado:** `422` con `codigo: "REFERENCIA_INVALIDA"` y «La categoría indicada no
 participa en la temporada «Temporada 2026–2027».»
 
-**Resultado obtenido:** _Pendiente de ejecutar._
+**Resultado obtenido:** **Aprobado.** Respondió **422 (Unprocessable Entity)** con
+`type: https://siglim.mx/errores/referencia-invalida` y «La categoría indicada no participa en la
+temporada…». No se creó ninguna tarifa.
 
 **Evidencia:** `V2-consola-422.png`
 
@@ -336,22 +372,74 @@ categoría que no participa en la temporada responde 422 REFERENCIA_INVALIDA»).
 - Paso 2: `200` con la tarifa en 400.00; no se agrega ningún `EDITAR_TARIFA` (se comprueba en el
   paso 5 del CA-4).
 
-**Resultado obtenido:** _Pendiente de ejecutar._
+**Resultado obtenido:** **Aprobado.** Después de guardar, **Guardar** queda deshabilitado en las
+filas sin cambios (`CA4-edicion.png`, `CA2-tarifa-cero.png`). El `PATCH` con el mismo monto respondió
+**200** con la tarifa en 400 y `esDemo: true`; el último `EDITAR_TARIFA` sigue siendo el de las
+17:17:29 (id 142), así que no se auditó.
 
-**Evidencia:** `CA4-consola-esdemo.png` (misma sesión de consola), `auditoria-tarifas.txt`
+**Evidencia:** `CA4-consola-esdemo.png` (el mismo comando hace el `GET` y el `PATCH`), `auditoria-tarifas.txt`
 
 **Pruebas automáticas relacionadas:** `TarifaServiceTest` («RF-135: el mismo monto no cambia nada
 ni se audita»).
 
-## 4. Defectos encontrados
+## 4. Resumen
+
+| Escenario | Resultado |
+| --- | --- |
+| CA-1 Una tarifa por temporada, categoría y concepto; la repetida responde `409 DUPLICADO` | Aprobado |
+| CA-2 Negativo o con más de dos decimales → `400 VALIDACION`; 0 es válido | Aprobado |
+| CA-3 Temporada `CERRADA` de solo lectura (`409 RF-003`) | Aprobado |
+| CA-4 Auditoría de altas y cambios, y rótulo «No oficial» | Aprobado |
+| V-1 Sin `tesoreria.tarifa:EDITAR`: sin pestaña y `403 VAL-015` | Aprobado |
+| V-2 Categoría ajena a la temporada → `422 REFERENCIA_INVALIDA` | Aprobado |
+| V-3 El mismo monto no se audita | Aprobado |
+
+Las pruebas automáticas citadas en cada escenario ya corrieron en los PR de B-29.1 (#150) y B-29.2
+(#153), fusionados en `develop`. Esta subtarea no cambia código, así que no se volvió a ejecutar
+`./mvnw verify` ni la verificación del frontend.
+
+## 5. Defectos encontrados
 
 | Clave | Severidad | Descripción | Estado |
 | --- | --- | --- | --- |
-| — | — | _Pendiente de ejecutar_ | — |
+| — | — | Ninguno | — |
 
-## 5. Conclusión
+## 6. Observaciones (no son defectos)
 
-_Pendiente de ejecutar._
+1. **La pestaña abre en una temporada cerrada.** Sin temporada `ACTIVA`, `temporadaInicial` elige la
+   de `fecha_inicio` más reciente, que hoy es «Temporada prueba H-13» (`CERRADA`). El Tesorero tiene
+   que cambiar a «Temporada 2026–2027» para capturar. Es lo que se diseñó (B-29.2) y desaparece
+   cuando haya una temporada activa.
+2. **Los mensajes de campo de los `400` van en `errores`.** El `detail` es el genérico «Revisa los
+   campos marcados.»; el texto «El monto admite hasta dos decimales» o «El monto no puede ser
+   negativo» llega en la propiedad `errores`, que la pantalla usa (`mensajeDe('monto')`). Las
+   capturas de consola no la expandieron.
+3. **Montos sin ceros finales en el detalle de la auditoría.** El JSONB guarda `350`, `400` y `0`;
+   la columna, la API y la pantalla conservan dos decimales (350.00, 0.00). Igual que en la
+   observación 8 de B-31.
+4. **Tarifa sembrada por SQL en H-13.** Se insertó solo para probar la edición bloqueada del CA-3;
+   no tiene auditoría y se queda como dato de demostración de la temporada cerrada.
+5. **La semilla [DEMO] de DEC-66 no está en el compartido.** Antes de la prueba la tabla estaba
+   vacía; las tarifas actuales son las capturadas en esta corrida, rotuladas «No oficial»
+   (PEN-042).
+6. **V-2 con un id aleatorio.** No existe una categoría ajena real en la temporada abierta; el id
+   generado con `crypto.randomUUID()` recorre la misma rama de `TarifaService.crear`.
+
+## 7. Conclusión
+
+B-29 cumple sus cuatro criterios de aceptación sobre `develop` en `5911a87`, con el frontend, el
+backend y el Supabase compartido. El Tesorero registra una tarifa por temporada, categoría y
+concepto, y la repetida se rechaza con `409 DUPLICADO`. Los montos negativos o con más de dos
+decimales se rechazan en la pantalla y en la API (`400 VALIDACION`), y el cero es válido. Una
+temporada cerrada es de solo lectura en la pantalla y en la API (`409 RF-003`). Cada alta y cada
+cambio quedan auditados con el monto anterior y el nuevo, y todas las tarifas se rotulan «No
+oficial». Los casos adicionales también se cumplen: sin el permiso no hay pestaña ni acceso
+(`403 VAL-015`), una categoría ajena responde `422 REFERENCIA_INVALIDA` y el mismo monto no se
+audita. No se encontraron defectos.
+
+La subtarea **B-29.3 queda terminada** y **B-29 puede pasar a Finalizado** al fusionar este
+documento: B-29.1 (#150) y B-29.2 (#153) ya están en `develop`. Las cuatro tarifas de la «Temporada
+2026–2027» (Libre 400.00 / 200.00, Veteranos 300.00 / 0.00) se conservan para B-30.2 (SCRUM-446).
 
 ## Orden de ejecución recomendado
 
