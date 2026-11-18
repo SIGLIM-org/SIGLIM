@@ -12,8 +12,10 @@ import { PasoDatosTutor } from '@/features/registros/PasoDatosTutor'
 import { PasoIdentidad } from '@/features/registros/PasoIdentidad'
 import {
   useAvisoVigente,
+  useOpcionMovimiento,
   useRegistrarAltaJugador,
   useRegistrarConsentimiento,
+  useRegistrarMovimiento,
   useRegistrarTutela,
 } from '@/features/registros/api'
 import {
@@ -23,6 +25,7 @@ import {
   accionDeError,
   agruparEquipos,
   curpCompleta,
+  equipoDeReferencia,
   esMenorEnFecha,
   esTutelaDuplicada,
   huboEscrituras,
@@ -43,7 +46,7 @@ import {
   rutaDocumentosRegistro,
   type EstadoDesdeAlta,
 } from '@/features/registros/rutas'
-import type { PersonaConMinoria } from '@/features/registros/tipos'
+import type { PersonaConMinoria, RegistroJugador, TipoMovimiento } from '@/features/registros/tipos'
 import { ApiError } from '@/lib/api/ApiError'
 import { esNoEncontrado } from '@/lib/api/errores'
 
@@ -79,7 +82,13 @@ function erroresPersona(contexto: 'persona' | 'tutor', errores: Record<string, s
  * URL propia: tras el `201` se navega ahí con `replace` y `state.desdeAlta` (DEC-111). Conserva los ids ya escritos para no repetir
  * escrituras al volver o reintentar; la interfaz decide por `codigo` (DEC-63, DEC-107).
  *
- * Refs: RF-010, RF-011, RF-013, RF-097, RF-106, RF-107, VAL-017, VAL-025, UI-006, UI-033
+ * Si la persona jugó en una temporada anterior y no tiene registro en esta, el paso 1 ofrece la
+ * renovación o la transferencia (B-06.2, DEC-153): el registro se crea con ese movimiento al final del
+ * paso 2, reutilizando la tutela y el consentimiento vigentes; solo si falta el consentimiento
+ * (`VAL-025 CONSENTIMIENTO`) se pide en el paso 3.
+ *
+ * Refs: RF-010, RF-011, RF-013, RF-015, RF-016, RF-097, RF-106, RF-107, RF-111, VAL-017, VAL-025,
+ * UI-006, UI-033
  */
 export function AsistenteAltaJugador() {
   const navigate = useNavigate()
@@ -96,16 +105,72 @@ export function AsistenteAltaJugador() {
   const registrarTutela = useRegistrarTutela()
   const registrarConsentimiento = useRegistrarConsentimiento()
   const registrarAlta = useRegistrarAltaJugador()
+  const registrarMovimiento = useRegistrarMovimiento()
   const equipos = useEquipos({ estado: 'ACTIVO' })
   const aviso = useAvisoVigente({ habilitada: estado.paso >= 3 })
 
   const hoy = hoyEnZonaNegocio()
   const grupos = useMemo(() => agruparEquipos(equipos.data?.contenido ?? []), [equipos.data])
+  const referencia = useMemo(() => equipoDeReferencia(grupos), [grupos])
+  const opcion = useOpcionMovimiento(
+    estado.paso === 1 ? estado.jugador?.id : undefined,
+    referencia?.id,
+  )
   const equipoSeleccionado = equipos.data?.contenido.find(({ id }) => id === estado.equipoId)
   const escribio = huboEscrituras(estado)
 
   const actualizar = (cambios: Partial<typeof estado>) => despachar({ tipo: 'actualizar', cambios })
   const marcarErrores = (errores: ErroresAsistente) => actualizar({ errores })
+
+  /** Alta normal o, si se eligió en el paso 1, la renovación o la transferencia (B-06.2). */
+  const crearRegistro = (personaId: string, equipoId: string): Promise<RegistroJugador> =>
+    estado.movimiento
+      ? registrarMovimiento.mutateAsync({ tipo: estado.movimiento, personaId, equipoId })
+      : registrarAlta.mutateAsync({ personaId, equipoId })
+
+  /** Tras el `201` se va a los documentos del registro con `replace` (DEC-111). */
+  const terminar = (registro: RegistroJugador) => {
+    actualizar({ registro })
+    // `replace`: «Atrás» no vuelve a un asistente que ya terminó (DEC-111).
+    const desdeAlta: EstadoDesdeAlta = { desdeAlta: true }
+    void navigate(rutaDocumentosRegistro(registro.id), { replace: true, state: desdeAlta })
+  }
+
+  const elegirMovimiento = (tipo: TipoMovimiento) => {
+    actualizar({ movimiento: tipo })
+    despachar({ tipo: 'ir', paso: 2 })
+  }
+
+  /**
+   * Fin del paso 2 en una renovación o transferencia: crea el registro sin pedir otra vez el
+   * consentimiento. Si falta, se pide en el paso 3; un tutor que ya no es vigente se corrige aquí.
+   */
+  const crearMovimiento = async (jugador: PersonaConMinoria) => {
+    if (!estado.equipoId) {
+      return
+    }
+    try {
+      terminar(await crearRegistro(jugador.id, estado.equipoId))
+    } catch (error) {
+      const accion = accionDeError('alta', error)
+      if (accion.tipo === 'consentimiento') {
+        despachar({ tipo: 'ir', paso: 3, bloqueo: accion })
+      } else if (accion.tipo === 'tutor') {
+        actualizar({ bloqueo: accion, tutelaRegistrada: false })
+      } else {
+        actualizar({ bloqueo: { tipo: 'general', contexto: 'alta', mensaje: accion.mensaje } })
+      }
+    }
+  }
+
+  /** Después de los datos y la tutela: el paso 3 en un alta, el registro en un movimiento. */
+  const despuesDeDatos = async (jugador: PersonaConMinoria) => {
+    if (estado.movimiento) {
+      await crearMovimiento(jugador)
+    } else {
+      despachar({ tipo: 'ir', paso: 3 })
+    }
+  }
 
   // ── Paso 1 ────────────────────────────────────────────────────────────────────────────────
 
@@ -282,7 +347,7 @@ export function AsistenteAltaJugador() {
       }
 
       if (!jugador.esMenor) {
-        despachar({ tipo: 'ir', paso: 3 })
+        await despuesDeDatos(jugador)
         return
       }
 
@@ -329,7 +394,7 @@ export function AsistenteAltaJugador() {
         actualizar({ tutelaRegistrada: true })
       }
 
-      despachar({ tipo: 'ir', paso: 3 })
+      await despuesDeDatos(jugador)
     } finally {
       setProcesando(false)
     }
@@ -380,11 +445,7 @@ export function AsistenteAltaJugador() {
       }
 
       try {
-        const registro = await registrarAlta.mutateAsync({ personaId: jugador.id, equipoId: estado.equipoId })
-        actualizar({ registro })
-        // `replace`: «Atrás» no vuelve a un asistente que ya terminó (DEC-111).
-        const desdeAlta: EstadoDesdeAlta = { desdeAlta: true }
-        void navigate(rutaDocumentosRegistro(registro.id), { replace: true, state: desdeAlta })
+        terminar(await crearRegistro(jugador.id, estado.equipoId))
       } catch (error) {
         const accion = accionDeError('alta', error)
         if (accion.tipo === 'tutor') {
@@ -444,17 +505,24 @@ export function AsistenteAltaJugador() {
             buscando={buscarPersona.isPending}
             jugador={estado.jugador}
             jugadorNuevo={estado.jugadorNuevo}
+            opcionMovimiento={opcion.data}
+            consultandoOpcion={opcion.isLoading}
+            onElegirMovimiento={elegirMovimiento}
             onCambiarCurp={(valor) => {
               setErrorBusqueda(undefined)
               actualizar({
                 curp: normalizarCurp(valor),
                 jugador: null,
                 jugadorNuevo: false,
+                movimiento: null,
                 errores: { ...estado.errores, jugador: {} },
               })
             }}
             onBuscar={() => void buscarJugador()}
-            onContinuar={() => despachar({ tipo: 'ir', paso: 2 })}
+            onContinuar={() => {
+              actualizar({ movimiento: null })
+              despachar({ tipo: 'ir', paso: 2 })
+            }}
           />
         )}
 
@@ -474,6 +542,13 @@ export function AsistenteAltaJugador() {
             onBuscarTutor={() => void buscarTutor()}
             onAnterior={() => despachar({ tipo: 'ir', paso: 1 })}
             onContinuar={() => void continuarDatos()}
+            textoContinuar={
+              estado.movimiento === 'RENOVACION'
+                ? 'Renovar registro'
+                : estado.movimiento === 'TRANSFERENCIA'
+                  ? 'Registrar transferencia'
+                  : undefined
+            }
           />
         )}
 

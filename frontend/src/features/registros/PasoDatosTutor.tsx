@@ -36,6 +36,8 @@ type Props = {
   onBuscarTutor: () => void
   onAnterior: () => void
   onContinuar: () => void
+  /** Texto del botón final; en una renovación o transferencia crea el registro (B-06.2). */
+  textoContinuar?: string
 }
 
 /**
@@ -57,6 +59,7 @@ export function PasoDatosTutor({
   onBuscarTutor,
   onAnterior,
   onContinuar,
+  textoContinuar = 'Continuar',
 }: Props) {
   const id = useId()
   const { errores, jugador, bloqueo } = estado
@@ -214,7 +217,7 @@ export function PasoDatosTutor({
           <span />
         )}
         <Button type="submit" icono={ArrowRight} cargando={procesando}>
-          Continuar
+          {textoContinuar}
         </Button>
       </div>
     </form>

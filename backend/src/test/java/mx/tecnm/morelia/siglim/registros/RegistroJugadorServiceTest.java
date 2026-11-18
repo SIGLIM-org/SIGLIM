@@ -664,6 +664,93 @@ class RegistroJugadorServiceTest {
         verifyNoInteractions(auditoria);
     }
 
+    // ── Opción de movimiento para el asistente (B-06.2, DEC-153) ────────────────────────────────
+
+    @Test
+    @DisplayName("RF-015 · DEC-153: ofrece la renovación si el registro anterior es del mismo club")
+    void opcionRenovacion() {
+        prepararMovimiento(false, ANTERIOR_MISMO_CLUB, false);
+
+        assertThat(servicio.opcionMovimiento(PERSONA, EQUIPO))
+                .isEqualTo(new OpcionMovimientoDto("RENOVACION", true, "Temporada 2025", null));
+
+        verify(registros, never()).permiteCambioClub(any());
+        verifyNoInteractions(auditoria, motivo);
+    }
+
+    @Test
+    @DisplayName("RF-016 · RF-111 · DEC-153: ofrece la transferencia permitida si la temporada admite el cambio")
+    void opcionTransferenciaPermitida() {
+        prepararMovimiento(false, ANTERIOR_OTRO_CLUB, true);
+
+        assertThat(servicio.opcionMovimiento(PERSONA, EQUIPO))
+                .isEqualTo(new OpcionMovimientoDto("TRANSFERENCIA", true, "Temporada 2025", null));
+
+        verify(registros, never()).insertar(any(), any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-111 · DEC-153: la transferencia queda no permitida con la explicación y sin datos del otro club")
+    void opcionTransferenciaNoPermitida() {
+        prepararMovimiento(false, ANTERIOR_OTRO_CLUB, false);
+
+        OpcionMovimientoDto opcion = servicio.opcionMovimiento(PERSONA, EQUIPO);
+
+        assertThat(opcion.tipo()).isEqualTo("TRANSFERENCIA");
+        assertThat(opcion.permitido()).isFalse();
+        assertThat(opcion.motivo()).contains("no permite cambios de club").doesNotContain("Águilas");
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("VAL-017 · DEC-153: no ofrece movimiento si la persona ya está registrada en la temporada destino")
+    void opcionConRegistroEnLaTemporada() {
+        prepararMovimiento(false, ANTERIOR_MISMO_CLUB, true);
+        given(registros.registrosEnTemporada(PERSONA, TEMPORADA)).willReturn(List.of(
+                new RegistroEnTemporada(OTRO_CLUB, "Club Águilas", OTRO_EQUIPO, "Águilas",
+                        EstadoRegistro.PENDIENTE_VALIDACION)));
+
+        assertThat(servicio.opcionMovimiento(PERSONA, EQUIPO)).isEqualTo(OpcionMovimientoDto.ninguna());
+
+        verify(registros, never()).registroAnterior(any(), any());
+    }
+
+    @Test
+    @DisplayName("DEC-153: un registro rechazado en la temporada destino no impide ofrecer el movimiento")
+    void opcionConRegistroRechazado() {
+        prepararMovimiento(false, ANTERIOR_MISMO_CLUB, true);
+        given(registros.registrosEnTemporada(PERSONA, TEMPORADA)).willReturn(List.of(
+                new RegistroEnTemporada(CLUB, "Club Halcones", EQUIPO, "Halcones", EstadoRegistro.RECHAZADO)));
+
+        assertThat(servicio.opcionMovimiento(PERSONA, EQUIPO).tipo()).isEqualTo("RENOVACION");
+    }
+
+    @Test
+    @DisplayName("DEC-153: sin registro anterior no hay movimiento que ofrecer")
+    void opcionSinRegistroAnterior() {
+        prepararMovimiento(false, null, true);
+
+        assertThat(servicio.opcionMovimiento(PERSONA, EQUIPO)).isEqualTo(OpcionMovimientoDto.ninguna());
+    }
+
+    @Test
+    @DisplayName("VAL-015 · VAL-024 · DEC-153: sin permiso, sin datos o con un equipo fuera de ámbito no responde la opción")
+    void opcionSinPermisoOFaltanDatos() {
+        given(autorizacion.alcance(EDITAR)).willThrow(Autorizacion.sinPermiso());
+        esperar(() -> servicio.opcionMovimiento(PERSONA, EQUIPO), HttpStatus.FORBIDDEN, "VAL-015");
+        verifyNoInteractions(registros);
+
+        willReturn(new AlcanceAutorizacion(false, Set.of(CLUB), false)).given(autorizacion).alcance(EDITAR);
+        esperar(() -> servicio.opcionMovimiento(PERSONA, null), HttpStatus.BAD_REQUEST, "VALIDACION");
+        verifyNoInteractions(registros);
+
+        given(registros.buscarEquipo(LIGA, EQUIPO)).willReturn(Optional.empty());
+        assertThatThrownBy(() -> servicio.opcionMovimiento(PERSONA, EQUIPO))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        verify(registros, never()).registroAnterior(any(), any());
+    }
+
     // ── Validación del registro (H-10.2, DEC-97 a DEC-102) ──────────────────────────────────────
 
     @Test

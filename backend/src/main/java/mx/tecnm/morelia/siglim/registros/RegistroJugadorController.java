@@ -26,8 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
  * con el registro. La renovación y la transferencia (B-06, DEC-146) responden {@code 201} con
  * {@code Location}, como el alta.
  *
- * <p>Refs: B-06, B-07.1, H-09.2, H-10.2, H-10.5, H-23.1, RF-013, RF-014, RF-015, RF-016, RF-017, RF-018,
- * RF-107, RF-109, RF-111, DEC-85, DEC-90, DEC-97, DEC-102, DEC-109, DEC-110, DEC-121, DEC-124, DEC-146
+ * <p>Refs: B-06, B-06.2, B-07.1, H-09.2, H-10.2, H-10.5, H-23.1, RF-013, RF-014, RF-015, RF-016, RF-017,
+ * RF-018, RF-107, RF-109, RF-111, DEC-85, DEC-90, DEC-97, DEC-102, DEC-109, DEC-110, DEC-121, DEC-124,
+ * DEC-146, DEC-153
  */
 @RestController
 @RequestMapping("/api/v1/registros-jugador")
@@ -61,6 +62,18 @@ class RegistroJugadorController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(servicio.consultar(id));
+    }
+
+    /**
+     * Movimiento entre temporadas que el asistente de alta puede ofrecer para la persona y el equipo
+     * de destino: {@code 200} con {@code no-store} (B-06.2, RF-015, RF-016, RF-111, DEC-153).
+     */
+    @GetMapping("/movimientos/opcion")
+    ResponseEntity<OpcionMovimientoDto> opcionMovimiento(@RequestParam(required = false) UUID personaId,
+            @RequestParam(required = false) UUID equipoId) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(servicio.opcionMovimiento(personaId, equipoId));
     }
 
     /**

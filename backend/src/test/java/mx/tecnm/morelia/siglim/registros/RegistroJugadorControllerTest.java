@@ -195,6 +195,32 @@ class RegistroJugadorControllerTest {
                 .pruebas();
     }
 
+    @Test
+    @DisplayName("RF-111 · DEC-153: GET /registros-jugador/movimientos/opcion responde 200 con no-store y la opción")
+    void opcionMovimiento() {
+        given(servicio.opcionMovimiento(PERSONA, EQUIPO)).willReturn(new OpcionMovimientoDto("TRANSFERENCIA", false,
+                "Temporada 2025", "La temporada «Temporada 2026» no permite cambios de club entre temporadas."));
+
+        MvcTestResult resultado = mvc.get().uri(RUTA + "/movimientos/opcion?personaId=" + PERSONA + "&equipoId=" + EQUIPO)
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.OK);
+        assertThat(resultado).hasHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        assertThat(resultado).bodyJson().extractingPath("$.tipo").isEqualTo("TRANSFERENCIA");
+        assertThat(resultado).bodyJson().extractingPath("$.permitido").isEqualTo(false);
+        assertThat(resultado).bodyJson().extractingPath("$.temporadaAnterior").isEqualTo("Temporada 2025");
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de GET /api/v1/registros-jugador/movimientos/opcion")
+    Stream<DynamicTest> seguridadOpcionMovimiento() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.GET, RUTA + "/movimientos/opcion?personaId=" + PERSONA + "&equipoId=" + EQUIPO)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.opcionMovimiento(any(), any())).willThrow(error))
+                .pruebas();
+    }
+
     // ── Validación (H-10.2, DEC-97 a DEC-102) ──────────────────────────────────────────────────
 
     @Test

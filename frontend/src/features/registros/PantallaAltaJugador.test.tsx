@@ -9,7 +9,7 @@ import {
   RUTA_ALTA_JUGADOR,
 } from '@/features/registros/PantallaAltaJugador'
 import { RUTA_DOCUMENTOS_REGISTRO, vieneDelAlta } from '@/features/registros/rutas'
-import type { AvisoPrivacidad, RegistroJugador } from '@/features/registros/tipos'
+import type { AvisoPrivacidad, OpcionMovimiento, RegistroJugador } from '@/features/registros/tipos'
 import type { Permiso } from '@/features/seguridad/tipos'
 import { ApiError } from '@/lib/api/ApiError'
 
@@ -132,7 +132,13 @@ type Servidor = {
   consentimiento: Respuesta<unknown>
   altas: Respuesta<RegistroJugador>[]
   aviso: Respuesta<AvisoPrivacidad>
+  /** `GET /registros-jugador/movimientos/opcion` (B-06.2, DEC-153). */
+  opcion: Respuesta<OpcionMovimiento>
+  /** `POST /registros-jugador/renovaciones` y `/transferencias`. */
+  movimientos: Respuesta<RegistroJugador>[]
 }
+
+const SIN_MOVIMIENTO: OpcionMovimiento = { tipo: null, permitido: false, temporadaAnterior: null, motivo: null }
 
 let servidor: Servidor
 
@@ -155,6 +161,8 @@ function responder(cambios: Partial<Servidor> = {}) {
     consentimiento: { id: 'cons-1' },
     altas: [registro('Ana López')],
     aviso: AVISO,
+    opcion: SIN_MOVIMIENTO,
+    movimientos: [registro('Ana López')],
     ...cambios,
   }
 
@@ -169,6 +177,9 @@ function responder(cambios: Partial<Servidor> = {}) {
     }
     if (ruta === 'avisos-privacidad/vigente') {
       return resolver(servidor.aviso)
+    }
+    if (ruta.startsWith('registros-jugador/movimientos/opcion?')) {
+      return resolver(servidor.opcion)
     }
     throw new Error(`Ruta no simulada: ${ruta}`)
   })
@@ -197,6 +208,9 @@ function responder(cambios: Partial<Servidor> = {}) {
     }
     if (ruta === 'registros-jugador') {
       return resolver(siguiente(servidor.altas))
+    }
+    if (ruta === 'registros-jugador/renovaciones' || ruta === 'registros-jugador/transferencias') {
+      return resolver(siguiente(servidor.movimientos))
     }
     throw new Error(`Ruta no simulada: ${ruta}`)
   })
@@ -710,6 +724,106 @@ describe('PantallaAltaJugador (F-18, F-06, H-09.3)', () => {
     expect(await within(seccionTutor).findByRole('alert')).toHaveTextContent(
       'No puedes registrarte como tutor desde tu propia cuenta',
     )
+  })
+
+  // ── Renovación y transferencia (B-06.2, DEC-153) ─────────────────────────────────────────
+
+  async function buscarExistente(user: ReturnType<typeof userEvent.setup>, curp: string) {
+    await user.type(screen.getByLabelText(/^CURP del jugador/), curp)
+    await user.click(screen.getByRole('button', { name: 'Buscar CURP' }))
+    await screen.findByText('Persona encontrada')
+  }
+
+  it('RF-015: con un registro anterior en el club ofrece «Renovar en mi club» y crea la renovación sin pedir otra vez el consentimiento', async () => {
+    const user = usuario()
+    responder({
+      personas: { [CURP_ADULTO]: [ADULTO_EXISTENTE] },
+      opcion: { tipo: 'RENOVACION', permitido: true, temporadaAnterior: 'Temporada 2025', motivo: null },
+    })
+    montar()
+
+    await buscarExistente(user, CURP_ADULTO)
+    expect(
+      await screen.findByRole('heading', { name: 'Jugó en tu club en la temporada «Temporada 2025»' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Continuar' })).not.toBeInTheDocument()
+    expect(get).toHaveBeenCalledWith('registros-jugador/movimientos/opcion?personaId=p-adulto&equipoId=e1')
+
+    await user.click(screen.getByRole('button', { name: 'Renovar en mi club' }))
+    await screen.findByRole('heading', { name: 'Datos y equipo' })
+    await elegirEquipo(user)
+    await user.click(screen.getByRole('button', { name: 'Renovar registro' }))
+
+    await screen.findByText('Documentos de reg-1 desde el alta')
+    expect(post).toHaveBeenLastCalledWith('registros-jugador/renovaciones', { personaId: 'p-adulto', equipoId: 'e1' })
+    expect(rutasPost()).not.toContain('registros-jugador')
+    expect(rutasPost().some((ruta) => ruta.endsWith('/consentimientos'))).toBe(false)
+  })
+
+  it('RF-016: con un registro anterior en otro club ofrece «Registrar en este equipo» y, si falta el consentimiento, lo pide antes de transferir', async () => {
+    const user = usuario()
+    responder({
+      personas: { [CURP_ADULTO]: [ADULTO_EXISTENTE] },
+      opcion: { tipo: 'TRANSFERENCIA', permitido: true, temporadaAnterior: 'Temporada 2025', motivo: null },
+      movimientos: [
+        error(422, 'VAL-025', 'Falta el consentimiento vigente de la persona.', { requisito: 'CONSENTIMIENTO' }),
+        registro('Ana López'),
+      ],
+    })
+    montar()
+
+    await buscarExistente(user, CURP_ADULTO)
+    expect(
+      await screen.findByRole('heading', { name: 'Jugó en otro club en la temporada «Temporada 2025»' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Club Halcones/)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Registrar en este equipo' }))
+    await elegirEquipo(user, HALCONES_B)
+    await user.click(screen.getByRole('button', { name: 'Registrar transferencia' }))
+
+    expect(await screen.findByText('Falta el consentimiento vigente de la persona.')).toBeInTheDocument()
+    await otorgarConsentimiento(user)
+
+    await screen.findByText('Documentos de reg-1 desde el alta')
+    expect(rutasPost()).toEqual([
+      'registros-jugador/transferencias',
+      'personas/p-adulto/consentimientos',
+      'registros-jugador/transferencias',
+    ])
+    expect(post).toHaveBeenLastCalledWith('registros-jugador/transferencias', { personaId: 'p-adulto', equipoId: 'e3' })
+  })
+
+  it('RF-111: si la Liga no permite el cambio de club, «Registrar en este equipo» queda deshabilitado con la explicación', async () => {
+    const user = usuario()
+    const motivo =
+      'La temporada «Temporada 2026» no permite cambios de club entre temporadas. La liga puede habilitarlo en los parámetros de la temporada.'
+    responder({
+      personas: { [CURP_ADULTO]: [ADULTO_EXISTENTE] },
+      opcion: { tipo: 'TRANSFERENCIA', permitido: false, temporadaAnterior: 'Temporada 2025', motivo },
+    })
+    montar()
+
+    await buscarExistente(user, CURP_ADULTO)
+    const boton = await screen.findByRole('button', { name: 'Registrar en este equipo' })
+
+    expect(boton).toBeDisabled()
+    expect(boton).toHaveAccessibleDescription(motivo)
+    expect(screen.queryByRole('button', { name: 'Continuar' })).not.toBeInTheDocument()
+    await user.click(boton)
+    expect(screen.queryByRole('heading', { name: 'Datos y equipo' })).not.toBeInTheDocument()
+    expect(post).not.toHaveBeenCalled()
+  })
+
+  it('DEC-153: sin registro anterior no se ofrece movimiento y sigue el alta normal', async () => {
+    const user = usuario()
+    responder({ personas: { [CURP_ADULTO]: [ADULTO_EXISTENTE] } })
+    montar()
+
+    await buscarExistente(user, CURP_ADULTO)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continuar' })).toBeEnabled())
+    expect(screen.queryByRole('button', { name: 'Renovar en mi club' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Registrar en este equipo' })).not.toBeInTheDocument()
   })
 
   it('D-12: «Cancelar» con escrituras pide confirmación y avisa que lo creado se conserva', async () => {

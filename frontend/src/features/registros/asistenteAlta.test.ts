@@ -6,6 +6,7 @@ import {
   accionDeError,
   agruparEquipos,
   curpCompleta,
+  equipoDeReferencia,
   esMenorEnFecha,
   etiquetaFinalidad,
   huboEscrituras,
@@ -251,5 +252,24 @@ describe('Estado del asistente (DEC-103)', () => {
       navego: true,
       bloqueo: null,
     })
+  })
+})
+
+describe('Equipo de referencia del movimiento (B-06.2, DEC-153)', () => {
+  const activa = { id: 't-2026', estado: 'ACTIVA' as const }
+
+  it('con un solo club y una sola temporada devuelve el primer equipo elegible', () => {
+    const grupos = agruparEquipos([equipo('e1', activa), equipo('e2', activa, 'Juvenil')])
+
+    expect(equipoDeReferencia(grupos)?.id).toBe('e1')
+  })
+
+  it('[PROPUESTA] con dos temporadas abiertas, dos clubes o sin equipos no pregunta', () => {
+    const otraTemporada = equipo('e2', { id: 't-2027', estado: 'CONFIGURACION' })
+    const otroClub = { ...equipo('e3', activa), club: { id: 'c2', nombre: 'Club Águilas' } }
+
+    expect(equipoDeReferencia(agruparEquipos([equipo('e1', activa), otraTemporada]))).toBeUndefined()
+    expect(equipoDeReferencia(agruparEquipos([equipo('e1', activa), otroClub]))).toBeUndefined()
+    expect(equipoDeReferencia([])).toBeUndefined()
   })
 })
