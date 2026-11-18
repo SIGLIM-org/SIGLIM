@@ -40,7 +40,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 /**
  * Contrato HTTP del alta, la validación y la consulta de registros de jugador (convenciones de API §6.4;
- * H-09.2, H-10.2, H-10.5).
+ * H-09.2, H-10.2, H-10.5, B-07.1).
  */
 @WebMvcTest(controllers = RegistroJugadorController.class, properties = {
         "SUPABASE_URL=" + SeguridadPrueba.URL_SUPABASE,
@@ -514,6 +514,58 @@ class RegistroJugadorControllerTest {
                 .peticion(HttpMethod.GET, RUTA + "/{id}", REGISTRO)
                 .dobles(servicio)
                 .simularDenegacion(error -> given(servicio.consultar(REGISTRO)).willThrow(error))
+                .pruebas();
+    }
+
+    // ── Historial (B-07.1, RF-018) ─────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-018 · B-07.1: GET /registros-jugador/{id}/historial responde 200 con no-store y el arreglo en orden")
+    void historial() {
+        given(servicio.historial(REGISTRO)).willReturn(List.of(
+                new CambioEstadoRegistroDto(null, EstadoRegistro.PENDIENTE_VALIDACION, "Alta del registro",
+                        new ReferenciaDto(PERSONA, "Directiva"), OffsetDateTime.parse("2026-11-11T12:00:00-06:00")),
+                new CambioEstadoRegistroDto(EstadoRegistro.PENDIENTE_VALIDACION, EstadoRegistro.ACTIVO,
+                        "Documentos revisados", new ReferenciaDto(SECRETARIO, null),
+                        OffsetDateTime.parse("2026-11-12T10:30:00-06:00"))));
+
+        MvcTestResult resultado = mvc.get().uri(RUTA + "/{id}/historial", REGISTRO)
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.OK);
+        assertThat(resultado).hasHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        assertThat(resultado).bodyJson().extractingPath("$").asArray().hasSize(2);
+        assertThat(resultado).bodyJson().hasPathSatisfying("$[0].estadoAnterior", valor -> assertThat(valor).isNull());
+        assertThat(resultado).bodyJson().extractingPath("$[0].estadoNuevo").isEqualTo("PENDIENTE_VALIDACION");
+        assertThat(resultado).bodyJson().extractingPath("$[0].cambiadoPor.nombre").isEqualTo("Directiva");
+        assertThat(resultado).bodyJson().extractingPath("$[1].estadoAnterior").isEqualTo("PENDIENTE_VALIDACION");
+        assertThat(resultado).bodyJson().extractingPath("$[1].estadoNuevo").isEqualTo("ACTIVO");
+        assertThat(resultado).bodyJson().extractingPath("$[1].motivo").isEqualTo("Documentos revisados");
+        assertThat(resultado).bodyJson().extractingPath("$[1].cambiadoPor.id").isEqualTo(SECRETARIO.toString());
+        assertThat(resultado).bodyJson().hasPathSatisfying("$[1].cambiadoPor.nombre", valor -> assertThat(valor).isNull());
+        assertThat(resultado).bodyJson().extractingPath("$[1].cambiadoEn").isEqualTo("2026-11-12T10:30:00-06:00");
+    }
+
+    @Test
+    @DisplayName("RNF-015 · B-07.1: el historial es de solo lectura: POST, PATCH y DELETE responden 405")
+    void historialSoloLectura() {
+        for (HttpMethod metodo : List.of(HttpMethod.POST, HttpMethod.PATCH, HttpMethod.DELETE)) {
+            MvcTestResult resultado = mvc.method(metodo).uri(RUTA + "/{id}/historial", REGISTRO)
+                    .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                    .contentType(MediaType.APPLICATION_JSON).content("{}").exchange();
+
+            assertThat(resultado).hasStatus(HttpStatus.METHOD_NOT_ALLOWED);
+        }
+        Mockito.verifyNoInteractions(servicio);
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003 · VAL-015 · VAL-024: seguridad de GET /api/v1/registros-jugador/{id}/historial")
+    Stream<DynamicTest> seguridadHistorial() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.GET, RUTA + "/{id}/historial", REGISTRO)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.historial(REGISTRO)).willThrow(error))
                 .pruebas();
     }
 
