@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { seccionDeRuta, seccionesApp, seccionesPermitidas } from '@/layouts/navegacion'
+import type { Ambito } from '@/features/seguridad/tipos'
+import {
+  PERMISOS_CONSULTA_PROPIA,
+  seccionDeRuta,
+  seccionesApp,
+  seccionesPermitidas,
+} from '@/layouts/navegacion'
 
 describe('subsecciones', () => {
   it('H-07.2: Programación ofrece Canchas con su permiso y la ruta queda en la sección', () => {
@@ -161,7 +167,11 @@ describe('subsecciones', () => {
   })
 })
 
-const permiso = (codigo: string, modulo: string) => ({ codigo, modulo })
+const permiso = (codigo: string, modulo: string, ambito: Ambito = 'LIGA') => ({
+  codigo,
+  modulo,
+  ambito,
+})
 
 describe('seccionesPermitidas', () => {
   it('H-01.3: el Capturista solo ve Inicio y Partidos', () => {
@@ -222,6 +232,40 @@ describe('seccionesPermitidas', () => {
     ])
 
     expect(secciones.map((seccion) => seccion.nombre)).toEqual(['Inicio'])
+  })
+
+  it('H-24.2 · DEC-146: el jugador o tutor con sus 4 permisos PROPIO ve solo Inicio y Mi información', () => {
+    const modulos: Record<string, string> = {
+      registros: 'M-04',
+      partidos: 'M-08',
+      disciplina: 'M-09',
+    }
+    const secciones = seccionesPermitidas(
+      PERMISOS_CONSULTA_PROPIA.map((codigo) =>
+        permiso(codigo, modulos[codigo.split('.')[0]], 'PROPIO'),
+      ),
+    )
+
+    expect(secciones.map((seccion) => seccion.nombre)).toEqual(['Inicio', 'Mi información'])
+  })
+
+  it('H-24.2 · DEC-146: el administrador con registros.registro:CONSULTAR en LIGA no ve Mi información', () => {
+    const secciones = seccionesPermitidas([permiso('registros.registro:CONSULTAR', 'M-04')])
+
+    expect(secciones.map((seccion) => seccion.nombre)).toEqual(['Inicio', 'Organización'])
+  })
+
+  it('H-24.2 · DEC-146: el Árbitro PROPIO conserva Partidos por la cédula y no ve Mi información', () => {
+    const secciones = seccionesPermitidas([
+      permiso('partidos.partido:CONSULTAR', 'M-08', 'PROPIO'),
+      permiso('partidos.cedula:APROBAR', 'M-08', 'PROPIO'),
+    ])
+
+    expect(secciones.map((seccion) => seccion.nombre)).toEqual(['Inicio', 'Partidos'])
+  })
+
+  it('H-24.2 · DEC-146: la ruta de Mi información queda en su sección', () => {
+    expect(seccionDeRuta('/app/mi-informacion')?.nombre).toBe('Mi información')
   })
 
   it('H-01.3: Inicio siempre está y un módulo desconocido no agrega secciones', () => {
