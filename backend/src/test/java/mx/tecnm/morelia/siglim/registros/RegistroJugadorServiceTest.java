@@ -414,6 +414,48 @@ class RegistroJugadorServiceTest {
     }
 
     @Test
+    @DisplayName("RF-111 · DEC-154: un alta normal con registro anterior de otro club y cambio no permitido responde 409")
+    void altaNormalSinCambioDeClub() {
+        prepararAlta(false);
+        given(registros.registroAnterior(PERSONA, TEMPORADA)).willReturn(Optional.of(ANTERIOR_OTRO_CLUB));
+        given(registros.permiteCambioClub(TEMPORADA)).willReturn(false);
+
+        assertThatThrownBy(() -> servicio.registrar(PETICION)).isInstanceOfSatisfying(ReglaNegocioException.class,
+                error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(error.codigo()).isEqualTo("RF-111");
+                    assertThat(error.getMessage()).contains("no permite cambios de club").doesNotContain("Águilas");
+                });
+
+        verify(registros, never()).insertar(any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-111 · DEC-154: un alta normal con registro anterior de otro club y cambio permitido se crea sin enlace")
+    void altaNormalConCambioDeClubPermitido() {
+        prepararAlta(false);
+        given(registros.registroAnterior(PERSONA, TEMPORADA)).willReturn(Optional.of(ANTERIOR_OTRO_CLUB));
+        given(registros.permiteCambioClub(TEMPORADA)).willReturn(true);
+
+        assertThat(servicio.registrar(PETICION)).isEqualTo(CREADO);
+
+        verify(registros).insertar(PERSONA, EQUIPO, TEMPORADA, HOY, PERFIL);
+    }
+
+    @Test
+    @DisplayName("DEC-154: un alta normal con registro anterior del mismo club no consulta el cambio de club")
+    void altaNormalDelMismoClub() {
+        prepararAlta(false);
+        given(registros.registroAnterior(PERSONA, TEMPORADA)).willReturn(Optional.of(ANTERIOR_MISMO_CLUB));
+
+        assertThat(servicio.registrar(PETICION)).isEqualTo(CREADO);
+
+        verify(registros, never()).permiteCambioClub(any());
+        verify(registros).insertar(PERSONA, EQUIPO, TEMPORADA, HOY, PERFIL);
+    }
+
+    @Test
     @DisplayName("VAL-025: un menor sin tutela vigente responde 422 con requisito TUTOR")
     void menorSinTutor() {
         prepararAlta(true);

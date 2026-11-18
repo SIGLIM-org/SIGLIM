@@ -86,7 +86,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Refs: B-06, B-07.1, H-09.2, H-10.2, H-10.5, H-23.1, RF-003, RF-013, RF-014, RF-015, RF-016, RF-017, RF-018, RF-093,
  * RF-101, RF-107, RF-109, RF-111, RN-021, RN-037, RN-039, RN-055, RNF-012, RNF-015, VAL-001, VAL-015, VAL-017, VAL-022,
  * VAL-024, VAL-025, VAL-026, CU-004, DEC-13, DEC-78, DEC-85 a DEC-90, DEC-97 a DEC-102, DEC-109, DEC-110,
- * DEC-118 a DEC-124, DEC-146, DEC-153
+ * DEC-118 a DEC-124, DEC-146, DEC-153, DEC-154
  */
 @Service
 public class RegistroJugadorService {
@@ -139,6 +139,9 @@ public class RegistroJugadorService {
      *   <li>Registro activo en la temporada: {@code 409 VAL-017} con {@code club} y {@code equipo}.</li>
      *   <li>Registro en {@code BAJA} en otro club de la temporada: {@code 409 VAL-026}.</li>
      *   <li>Registro en {@code BAJA} en otro equipo del mismo club: {@code 409 RN-039}.</li>
+     *   <li>El registro anterior más reciente de la persona es de otro club y la temporada no permite
+     *       el cambio de club: {@code 409 RF-111}, con el mismo mensaje de la transferencia (DEC-154).
+     *       No obliga a usar la renovación o la transferencia: eso sigue pendiente (DEC-146).</li>
      *   <li>Menor sin tutela vigente o sin consentimiento de un tutor vigente: {@code 422 VAL-025} con
      *       {@code requisito} {@code TUTOR} o {@code CONSENTIMIENTO}.</li>
      * </ol>
@@ -179,6 +182,7 @@ public class RegistroJugadorService {
 
         List<RegistroEnTemporada> previos = registros.registrosEnTemporada(personaId, equipo.temporadaId());
         validarUnicidad(previos, equipo);
+        validarCambioDeClub(personaId, equipo);
         if (esMenor) {
             validarRequisitosMenor(registros.requisitosMenor(personaId),
                     "Registra primero a su tutor y después da de alta el registro.",
@@ -294,6 +298,20 @@ public class RegistroJugadorService {
                             anterior.temporadaNombre(), permitido ? null : sinCambioDeClub(equipo));
                 })
                 .orElseGet(OpcionMovimientoDto::ninguna);
+    }
+
+    /**
+     * RF-111 en el alta normal (DEC-154): si el registro anterior más reciente de la persona es de otro
+     * club, la temporada destino debe permitir el cambio de club, igual que en la transferencia. Así el
+     * alta no evade la configuración de la Liga.
+     */
+    private void validarCambioDeClub(UUID personaId, EquipoDelRegistro equipo) {
+        boolean deOtroClub = registros.registroAnterior(personaId, equipo.temporadaId())
+                .filter(anterior -> !anterior.clubId().equals(equipo.clubId()))
+                .isPresent();
+        if (deOtroClub && !registros.permiteCambioClub(equipo.temporadaId())) {
+            throw ReglaNegocioException.conflicto("RF-111", sinCambioDeClub(equipo));
+        }
     }
 
     /** Mensaje de RF-111: qué pasó y qué hacer, sin datos del club de origen (PEN-016). */
