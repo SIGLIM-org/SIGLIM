@@ -125,6 +125,76 @@ class RegistroJugadorControllerTest {
         Mockito.verify(servicio).registrar(new CrearRegistroJugadorRequest(PERSONA, EQUIPO));
     }
 
+    // ── Renovación y transferencia (B-06, DEC-146) ─────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-015 · DEC-146: POST /registros-jugador/renovaciones responde 201 con Location y no-store")
+    void renovar() {
+        given(servicio.renovar(any())).willReturn(CREADO);
+
+        MvcTestResult resultado = mvc.post().uri(RUTA + "/renovaciones")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(CUERPO).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.CREATED);
+        assertThat(resultado).hasHeader(HttpHeaders.LOCATION, "/api/v1/registros-jugador/" + REGISTRO);
+        assertThat(resultado).hasHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        assertThat(resultado).bodyJson().extractingPath("$.id").isEqualTo(REGISTRO.toString());
+        assertThat(resultado).bodyJson().extractingPath("$.estado").isEqualTo("PENDIENTE_VALIDACION");
+        Mockito.verify(servicio).renovar(new MovimientoRegistroRequest(PERSONA, EQUIPO));
+    }
+
+    @Test
+    @DisplayName("RF-016 · DEC-146: POST /registros-jugador/transferencias responde 201 con Location y no-store")
+    void transferir() {
+        given(servicio.transferir(any())).willReturn(CREADO);
+
+        MvcTestResult resultado = mvc.post().uri(RUTA + "/transferencias")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(CUERPO).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.CREATED);
+        assertThat(resultado).hasHeader(HttpHeaders.LOCATION, "/api/v1/registros-jugador/" + REGISTRO);
+        assertThat(resultado).hasHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        Mockito.verify(servicio).transferir(new MovimientoRegistroRequest(PERSONA, EQUIPO));
+    }
+
+    @Test
+    @DisplayName("RF-015: una renovación sin registro anterior responde 422 con el código del ERS")
+    void renovacionSinRegistroAnterior() {
+        given(servicio.renovar(any())).willThrow(ReglaNegocioException.noProcesable("RF-015",
+                "La persona no tiene un registro anterior en una temporada previa de la liga."));
+
+        MvcTestResult resultado = mvc.post().uri(RUTA + "/renovaciones")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(CUERPO).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.UNPROCESSABLE_CONTENT);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo("RF-015");
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de POST /api/v1/registros-jugador/renovaciones")
+    Stream<DynamicTest> seguridadRenovaciones() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.POST, RUTA + "/renovaciones")
+                .cuerpoJson(CUERPO)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.renovar(any())).willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de POST /api/v1/registros-jugador/transferencias")
+    Stream<DynamicTest> seguridadTransferencias() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.POST, RUTA + "/transferencias")
+                .cuerpoJson(CUERPO)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.transferir(any())).willThrow(error))
+                .pruebas();
+    }
+
     // ── Validación (H-10.2, DEC-97 a DEC-102) ──────────────────────────────────────────────────
 
     @Test
