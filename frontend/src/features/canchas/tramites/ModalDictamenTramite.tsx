@@ -26,6 +26,7 @@ const MAXIMO_OBSERVACIONES = 500
 /**
  * Dictamen del Presidente sobre un trámite pendiente (B-07, RF-116, RF-117). La decisión
  * desfavorable exige el motivo; la favorable admite condiciones. El backend vuelve a validar.
+ * Aprobar o aceptar no da de alta la cancha ni sus horarios (DEC-138); el texto lo advierte.
  */
 export function ModalDictamenTramite({ solicitud, decision, onCerrar, onResuelta }: Props) {
   const dialogoRef = useDialogoModal()
@@ -87,6 +88,8 @@ export function ModalDictamenTramite({ solicitud, decision, onCerrar, onResuelta
           <p id={`${id}-descripcion`} className="mt-1 text-body-md text-text-muted">
             El trámite de «{solicitanteDe(solicitud)}» quedará {estadoFinal}. El dictamen queda en el
             historial y no se puede deshacer.
+            {favorable &&
+              ' Este dictamen no da de alta la cancha ni sus horarios: regístralos aparte en Canchas.'}
           </p>
         </div>
 

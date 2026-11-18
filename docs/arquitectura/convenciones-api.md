@@ -1910,7 +1910,7 @@ vaciar la lista.
 - **Permiso y ámbito.** El alta exige `canchas.solicitud:CREAR` sobre el club; la oferta de un
   externo, sobre la liga (la captura el Secretario). Un club o un trámite fuera del ámbito responde
   `404` (VAL-024).
-- **Número de oficio (RF-118, [PROPUESTA]).** Lo asigna el sistema al capturar:
+- **Número de oficio (RF-118, DEC-135, [PROPUESTA]).** Lo asigna el sistema al capturar:
   `OF-<año>-<consecutivo de cuatro dígitos>` por liga y año de la zona de negocio (el ejemplo
   `OF-2025-0089` de B-07). Un candado consultivo de la transacción evita repetir el consecutivo y
   `UNIQUE (liga_id, numero_oficio)` es la última garantía.
@@ -1920,15 +1920,17 @@ vaciar la lista.
   desfavorable exige observaciones de 10 a 500 caracteres (`400 RN-021`) y las guarda como motivo.
   Los estados finales no cambian: dictaminar otra vez responde `409 RF-117` (Formato 1) o
   `409 RF-116` (Formato 2). Aceptar una oferta o aprobar un comodato **no** da de alta la cancha ni
-  sus horarios (eso es RF-119, §6.6.1).
+  sus horarios (DEC-138): la cancha se registra con RF-027 y los horarios con RF-119 (§6.6.1).
 - **Bandeja.** `GET /solicitudes-cancha` admite `tipo` repetido (la pestaña del Formato 1 manda
   `tipo=PRESTAMO&tipo=COMODATO`), `estado`, `pagina` y `tamano`, por captura descendente. Como el
-  catálogo no tiene permiso de consulta propio, basta cualquiera de los tres permisos **[PROPUESTA]**;
+  catálogo no tiene permiso de consulta propio, basta cualquiera de los tres permisos (DEC-136, **[PROPUESTA]**);
   el alcance se une en el `WHERE` y en el `COUNT`, y las ofertas de externos solo las ve un ámbito de
   liga. `GET …/contexto` responde `{ clubes, canchas, capturaExternos }`: los clubes `ACTIVO` del
   alcance de `CREAR`, las canchas activas y si la sesión captura ofertas de externos; sin `CREAR`, las
   listas van vacías.
-- **Carta.** `GET …/{id}/oficio` responde los datos de la carta (`numeroOficio`, `asunto`, `liga`,
+- **Carta (DEC-137, [PROPUESTA]).** `GET …/{id}/oficio` exige `canchas.oficio:GENERAR` (en la matriz
+  inicial, solo el Secretario; la Directiva no imprime la carta de su solicitud salvo que la matriz le
+  otorgue el permiso con ámbito de club) y responde los datos de la carta (`numeroOficio`, `asunto`, `liga`,
   `fechaEmision`, `solicitante`, el bloque del formato y el estado con su dictamen). La interfaz la
   compone con la plantilla del formato y la guarda en PDF con el diálogo de impresión del navegador.
 - **Auditoría.** `REGISTRAR_SOLICITUD_CANCHA` y `RESOLVER_SOLICITUD_CANCHA` en `M-06`, con

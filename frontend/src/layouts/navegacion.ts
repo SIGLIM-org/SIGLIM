@@ -125,7 +125,7 @@ export const seccionesApp: SeccionApp[] = [
       },
       {
         // B-07: captura la Directiva o el Secretario, dictamina la Presidencia y el Secretario genera
-        // el oficio; basta uno de los tres permisos [PROPUESTA].
+        // el oficio; basta uno de los tres permisos (DEC-136, [PROPUESTA]).
         nombre: 'Trámites de cancha',
         ruta: '/app/programacion/tramites-cancha',
         permiso: [

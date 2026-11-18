@@ -195,7 +195,7 @@ describe('PantallaTramitesCancha (B-07, UI-028)', () => {
     })
     expect(cuerpo.oferta).toBeUndefined()
     expect(await screen.findByRole('status')).toHaveTextContent('OF-2026-0001')
-  })
+  }, 20_000) // Llena los 13 campos obligatorios del Formato 1 tecla por tecla.
 
   it('RN-021: la Presidencia no aprueba sin motivo y lo envía con él', async () => {
     otorgar('LIGA', APROBAR)
