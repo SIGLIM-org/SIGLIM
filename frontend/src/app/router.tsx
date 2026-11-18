@@ -213,6 +213,17 @@ export const rutas: RouteObject[] = [
                 HydrateFallback: CargandoPagina,
               },
               {
+                path: '/app/programacion/tramites-cancha',
+                lazy: async () => {
+                  const { PantallaTramitesCancha } = await import(
+                    '@/features/canchas/tramites/PantallaTramitesCancha'
+                  )
+
+                  return { Component: PantallaTramitesCancha }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
                 path: '/app/programacion/arbitros',
                 lazy: async () => {
                   const { PantallaArbitros } = await import(
