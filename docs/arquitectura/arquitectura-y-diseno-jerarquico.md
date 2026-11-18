@@ -243,7 +243,7 @@ de entrega N o B del ERS; los seis RF de programación automática (F) no se asi
 | M-04.3 Documentos y validación | Resguardo privado de documentos y fotos; validación por el Secretario (ADR-0013). | RF-108, RF-109 | N | P-02 |
 | M-04.4 Renovación y transferencia | Renovación y cambio de club entre temporadas según configuración. | RF-015, RF-016, RF-111 | B | P-02 |
 | M-04.5 Estados y elegibilidad | Estados del registro, elegibilidad, categoría superior, bloqueo por sanción; historial. | RF-017, RF-019, RF-020, RF-110 · RF-018 | N · B | P-05 |
-| M-04.6 Consulta propia | Información del jugador o del menor para su tutor. | RF-144 | N | — |
+| M-04.6 Consulta propia | Información del jugador o del menor para su tutor: registros, documentos, elegibilidad, partidos y sanciones (`/mi-informacion`, DEC-139 a DEC-145). | RF-144 | N | — |
 | **M-05 Árbitros y designaciones** | | | | |
 | M-05.1 Árbitros y validación | Árbitros presentados por los clubes, validación y catálogo; cuota por club. | RF-021, RF-112, RF-113 · RF-114 | N · B | P-03 |
 | M-05.2 Disponibilidad arbitral | Disponibilidad por fecha y horario. | RF-022 | B | P-03 |
@@ -500,6 +500,8 @@ flowchart BT
     DIS -. "implementa<br/>RestriccionesDeEquipo" .-> PRO
     DIS -. "implementa<br/>ConsultaSanciones" .-> PAR
     ARB -. "implementa ConsultaDesignaciones" .-> PRO
+    PAR -. "implementa<br/>ConsultaPartidosPropios" .-> REG
+    DIS -. "implementa<br/>ConsultaSancionesPropias" .-> REG
 ```
 
 *Figura 12. Niveles de dependencia entre módulos (se muestran las relaciones principales).*
@@ -512,6 +514,7 @@ flowchart BT
 | Cobro vencido → baja por falta de pago (RF-130, RF-141) | Evento `CobroVencido`, oyente en `disciplina` | Misma transacción |
 | Resolución con efecto retroactivo → resultados (RF-052, RF-131) | `disciplina` llama a `PartidosService` | Misma transacción |
 | Sanción vigente → conflicto de programación o alineación (RF-020, RF-039) | Interfaces de `programacion` y `partidos` implementadas por `disciplina` | Solo lectura |
+| Consulta propia → partidos y sanciones del jugador (RF-144, H-24.1) | Interfaces `ConsultaPartidosPropios` y `ConsultaSancionesPropias` de `registros`, implementadas por `partidos` y `disciplina` (DEC-143) | Solo lectura |
 | Cualquier evento → avisos y correo (RF-142, RF-143) | Oyentes de `notificaciones`; correo por bandeja de salida | Aviso en la misma transacción; correo después |
 
 ### 4.3 Componentes transversales
