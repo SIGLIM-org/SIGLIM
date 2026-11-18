@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.17 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.18 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -66,6 +66,7 @@ Versión 5.17 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.15 | 17 de noviembre de 2026 | B-09.1: §6.5 con el contrato de la disponibilidad arbitral (`GET /arbitros/{id}/disponibilidad?desde=&hasta=`, `POST` y `DELETE …/{disponibilidadId}`): intervalos `[desde, hasta)`, `disponible` opcional con `true` por omisión, solo árbitros `VALIDADO`, borrado físico porque no es historial deportivo, permiso `arbitraje.disponibilidad:EDITAR` sobre la persona del árbitro (Comisión en `LIGA`, árbitro en `PROPIO`) y auditoría `REGISTRAR_DISPONIBILIDAD_ARBITRAL`/`ELIMINAR_DISPONIBILIDAD_ARBITRAL` (RF-022). |
 | 5.16 | 17 de noviembre de 2026 | B-30: §6.7 indica que publicar la jornada emite `JornadaPublicada`; §6.13 con «Cobros automáticos al publicar la jornada» (RF-136): cobros `ARBITRAJE` y `CANCHA` a cada equipo con la tarifa de la temporada y la categoría, sin cobro de cancha al dueño de la cancha (DEC-33), omisión auditada sin tarifa o con tarifa en cero, periodo configurable (`dias-para-pagar`), idempotencia por `ux_cobros_partido` y auditoría `GENERAR_COBRO` y `GENERAR_COBROS_JORNADA`. |
 | 5.17 | 17 de noviembre de 2026 | B-06.1: §6.4 con la renovación y la transferencia entre temporadas (`POST /registros-jugador/renovaciones` y `/transferencias`): `{ personaId, equipoId }`, registro nuevo `PENDIENTE_VALIDACION` enlazado por `registro_anterior_id`, `422 RF-015`/`RF-016` si el registro anterior no existe o no corresponde al tipo de movimiento, `409 RF-111` si la temporada no permite el cambio de club, `409 VAL-026`/`RN-039` dentro de la temporada, documentos aprobados heredados solo en la renovación del mismo club y auditoría `RENOVAR_REGISTRO`/`TRANSFERIR_REGISTRO`; §3.2 con `RF-015` y `RF-016` en `422` y `RF-111` en `409` (DEC-146). |
+| 5.18 | 17 de noviembre de 2026 | B-06.2: §6.4 con `GET /registros-jugador/movimientos/opcion?personaId=&equipoId=` (DEC-147): `{ tipo, permitido, temporadaAnterior, motivo }` para que el asistente de alta (F-18) ofrezca la renovación o la transferencia, o la muestre deshabilitada si la temporada no permite el cambio de club (RF-111), sin datos del club de origen; solo lectura y sin auditoría. |
 
 ## Índice
 
@@ -1246,6 +1247,7 @@ del equipo. Un equipo o una operación de otro club responde `404` igual que uno
 | `POST /registros-jugador/{id}/baja` | Dar de baja un registro `ACTIVO` con motivo; detalle abajo | `registros.registro:EDITAR` (club del equipo) | RF-014 | N |
 | `GET /registros-jugador/{id}/historial` | Cambios de estado con usuario y motivo | `registros.registro:CONSULTAR` | RF-018 | B |
 | `GET /registros-jugador/{id}/elegibilidad?equipoId=` | `{ elegible, causas: [ { codigo, mensaje } ] }` | `registros.registro:CONSULTAR` | RF-019, RF-020, RF-110 | N |
+| `GET /registros-jugador/movimientos/opcion?personaId=&equipoId=` | Movimiento entre temporadas que el asistente de alta puede ofrecer: `{ tipo, permitido, temporadaAnterior, motivo }`; detalle abajo | `registros.registro:EDITAR` (club del equipo de destino) | RF-015, RF-016, RF-111 | B |
 | `POST /registros-jugador/renovaciones` · `/transferencias` | Renovación en el mismo club (RF-015) o cambio de club entre temporadas (RF-016): `{ personaId, equipoId }`; queda `PENDIENTE_VALIDACION` y enlaza el registro anterior; detalle abajo | `registros.registro:EDITAR` (club del equipo de destino) | RF-015, RF-016, RF-111 | B |
 | Documentos | Carga, reemplazo, enlace y validación de cada documento; detalle abajo y en §7 | `registros.documento:*` | RF-108, RF-109 | N |
 | `GET /mi-informacion` | `{ titulares: [ { personaId, nombre, esPropia, esMenor } ] }`: la persona de la cuenta y los menores bajo su tutela vigente; detalle abajo | `registros.registro:CONSULTAR` (cualquier ámbito) | RF-144 | N |
@@ -1869,6 +1871,24 @@ El motivo del historial es «Renovación desde la temporada «…»» o «Transf
 la temporada «…»». Se audita en `M-04` sobre `registros_jugador` como `RENOVAR_REGISTRO` o
 `TRANSFERIR_REGISTRO`, con `{ "personaId", "equipoId", "temporadaId", "registroAnteriorId",
 "clubAnteriorId", "equipoAnteriorId", "temporadaAnteriorId", "estado" }`, sin datos personales.
+
+**Opción para el asistente de alta (B-06.2, DEC-147).** `GET /registros-jugador/movimientos/opcion?personaId=&equipoId=`
+responde `200` con `Cache-Control: no-store` y
+`{ "tipo": "RENOVACION" | "TRANSFERENCIA" | null, "permitido", "temporadaAnterior", "motivo" }`, con
+las mismas reglas que los `POST` (que vuelven a validar al enviar). Es de solo lectura y no se audita.
+
+1. Sin `registros.registro:EDITAR` en ningún ámbito: `403 VAL-015`.
+2. Falta `personaId` o `equipoId`: `400 VALIDACION`.
+3. El equipo no existe en la liga o es de un club fuera de ámbito: `404` (VAL-024).
+4. La persona ya tiene un registro no `RECHAZADO` en la temporada del equipo, o no tiene registro
+   anterior: `tipo` nulo (`permitido` falso y lo demás nulo); el asistente sigue con el alta normal.
+5. Registro anterior del mismo club: `RENOVACION`, `permitido` verdadero.
+6. De otro club: `TRANSFERENCIA`, con `permitido` igual a `permite_cambio_club` vigente de la
+   temporada destino; si es falso, `motivo` explica la configuración de la Liga (el mismo texto del
+   `409 RF-111`).
+
+`temporadaAnterior` es solo el nombre de la temporada del registro anterior: nunca se responden el
+club, el equipo, el estado ni los ids de ese registro (DEC-88, DEC-90).
 
 ### 6.5 M-05 Árbitros y designaciones
 

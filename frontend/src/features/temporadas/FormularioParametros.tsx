@@ -76,6 +76,8 @@ export function FormularioParametros({
   const primera = vigente === null
   const conCambios = hayCambios(borrador, vigente)
   const noOficial = (campo: string) => !borrador.oficial && CAMPOS_DEMO.includes(campo)
+  // B-06.2 (RF-111): el cambio de club no está en CAMPOS_DEMO (DEC-13), pero se rotula «No oficial»
+  // mientras la versión no sea oficial, como pide la pantalla F-11.
 
   const quitarError = (campo: string) =>
     setErrores(({ [campo]: _quitado, ...resto }) => resto)
@@ -343,6 +345,9 @@ export function FormularioParametros({
           <CasillaParametro
             id={`${id}-cambio-club`}
             etiqueta={etiquetaCampoParametro.permiteCambioClub}
+            interruptor
+            ayuda="Si lo desactivas, los clubes no pueden registrar como transferencia a un jugador que jugó en otro club en una temporada anterior."
+            noOficial={!borrador.oficial}
             marcada={borrador.permiteCambioClub}
             error={errores.permiteCambioClub}
             onCambiar={(marcada) =>

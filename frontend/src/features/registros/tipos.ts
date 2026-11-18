@@ -171,6 +171,21 @@ export type CrearRegistroPeticion = {
   equipoId: string
 }
 
+/** Movimiento entre temporadas (B-06.1, DEC-146): renovación en el mismo club o transferencia. */
+export type TipoMovimiento = 'RENOVACION' | 'TRANSFERENCIA'
+
+/**
+ * `GET /registros-jugador/movimientos/opcion` (B-06.2, DEC-147): qué movimiento ofrece el asistente.
+ * `tipo` nulo si no aplica; `permitido` falso solo en una transferencia que la temporada no admite
+ * (RF-111), con `motivo`. Nunca trae el club ni el estado del registro anterior (DEC-88, DEC-90).
+ */
+export type OpcionMovimiento = {
+  tipo: TipoMovimiento | null
+  permitido: boolean
+  temporadaAnterior: string | null
+  motivo: string | null
+}
+
 export type TipoAvisoPrivacidad = 'INTEGRAL' | 'SIMPLIFICADO'
 
 /** `GET /avisos-privacidad/vigente` (DEC-80). `esDemo` se rotula «No oficial» (DEC-74). */

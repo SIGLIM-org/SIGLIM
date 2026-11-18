@@ -8,12 +8,14 @@ import type {
   DocumentoRegistro,
   EnlaceDocumento,
   FiltrosRegistros,
+  OpcionMovimiento,
   RegistrarConsentimientoPeticion,
   RegistrarTutelaPeticion,
   RegistroJugador,
   RegistroJugadorDetalle,
   RegistroJugadorFila,
   RequisitosRegistro,
+  TipoMovimiento,
   Tutela,
   ValidarDocumentoPeticion,
   ValidarRegistroPeticion,
@@ -38,6 +40,8 @@ export const clavesRegistros = {
   detalle: (id: string) => ['registros', 'registros', 'detalle', id] as const,
   requisitos: (id: string) => ['registros', 'requisitos', id] as const,
   avisoVigente: ['registros', 'aviso-vigente'] as const,
+  opcionMovimiento: (personaId: string, equipoId: string) =>
+    ['registros', 'opcion-movimiento', personaId, equipoId] as const,
 }
 
 function consultaDeRegistros({
@@ -108,6 +112,51 @@ export function useRegistrarAltaJugador() {
   return useMutation({
     mutationFn: (peticion: CrearRegistroPeticion) =>
       api.post<RegistroJugador>('registros-jugador', peticion),
+    onSuccess: () =>
+      Promise.all([
+        clienteConsultas.invalidateQueries({ queryKey: clavesRegistros.registros }),
+        clienteConsultas.invalidateQueries({ queryKey: clavesOrganizacion.equipos }),
+      ]),
+  })
+}
+
+// ── Renovación y transferencia (B-06.2, DEC-146, DEC-147) ─────────────────────────────────────
+
+/** Ruta de `POST` de cada movimiento entre temporadas (B-06.1). */
+const RUTA_MOVIMIENTO: Record<TipoMovimiento, string> = {
+  RENOVACION: 'registros-jugador/renovaciones',
+  TRANSFERENCIA: 'registros-jugador/transferencias',
+}
+
+/**
+ * Movimiento que el asistente puede ofrecer a la persona encontrada hacia un equipo de destino
+ * (DEC-147). Con `personaId` o `equipoId` vacíos no consulta.
+ */
+export function useOpcionMovimiento(personaId: string | undefined, equipoId: string | undefined) {
+  return useQuery({
+    queryKey: clavesRegistros.opcionMovimiento(personaId ?? '', equipoId ?? ''),
+    queryFn: () =>
+      api.get<OpcionMovimiento>(
+        `registros-jugador/movimientos/opcion?${new URLSearchParams({
+          personaId: personaId ?? '',
+          equipoId: equipoId ?? '',
+        }).toString()}`,
+      ),
+    enabled: Boolean(personaId && equipoId),
+    retry: reintentarConsulta,
+  })
+}
+
+/**
+ * Renovación (RF-015) o transferencia (RF-016, RF-111): crea el registro `PENDIENTE_VALIDACION`
+ * enlazado con el anterior. Como el alta, cambia los listados y la plantilla del equipo.
+ */
+export function useRegistrarMovimiento() {
+  const clienteConsultas = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ tipo, ...peticion }: CrearRegistroPeticion & { tipo: TipoMovimiento }) =>
+      api.post<RegistroJugador>(RUTA_MOVIMIENTO[tipo], peticion),
     onSuccess: () =>
       Promise.all([
         clienteConsultas.invalidateQueries({ queryKey: clavesRegistros.registros }),

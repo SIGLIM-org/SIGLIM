@@ -6,7 +6,7 @@
 
 import { curpValida } from '@/features/organizacion/directiva'
 import type { Equipo, PersonaDetalle } from '@/features/organizacion/tipos'
-import type { PersonaConMinoria, RegistroJugador } from '@/features/registros/tipos'
+import type { PersonaConMinoria, RegistroJugador, TipoMovimiento } from '@/features/registros/tipos'
 import { ApiError } from '@/lib/api/ApiError'
 
 // ── Pasos (DEC-103) ─────────────────────────────────────────────────────────────────────────────
@@ -91,6 +91,28 @@ export function agruparEquipos(equipos: readonly Equipo[]): GrupoEquipos[] {
   }
 
   return [...grupos.values()]
+}
+
+/**
+ * Equipo con el que el paso 1 pregunta si se ofrece una renovación o una transferencia (B-06.2,
+ * DEC-147). La respuesta depende solo del club y de la temporada del equipo, así que vale cualquier
+ * equipo cuando todos los elegibles son del mismo club y de la misma temporada (el caso de la
+ * Directiva). Si hay varios clubes o temporadas no se pregunta y el asistente sigue con el alta
+ * normal **[PROPUESTA]**.
+ */
+export function equipoDeReferencia(grupos: readonly GrupoEquipos[]): Equipo | undefined {
+  const equipos = grupos.flatMap((grupo) => grupo.equipos)
+  const [primero] = equipos
+
+  if (!primero) {
+    return undefined
+  }
+
+  const mismoDestino = equipos.every(
+    (equipo) => equipo.club.id === primero.club.id && equipo.temporada.id === primero.temporada.id,
+  )
+
+  return mismoDestino ? primero : undefined
 }
 
 // ── Parentesco (DEC-105) ────────────────────────────────────────────────────────────────────────
@@ -380,6 +402,11 @@ export type EstadoAsistente = {
   tutelaRegistrada: boolean
   consentimientoId: string | null
   registro: RegistroJugador | null
+  /**
+   * Movimiento elegido en el paso 1 (B-06.2): el registro se crea con la renovación o la
+   * transferencia en lugar del alta. Nulo en un alta normal.
+   */
+  movimiento: TipoMovimiento | null
   /** Mensaje de bloqueo vigente (DEC-107). */
   bloqueo: AccionError | null
   errores: ErroresAsistente
@@ -404,6 +431,7 @@ export const ESTADO_INICIAL: EstadoAsistente = {
   tutelaRegistrada: false,
   consentimientoId: null,
   registro: null,
+  movimiento: null,
   bloqueo: null,
   errores: SIN_ERRORES,
 }

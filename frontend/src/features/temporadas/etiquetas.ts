@@ -113,7 +113,7 @@ export const etiquetaCampoParametro: Record<CampoParametro, string> = {
   empateLiguillaPorPenales: 'Empate en liguilla por penales',
   equiposAscienden: 'Equipos que ascienden',
   equiposDescienden: 'Equipos que descienden',
-  permiteCambioClub: 'Permite cambio de club',
+  permiteCambioClub: 'Permitir cambio de club entre temporadas',
   esDemo: 'Oficial / No oficial',
   categorias: 'Duración y bloque por categoría',
 }
