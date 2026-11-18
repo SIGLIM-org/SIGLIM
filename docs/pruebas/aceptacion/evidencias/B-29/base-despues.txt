@@ -1,0 +1,19 @@
+B-29.3 · Estado del Supabase compartido después de la prueba
+Consultado: 2026-11-17 17:31 (America/Mexico_City), develop en 5911a87
+
+-- siglim.tarifas (5 filas)
+id                                   | temporada             | estado        | categoria              | concepto  | monto
+9c7ae683-99b0-48f9-af6c-9d9ad21b4f21 | Temporada 2026–2027   | CONFIGURACION | Libre Demostración     | ARBITRAJE | 400.00
+5bb4ab70-39ab-4878-b794-a1cadb5ef20a | Temporada 2026–2027   | CONFIGURACION | Libre Demostración     | CANCHA    | 200.00
+decbca57-b7a0-453c-bc38-2ea5f6f23c8d | Temporada 2026–2027   | CONFIGURACION | Veteranos Demostración | ARBITRAJE | 300.00
+d04d3c19-4f10-49d7-9655-9584789712b9 | Temporada 2026–2027   | CONFIGURACION | Veteranos Demostración | CANCHA    | 0.00
+86595834-b0ce-4152-b23c-841ae5ad8a67 | Temporada prueba H-13 | CERRADA       | Libre Demostración     | ARBITRAJE | 250.00
+
+Comprobaciones
+- CA-1: una sola fila por temporada, categoría y concepto; el POST repetido (monto 999) no creó fila
+  ni cambió la Arbitraje de Libre.
+- CA-2: no hay ninguna fila con -50, -1, 10.555 ni 10.56; la Cancha de Veteranos solo tiene 0.00.
+- CA-3: la temporada cerrada H-13 conserva su única fila sembrada, sin cambios (250.00) y sin
+  Cancha de Libre.
+- V-2: no se creó ninguna tarifa con una categoría ajena.
+- Las cuatro tarifas de la Temporada 2026–2027 se conservan para B-30.2 (SCRUM-446).
