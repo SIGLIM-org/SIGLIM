@@ -44,7 +44,10 @@ import org.springframework.stereotype.Repository;
  * {@code personas_leer}). La CURP se lee para enmascararla ({@link EnmascaradoCurp}); el servicio
  * decide si el detalle la lleva completa (DEC-110).
  *
- * <p>Refs: H-09.2, H-10.2, H-10.5, H-23.1, RF-013, RF-014, RF-017, RF-107, RF-109, RN-037, VAL-017, VAL-025,
+ * <p>El historial (B-07.1) lee {@code registro_estado_historial}, que solo escribe
+ * {@code tg_registros_historial} ({@link #historial}).
+ *
+ * <p>Refs: B-07.1, H-09.2, H-10.2, H-10.5, H-23.1, RF-013, RF-014, RF-017, RF-018, RF-107, RF-109, RN-037, VAL-017, VAL-025,
  * VAL-026, DEC-88, DEC-89, DEC-90, DEC-102, DEC-109, DEC-110, DEC-122, DEC-124
  */
 @Repository
@@ -462,6 +465,38 @@ class RegistroJugadorRepository {
                 .param("temporadaId", filtro.temporadaId())
                 .param("clubId", filtro.clubId())
                 .param("equipoId", filtro.equipoId());
+    }
+
+    // ── Historial (B-07.1, RF-018) ──────────────────────────────────────────────────────────────
+
+    /**
+     * Cambios de estado del registro del más antiguo al más reciente (por {@code cambiado_en} y, a
+     * igual fecha, por {@code id}), con el nombre mostrado de quien los hizo. Sujeto a RLS
+     * ({@code registro_historial_leer} y {@code perfiles_leer}): un perfil que la sesión no puede ver
+     * deja el nombre en {@code null}.
+     */
+    List<CambioEstadoRegistroDto> historial(UUID registroId) {
+        return jdbc.sql("""
+                        SELECT h.estado_anterior, h.estado_nuevo, h.motivo, h.cambiado_por,
+                               pf.nombre_mostrado AS cambiado_por_nombre, h.cambiado_en
+                          FROM registro_estado_historial h
+                          LEFT JOIN perfiles pf ON pf.id = h.cambiado_por
+                         WHERE h.registro_id = :registro
+                         ORDER BY h.cambiado_en, h.id
+                        """)
+                .param("registro", registroId)
+                .query((fila, numero) -> {
+                    String anterior = fila.getString("estado_anterior");
+                    UUID cambiadoPor = fila.getObject("cambiado_por", UUID.class);
+                    return new CambioEstadoRegistroDto(
+                            anterior == null ? null : EstadoRegistro.valueOf(anterior),
+                            EstadoRegistro.valueOf(fila.getString("estado_nuevo")),
+                            fila.getString("motivo"),
+                            cambiadoPor == null ? null
+                                    : new ReferenciaDto(cambiadoPor, fila.getString("cambiado_por_nombre")),
+                            enZonaDeNegocio(fila.getObject("cambiado_en", OffsetDateTime.class)));
+                })
+                .list();
     }
 
     /** Lista blanca de {@code ORDER BY}: nunca se concatena texto del usuario (§4). */

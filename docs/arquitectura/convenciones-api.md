@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.17 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.18 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -66,6 +66,7 @@ Versión 5.17 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.15 | 17 de noviembre de 2026 | B-09.1: §6.5 con el contrato de la disponibilidad arbitral (`GET /arbitros/{id}/disponibilidad?desde=&hasta=`, `POST` y `DELETE …/{disponibilidadId}`): intervalos `[desde, hasta)`, `disponible` opcional con `true` por omisión, solo árbitros `VALIDADO`, borrado físico porque no es historial deportivo, permiso `arbitraje.disponibilidad:EDITAR` sobre la persona del árbitro (Comisión en `LIGA`, árbitro en `PROPIO`) y auditoría `REGISTRAR_DISPONIBILIDAD_ARBITRAL`/`ELIMINAR_DISPONIBILIDAD_ARBITRAL` (RF-022). |
 | 5.16 | 17 de noviembre de 2026 | B-30: §6.7 indica que publicar la jornada emite `JornadaPublicada`; §6.13 con «Cobros automáticos al publicar la jornada» (RF-136): cobros `ARBITRAJE` y `CANCHA` a cada equipo con la tarifa de la temporada y la categoría, sin cobro de cancha al dueño de la cancha (DEC-33), omisión auditada sin tarifa o con tarifa en cero, periodo configurable (`dias-para-pagar`), idempotencia por `ux_cobros_partido` y auditoría `GENERAR_COBRO` y `GENERAR_COBROS_JORNADA`. |
 | 5.17 | 17 de noviembre de 2026 | B-06.1: §6.4 con la renovación y la transferencia entre temporadas (`POST /registros-jugador/renovaciones` y `/transferencias`): `{ personaId, equipoId }`, registro nuevo `PENDIENTE_VALIDACION` enlazado por `registro_anterior_id`, `422 RF-015`/`RF-016` si el registro anterior no existe o no corresponde al tipo de movimiento, `409 RF-111` si la temporada no permite el cambio de club, `409 VAL-026`/`RN-039` dentro de la temporada, documentos aprobados heredados solo en la renovación del mismo club y auditoría `RENOVAR_REGISTRO`/`TRANSFERIR_REGISTRO`; §3.2 con `RF-015` y `RF-016` en `422` y `RF-111` en `409` (DEC-146). |
+| 5.18 | 17 de noviembre de 2026 | B-07.1: §6.4 con el historial de un registro (`GET /registros-jugador/{id}/historial`): arreglo sin paginar del más antiguo al más reciente con `estadoAnterior`, `estadoNuevo`, `motivo`, `cambiadoPor { id, nombre }` y `cambiadoEn`; `registros.registro:CONSULTAR` sobre el club del registro (otro club, `404`, VAL-024; `PROPIO` queda para H-24), `Cache-Control: no-store`, solo lectura y sin auditar (RF-018, RNF-015). |
 
 ## Índice
 
@@ -1244,7 +1245,7 @@ del equipo. Un equipo o una operación de otro club responde `404` igual que uno
 | `GET /registros-jugador/{id}/requisitos` | Documentos que exige su categoría y cuáles faltan; detalle abajo | `registros.registro:CONSULTAR` (club o persona del registro) | RF-108, VAL-001 | N |
 | `POST /registros-jugador/{id}/validacion` | Validar o rechazar; detalle abajo | `registros.registro:VALIDAR` (club del equipo) | RF-109 | N |
 | `POST /registros-jugador/{id}/baja` | Dar de baja un registro `ACTIVO` con motivo; detalle abajo | `registros.registro:EDITAR` (club del equipo) | RF-014 | N |
-| `GET /registros-jugador/{id}/historial` | Cambios de estado con usuario y motivo | `registros.registro:CONSULTAR` | RF-018 | B |
+| `GET /registros-jugador/{id}/historial` | Cambios de estado con usuario y motivo, del más antiguo al más reciente; detalle abajo | `registros.registro:CONSULTAR` (club del registro) | RF-018 | B |
 | `GET /registros-jugador/{id}/elegibilidad?equipoId=` | `{ elegible, causas: [ { codigo, mensaje } ] }` | `registros.registro:CONSULTAR` | RF-019, RF-020, RF-110 | N |
 | `POST /registros-jugador/renovaciones` · `/transferencias` | Renovación en el mismo club (RF-015) o cambio de club entre temporadas (RF-016): `{ personaId, equipoId }`; queda `PENDIENTE_VALIDACION` y enlaza el registro anterior; detalle abajo | `registros.registro:EDITAR` (club del equipo de destino) | RF-015, RF-016, RF-111 | B |
 | Documentos | Carga, reemplazo, enlace y validación de cada documento; detalle abajo y en §7 | `registros.documento:*` | RF-108, RF-109 | N |
@@ -1706,6 +1707,49 @@ Responde `200` con `Cache-Control: no-store` y el registro, con los mismos campo
 `BAJA` del historial (DEC-124). Se audita en `M-04` como `DAR_BAJA_REGISTRO_JUGADOR` (entidad
 `registros_jugador`) con `{ "personaId", "equipoId", "temporadaId", "estadoAnterior": "ACTIVO",
 "estado": "BAJA", "bajaEn" }` y el motivo como motivo del evento, sin datos personales (DEC-123).
+
+#### Historial de un registro (B-07.1, RF-018)
+
+`GET /registros-jugador/{id}/historial` devuelve los cambios de estado del registro que escribe
+`tg_registros_historial`: el alta y cada cambio de estado (validación, rechazo, baja…), con su
+motivo, quién lo hizo y cuándo. Es de **solo lectura** (RNF-015): la ruta no admite `POST`, `PATCH`
+ni `DELETE` (`405`) y la consulta no se audita.
+
+Exige `registros.registro:CONSULTAR` sobre el **club del registro**
+(`ObjetivoAutorizacion.deClubes`): una cuenta con ámbito `LIGA` ve el de cualquier registro de la
+liga y una de ámbito `CLUB`, solo los de su club. La consulta del propio jugador o de su tutor
+(ámbito `PROPIO`) no se incluye: es de H-24. Orden de errores:
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. El registro no existe en la liga, o es de un club fuera del ámbito del usuario:
+   `404 NO_ENCONTRADO`, sin distinguir los dos casos (VAL-024).
+
+Responde `200` con `Cache-Control: no-store` y un **arreglo sin paginar** (un registro tiene pocos
+cambios), del más antiguo al más reciente (`cambiado_en` y, a igual fecha, el orden de inserción):
+
+```json
+[
+  {
+    "estadoAnterior": null,
+    "estadoNuevo": "PENDIENTE_VALIDACION",
+    "motivo": "Alta del registro",
+    "cambiadoPor": { "id": "…", "nombre": "Directiva Halcones" },
+    "cambiadoEn": "2026-11-11T12:00:00-06:00"
+  },
+  {
+    "estadoAnterior": "PENDIENTE_VALIDACION",
+    "estadoNuevo": "ACTIVO",
+    "motivo": "Documentos revisados en ventanilla",
+    "cambiadoPor": { "id": "…", "nombre": "Secretario" },
+    "cambiadoEn": "2026-11-12T10:30:00-06:00"
+  }
+]
+```
+
+`estadoAnterior` es `null` en el alta. `cambiadoEn` va en `America/Mexico_City`. `cambiadoPor` es
+`{ "id", "nombre" }` con el nombre mostrado del perfil; como en `validadoPor`, el nombre es `null`
+si la sesión no puede ver ese perfil (RLS `perfiles_leer`: hoy una cuenta de club no ve los perfiles
+de la liga), y todo el campo es `null` si el historial no guardó usuario.
 
 #### Consulta propia (H-24.1, RF-144, DEC-139 a DEC-145)
 
