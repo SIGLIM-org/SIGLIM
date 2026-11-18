@@ -71,7 +71,7 @@ import org.springframework.transaction.annotation.Transactional;
  *       {@code baja_en} es la fecha de México. Se bloquea el registro con {@code bloquearRegistro} y el
  *       {@code UPDATE} es condicional. Un equipo en {@code BAJA} no la impide.
  *       {@code SUSPENDIDO → BAJA} queda para la sanción de M-09.</li>
- *   <li><b>Renovación y transferencia (B-06, DEC-139).</b> {@code registros.registro:EDITAR} sobre el
+ *   <li><b>Renovación y transferencia (B-06, DEC-146).</b> {@code registros.registro:EDITAR} sobre el
  *       club destino; el registro anterior es el más reciente de la persona en una temporada previa
  *       ({@code siglim.registro_anterior}). La renovación exige el mismo club y reutiliza los
  *       documentos aprobados del anterior; la transferencia exige otro club y que la temporada
@@ -84,7 +84,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Refs: B-06, H-09.2, H-10.2, H-10.5, H-23.1, RF-003, RF-013, RF-014, RF-015, RF-016, RF-017, RF-018, RF-093,
  * RF-101, RF-107, RF-109, RF-111, RN-021, RN-037, RN-039, RN-055, RNF-012, VAL-001, VAL-015, VAL-017, VAL-022,
  * VAL-024, VAL-025, VAL-026, CU-004, DEC-13, DEC-78, DEC-85 a DEC-90, DEC-97 a DEC-102, DEC-109, DEC-110,
- * DEC-118 a DEC-124, DEC-139
+ * DEC-118 a DEC-124, DEC-146
  */
 @Service
 public class RegistroJugadorService {
@@ -199,15 +199,15 @@ public class RegistroJugadorService {
                 .orElseThrow(() -> new IllegalStateException("El registro " + id + " no es visible tras guardarlo"));
     }
 
-    // ── Renovación y transferencia entre temporadas (B-06, DEC-139) ──────────────────────────────
+    // ── Renovación y transferencia entre temporadas (B-06, DEC-146) ──────────────────────────────
 
     /**
      * Renueva en una temporada nueva el registro de una persona que sigue en el mismo club (RF-015).
      * Crea un registro {@code PENDIENTE_VALIDACION} en el equipo de destino y lo enlaza con el último
      * registro de la persona en una temporada anterior ({@code registro_anterior_id}); los documentos
-     * aprobados de sus registros anteriores del mismo club cuentan para VAL-001 (DEC-139).
+     * aprobados de sus registros anteriores del mismo club cuentan para VAL-001 (DEC-146).
      *
-     * <p>Orden de errores (el mismo del alta más los de DEC-139):
+     * <p>Orden de errores (el mismo del alta más los de DEC-146):
      * <ol>
      *   <li>Sin {@code registros.registro:EDITAR} en ningún ámbito: {@code 403 VAL-015}.</li>
      *   <li>Falta {@code personaId} o {@code equipoId}: {@code 400 VALIDACION}.</li>
@@ -242,7 +242,7 @@ public class RegistroJugadorService {
      *       valor por omisión de la tabla, {@code true}.</li>
      * </ul>
      * Una transferencia no hereda los documentos del club de origen: el club destino carga los que
-     * correspondan al registro nuevo (DEC-139).
+     * correspondan al registro nuevo (DEC-146).
      */
     @Transactional
     public RegistroJugadorDto transferir(MovimientoRegistroRequest peticion) {

@@ -125,10 +125,10 @@ class RegistroJugadorControllerTest {
         Mockito.verify(servicio).registrar(new CrearRegistroJugadorRequest(PERSONA, EQUIPO));
     }
 
-    // ── Renovación y transferencia (B-06, DEC-139) ─────────────────────────────────────────────
+    // ── Renovación y transferencia (B-06, DEC-146) ─────────────────────────────────────────────
 
     @Test
-    @DisplayName("RF-015 · DEC-139: POST /registros-jugador/renovaciones responde 201 con Location y no-store")
+    @DisplayName("RF-015 · DEC-146: POST /registros-jugador/renovaciones responde 201 con Location y no-store")
     void renovar() {
         given(servicio.renovar(any())).willReturn(CREADO);
 
@@ -145,7 +145,7 @@ class RegistroJugadorControllerTest {
     }
 
     @Test
-    @DisplayName("RF-016 · DEC-139: POST /registros-jugador/transferencias responde 201 con Location y no-store")
+    @DisplayName("RF-016 · DEC-146: POST /registros-jugador/transferencias responde 201 con Location y no-store")
     void transferir() {
         given(servicio.transferir(any())).willReturn(CREADO);
 

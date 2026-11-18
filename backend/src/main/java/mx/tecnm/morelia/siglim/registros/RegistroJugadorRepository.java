@@ -184,7 +184,7 @@ class RegistroJugadorRepository {
      * El registro no rechazado más reciente de la persona en una temporada anterior de la liga, con
      * su club, equipo y temporada. Sale de {@code siglim.registro_anterior}, que es {@code SECURITY
      * DEFINER}: el club destino de una transferencia puede enlazarlo sin ver los demás datos del club
-     * de origen (DEC-139). Vacío si la persona no tiene registros anteriores.
+     * de origen (DEC-146). Vacío si la persona no tiene registros anteriores.
      */
     Optional<RegistroAnterior> registroAnterior(UUID personaId, UUID temporadaId) {
         return jdbc.sql("""
@@ -246,7 +246,7 @@ class RegistroJugadorRepository {
 
     /**
      * Igual que el alta, pero enlaza el registro de la temporada anterior de una renovación o
-     * transferencia ({@code registro_anterior_id}); el trigger valida el enlace (DEC-139).
+     * transferencia ({@code registro_anterior_id}); el trigger valida el enlace (DEC-146).
      */
     Optional<UUID> insertar(UUID personaId, UUID equipoId, UUID temporadaId, LocalDate altaEn,
             UUID registroAnteriorId, UUID creadoPor) {
@@ -496,7 +496,7 @@ class RegistroJugadorRepository {
                                EstadoRegistro estado) {
     }
 
-    /** Registro anterior de la persona, con su club, equipo y temporada (RF-015, DEC-139). */
+    /** Registro anterior de la persona, con su club, equipo y temporada (RF-015, DEC-146). */
     record RegistroAnterior(UUID id, UUID clubId, String clubNombre, UUID equipoId, String equipoNombre,
             UUID temporadaId, String temporadaNombre, EstadoRegistro estado) {
     }

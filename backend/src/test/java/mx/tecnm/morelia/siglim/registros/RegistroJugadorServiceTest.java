@@ -463,10 +463,10 @@ class RegistroJugadorServiceTest {
         verifyNoInteractions(auditoria);
     }
 
-    // ── Renovación y transferencia (B-06, DEC-139) ─────────────────────────────────────────────
+    // ── Renovación y transferencia (B-06, DEC-146) ─────────────────────────────────────────────
 
     @Test
-    @DisplayName("RF-015 · DEC-139: renueva en el mismo club, enlaza el registro anterior y audita")
+    @DisplayName("RF-015 · DEC-146: renueva en el mismo club, enlaza el registro anterior y audita")
     void renuevaEnElMismoClub() {
         prepararMovimiento(false, ANTERIOR_MISMO_CLUB, true);
 

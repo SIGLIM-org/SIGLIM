@@ -23,7 +23,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 /**
  * B-06 contra PostgreSQL: renovación y transferencia entre temporadas, enlace con el registro
  * anterior, configuración de cambio de club (RF-111), VAL-026 dentro de la temporada y reutilización
- * de documentos aprobados en la renovación (RF-015, DEC-139).
+ * de documentos aprobados en la renovación (RF-015, DEC-146).
  */
 class RenovacionesTransferenciasIT extends BaseDatosPrueba {
 
@@ -40,7 +40,7 @@ class RenovacionesTransferenciasIT extends BaseDatosPrueba {
     private DocumentoRegistroService documentos;
 
     @Test
-    @DisplayName("RF-015 · DEC-139: renueva en el mismo club, enlaza el registro anterior y deja historial")
+    @DisplayName("RF-015 · DEC-146: renueva en el mismo club, enlaza el registro anterior y deja historial")
     void renuevaYEnlazaElRegistroAnterior() {
         UUID anterior = temporada(2032);
         UUID nueva = temporada(2033);

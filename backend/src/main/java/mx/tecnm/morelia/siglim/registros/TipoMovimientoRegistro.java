@@ -2,9 +2,9 @@ package mx.tecnm.morelia.siglim.registros;
 
 /**
  * Tipo de movimiento de un registro entre temporadas: renovación en el mismo club (RF-015) o
- * transferencia a otro club (RF-016), con su código del ERS y la acción de auditoría (DEC-139).
+ * transferencia a otro club (RF-016), con su código del ERS y la acción de auditoría (DEC-146).
  *
- * <p>Refs: B-06, RF-015, RF-016, RF-093, DEC-139
+ * <p>Refs: B-06, RF-015, RF-016, RF-093, DEC-146
  */
 enum TipoMovimientoRegistro {
 

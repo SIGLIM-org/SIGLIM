@@ -1,5 +1,5 @@
 -- B-06 · Renovación de registros y transferencia de jugadores entre temporadas
--- (RF-015, RF-016, RF-111, VAL-026; DEC-13 y DEC-139).
+-- (RF-015, RF-016, RF-111, VAL-026; DEC-13 y DEC-146).
 --
 -- 1. siglim.registro_anterior(persona, temporada) devuelve el registro no rechazado más reciente de
 --    la persona en una temporada anterior de la misma liga, con su club, equipo y temporada. Es
@@ -18,7 +18,7 @@
 -- El servicio valida antes y explica; el trigger es la última garantía. Se aplica al Supabase
 -- compartido al fusionar en develop (DEC-52).
 --
--- Refs: B-06, RF-015, RF-016, RF-111, VAL-001, VAL-026, DEC-13, DEC-139
+-- Refs: B-06, RF-015, RF-016, RF-111, VAL-001, VAL-026, DEC-13, DEC-146
 
 -- 1. Registro anterior de la persona en una temporada anterior -----------------------------------
 
@@ -41,7 +41,7 @@ AS $$
    LIMIT 1
 $$;
 COMMENT ON FUNCTION siglim.registro_anterior(uuid, uuid) IS
-  'Registro no rechazado más reciente de la persona en una temporada anterior de la liga, con club y equipo, aunque RLS no lo muestre al club destino; el backend solo expone lo necesario para la renovación o transferencia (RF-015, RF-016, DEC-139).';
+  'Registro no rechazado más reciente de la persona en una temporada anterior de la liga, con club y equipo, aunque RLS no lo muestre al club destino; el backend solo expone lo necesario para la renovación o transferencia (RF-015, RF-016, DEC-146).';
 
 REVOKE EXECUTE ON FUNCTION siglim.registro_anterior(uuid, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION siglim.registro_anterior(uuid, uuid) TO siglim_app;
@@ -143,7 +143,7 @@ BEGIN
       PERFORM siglim.error_negocio('RN-021', 'El cambio de estado del registro requiere motivo.');
     END IF;
     IF NEW.estado = 'ACTIVO' AND OLD.estado = 'PENDIENTE_VALIDACION' THEN
-      -- VAL-001 (DEC-101, DEC-139): documentos vigentes aprobados del registro y, si es una
+      -- VAL-001 (DEC-101, DEC-146): documentos vigentes aprobados del registro y, si es una
       -- renovación, de los registros anteriores del mismo club (la cadena se corta al cambiar club).
       SELECT string_agg(td.nombre, ', ' ORDER BY rd.tipo_documento_id) INTO v_faltantes
         FROM siglim.requisitos_documento rd
@@ -188,11 +188,11 @@ BEGIN
   RETURN NEW;
 END $$;
 COMMENT ON FUNCTION siglim.tg_registros_validar() IS
-  'Alta: equipo activo (RF-013), CURP única en la temporada (VAL-017), sin cambio de club (VAL-026) y registro anterior de una temporada previa del mismo club o con cambio de club permitido (RF-015, RF-016, RF-111). Cambio: el registro anterior no cambia, sin cambio de equipo (RN-039), transiciones de §4.3.3 (RF-017), validación solo por la liga (VAL-015), motivo (RN-021) y, al activar, documentos aplicables aprobados (VAL-001) —también los de los registros anteriores del mismo club— y tutor vigente con consentimiento de un menor (VAL-025) (DEC-101, DEC-139).';
+  'Alta: equipo activo (RF-013), CURP única en la temporada (VAL-017), sin cambio de club (VAL-026) y registro anterior de una temporada previa del mismo club o con cambio de club permitido (RF-015, RF-016, RF-111). Cambio: el registro anterior no cambia, sin cambio de equipo (RN-039), transiciones de §4.3.3 (RF-017), validación solo por la liga (VAL-015), motivo (RN-021) y, al activar, documentos aplicables aprobados (VAL-001) —también los de los registros anteriores del mismo club— y tutor vigente con consentimiento de un menor (VAL-025) (DEC-101, DEC-146).';
 
 -- 3. Índice de la cadena de renovaciones ----------------------------------------------------------
 
 CREATE INDEX ix_registros_anterior ON siglim.registros_jugador (registro_anterior_id)
   WHERE registro_anterior_id IS NOT NULL;
 COMMENT ON INDEX siglim.ix_registros_anterior IS
-  'Recorre la cadena de registro_anterior_id para heredar documentos de la renovación (RF-015, DEC-139).';
+  'Recorre la cadena de registro_anterior_id para heredar documentos de la renovación (RF-015, DEC-146).';

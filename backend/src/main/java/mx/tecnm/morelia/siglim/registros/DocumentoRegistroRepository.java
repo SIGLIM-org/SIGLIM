@@ -140,7 +140,7 @@ class DocumentoRegistroRepository {
 
     /**
      * Documentos vigentes del registro y de sus registros anteriores <b>del mismo club</b> (renovación,
-     * RF-015, DEC-139). La cadena de {@code registro_anterior_id} se corta cuando cambia el club, así
+     * RF-015, DEC-146). La cadena de {@code registro_anterior_id} se corta cuando cambia el club, así
      * que una transferencia no hereda documentos del club de origen. El cupo de carga ({@link #vigentes})
      * sigue contando solo los documentos propios del registro: el club puede cargar uno nuevo del mismo
      * tipo sin que el heredado le estorbe.

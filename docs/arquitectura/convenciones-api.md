@@ -65,7 +65,7 @@ Versión 5.17 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.14 | 17 de noviembre de 2026 | B-29.2: §6.13 con `GET /tarifas/contexto`: temporadas de la liga (de la más reciente a la más antigua) con su estado y sus categorías en el orden del catálogo, autorizado con `tesoreria.tarifa:EDITAR` porque el Tesorero no tiene `temporadas.temporada:CONSULTAR`, como los contextos de afiliaciones y de operaciones de equipo. |
 | 5.15 | 17 de noviembre de 2026 | B-09.1: §6.5 con el contrato de la disponibilidad arbitral (`GET /arbitros/{id}/disponibilidad?desde=&hasta=`, `POST` y `DELETE …/{disponibilidadId}`): intervalos `[desde, hasta)`, `disponible` opcional con `true` por omisión, solo árbitros `VALIDADO`, borrado físico porque no es historial deportivo, permiso `arbitraje.disponibilidad:EDITAR` sobre la persona del árbitro (Comisión en `LIGA`, árbitro en `PROPIO`) y auditoría `REGISTRAR_DISPONIBILIDAD_ARBITRAL`/`ELIMINAR_DISPONIBILIDAD_ARBITRAL` (RF-022). |
 | 5.16 | 17 de noviembre de 2026 | B-30: §6.7 indica que publicar la jornada emite `JornadaPublicada`; §6.13 con «Cobros automáticos al publicar la jornada» (RF-136): cobros `ARBITRAJE` y `CANCHA` a cada equipo con la tarifa de la temporada y la categoría, sin cobro de cancha al dueño de la cancha (DEC-33), omisión auditada sin tarifa o con tarifa en cero, periodo configurable (`dias-para-pagar`), idempotencia por `ux_cobros_partido` y auditoría `GENERAR_COBRO` y `GENERAR_COBROS_JORNADA`. |
-| 5.17 | 17 de noviembre de 2026 | B-06.1: §6.4 con la renovación y la transferencia entre temporadas (`POST /registros-jugador/renovaciones` y `/transferencias`): `{ personaId, equipoId }`, registro nuevo `PENDIENTE_VALIDACION` enlazado por `registro_anterior_id`, `422 RF-015`/`RF-016` si el registro anterior no existe o no corresponde al tipo de movimiento, `409 RF-111` si la temporada no permite el cambio de club, `409 VAL-026`/`RN-039` dentro de la temporada, documentos aprobados heredados solo en la renovación del mismo club y auditoría `RENOVAR_REGISTRO`/`TRANSFERIR_REGISTRO`; §3.2 con `RF-015` y `RF-016` en `422` y `RF-111` en `409` (DEC-139). |
+| 5.17 | 17 de noviembre de 2026 | B-06.1: §6.4 con la renovación y la transferencia entre temporadas (`POST /registros-jugador/renovaciones` y `/transferencias`): `{ personaId, equipoId }`, registro nuevo `PENDIENTE_VALIDACION` enlazado por `registro_anterior_id`, `422 RF-015`/`RF-016` si el registro anterior no existe o no corresponde al tipo de movimiento, `409 RF-111` si la temporada no permite el cambio de club, `409 VAL-026`/`RN-039` dentro de la temporada, documentos aprobados heredados solo en la renovación del mismo club y auditoría `RENOVAR_REGISTRO`/`TRANSFERIR_REGISTRO`; §3.2 con `RF-015` y `RF-016` en `422` y `RF-111` en `409` (DEC-146). |
 
 ## Índice
 
@@ -1706,7 +1706,7 @@ Responde `200` con `Cache-Control: no-store` y el registro, con los mismos campo
 `registros_jugador`) con `{ "personaId", "equipoId", "temporadaId", "estadoAnterior": "ACTIVO",
 "estado": "BAJA", "bajaEn" }` y el motivo como motivo del evento, sin datos personales (DEC-123).
 
-#### Renovación y transferencia entre temporadas (B-06.1, RF-015, RF-016, RF-111, VAL-026, DEC-139)
+#### Renovación y transferencia entre temporadas (B-06.1, RF-015, RF-016, RF-111, VAL-026, DEC-146)
 
 `POST /registros-jugador/renovaciones` y `POST /registros-jugador/transferencias` reciben
 `{ "personaId", "equipoId" }`; la temporada es la del grupo del equipo de destino y el registro
@@ -1718,7 +1718,7 @@ la persona en una temporada anterior de la liga. Ambos exigen `registros.registr
 
 - **Renovación.** El registro anterior debe ser del mismo club; se conserva al jugador y los documentos aprobados y
   no reemplazados de sus registros anteriores no rechazados del mismo club cuentan para VAL-001, sin copiarlos en
-  S3 (DEC-139).
+  S3 (DEC-146).
 - **Transferencia.** El registro anterior debe ser de otro club y la versión vigente de parámetros
   de la temporada destino debe permitir el cambio (`permite_cambio_club`, RF-111); si no, `409
   RF-111`. Sin versión de parámetros rige el valor por omisión de la tabla (`true`). No hereda los
@@ -1726,7 +1726,7 @@ la persona en una temporada anterior de la liga. Ambos exigen `registros.registr
   club dentro de una temporada (VAL-026, DEC-13): el registro anterior debe ser de una temporada
   anterior.
 
-Orden de errores (el del alta más los de DEC-139):
+Orden de errores (el del alta más los de DEC-146):
 
 1. Sin el permiso en ningún ámbito: `403 VAL-015`.
 2. Falta `personaId` o `equipoId`: `400 VALIDACION`.
