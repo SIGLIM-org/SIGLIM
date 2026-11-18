@@ -1,0 +1,14 @@
+B-09.3 · Estado del Supabase compartido después de la prueba
+Consultado: 2026-11-17 22:35 (America/Mexico_City), develop en bd50d5f
+
+arbitro,estado,arbitro_id
+Árbitra Prueba Tres,PROPUESTO,fc7fce58-de7d-4680-824b-7a05b7e8565b
+Árbitro Prueba Dos,RECHAZADO,00a6b968-ad5b-4c48-ae6f-183880ddac07
+Árbitro Prueba Uno,VALIDADO,46f40a45-a192-49ca-9b3c-7cae855c5be8
+
+periodos
+2
+
+accion,count
+ELIMINAR_DISPONIBILIDAD_ARBITRAL,1
+REGISTRAR_DISPONIBILIDAD_ARBITRAL,3
