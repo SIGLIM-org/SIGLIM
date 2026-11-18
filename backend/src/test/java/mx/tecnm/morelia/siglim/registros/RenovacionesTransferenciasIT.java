@@ -69,7 +69,7 @@ class RenovacionesTransferenciasIT extends BaseDatosPrueba {
                         SELECT accion || ' ' || (detalle ->> 'registroAnteriorId') || ' ' || (detalle ->> 'temporadaAnteriorId')
                           FROM siglim.auditoria WHERE entidad = 'registros_jugador' AND entidad_id = :id
                         """).param("id", nuevo.id().toString()).query(String.class).single())
-                .isEqualTo("RENOVAR_REGISTRO_JUGADOR " + previo.id() + " " + anterior);
+                .isEqualTo("RENOVAR_REGISTRO " + previo.id() + " " + anterior);
     }
 
     @Test
@@ -101,7 +101,7 @@ class RenovacionesTransferenciasIT extends BaseDatosPrueba {
         assertThat(jdbc.sql("""
                         SELECT accion FROM siglim.auditoria WHERE entidad_id = :id
                         """).param("id", nuevo.id().toString()).query(String.class).single())
-                .isEqualTo("TRANSFERIR_REGISTRO_JUGADOR");
+                .isEqualTo("TRANSFERIR_REGISTRO");
     }
 
     @Test
@@ -127,32 +127,6 @@ class RenovacionesTransferenciasIT extends BaseDatosPrueba {
                     assertThat(error.estado().value()).isEqualTo(409);
                 });
 
-        assertThat(jdbc.sql("SELECT count(*) FROM siglim.registros_jugador WHERE persona_id = :persona")
-                .param("persona", persona).query(Integer.class).single()).isEqualTo(1);
-    }
-
-    @Test
-    @DisplayName("RF-111 · DEC-139: el alta normal no evade el cambio de club prohibido por la temporada")
-    void altaNormalNoEvitaLaConfiguracion() {
-        UUID anterior = temporada(2032);
-        UUID nueva = temporada(2033);
-        UUID origen = club("Águilas");
-        UUID destino = club("Pumas");
-        UUID equipoOrigen = equipo(origen, anterior, "Águilas 2032");
-        UUID equipoDestino = equipo(destino, nueva, "Pumas 2033");
-        afiliar(origen, anterior, "APROBADA");
-        afiliar(destino, nueva, "APROBADA");
-        parametros(nueva, false);
-        iniciarSesion(perfilDeDirectiva(origen));
-        UUID persona = registrarPersona();
-        registros.registrar(new CrearRegistroJugadorRequest(persona, equipoOrigen));
-
-        iniciarSesion(perfilDeDirectiva(destino));
-        assertThatThrownBy(() -> registros.registrar(new CrearRegistroJugadorRequest(persona, equipoDestino)))
-                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
-                    assertThat(error.codigo()).isEqualTo("RF-111");
-                    assertThat(error.estado().value()).isEqualTo(409);
-                });
         assertThat(jdbc.sql("SELECT count(*) FROM siglim.registros_jugador WHERE persona_id = :persona")
                 .param("persona", persona).query(Integer.class).single()).isEqualTo(1);
     }

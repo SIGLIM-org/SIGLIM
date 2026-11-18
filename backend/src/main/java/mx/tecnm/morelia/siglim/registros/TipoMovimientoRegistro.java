@@ -9,10 +9,10 @@ package mx.tecnm.morelia.siglim.registros;
 enum TipoMovimientoRegistro {
 
     /** El registro anterior es del mismo club: se conserva al jugador y se reutilizan sus documentos. */
-    RENOVACION("RF-015", "RENOVAR_REGISTRO_JUGADOR", "renueva"),
+    RENOVACION("RF-015", "RENOVAR_REGISTRO", "renueva"),
 
     /** El registro anterior es de otro club y la temporada destino permite el cambio de club. */
-    TRANSFERENCIA("RF-016", "TRANSFERIR_REGISTRO_JUGADOR", "transfiere");
+    TRANSFERENCIA("RF-016", "TRANSFERIR_REGISTRO", "transfiere");
 
     private final String codigo;
     private final String accion;

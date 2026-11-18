@@ -8,7 +8,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
@@ -78,8 +77,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       documentos aprobados del anterior; la transferencia exige otro club y que la temporada
  *       destino permita el cambio en sus parámetros (RF-111). VAL-026/RN-039 impiden el cambio
  *       dentro de la temporada. El registro nuevo queda {@code PENDIENTE_VALIDACION} con
- *       {@code registro_anterior_id}; se audita como {@code RENOVAR_REGISTRO_JUGADOR} o
- *       {@code TRANSFERIR_REGISTRO_JUGADOR}.</li>
+ *       {@code registro_anterior_id}; se audita como {@code RENOVAR_REGISTRO} o
+ *       {@code TRANSFERIR_REGISTRO}.</li>
  * </ul>
  *
  * <p>Refs: B-06, H-09.2, H-10.2, H-10.5, H-23.1, RF-003, RF-013, RF-014, RF-015, RF-016, RF-017, RF-018, RF-093,
@@ -138,9 +137,6 @@ public class RegistroJugadorService {
      *   <li>Registro activo en la temporada: {@code 409 VAL-017} con {@code club} y {@code equipo}.</li>
      *   <li>Registro en {@code BAJA} en otro club de la temporada: {@code 409 VAL-026}.</li>
      *   <li>Registro en {@code BAJA} en otro equipo del mismo club: {@code 409 RN-039}.</li>
-     *   <li>La persona ya tiene un registro en una temporada anterior: {@code 422 RF-015} si es del
-     *       mismo club (usa la renovación) o {@code 422 RF-016} si es de otro (usa la transferencia);
-     *       si es de otro club y la temporada no permite el cambio, {@code 409 RF-111} (DEC-139).</li>
      *   <li>Menor sin tutela vigente o sin consentimiento de un tutor vigente: {@code 422 VAL-025} con
      *       {@code requisito} {@code TUTOR} o {@code CONSENTIMIENTO}.</li>
      * </ol>
@@ -181,7 +177,6 @@ public class RegistroJugadorService {
 
         List<RegistroEnTemporada> previos = registros.registrosEnTemporada(personaId, equipo.temporadaId());
         validarUnicidad(previos, equipo);
-        validarMovimientoPendiente(personaId, equipo);
         if (esMenor) {
             validarRequisitosMenor(registros.requisitosMenor(personaId),
                     "Registra primero a su tutor y después da de alta el registro.",
@@ -338,31 +333,6 @@ public class RegistroJugadorService {
 
         return registros.buscar(id)
                 .orElseThrow(() -> new IllegalStateException("El registro " + id + " no es visible tras guardarlo"));
-    }
-
-    /**
-     * Un alta normal no puede saltarse la renovación ni la transferencia: si la persona jugó en una
-     * temporada anterior, el registro debe quedar enlazado y auditarse como movimiento (DEC-139). La
-     * transferencia además respeta {@code permite_cambio_club} (RF-111). Así el alta no es una vía
-     * para cambiar de club dentro de una temporada ni para evadir la configuración de la liga.
-     */
-    private void validarMovimientoPendiente(UUID personaId, EquipoDelRegistro equipo) {
-        Optional<RegistroAnterior> anterior = registros.registroAnterior(personaId, equipo.temporadaId());
-        if (anterior.isEmpty()) {
-            return;
-        }
-        boolean mismoClub = anterior.get().clubId().equals(equipo.clubId());
-        if (!mismoClub && !registros.permiteCambioClub(equipo.temporadaId())) {
-            throw ReglaNegocioException.conflicto("RF-111",
-                    "La temporada «" + equipo.temporadaNombre() + "» no permite cambios de club entre "
-                            + "temporadas. La liga puede habilitarlo en los parámetros de la temporada.");
-        }
-        throw ReglaNegocioException.noProcesable(mismoClub ? "RF-015" : "RF-016", mismoClub
-                ? "La persona ya tiene un registro anterior en tu club («"
-                        + anterior.get().temporadaNombre() + "»): usa la renovación para conservarla en "
-                        + "una temporada nueva."
-                : "La persona tiene un registro anterior en el club «"
-                        + anterior.get().clubNombre() + "»: usa la transferencia para cambiarla de club.");
     }
 
     /** Mensaje cuando la persona no tiene registros en temporadas anteriores (RF-015, RF-016). */

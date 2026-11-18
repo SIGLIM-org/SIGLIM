@@ -414,58 +414,6 @@ class RegistroJugadorServiceTest {
     }
 
     @Test
-    @DisplayName("RF-015 · DEC-139: un alta con registro anterior del mismo club pide la renovación")
-    void altaConRegistroAnteriorDelMismoClub() {
-        prepararAlta(false);
-        given(registros.registroAnterior(PERSONA, TEMPORADA)).willReturn(Optional.of(ANTERIOR_MISMO_CLUB));
-
-        assertThatThrownBy(() -> servicio.registrar(PETICION)).isInstanceOfSatisfying(ReglaNegocioException.class,
-                error -> {
-                    assertThat(error.estado()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
-                    assertThat(error.codigo()).isEqualTo("RF-015");
-                    assertThat(error.getMessage()).contains("renovación");
-                });
-
-        verify(registros, never()).insertar(any(), any(), any(), any(), any());
-        verifyNoInteractions(auditoria);
-    }
-
-    @Test
-    @DisplayName("RF-016 · DEC-139: un alta con registro anterior de otro club pide la transferencia")
-    void altaConRegistroAnteriorDeOtroClub() {
-        prepararAlta(false);
-        given(registros.registroAnterior(PERSONA, TEMPORADA)).willReturn(Optional.of(ANTERIOR_OTRO_CLUB));
-        given(registros.permiteCambioClub(TEMPORADA)).willReturn(true);
-
-        assertThatThrownBy(() -> servicio.registrar(PETICION)).isInstanceOfSatisfying(ReglaNegocioException.class,
-                error -> {
-                    assertThat(error.estado()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
-                    assertThat(error.codigo()).isEqualTo("RF-016");
-                    assertThat(error.getMessage()).contains("transferencia");
-                });
-
-        verify(registros, never()).insertar(any(), any(), any(), any(), any());
-    }
-
-    @Test
-    @DisplayName("RF-111 · DEC-13: un alta no evade el cambio de club prohibido por la temporada")
-    void altaConCambioDeClubProhibido() {
-        prepararAlta(false);
-        given(registros.registroAnterior(PERSONA, TEMPORADA)).willReturn(Optional.of(ANTERIOR_OTRO_CLUB));
-        given(registros.permiteCambioClub(TEMPORADA)).willReturn(false);
-
-        assertThatThrownBy(() -> servicio.registrar(PETICION)).isInstanceOfSatisfying(ReglaNegocioException.class,
-                error -> {
-                    assertThat(error.estado()).isEqualTo(HttpStatus.CONFLICT);
-                    assertThat(error.codigo()).isEqualTo("RF-111");
-                    assertThat(error.getMessage()).contains("no permite cambios de club");
-                });
-
-        verify(registros, never()).insertar(any(), any(), any(), any(), any());
-        verifyNoInteractions(auditoria);
-    }
-
-    @Test
     @DisplayName("VAL-025: un menor sin tutela vigente responde 422 con requisito TUTOR")
     void menorSinTutor() {
         prepararAlta(true);
@@ -529,7 +477,7 @@ class RegistroJugadorServiceTest {
         verify(motivo).fijar("Renovación desde la temporada «Temporada 2025»");
         verify(registros).insertar(PERSONA, EQUIPO, TEMPORADA, HOY, REGISTRO_ANTERIOR, PERFIL);
         EventoAuditoria evento = eventoAuditado();
-        assertThat(evento.accion()).isEqualTo("RENOVAR_REGISTRO_JUGADOR");
+        assertThat(evento.accion()).isEqualTo("RENOVAR_REGISTRO");
         assertThat(evento.entidad()).isEqualTo("registros_jugador");
         assertThat(evento.entidadId()).isEqualTo(REGISTRO.toString());
         assertThat(evento.detalle()).containsExactly(
@@ -555,7 +503,7 @@ class RegistroJugadorServiceTest {
         verify(motivo).fijar("Transferencia desde el club «Club Águilas» de la temporada «Temporada 2025»");
         verify(registros).insertar(PERSONA, EQUIPO, TEMPORADA, HOY, REGISTRO_ANTERIOR, PERFIL);
         EventoAuditoria evento = eventoAuditado();
-        assertThat(evento.accion()).isEqualTo("TRANSFERIR_REGISTRO_JUGADOR");
+        assertThat(evento.accion()).isEqualTo("TRANSFERIR_REGISTRO");
         assertThat(evento.detalle()).containsEntry("clubAnteriorId", OTRO_CLUB.toString());
         assertThat(evento.detalle()).containsEntry("estado", "PENDIENTE_VALIDACION");
     }
@@ -645,6 +593,42 @@ class RegistroJugadorServiceTest {
                 });
 
         verify(registros, never()).insertar(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("VAL-017: una persona con registro activo en la temporada destino no se renueva")
+    void renovacionConRegistroActivoEnLaTemporada() {
+        prepararMovimiento(false, ANTERIOR_MISMO_CLUB, true);
+        given(registros.registrosEnTemporada(PERSONA, TEMPORADA)).willReturn(List.of(
+                new RegistroEnTemporada(OTRO_CLUB, "Club Águilas", OTRO_EQUIPO, "Águilas", EstadoRegistro.ACTIVO)));
+
+        assertThatThrownBy(() -> servicio.renovar(new MovimientoRegistroRequest(PERSONA, EQUIPO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(error.codigo()).isEqualTo("VAL-017");
+                    assertThat(error.getMessage()).contains("Club Águilas");
+                });
+
+        verify(registros, never()).registroAnterior(any(), any());
+        verify(registros, never()).insertar(any(), any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("VAL-025: un menor con tutor pero sin consentimiento vigente no se renueva")
+    void renovacionDeMenorSinConsentimiento() {
+        prepararMovimiento(true, ANTERIOR_MISMO_CLUB, true);
+        given(registros.requisitosMenor(PERSONA)).willReturn(new RequisitosMenor(true, false));
+
+        assertThatThrownBy(() -> servicio.renovar(new MovimientoRegistroRequest(PERSONA, EQUIPO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+                    assertThat(error.codigo()).isEqualTo("VAL-025");
+                    assertThat(error.propiedades()).containsEntry("requisito", "CONSENTIMIENTO");
+                });
+
+        verify(registros, never()).insertar(any(), any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
     }
 
     @Test
@@ -1216,10 +1200,6 @@ class RegistroJugadorServiceTest {
         given(registros.buscar(REGISTRO)).willReturn(Optional.of(CREADO));
     }
 
-    /**
-     * Registro {@code buscarRegistro} pendiente y, con el bloqueo, {@code bloqueado}; documentos de la
-     * categoría LIBRE, la persona menor o no en la fecha de alta, y un {@code UPDATE} que sí actualiza.
-     */
     /** Equipo destino, persona existente sin registros en la temporada y alta exitosa del movimiento. */
     private void prepararMovimiento(boolean menor, RegistroAnterior anterior, boolean permiteCambioClub) {
         given(registros.buscarEquipo(LIGA, EQUIPO)).willReturn(Optional.of(EQUIPO_ACTIVO));
@@ -1233,6 +1213,10 @@ class RegistroJugadorServiceTest {
         given(registros.buscar(REGISTRO)).willReturn(Optional.of(CREADO));
     }
 
+    /**
+     * Registro {@code buscarRegistro} pendiente y, con el bloqueo, {@code bloqueado}; documentos de la
+     * categoría LIBRE, la persona menor o no en la fecha de alta, y un {@code UPDATE} que sí actualiza.
+     */
     private void prepararValidacion(RegistroDeDocumentos bloqueado, boolean menor, List<DocumentoRegistro> vigentes) {
         given(documentos.buscarRegistro(LIGA, REGISTRO)).willReturn(Optional.of(pendiente()));
         given(documentos.bloquearRegistro(LIGA, REGISTRO)).willReturn(Optional.of(bloqueado));

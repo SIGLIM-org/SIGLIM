@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicInteger;
 import mx.tecnm.morelia.siglim.BaseDatosPrueba;
 import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
 import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
@@ -35,7 +34,6 @@ class RegistrosJugadorIT extends BaseDatosPrueba {
     private static final UUID LIGA = UUID.fromString("a0000000-0000-4000-8000-000000000001");
     private static final LocalDate ADULTO = LocalDate.parse("1990-01-01");
     private static final LocalDate MENOR = LocalDate.parse("2015-01-01");
-    private static final AtomicInteger ANIO = new AtomicInteger(2033);
 
     @Autowired
     private RegistroJugadorService registros;
@@ -136,7 +134,7 @@ class RegistrosJugadorIT extends BaseDatosPrueba {
 
         UUID equipoNuevo = equipo(enAnterior.id(), nueva, "Veteranos " + UUID.randomUUID());
         afiliar(enAnterior.id(), nueva, "APROBADA");
-        RegistroJugadorDto enNueva = registros.renovar(new MovimientoRegistroRequest(persona, equipoNuevo));
+        RegistroJugadorDto enNueva = registros.registrar(new CrearRegistroJugadorRequest(persona, equipoNuevo));
 
         assertThat(enNueva.persona().id()).isEqualTo(persona);
         assertThat(enNueva.temporada().id()).isEqualTo(nueva);
@@ -225,15 +223,13 @@ class RegistrosJugadorIT extends BaseDatosPrueba {
                 .param("estado", estado).param("perfil", crearPerfil(null)).update();
     }
 
-    /** Temporada en configuración (no ACTIVA: solo puede haber una por liga), cada una posterior. */
+    /** Temporada en configuración (no ACTIVA: solo puede haber una por liga). */
     private UUID temporada() {
-        int anio = ANIO.getAndIncrement();
         return jdbc.sql("""
                         INSERT INTO siglim.temporadas (liga_id, nombre, fecha_inicio)
-                        VALUES (:liga, :nombre, :inicio) RETURNING id
+                        VALUES (:liga, :nombre, DATE '2033-08-01') RETURNING id
                         """)
-                .param("liga", LIGA).param("nombre", "Temporada " + anio + " " + UUID.randomUUID())
-                .param("inicio", LocalDate.of(anio, 8, 1))
+                .param("liga", LIGA).param("nombre", "Temporada " + UUID.randomUUID())
                 .query(UUID.class).single();
     }
 
