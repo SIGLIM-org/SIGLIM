@@ -124,6 +124,18 @@ export const seccionesApp: SeccionApp[] = [
         descripcion: 'Catálogo, disponibilidad y bloqueos.',
       },
       {
+        // B-07: captura la Directiva o el Secretario, dictamina la Presidencia y el Secretario genera
+        // el oficio; basta uno de los tres permisos (DEC-136, [PROPUESTA]).
+        nombre: 'Trámites de cancha',
+        ruta: '/app/programacion/tramites-cancha',
+        permiso: [
+          'canchas.solicitud:CREAR',
+          'canchas.solicitud:APROBAR',
+          'canchas.oficio:GENERAR',
+        ],
+        descripcion: 'Préstamo, comodato y oferta de canchas con número de oficio.',
+      },
+      {
         nombre: 'Árbitros',
         ruta: '/app/programacion/arbitros',
         permiso: 'arbitraje.arbitro:CONSULTAR',

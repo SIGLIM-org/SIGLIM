@@ -15,7 +15,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** Regla de elegibilidad de un registro (H-24.1, RF-019, RF-020, DEC-138), sin Spring ni base de datos. */
+/** Regla de elegibilidad de un registro (H-24.1, RF-019, RF-020, DEC-142), sin Spring ni base de datos. */
 class ReglaElegibilidadTest {
 
     private static final ArticuloDto ARTICULO = new ArticuloDto("12", "Juego brusco grave");

@@ -1706,13 +1706,13 @@ Responde `200` con `Cache-Control: no-store` y el registro, con los mismos campo
 `registros_jugador`) con `{ "personaId", "equipoId", "temporadaId", "estadoAnterior": "ACTIVO",
 "estado": "BAJA", "bajaEn" }` y el motivo como motivo del evento, sin datos personales (DEC-123).
 
-#### Consulta propia (H-24.1, RF-144, DEC-135 a DEC-141)
+#### Consulta propia (H-24.1, RF-144, DEC-139 a DEC-145)
 
 Información del jugador o del menor para su tutor (M-04.6, pantalla F-35). Son dos rutas: la lista
 de personas que la cuenta puede consultar y el detalle de una de ellas. Las implementa
 `MiInformacionService`; ninguna se audita, porque no cambian nada.
 
-**Autorización y orden de errores (DEC-136).** Las dos exigen `registros.registro:CONSULTAR` en
+**Autorización y orden de errores (DEC-140).** Las dos exigen `registros.registro:CONSULTAR` en
 **cualquier** ámbito (`autorizacion.alcance`); el detalle exige además que `siglim.es_titular(personaId)`
 sea verdadero: la persona es la de la cuenta (`perfiles.persona_id`) o un menor con tutela vigente
 cuyo tutor es esa persona. Esto vale también para cuentas con ámbito `LIGA` o `CLUB`: es «mi»
@@ -1723,7 +1723,7 @@ información, no una consulta administrativa (esas usan `/registros-jugador`).
 3. Persona que no es la de la cuenta ni un menor bajo su tutela vigente, o que no existe:
    `404 NO_ENCONTRADO`, sin distinguir los casos (VAL-024).
 
-**`GET /mi-informacion` (DEC-135).** Primero la persona de la cuenta (`persona_usuario()`), si
+**`GET /mi-informacion` (DEC-139).** Primero la persona de la cuenta (`persona_usuario()`), si
 existe, y después los menores con tutela vigente (`tutelas.tutor_id` = esa persona), por nombre
 completo. Una cuenta sin persona vinculada responde `200` con la lista vacía. `esMenor` se calcula
 con la fecha de hoy en `America/Mexico_City`.
@@ -1737,13 +1737,13 @@ con la fecha de hoy en `America/Mexico_City`.
 }
 ```
 
-**`GET /mi-informacion/{personaId}` (DEC-137).** Responde `200` con `Cache-Control: no-store`:
+**`GET /mi-informacion/{personaId}` (DEC-141).** Responde `200` con `Cache-Control: no-store`:
 
 - `persona`: `id`, `nombreCompleto`, `curpEnmascarada` (§9.2; nunca la CURP completa) y `esMenor` (hoy).
 - `registros`: los de temporadas que no estén `CERRADA`, del más reciente al más antiguo, cada uno con
   `temporada`, `club`, `equipo`, `categoria`, `estado`, `altaEn`, `bajaEn`, `motivoBaja` (DEC-124),
   `observaciones` (del rechazo o la validación) y:
-  - `elegibilidad`: `{ elegible, causas: [ { codigo, mensaje } ] }` con `ReglaElegibilidad` (DEC-138):
+  - `elegibilidad`: `{ elegible, causas: [ { codigo, mensaje } ] }` con `ReglaElegibilidad` (DEC-142):
     `RF-019` si el registro no está `ACTIVO` (mensaje según el estado) y `RF-020` por cada sanción
     `VIGENTE` de tipo `SUSPENSION_PARTIDOS` o `BAJA`, con el artículo y la vigencia.
     **[PROPUESTA]** `MULTA`, `PERDIDA_PUNTOS` y `PERDIDA_PARTIDO` no impiden jugar.
@@ -1752,7 +1752,7 @@ con la fecha de hoy en `America/Mexico_City`.
     `cantidad`, `soloMenores`, `esDemo`, `cargados`, `aprobados`, `faltan` y `documentos[]` (los vigentes:
     `id`, `tipo`, `estadoValidacion`, `observaciones`, `cargadoEn`), más `completo` y `listoParaValidar`.
     **Nunca** la URL, el bucket, la clave, el SHA-256, el MIME ni el nombre del archivo (RNF-018).
-  - `proximosPartidos` y `partidosJugados` **[PROPUESTA]** (DEC-140): partidos del equipo del registro,
+  - `proximosPartidos` y `partidosJugados` **[PROPUESTA]** (DEC-144): partidos del equipo del registro,
     como local o visitante (mientras no haya alineaciones). Próximos: jornada `PUBLICADO` y partido que
     no esté `FINALIZADO` ni `CANCELADO`, por `inicio` ascendente, hasta 5. Jugados: con resultado
     oficial vigente, por `inicio` descendente, hasta 10. Cada partido lleva `id`, `jornada` (número),
@@ -1819,11 +1819,11 @@ con la fecha de hoy en `America/Mexico_City`.
 }
 ```
 
-**Dependencias (DEC-139, ADR-0006).** `registros` (nivel 4) no importa `partidos` ni `disciplina`:
+**Dependencias (DEC-143, ADR-0006).** `registros` (nivel 4) no importa `partidos` ni `disciplina`:
 define `ConsultaPartidosPropios` y `ConsultaSancionesPropias` con sus records (`PartidoPropio`,
 `SancionPropia`), y las implementan `partidos.PartidosPropiosJdbc` y `disciplina.SancionesPropiasJdbc`
 con SQL de solo lectura dentro de la transacción del servicio (contexto de usuario y RLS, ADR-0014).
-Vincular la cuenta con su persona (`perfiles.persona_id`) y los consentimientos quedan fuera (DEC-141).
+Vincular la cuenta con su persona (`perfiles.persona_id`) y los consentimientos quedan fuera (DEC-145).
 
 ### 6.5 M-05 Árbitros y designaciones
 
@@ -1923,7 +1923,7 @@ responden `404` idéntico (VAL-024). Es una consulta calculada: no se guarda ni 
 | `GET /canchas/{id}/disponibilidad?desde=&hasta=` · `POST` | Disponibilidad, bloqueos y mantenimiento con motivo. El `POST` responde `{ disponibilidad, partidosAfectados }` | `canchas.cancha:CONSULTAR` en el `GET`, `canchas.cancha:EDITAR` en el `POST` | RF-029, RF-030, RF-031 | N · B |
 | `GET /canchas/{id}/ocupacion?desde=&hasta=` | Disponibilidad, bloqueos, mantenimiento y partidos no cancelados del rango (calendario semanal y apoyo a la programación) | `canchas.cancha:CONSULTAR` | RF-032, RF-039 | N |
 | `GET /canchas/{id}/horarios-club?temporadaId=` · `PUT` | Horarios por categoría de la cancha de club y comodato de la cancha de la liga, por temporada (§6.6.1) | `canchas.cancha:CONSULTAR` en el `GET`, `canchas.cancha:EDITAR` en el `PUT` | RF-119 | B |
-| `GET /solicitudes-cancha` · `POST` · `POST …/{id}/resolucion` · `GET …/{id}/oficio` | Formatos 1 y 2 y su carta | `canchas.solicitud:*`, `canchas.oficio:GENERAR` | RF-116 a RF-118 | B |
+| `GET /solicitudes-cancha?tipo=&estado=` · `GET …/contexto` · `POST` · `POST …/{id}/resolucion` · `GET …/{id}/oficio` | Formatos 1 y 2 y su carta (§6.6.2) | `CREAR`, `APROBAR` o `GENERAR` en los `GET` de la bandeja y el contexto; `canchas.solicitud:CREAR` en el `POST`; `canchas.solicitud:APROBAR` en la resolución; `canchas.oficio:GENERAR` en el oficio | RF-116 a RF-118 | B |
 
 - **Sede de una cancha (RF-028, [PROPUESTA]).** `POST /canchas` acepta `sedeId` opcional. En el
   `PATCH`, sin `sedeId` ni `quitarSede` la sede se conserva; `sedeId` asigna esa sede y
@@ -2017,6 +2017,44 @@ la temporada no es de la liga.
 (`entidad = canchas`, `entidadId` = la cancha), sin motivo, con el detalle
 `{ "canchaId", "temporadaId", "horarios": <número de horarios guardados> }`. Se registra también al
 vaciar la lista.
+
+#### 6.6.2 Trámites de cancha: Formatos 1 y 2 (B-14, RF-116 a RF-118, DEC-35)
+
+- **Alta.** `POST /solicitudes-cancha` lleva `tipo` (`PRESTAMO`, `COMODATO` u `OFERTA`), el
+  solicitante y el bloque del formato: `prestamo` (Formato 1) u `oferta` (Formato 2), con los campos
+  de la plantilla del cliente (R8); el otro bloque no se admite (`400 VALIDACION`). El préstamo y el
+  comodato los pide un club (`clubId`); la oferta, un club o un oferente externo
+  (`solicitanteExterno`), nunca los dos (`400 VALIDACION`). Un club inexistente o cerrado, o un
+  `canchaId` que no es de la liga, responden `422 REFERENCIA_INVALIDA`; la hora de término no
+  posterior al inicio, `400 VALIDACION`. Responde `201` con `Location`.
+- **Permiso y ámbito.** El alta exige `canchas.solicitud:CREAR` sobre el club; la oferta de un
+  externo, sobre la liga (la captura el Secretario). Un club o un trámite fuera del ámbito responde
+  `404` (VAL-024).
+- **Número de oficio (RF-118, DEC-135, [PROPUESTA]).** Lo asigna el sistema al capturar:
+  `OF-<año>-<consecutivo de cuatro dígitos>` por liga y año de la zona de negocio (el ejemplo
+  `OF-2025-0089` de B-07). Un candado consultivo de la transacción evita repetir el consecutivo y
+  `UNIQUE (liga_id, numero_oficio)` es la última garantía.
+- **Estados.** El Formato 1 nace `PENDIENTE` y el Formato 2 `PENDIENTE_NEGOCIACION`.
+  `POST …/{id}/resolucion` lleva `{ "decision", "observaciones" }`: `APROBADA` o `NO_APROBADA` en el
+  Formato 1, `ACEPTADA` o `RECHAZADA` en el Formato 2 (otra decisión, `400 VALIDACION`). La decisión
+  desfavorable exige observaciones de 10 a 500 caracteres (`400 RN-021`) y las guarda como motivo.
+  Los estados finales no cambian: dictaminar otra vez responde `409 RF-117` (Formato 1) o
+  `409 RF-116` (Formato 2). Aceptar una oferta o aprobar un comodato **no** da de alta la cancha ni
+  sus horarios (DEC-138): la cancha se registra con RF-027 y los horarios con RF-119 (§6.6.1).
+- **Bandeja.** `GET /solicitudes-cancha` admite `tipo` repetido (la pestaña del Formato 1 manda
+  `tipo=PRESTAMO&tipo=COMODATO`), `estado`, `pagina` y `tamano`, por captura descendente. Como el
+  catálogo no tiene permiso de consulta propio, basta cualquiera de los tres permisos (DEC-136, **[PROPUESTA]**);
+  el alcance se une en el `WHERE` y en el `COUNT`, y las ofertas de externos solo las ve un ámbito de
+  liga. `GET …/contexto` responde `{ clubes, canchas, capturaExternos }`: los clubes `ACTIVO` del
+  alcance de `CREAR`, las canchas activas y si la sesión captura ofertas de externos; sin `CREAR`, las
+  listas van vacías.
+- **Carta (DEC-137, [PROPUESTA]).** `GET …/{id}/oficio` exige `canchas.oficio:GENERAR` (en la matriz
+  inicial, solo el Secretario; la Directiva no imprime la carta de su solicitud salvo que la matriz le
+  otorgue el permiso con ámbito de club) y responde los datos de la carta (`numeroOficio`, `asunto`, `liga`,
+  `fechaEmision`, `solicitante`, el bloque del formato y el estado con su dictamen). La interfaz la
+  compone con la plantilla del formato y la guarda en PDF con el diálogo de impresión del navegador.
+- **Auditoría.** `REGISTRAR_SOLICITUD_CANCHA` y `RESOLVER_SOLICITUD_CANCHA` en `M-06`, con
+  identificadores, tipo, número de oficio y estados; nunca nombres, teléfonos ni correos del formato.
 
 ### 6.7 M-07 Programación manual
 

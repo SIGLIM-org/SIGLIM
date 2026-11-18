@@ -13,9 +13,9 @@ import java.util.UUID;
  * con su contexto de usuario y sujeta a RLS (ADR-0014). Es de solo lectura.
  *
  * <p><b>[PROPUESTA]</b> Mientras no haya alineaciones (H-16), los partidos de un jugador son los de su
- * equipo, como local o visitante (DEC-140).
+ * equipo, como local o visitante (DEC-144).
  *
- * <p>Refs: H-24.1, RF-144, ADR-0006, ADR-0014, DEC-139, DEC-140
+ * <p>Refs: H-24.1, RF-144, ADR-0006, ADR-0014, DEC-143, DEC-144
  */
 public interface ConsultaPartidosPropios {
 

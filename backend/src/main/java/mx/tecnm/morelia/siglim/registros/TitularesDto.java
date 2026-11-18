@@ -5,10 +5,10 @@ import java.util.UUID;
 
 /**
  * Personas cuya información puede consultar la cuenta: primero la suya y después los menores bajo su
- * tutela vigente, por nombre (H-24.1, RF-144, DEC-135). Una cuenta sin persona vinculada recibe la
+ * tutela vigente, por nombre (H-24.1, RF-144, DEC-139). Una cuenta sin persona vinculada recibe la
  * lista vacía.
  *
- * <p>Refs: H-24.1, RF-144, DEC-135
+ * <p>Refs: H-24.1, RF-144, DEC-139
  */
 public record TitularesDto(List<TitularDto> titulares) {
 

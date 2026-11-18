@@ -36,7 +36,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
-/** Contrato HTTP de la consulta propia (convenciones de API §6.4; H-24.1, RF-144, DEC-135 a DEC-137). */
+/** Contrato HTTP de la consulta propia (convenciones de API §6.4; H-24.1, RF-144, DEC-139 a DEC-141). */
 @WebMvcTest(controllers = MiInformacionController.class, properties = {
         "SUPABASE_URL=" + SeguridadPrueba.URL_SUPABASE,
         "SIGLIM_LIGA_ID=a0000000-0000-4000-8000-000000000001",
@@ -62,7 +62,7 @@ class MiInformacionControllerTest {
     private final String autorizacion = "Bearer " + SeguridadPrueba.tokenValido();
 
     @Test
-    @DisplayName("RF-144 · DEC-135: GET /mi-informacion responde 200 con los titulares y no-store")
+    @DisplayName("RF-144 · DEC-139: GET /mi-informacion responde 200 con los titulares y no-store")
     void titulares() {
         given(servicio.titulares()).willReturn(new TitularesDto(List.of(
                 new TitularDto(PERSONA, "Ana Pérez", true, false),
@@ -115,7 +115,7 @@ class MiInformacionControllerTest {
     }
 
     @Test
-    @DisplayName("DEC-136: un personaId mal formado responde 400 VALIDACION sin llegar al servicio")
+    @DisplayName("DEC-140: un personaId mal formado responde 400 VALIDACION sin llegar al servicio")
     void uuidInvalido() {
         MvcTestResult resultado = mvc.get().uri(RUTA + "/no-es-uuid")
                 .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();

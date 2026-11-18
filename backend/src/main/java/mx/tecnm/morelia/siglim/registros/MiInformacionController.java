@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>Las respuestas llevan {@code Cache-Control: no-store} porque incluyen nombres, la CURP enmascarada
  * y el estado de documentos y sanciones de una persona (RNF-012).
  *
- * <p>Refs: H-24.1, RF-144, RNF-012, UI-032, DEC-135, DEC-136
+ * <p>Refs: H-24.1, RF-144, RNF-012, UI-032, DEC-139, DEC-140
  */
 @RestController
 @RequestMapping("/api/v1/mi-informacion")
@@ -28,7 +28,7 @@ class MiInformacionController {
         this.servicio = servicio;
     }
 
-    /** La persona de la cuenta y los menores bajo su tutela vigente (DEC-135). */
+    /** La persona de la cuenta y los menores bajo su tutela vigente (DEC-139). */
     @GetMapping
     ResponseEntity<TitularesDto> titulares() {
         return ResponseEntity.ok()
@@ -36,7 +36,7 @@ class MiInformacionController {
                 .body(servicio.titulares());
     }
 
-    /** Registros, documentos, elegibilidad, partidos y sanciones de una persona de la que es titular (DEC-137). */
+    /** Registros, documentos, elegibilidad, partidos y sanciones de una persona de la que es titular (DEC-141). */
     @GetMapping("/{personaId}")
     ResponseEntity<MiInformacionDto> consultar(@PathVariable UUID personaId) {
         return ResponseEntity.ok()

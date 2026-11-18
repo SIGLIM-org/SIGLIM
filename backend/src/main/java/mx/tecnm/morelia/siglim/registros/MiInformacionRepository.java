@@ -21,7 +21,7 @@ import org.springframework.stereotype.Repository;
  * tutelas y sus registros por {@code es_titular} ({@code personas_leer}, {@code tutelas_leer},
  * {@code registros_leer}). {@code persona_usuario} y {@code es_titular} son {@code SECURITY DEFINER}.
  *
- * <p>Refs: H-24.1, RF-144, RNF-012, DEC-135 a DEC-137
+ * <p>Refs: H-24.1, RF-144, RNF-012, DEC-139 a DEC-141
  */
 @Repository
 class MiInformacionRepository {
@@ -66,7 +66,7 @@ class MiInformacionRepository {
                 .optional();
     }
 
-    /** Menores con tutela vigente de ese tutor, por nombre completo (DEC-135). */
+    /** Menores con tutela vigente de ese tutor, por nombre completo (DEC-139). */
     List<TitularDto> menoresTutelados(UUID tutorId, LocalDate hoy) {
         return jdbc.sql("SELECT DISTINCT p.id, " + NOMBRE_COMPLETO + " AS nombre_completo, "
                         + """

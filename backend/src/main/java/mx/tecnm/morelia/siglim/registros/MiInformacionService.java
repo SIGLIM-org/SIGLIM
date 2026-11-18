@@ -29,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
  * sanciones.
  *
  * <ul>
- *   <li><b>Autorización (DEC-136, ADR-0007).</b> Primero {@code registros.registro:CONSULTAR} en
+ *   <li><b>Autorización (DEC-140, ADR-0007).</b> Primero {@code registros.registro:CONSULTAR} en
  *       cualquier ámbito ({@link Autorizacion#alcance}); sin él, {@code 403 VAL-015}. El detalle exige
  *       además que la persona sea la de la cuenta o un menor bajo su tutela vigente
  *       ({@code siglim.es_titular}); si no, o si no existe, {@code 404} igual que un recurso
@@ -37,27 +37,27 @@ import org.springframework.transaction.annotation.Transactional;
  *       «mi» información, no una consulta administrativa; esas usan {@code /registros-jugador}.</li>
  *   <li><b>Datos personales (RNF-012, RNF-018).</b> La CURP va enmascarada ({@link EnmascaradoCurp}) y
  *       los documentos sin URL, bucket, clave, SHA-256 ni nombre de archivo.</li>
- *   <li><b>Documentos (DEC-137).</b> Los mismos requisitos y avance que F-19, calculados con
+ *   <li><b>Documentos (DEC-141).</b> Los mismos requisitos y avance que F-19, calculados con
  *       {@link RequisitosDocumentos} y la edad en la fecha de alta del registro (DEC-89).</li>
- *   <li><b>Elegibilidad (DEC-138).</b> {@link ReglaElegibilidad} con el estado del registro y las
+ *   <li><b>Elegibilidad (DEC-142).</b> {@link ReglaElegibilidad} con el estado del registro y las
  *       sanciones de la persona.</li>
- *   <li><b>Dependencias (DEC-139, ADR-0006).</b> Partidos y sanciones llegan por
+ *   <li><b>Dependencias (DEC-143, ADR-0006).</b> Partidos y sanciones llegan por
  *       {@link ConsultaPartidosPropios} y {@link ConsultaSancionesPropias}, que implementan
  *       {@code partidos} y {@code disciplina} dentro de esta misma transacción.</li>
  *   <li><b>Sin auditoría:</b> es una consulta y no cambia nada.</li>
  * </ul>
  *
  * <p>Refs: H-24.1, RF-019, RF-020, RF-108, RF-144, RNF-012, RNF-018, UI-032, VAL-015, VAL-024, ADR-0006,
- * ADR-0007, DEC-135 a DEC-141
+ * ADR-0007, DEC-139 a DEC-145
  */
 @Service
 public class MiInformacionService {
 
     private static final String CONSULTAR = "registros.registro:CONSULTAR";
     private static final ZoneId ZONA_DE_NEGOCIO = ZoneId.of("America/Mexico_City");
-    /** [PROPUESTA] DEC-140: cuántos próximos partidos se muestran por registro. */
+    /** [PROPUESTA] DEC-144: cuántos próximos partidos se muestran por registro. */
     static final int LIMITE_PROXIMOS = 5;
-    /** [PROPUESTA] DEC-140: cuántos partidos jugados se muestran por registro. */
+    /** [PROPUESTA] DEC-144: cuántos partidos jugados se muestran por registro. */
     static final int LIMITE_JUGADOS = 10;
 
     private final MiInformacionRepository repositorio;
@@ -82,7 +82,7 @@ public class MiInformacionService {
 
     /**
      * Personas que la cuenta puede consultar: primero la suya (si la cuenta tiene persona vinculada) y
-     * después los menores bajo su tutela vigente, por nombre (DEC-135). Sin persona vinculada, la lista
+     * después los menores bajo su tutela vigente, por nombre (DEC-139). Sin persona vinculada, la lista
      * va vacía.
      *
      * <p>Errores: sin {@code registros.registro:CONSULTAR} en ningún ámbito, {@code 403 VAL-015}.
@@ -103,9 +103,9 @@ public class MiInformacionService {
     }
 
     /**
-     * Información de una persona para ella misma o para su tutor (DEC-137).
+     * Información de una persona para ella misma o para su tutor (DEC-141).
      *
-     * <p>Orden de errores (DEC-136):
+     * <p>Orden de errores (DEC-140):
      * <ol>
      *   <li>Sin {@code registros.registro:CONSULTAR} en ningún ámbito: {@code 403 VAL-015}.</li>
      *   <li>Persona que no es la de la cuenta ni un menor bajo su tutela vigente, o inexistente:

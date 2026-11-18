@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
  * {@code persona_visible} ({@code sanciones_leer}, {@code expediente_visible}). El artículo es el de la
  * resolución y el folio, el del expediente ({@code sanciones → resoluciones → expedientes/articulos}).
  *
- * <p>Refs: H-24.1, RF-020, RF-144, ADR-0006, ADR-0014, DEC-137, DEC-139
+ * <p>Refs: H-24.1, RF-020, RF-144, ADR-0006, ADR-0014, DEC-141, DEC-143
  */
 @Component
 class SancionesPropiasJdbc implements ConsultaSancionesPropias {

@@ -11,7 +11,7 @@ import mx.tecnm.morelia.siglim.registros.RegistroJugadorDto.ReferenciaDto;
  * <p>{@code estado} es el valor del enum {@code siglim.estado_partido} como texto: el enum
  * {@code EstadoPartido} vive en {@code programacion}, de un nivel superior (ADR-0006).
  *
- * <p>Refs: H-24.1, RF-144, DEC-140
+ * <p>Refs: H-24.1, RF-144, DEC-144
  *
  * @param jornada   número de la jornada
  * @param inicio    fecha y hora de inicio en la zona de negocio ({@code America/Mexico_City})

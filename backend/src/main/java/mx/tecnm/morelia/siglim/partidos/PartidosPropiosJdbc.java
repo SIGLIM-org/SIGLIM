@@ -22,10 +22,10 @@ import org.springframework.stereotype.Component;
  * su contexto de usuario y RLS (ADR-0014). El resultado es la versión vigente de {@code resultados}
  * (RF-052); el inicio se devuelve en {@code America/Mexico_City}.
  *
- * <p><b>[PROPUESTA]</b> DEC-140: próximos son los de jornadas {@code PUBLICADO} que no estén
+ * <p><b>[PROPUESTA]</b> DEC-144: próximos son los de jornadas {@code PUBLICADO} que no estén
  * {@code FINALIZADO} ni {@code CANCELADO}; jugados, los que tienen resultado oficial vigente.
  *
- * <p>Refs: H-24.1, RF-052, RF-144, ADR-0006, ADR-0014, DEC-139, DEC-140
+ * <p>Refs: H-24.1, RF-052, RF-144, ADR-0006, ADR-0014, DEC-143, DEC-144
  */
 @Component
 class PartidosPropiosJdbc implements ConsultaPartidosPropios {

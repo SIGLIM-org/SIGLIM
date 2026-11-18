@@ -30,8 +30,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
  * H-24.1 contra PostgreSQL con RLS, {@code persona_usuario}, {@code es_titular} y las implementaciones
  * de {@code partidos} y {@code disciplina}: el tutor ve a sus menores, el jugador suspendido ve la causa
  * y la vigencia, nadie más de ámbito {@code PROPIO} (ni la liga) llega al detalle, los documentos no
- * exponen el archivo y los próximos partidos salen solo de jornadas publicadas (RF-144, DEC-135 a
- * DEC-140).
+ * exponen el archivo y los próximos partidos salen solo de jornadas publicadas (RF-144, DEC-139 a
+ * DEC-144).
  */
 class MiInformacionIT extends BaseDatosPrueba {
 
@@ -44,7 +44,7 @@ class MiInformacionIT extends BaseDatosPrueba {
     private MiInformacionService servicio;
 
     @Test
-    @DisplayName("H-24 criterio 1 · DEC-135: un tutor con dos menores ve a ambos por nombre y el detalle de cada uno")
+    @DisplayName("H-24 criterio 1 · DEC-139: un tutor con dos menores ve a ambos por nombre y el detalle de cada uno")
     void tutorConDosMenores() {
         Equipos equipos = equipos();
         UUID tutor = persona("Tutor", "Pérez", LocalDate.parse("1985-03-03"));
@@ -133,7 +133,7 @@ class MiInformacionIT extends BaseDatosPrueba {
     }
 
     @Test
-    @DisplayName("VAL-015 · DEC-136: una cuenta sin registros.registro:CONSULTAR recibe 403 en ambas rutas")
+    @DisplayName("VAL-015 · DEC-140: una cuenta sin registros.registro:CONSULTAR recibe 403 en ambas rutas")
     void sinPermiso() {
         UUID persona = persona("Sin", "Permiso", LocalDate.parse("1990-10-10"));
         UUID perfil = jdbc.sql("INSERT INTO siglim.perfiles (nombre_mostrado, persona_id) VALUES ('Sin rol', :persona) RETURNING id")
@@ -149,7 +149,7 @@ class MiInformacionIT extends BaseDatosPrueba {
     }
 
     @Test
-    @DisplayName("RNF-018 · DEC-137: los documentos van con su avance y sin URL, clave ni hash del archivo")
+    @DisplayName("RNF-018 · DEC-141: los documentos van con su avance y sin URL, clave ni hash del archivo")
     void documentosSinDatosDelArchivo() {
         Equipos equipos = equipos();
         UUID jugador = persona("Jugadora", "Documentada", LocalDate.parse("1992-02-02"));
@@ -179,7 +179,7 @@ class MiInformacionIT extends BaseDatosPrueba {
     }
 
     @Test
-    @DisplayName("DEC-140: próximos solo de jornadas PUBLICADO sin FINALIZADO ni CANCELADO; jugados con resultado vigente")
+    @DisplayName("DEC-144: próximos solo de jornadas PUBLICADO sin FINALIZADO ni CANCELADO; jugados con resultado vigente")
     void partidosDelEquipo() {
         Equipos equipos = equipos();
         UUID jugador = persona("Jugador", "Partidos", LocalDate.parse("1993-03-03"));

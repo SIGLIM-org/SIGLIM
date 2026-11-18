@@ -12,7 +12,7 @@ import java.util.UUID;
  * <p>La implementación corre con {@code JdbcClient} dentro de la transacción del servicio que llama:
  * con su contexto de usuario y sujeta a RLS (ADR-0014). Es de solo lectura.
  *
- * <p>Refs: H-24.1, RF-020, RF-144, ADR-0006, ADR-0014, DEC-137, DEC-139
+ * <p>Refs: H-24.1, RF-020, RF-144, ADR-0006, ADR-0014, DEC-141, DEC-143
  */
 public interface ConsultaSancionesPropias {
 

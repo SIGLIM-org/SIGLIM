@@ -41,7 +41,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.springframework.http.HttpStatus;
 
-/** Consulta propia del jugador o de su tutor (H-24.1, RF-144, DEC-135 a DEC-138), sin Spring ni BD. */
+/** Consulta propia del jugador o de su tutor (H-24.1, RF-144, DEC-139 a DEC-142), sin Spring ni BD. */
 class MiInformacionServiceTest {
 
     private static final String CONSULTAR = "registros.registro:CONSULTAR";
@@ -66,7 +66,7 @@ class MiInformacionServiceTest {
     // ── Titulares ───────────────────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("RF-144 · DEC-135: primero la persona de la cuenta y después los menores que tutela")
+    @DisplayName("RF-144 · DEC-139: primero la persona de la cuenta y después los menores que tutela")
     void titulares() {
         given(autorizacion.alcance(CONSULTAR)).willReturn(PROPIO);
         given(repositorio.personaDelUsuario()).willReturn(Optional.of(PERSONA));
@@ -83,7 +83,7 @@ class MiInformacionServiceTest {
     }
 
     @Test
-    @DisplayName("DEC-135: una cuenta sin persona vinculada recibe la lista vacía")
+    @DisplayName("DEC-139: una cuenta sin persona vinculada recibe la lista vacía")
     void titularesSinPersona() {
         given(autorizacion.alcance(CONSULTAR)).willReturn(PROPIO);
         given(repositorio.personaDelUsuario()).willReturn(Optional.empty());
@@ -93,7 +93,7 @@ class MiInformacionServiceTest {
     }
 
     @Test
-    @DisplayName("VAL-015 · DEC-136: sin registros.registro:CONSULTAR los titulares responden 403 sin consultar nada")
+    @DisplayName("VAL-015 · DEC-140: sin registros.registro:CONSULTAR los titulares responden 403 sin consultar nada")
     void titularesSinPermiso() {
         given(autorizacion.alcance(CONSULTAR)).willThrow(Autorizacion.sinPermiso());
 
@@ -104,7 +104,7 @@ class MiInformacionServiceTest {
     // ── Detalle ─────────────────────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("VAL-015 · DEC-136: sin el permiso el detalle responde 403 antes de mirar la titularidad (403 antes que 404)")
+    @DisplayName("VAL-015 · DEC-140: sin el permiso el detalle responde 403 antes de mirar la titularidad (403 antes que 404)")
     void detalleSinPermiso() {
         given(autorizacion.alcance(CONSULTAR)).willThrow(Autorizacion.sinPermiso());
 
@@ -113,7 +113,7 @@ class MiInformacionServiceTest {
     }
 
     @Test
-    @DisplayName("VAL-024 · DEC-136: una persona de la que no es titular responde 404 aun con ámbito LIGA")
+    @DisplayName("VAL-024 · DEC-140: una persona de la que no es titular responde 404 aun con ámbito LIGA")
     void detalleNoTitular() {
         given(autorizacion.alcance(CONSULTAR)).willReturn(new AlcanceAutorizacion(true, Set.of(), false));
         given(repositorio.esTitular(MENOR)).willReturn(false);
@@ -124,7 +124,7 @@ class MiInformacionServiceTest {
     }
 
     @Test
-    @DisplayName("DEC-136: primero el permiso y después la titularidad")
+    @DisplayName("DEC-140: primero el permiso y después la titularidad")
     void ordenDeAutorizacion() {
         given(autorizacion.alcance(CONSULTAR)).willReturn(PROPIO);
         given(repositorio.esTitular(MENOR)).willReturn(false);
@@ -137,7 +137,7 @@ class MiInformacionServiceTest {
     }
 
     @Test
-    @DisplayName("RF-144 · DEC-137 · DEC-138: arma el detalle con CURP enmascarada, documentos, elegibilidad, partidos y sanciones")
+    @DisplayName("RF-144 · DEC-141 · DEC-142: arma el detalle con CURP enmascarada, documentos, elegibilidad, partidos y sanciones")
     void detalle() {
         given(autorizacion.alcance(CONSULTAR)).willReturn(PROPIO);
         given(repositorio.esTitular(PERSONA)).willReturn(true);

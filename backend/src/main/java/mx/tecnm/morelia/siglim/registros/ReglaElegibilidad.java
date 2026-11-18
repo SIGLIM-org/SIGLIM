@@ -19,7 +19,7 @@ import java.util.Objects;
  *   <li><b>RF-020.</b> Cada sanción {@code VIGENTE} de tipo {@code SUSPENSION_PARTIDOS} o {@code BAJA}
  *       es una causa, con el artículo y la vigencia (partidos restantes y fecha de término) en el
  *       mensaje. Cuenta el estado {@code VIGENTE} de la sanción, sin recalcular su vigencia: cerrarla
- *       al cumplirse es tarea de M-09 (DEC-138).</li>
+ *       al cumplirse es tarea de M-09 (DEC-142).</li>
  *   <li><b>[PROPUESTA]</b> {@code MULTA}, {@code PERDIDA_PUNTOS} y {@code PERDIDA_PARTIDO} no impiden
  *       jugar: la multa es un cobro y las pérdidas afectan al equipo en la tabla, no al jugador. El ERS
  *       no lo dice; queda a validar con la Liga.</li>
@@ -28,7 +28,7 @@ import java.util.Objects;
  * <p>Las causas van en ese orden: primero la del registro y después una por sanción, en el orden
  * recibido.
  *
- * <p>Refs: H-24.1, RF-019, RF-020, RF-144, DEC-138
+ * <p>Refs: H-24.1, RF-019, RF-020, RF-144, DEC-142
  */
 public final class ReglaElegibilidad {
 

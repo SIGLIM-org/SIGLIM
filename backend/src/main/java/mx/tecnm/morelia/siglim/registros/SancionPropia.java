@@ -11,7 +11,7 @@ import java.util.UUID;
  * {@code siglim.estado_sancion} como texto: el enum {@code TipoSancion} vive en {@code disciplina}, de un
  * nivel superior, y este paquete no lo importa (ADR-0006).
  *
- * <p>Refs: H-24.1, RF-020, RF-144, DEC-137, DEC-138
+ * <p>Refs: H-24.1, RF-020, RF-144, DEC-141, DEC-142
  *
  * @param tipo              {@code SUSPENSION_PARTIDOS}, {@code MULTA}, {@code PERDIDA_PUNTOS},
  *                          {@code PERDIDA_PARTIDO} o {@code BAJA}
