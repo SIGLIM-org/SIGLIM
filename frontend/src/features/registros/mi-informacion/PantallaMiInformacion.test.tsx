@@ -166,7 +166,7 @@ describe('PantallaMiInformacion (F-35, H-24.2)', () => {
     responder()
   })
 
-  it('DEC-147 · DEC-150: con un titular no hay selector y muestra el registro, «Puede jugar» y los documentos', async () => {
+  it('DEC-148 · DEC-151: con un titular no hay selector y muestra el registro, «Puede jugar» y los documentos', async () => {
     montar()
 
     const bloque = await screen.findByRole('article', { name: 'Temporada 2026, Halcones' })
@@ -184,7 +184,7 @@ describe('PantallaMiInformacion (F-35, H-24.2)', () => {
     expect(get).toHaveBeenCalledWith('mi-informacion/p-1')
   })
 
-  it('DEC-147: con la persona propia y dos menores, el selector cambia ?persona= y pide su detalle', async () => {
+  it('DEC-148: con la persona propia y dos menores, el selector cambia ?persona= y pide su detalle', async () => {
     const user = userEvent.setup()
     responder({
       titulares: [PROPIA, ANA, LUIS],
@@ -251,7 +251,7 @@ describe('PantallaMiInformacion (F-35, H-24.2)', () => {
     expect(screen.getByText('No puede jugar')).toBeInTheDocument()
   })
 
-  it('DEF-10 · DEC-148: sin titulares avisa que la cuenta no está vinculada', async () => {
+  it('DEF-10 · DEC-149: sin titulares avisa que la cuenta no está vinculada', async () => {
     responder({ titulares: [] })
     montar()
 
@@ -262,7 +262,7 @@ describe('PantallaMiInformacion (F-35, H-24.2)', () => {
     expect(get).toHaveBeenCalledTimes(1)
   })
 
-  it('DEC-148: un titular sin registros lo dice y aún muestra Sanciones y Privacidad', async () => {
+  it('DEC-149: un titular sin registros lo dice y aún muestra Sanciones y Privacidad', async () => {
     responder({ detalles: { 'p-1': informacion(PROPIA, { registros: [] }) } })
     montar()
 
@@ -272,7 +272,7 @@ describe('PantallaMiInformacion (F-35, H-24.2)', () => {
     expect(screen.getByRole('heading', { name: 'Privacidad' })).toBeInTheDocument()
   })
 
-  it('DEC-147: un ?persona= desconocido no se pide y «Ver mi información» quita el parámetro', async () => {
+  it('DEC-148: un ?persona= desconocido no se pide y «Ver mi información» quita el parámetro', async () => {
     const user = userEvent.setup()
     const { enrutador } = montar('?persona=desconocido')
 
@@ -286,7 +286,7 @@ describe('PantallaMiInformacion (F-35, H-24.2)', () => {
     expect(await screen.findByText('Puede jugar')).toBeInTheDocument()
   })
 
-  it('VAL-024 · DEC-147: un detalle con 404 muestra «No encontramos esa información»', async () => {
+  it('VAL-024 · DEC-148: un detalle con 404 muestra «No encontramos esa información»', async () => {
     responder({
       titulares: [PROPIA, ANA],
       detalles: { 'p-1': informacion(PROPIA), 'p-2': error(404, 'NO_ENCONTRADO') },
@@ -320,7 +320,7 @@ describe('PantallaMiInformacion (F-35, H-24.2)', () => {
     ).toEqual([])
   })
 
-  it('DEC-151: con dos registros hay dos <details> y solo el primero va abierto', async () => {
+  it('DEC-152: con dos registros hay dos <details> y solo el primero va abierto', async () => {
     responder({
       detalles: {
         'p-1': informacion(PROPIA, {
@@ -347,7 +347,7 @@ describe('PantallaMiInformacion (F-35, H-24.2)', () => {
     expect(within(bloques[1]).getByText('Cambio de domicilio a otra ciudad')).toBeInTheDocument()
   })
 
-  it('DEC-149 · DEC-150: «No oficial» en un requisito demo; Privacidad enlaza al aviso y no ofrece revocar', async () => {
+  it('DEC-150 · DEC-151: «No oficial» en un requisito demo; Privacidad enlaza al aviso y no ofrece revocar', async () => {
     responder({
       detalles: {
         'p-1': informacion(PROPIA, {
@@ -377,7 +377,7 @@ describe('PantallaMiInformacion (F-35, H-24.2)', () => {
     expect(screen.queryByText(/revocación/i)).not.toBeInTheDocument()
   })
 
-  it('DEC-150: cada sanción muestra partidos cumplidos, vigencia, artículo y folio', async () => {
+  it('DEC-151: cada sanción muestra partidos cumplidos, vigencia, artículo y folio', async () => {
     responder({
       detalles: {
         'p-1': informacion(PROPIA, {

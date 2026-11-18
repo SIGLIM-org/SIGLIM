@@ -3,7 +3,7 @@ import type { VarianteInsignia } from '@/components/ui/Insignia'
 import type { TipoSancion } from '@/features/disciplina/tipos'
 import type { EstadoSancion } from '@/features/registros/mi-informacion/tipos'
 
-/** Textos del tipo de sanción para el jugador o tutor (DEC-150). */
+/** Textos del tipo de sanción para el jugador o tutor (DEC-151). */
 export const etiquetaTipoSancionPropia: Record<TipoSancion, string> = {
   SUSPENSION_PARTIDOS: 'Suspensión por partidos',
   MULTA: 'Multa',

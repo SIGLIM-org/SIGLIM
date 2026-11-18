@@ -17,9 +17,9 @@ function textoOpcion({ nombre, esPropia, esMenor }: Titular): string {
 
 /**
  * Lista nativa para elegir de quién ver la información cuando la cuenta tiene dos o más
- * titulares; con uno solo no se muestra (DEC-147).
+ * titulares; con uno solo no se muestra (DEC-148).
  *
- * Refs: RF-144, DEC-147
+ * Refs: RF-144, DEC-148
  */
 export function SelectorTitular({ titulares, seleccionado, onCambiar }: Props) {
   const id = useId()

@@ -10,9 +10,9 @@ function esSuspension({ codigo }: CausaElegibilidad): boolean {
 
 /**
  * Tarjeta roja con los mensajes de las causas `RF-020`. Va arriba de los detalles del registro y
- * solo repite el `mensaje` del API: no arma textos propios con la sanción (DEC-107, DEC-150).
+ * solo repite el `mensaje` del API: no arma textos propios con la sanción (DEC-107, DEC-151).
  *
- * Refs: RF-020, DEC-107, DEC-150
+ * Refs: RF-020, DEC-107, DEC-151
  */
 export function TarjetaSuspension({ elegibilidad }: { elegibilidad: Elegibilidad }) {
   const suspensiones = elegibilidad.causas.filter(esSuspension)
@@ -43,7 +43,7 @@ export function TarjetaSuspension({ elegibilidad }: { elegibilidad: Elegibilidad
  * solo color (RNF-008). Las causas `RF-020` ya se leen en la tarjeta de suspensión, así que la lista
  * muestra el resto para no repetirlas.
  *
- * Refs: RF-019, RF-020, RNF-008, DEC-150
+ * Refs: RF-019, RF-020, RNF-008, DEC-151
  */
 export function ElegibilidadPropia({ elegibilidad }: { elegibilidad: Elegibilidad }) {
   if (elegibilidad.elegible) {

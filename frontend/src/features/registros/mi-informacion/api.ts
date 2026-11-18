@@ -21,7 +21,7 @@ const SIN_CACHE = { gcTime: 0 } as const
 /**
  * Titulares que la cuenta puede consultar (DEC-139). Lista vacía = cuenta sin persona vinculada.
  *
- * Refs: RF-144, DEC-139, DEC-147
+ * Refs: RF-144, DEC-139, DEC-148
  */
 export function useTitularesMiInformacion() {
   return useQuery({
@@ -34,9 +34,9 @@ export function useTitularesMiInformacion() {
 
 /**
  * Detalle de un titular (DEC-141). Solo se pide con un `personaId` de la lista de titulares
- * (DEC-147): la pantalla pasa `undefined` en cualquier otro caso.
+ * (DEC-148): la pantalla pasa `undefined` en cualquier otro caso.
  *
- * Refs: RF-144, RF-019, RF-020, DEC-141, DEC-147
+ * Refs: RF-144, RF-019, RF-020, DEC-141, DEC-148
  */
 export function useMiInformacion(personaId: string | undefined) {
   return useQuery({

@@ -234,7 +234,7 @@ describe('seccionesPermitidas', () => {
     expect(secciones.map((seccion) => seccion.nombre)).toEqual(['Inicio'])
   })
 
-  it('H-24.2 · DEC-146: el jugador o tutor con sus 4 permisos PROPIO ve solo Inicio y Mi información', () => {
+  it('H-24.2 · DEC-147: el jugador o tutor con sus 4 permisos PROPIO ve solo Inicio y Mi información', () => {
     const modulos: Record<string, string> = {
       registros: 'M-04',
       partidos: 'M-08',
@@ -249,13 +249,13 @@ describe('seccionesPermitidas', () => {
     expect(secciones.map((seccion) => seccion.nombre)).toEqual(['Inicio', 'Mi información'])
   })
 
-  it('H-24.2 · DEC-146: el administrador con registros.registro:CONSULTAR en LIGA no ve Mi información', () => {
+  it('H-24.2 · DEC-147: el administrador con registros.registro:CONSULTAR en LIGA no ve Mi información', () => {
     const secciones = seccionesPermitidas([permiso('registros.registro:CONSULTAR', 'M-04')])
 
     expect(secciones.map((seccion) => seccion.nombre)).toEqual(['Inicio', 'Organización'])
   })
 
-  it('H-24.2 · DEC-146: el Árbitro PROPIO conserva Partidos por la cédula y no ve Mi información', () => {
+  it('H-24.2 · DEC-147: el Árbitro PROPIO conserva Partidos por la cédula y no ve Mi información', () => {
     const secciones = seccionesPermitidas([
       permiso('partidos.partido:CONSULTAR', 'M-08', 'PROPIO'),
       permiso('partidos.cedula:APROBAR', 'M-08', 'PROPIO'),
@@ -264,7 +264,7 @@ describe('seccionesPermitidas', () => {
     expect(secciones.map((seccion) => seccion.nombre)).toEqual(['Inicio', 'Partidos'])
   })
 
-  it('H-24.2 · DEC-146: la ruta de Mi información queda en su sección', () => {
+  it('H-24.2 · DEC-147: la ruta de Mi información queda en su sección', () => {
     expect(seccionDeRuta('/app/mi-informacion')?.nombre).toBe('Mi información')
   })
 

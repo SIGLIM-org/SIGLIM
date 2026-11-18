@@ -9,6 +9,8 @@ type Props = {
   /** La Comisión ve el indicador de cuota del club junto a su nombre (B-08.2, RF-114). */
   mostrarCuota: boolean
   onDictamen: (arbitro: Arbitro, decision: DecisionArbitro) => void
+  /** Abre el detalle con la disponibilidad (B-09.2); se omite sin el permiso. */
+  onVerDisponibilidad?: (arbitro: Arbitro) => void
 }
 
 const CLASE_ENCABEZADO = 'px-4 py-3 text-left text-label-sm text-text-muted'
@@ -24,6 +26,7 @@ export function TablaArbitros({
   puedeValidar,
   mostrarCuota,
   onDictamen,
+  onVerDisponibilidad,
 }: Props) {
   return (
     <div
@@ -68,6 +71,7 @@ export function TablaArbitros({
               puedeValidar={puedeValidar}
               mostrarCuota={mostrarCuota}
               onDictamen={onDictamen}
+              onVerDisponibilidad={onVerDisponibilidad}
             />
           ))}
         </tbody>

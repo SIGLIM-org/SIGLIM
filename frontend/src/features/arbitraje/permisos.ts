@@ -8,6 +8,7 @@ export const CONSULTAR_ARBITRO = 'arbitraje.arbitro:CONSULTAR'
 export const PROPONER_ARBITRO = 'arbitraje.arbitro:PROPONER'
 export const VALIDAR_ARBITRO = 'arbitraje.arbitro:VALIDAR'
 export const EDITAR_PERSONA = 'organizacion.persona:EDITAR'
+export const EDITAR_DISPONIBILIDAD = 'arbitraje.disponibilidad:EDITAR'
 
 /** Clubes del ámbito propio que concede un permiso; el nombre sale de la asignación de `/yo`. */
 function clubesDelAmbito(yo: Yo, codigo: string): readonly ClubParaArbitro[] {
@@ -62,6 +63,8 @@ export function usePermisosArbitros() {
     ),
     proponer,
     validar: tienePermiso(yo.permisos, VALIDAR_ARBITRO),
+    /** Ver y editar la disponibilidad (B-09.2, RF-022); el backend decide el ámbito. */
+    disponibilidad: tienePermiso(yo.permisos, EDITAR_DISPONIBILIDAD),
     puedeRegistrarPersona: tienePermiso(yo.permisos, EDITAR_PERSONA),
     clubesProponer,
     clubesConsulta,

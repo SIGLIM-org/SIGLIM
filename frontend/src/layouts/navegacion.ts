@@ -35,7 +35,7 @@ export type SeccionApp = EnlacePortal & {
   subsecciones?: readonly SubseccionApp[]
   /**
    * Sección personal; en el menú solo aparece si la sesión tiene este permiso en ámbito PROPIO
-   * (DEC-146). Sustituye la regla por módulos solo en el menú: `RutaConPermiso` sigue usando
+   * (DEC-147). Sustituye la regla por módulos solo en el menú: `RutaConPermiso` sigue usando
    * `modulos`.
    */
   permisoPropio?: string
@@ -45,7 +45,7 @@ export type SeccionApp = EnlacePortal & {
 export type PermisoMenu = Pick<Permiso, 'codigo' | 'modulo' | 'ambito'>
 
 /**
- * Permisos de consulta propia del jugador o tutor (DEC-146). En ámbito PROPIO no abren secciones
+ * Permisos de consulta propia del jugador o tutor (DEC-147). En ámbito PROPIO no abren secciones
  * administrativas: con ellos solo se ve «Mi información». En LIGA o CLUB cuentan como siempre.
  */
 export const PERMISOS_CONSULTA_PROPIA: readonly string[] = [
@@ -55,7 +55,7 @@ export const PERMISOS_CONSULTA_PROPIA: readonly string[] = [
   'disciplina.expediente:CONSULTAR',
 ]
 
-/** ¿La sesión tiene este permiso en ámbito PROPIO? (DEC-146). */
+/** ¿La sesión tiene este permiso en ámbito PROPIO? (DEC-147). */
 export function tienePermisoPropio(permisos: readonly PermisoMenu[], codigo: string): boolean {
   return permisos.some((permiso) => permiso.codigo === codigo && permiso.ambito === 'PROPIO')
 }
@@ -76,7 +76,7 @@ export const enlacesPortal: EnlacePortal[] = [
  * M-14 (notificaciones) no tiene sección: los avisos se consultan desde la
  * campana (F-09, RF-142), no desde el menú lateral.
  *
- * «Mi información» es la sección personal del jugador o tutor (F-35, DEC-146): se muestra con
+ * «Mi información» es la sección personal del jugador o tutor (F-35, DEC-147): se muestra con
  * `permisoPropio` en ámbito PROPIO y no por módulo, y los `PERMISOS_CONSULTA_PROPIA` en ámbito
  * PROPIO no abren las demás secciones.
  */
@@ -249,7 +249,7 @@ export const seccionesApp: SeccionApp[] = [
  * Secciones que puede ver el usuario según los permisos de `GET /api/v1/yo`.
  * Inicio siempre está presente (H-01.3). Una sección con `permisoPropio` exige ese permiso en
  * ámbito PROPIO; para las demás no cuentan los `PERMISOS_CONSULTA_PROPIA` en ámbito PROPIO, así que
- * el jugador o tutor ve solo Inicio y Mi información (DEC-146).
+ * el jugador o tutor ve solo Inicio y Mi información (DEC-147).
  */
 export function seccionesPermitidas(permisos: readonly PermisoMenu[]): SeccionApp[] {
   const administrativos = permisos.filter(

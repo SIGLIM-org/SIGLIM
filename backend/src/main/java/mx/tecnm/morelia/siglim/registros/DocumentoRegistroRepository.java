@@ -139,6 +139,39 @@ class DocumentoRegistroRepository {
     }
 
     /**
+     * Documentos vigentes del registro y de sus registros anteriores <b>del mismo club</b> (renovación,
+     * RF-015, DEC-146). La cadena de {@code registro_anterior_id} se corta cuando cambia el club, así
+     * que una transferencia no hereda documentos del club de origen. El cupo de carga ({@link #vigentes})
+     * sigue contando solo los documentos propios del registro: el club puede cargar uno nuevo del mismo
+     * tipo sin que el heredado le estorbe.
+     */
+    List<DocumentoRegistro> vigentesConRenovaciones(UUID registroId) {
+        return jdbc.sql(DOCUMENTO + """
+                         JOIN (WITH RECURSIVE cadena AS (
+                                 SELECT r.id, r.registro_anterior_id
+                                   FROM registros_jugador r
+                                  WHERE r.id = :registro
+                                 UNION ALL
+                                 SELECT r.id, r.registro_anterior_id
+                                   FROM registros_jugador r
+                                   JOIN cadena c ON r.id = c.registro_anterior_id
+                                   JOIN equipos e ON e.id = r.equipo_id
+                                  WHERE e.club_id = (SELECT e0.club_id
+                                                       FROM registros_jugador r0
+                                                       JOIN equipos e0 ON e0.id = r0.equipo_id
+                                                      WHERE r0.id = :registro)
+                                    AND r.estado <> 'RECHAZADO'
+                               )
+                               SELECT id FROM cadena) cadena ON cadena.id = d.registro_id
+                         WHERE d.reemplazado_por_id IS NULL
+                         ORDER BY d.cargado_en, d.id
+                        """)
+                .param("registro", registroId)
+                .query(DocumentoRegistroRepository::aDocumento)
+                .list();
+    }
+
+    /**
      * Un documento <b>de un registro</b> de la liga; vacío si no existe, si es de otro dueño (pago,
      * afiliación, expediente o persona) o si RLS no lo muestra (DEC-91).
      */

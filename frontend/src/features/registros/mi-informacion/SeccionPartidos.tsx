@@ -12,7 +12,7 @@ type Props = {
   conMarcador?: boolean
 }
 
-/** «vs Lobos» si el equipo es local; «en casa de Pumas» si es visitante (DEC-150). */
+/** «vs Lobos» si el equipo es local; «en casa de Pumas» si es visitante (DEC-151). */
 function textoRival({ esLocal, local, visitante }: PartidoPropio): string {
   return esLocal ? `vs ${visitante.nombre}` : `en casa de ${local.nombre}`
 }
@@ -63,9 +63,9 @@ function Marcador({ partido }: { partido: PartidoPropio }) {
 
 /**
  * Lista de partidos del equipo del registro: jornada, fecha y hora en la zona de la Liga, cancha,
- * rival y estado; en los jugados, el marcador oficial (DEC-144, DEC-150).
+ * rival y estado; en los jugados, el marcador oficial (DEC-144, DEC-151).
  *
- * Refs: RF-144, RF-052, DEC-144, DEC-150
+ * Refs: RF-144, RF-052, DEC-144, DEC-151
  */
 export function SeccionPartidos({ titulo, partidos, textoVacio, conMarcador = false }: Props) {
   const id = useId()

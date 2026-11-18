@@ -16,7 +16,7 @@ import type { MiInformacion } from '@/features/registros/mi-informacion/tipos'
 import { esNoEncontrado, esSinPermiso } from '@/lib/api/errores'
 import { PaginaSinPermiso } from '@/pages/PaginaSinPermiso'
 
-/** Parámetro de la URL con el titular elegido (DEC-147). */
+/** Parámetro de la URL con el titular elegido (DEC-148). */
 const PARAMETRO_PERSONA = 'persona'
 
 function Carga() {
@@ -53,9 +53,9 @@ function Detalle({ informacion }: { informacion: MiInformacion }) {
  * «Mi información» (F-35, UI-032): el jugador, o el tutor de un menor, consulta en solo lectura sus
  * registros, documentos, elegibilidad, partidos y sanciones. Con varios titulares se elige en
  * `?persona=`; un titular que no está en la lista nunca se pide al API ni se cambia por otro sin
- * avisar (DEC-147). Diseñada primero para 390 px, en una columna (DEC-146).
+ * avisar (DEC-148). Diseñada primero para 390 px, en una columna (DEC-147).
  *
- * Refs: RF-144, RF-019, RF-020, UI-032, DEC-146 a DEC-151
+ * Refs: RF-144, RF-019, RF-020, UI-032, DEC-147 a DEC-152
  */
 export function PantallaMiInformacion() {
   const [parametros, setParametros] = useSearchParams()

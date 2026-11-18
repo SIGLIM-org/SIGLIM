@@ -6,7 +6,7 @@ import { useSesionActual } from '@/features/seguridad/ProveedorSesionActual'
 import { TarjetaAdeudos } from '@/features/tesoreria/TarjetaAdeudos'
 import { tienePermisoPropio } from '@/layouts/navegacion'
 
-/** Enlace a la consulta propia del jugador o tutor (DEC-146); sin redirección automática. */
+/** Enlace a la consulta propia del jugador o tutor (DEC-147); sin redirección automática. */
 function TarjetaMiInformacion() {
   return (
     <Link
@@ -32,7 +32,7 @@ function TarjetaMiInformacion() {
 
 /**
  * Inicio de la aplicación interna (F-08, H-29.2). Reúne la tarjeta de adeudos de tesorería para
- * quien puede consultarlos y, para el jugador o tutor, el enlace a «Mi información» (DEC-146); el
+ * quien puede consultarlos y, para el jugador o tutor, el enlace a «Mi información» (DEC-147); el
  * resto de indicadores de F-08 llega con sus módulos.
  */
 export function PanelInicio() {

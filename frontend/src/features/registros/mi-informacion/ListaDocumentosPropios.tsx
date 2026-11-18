@@ -14,9 +14,9 @@ function estaCompleto({ faltan }: RequisitoPropio): boolean {
  * Documentos del registro en solo lectura: estado, observaciones y faltantes. No ofrece ver ni
  * descargar: el contrato no trae datos del archivo y la consulta propia no expone enlaces (RNF-018).
  * No reutiliza `TarjetaRequisito` porque esa tarjeta necesita `tipoMime` y `tamanoBytes`, que este
- * contrato no trae (DEC-150).
+ * contrato no trae (DEC-151).
  *
- * Refs: RF-108, RF-144, RNF-018, DEC-141, DEC-150
+ * Refs: RF-108, RF-144, RNF-018, DEC-141, DEC-151
  */
 export function ListaDocumentosPropios({ documentos }: { documentos: DocumentosPropios }) {
   const { requisitos } = documentos

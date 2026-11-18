@@ -14,7 +14,7 @@ import { formatearFecha } from '@/features/temporadas/fechas'
 
 type Props = {
   registro: RegistroPropio
-  /** Con varios registros, el bloque va en un `<details>` (DEC-151). */
+  /** Con varios registros, el bloque va en un `<details>` (DEC-152). */
   plegable: boolean
   /** Solo aplica a `plegable`: el primero va abierto. */
   abierto?: boolean
@@ -100,10 +100,10 @@ function Contenido({ registro }: { registro: RegistroPropio }) {
 /**
  * Un registro del titular: temporada, club, equipo, categoría, estado, elegibilidad, alta y baja,
  * observaciones, documentos y partidos. La tarjeta de suspensión va arriba de los detalles
- * (DEC-150). Con un solo registro el bloque va abierto; con varios, cada uno en un
- * `<details>` con el primero abierto (DEC-151).
+ * (DEC-151). Con un solo registro el bloque va abierto; con varios, cada uno en un
+ * `<details>` con el primero abierto (DEC-152).
  *
- * Refs: RF-144, RF-017, RF-019, RF-020, DEC-150, DEC-151
+ * Refs: RF-144, RF-017, RF-019, RF-020, DEC-151, DEC-152
  */
 export function BloqueRegistro({ registro, plegable, abierto = false }: Props) {
   const etiqueta = `${registro.temporada.nombre}, ${registro.equipo.nombre}`

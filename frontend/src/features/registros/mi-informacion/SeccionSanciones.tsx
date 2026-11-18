@@ -19,9 +19,9 @@ function Dato({ termino, children }: { termino: string; children: ReactNode }) {
 
 /**
  * Sanciones de la persona, no por registro (DEC-141): tipo, estado, partidos cumplidos, vigencia,
- * artículo del reglamento y folio del expediente. Va una sola vez, después de los registros (DEC-151).
+ * artículo del reglamento y folio del expediente. Va una sola vez, después de los registros (DEC-152).
  *
- * Refs: RF-020, RF-144, DEC-141, DEC-150, DEC-151
+ * Refs: RF-020, RF-144, DEC-141, DEC-151, DEC-152
  */
 export function SeccionSanciones({ sanciones }: { sanciones: readonly SancionPropia[] }) {
   const id = useId()

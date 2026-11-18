@@ -4,9 +4,9 @@ import { Link } from 'react-router'
 /**
  * Privacidad con texto fijo y sin datos: aún no hay consulta de consentimientos y la solicitud ARCO
  * exige un permiso que el titular no tiene, así que no se ofrece «Solicitar revocación de difusión»
- * (DEC-149; RF-097 y RF-098 quedan en el backlog).
+ * (DEC-150; RF-097 y RF-098 quedan en el backlog).
  *
- * Refs: RF-144, RF-097, RF-098, DEC-67, DEC-149
+ * Refs: RF-144, RF-097, RF-098, DEC-67, DEC-150
  */
 export function SeccionPrivacidad() {
   const id = useId()
