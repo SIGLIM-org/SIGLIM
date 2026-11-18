@@ -17,7 +17,7 @@ type Props = {
   buscando: boolean
   jugador: PersonaConMinoria | null
   jugadorNuevo: boolean
-  /** Renovación o transferencia que se ofrece a la persona encontrada (B-06.2, DEC-147). */
+  /** Renovación o transferencia que se ofrece a la persona encontrada (B-06.2, DEC-153). */
   opcionMovimiento?: OpcionMovimiento
   /** Se consulta la opción: «Continuar» espera para no saltarse el movimiento. */
   consultandoOpcion?: boolean
@@ -31,7 +31,7 @@ type Props = {
  * Paso 1 (F-18): solo lectura (DEC-103). La CURP se busca en todo el sistema (RF-010, DEC-78): si
  * existe se reutiliza la identidad y, si no, sus datos se capturan en el paso 2. Si la persona jugó
  * en una temporada anterior y no tiene registro en esta, se ofrece la renovación o la
- * transferencia en lugar del alta (B-06.2, DEC-147).
+ * transferencia en lugar del alta (B-06.2, DEC-153).
  */
 export function PasoIdentidad({
   enfocar,

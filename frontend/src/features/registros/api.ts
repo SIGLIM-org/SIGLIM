@@ -120,7 +120,7 @@ export function useRegistrarAltaJugador() {
   })
 }
 
-// ── Renovación y transferencia (B-06.2, DEC-146, DEC-147) ─────────────────────────────────────
+// ── Renovación y transferencia (B-06.2, DEC-146, DEC-153) ─────────────────────────────────────
 
 /** Ruta de `POST` de cada movimiento entre temporadas (B-06.1). */
 const RUTA_MOVIMIENTO: Record<TipoMovimiento, string> = {
@@ -130,7 +130,7 @@ const RUTA_MOVIMIENTO: Record<TipoMovimiento, string> = {
 
 /**
  * Movimiento que el asistente puede ofrecer a la persona encontrada hacia un equipo de destino
- * (DEC-147). Con `personaId` o `equipoId` vacíos no consulta.
+ * (DEC-153). Con `personaId` o `equipoId` vacíos no consulta.
  */
 export function useOpcionMovimiento(personaId: string | undefined, equipoId: string | undefined) {
   return useQuery({

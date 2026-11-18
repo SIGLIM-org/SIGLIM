@@ -132,7 +132,7 @@ type Servidor = {
   consentimiento: Respuesta<unknown>
   altas: Respuesta<RegistroJugador>[]
   aviso: Respuesta<AvisoPrivacidad>
-  /** `GET /registros-jugador/movimientos/opcion` (B-06.2, DEC-147). */
+  /** `GET /registros-jugador/movimientos/opcion` (B-06.2, DEC-153). */
   opcion: Respuesta<OpcionMovimiento>
   /** `POST /registros-jugador/renovaciones` y `/transferencias`. */
   movimientos: Respuesta<RegistroJugador>[]
@@ -726,7 +726,7 @@ describe('PantallaAltaJugador (F-18, F-06, H-09.3)', () => {
     )
   })
 
-  // ── Renovación y transferencia (B-06.2, DEC-147) ─────────────────────────────────────────
+  // ── Renovación y transferencia (B-06.2, DEC-153) ─────────────────────────────────────────
 
   async function buscarExistente(user: ReturnType<typeof userEvent.setup>, curp: string) {
     await user.type(screen.getByLabelText(/^CURP del jugador/), curp)
@@ -815,7 +815,7 @@ describe('PantallaAltaJugador (F-18, F-06, H-09.3)', () => {
     expect(post).not.toHaveBeenCalled()
   })
 
-  it('DEC-147: sin registro anterior no se ofrece movimiento y sigue el alta normal', async () => {
+  it('DEC-153: sin registro anterior no se ofrece movimiento y sigue el alta normal', async () => {
     const user = usuario()
     responder({ personas: { [CURP_ADULTO]: [ADULTO_EXISTENTE] } })
     montar()

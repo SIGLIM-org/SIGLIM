@@ -84,7 +84,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Refs: B-06, H-09.2, H-10.2, H-10.5, H-23.1, RF-003, RF-013, RF-014, RF-015, RF-016, RF-017, RF-018, RF-093,
  * RF-101, RF-107, RF-109, RF-111, RN-021, RN-037, RN-039, RN-055, RNF-012, VAL-001, VAL-015, VAL-017, VAL-022,
  * VAL-024, VAL-025, VAL-026, CU-004, DEC-13, DEC-78, DEC-85 a DEC-90, DEC-97 a DEC-102, DEC-109, DEC-110,
- * DEC-118 a DEC-124, DEC-146, DEC-147
+ * DEC-118 a DEC-124, DEC-146, DEC-153
  */
 @Service
 public class RegistroJugadorService {
@@ -251,7 +251,7 @@ public class RegistroJugadorService {
 
     /**
      * Qué movimiento entre temporadas puede ofrecer el asistente de alta (F-18) para la persona y el
-     * equipo de destino (B-06.2, DEC-147). Es de solo lectura y no se audita. Sigue las mismas reglas
+     * equipo de destino (B-06.2, DEC-153). Es de solo lectura y no se audita. Sigue las mismas reglas
      * que {@link #renovar} y {@link #transferir}, que vuelven a validar al enviar:
      * <ul>
      *   <li>Sin {@code registros.registro:EDITAR} en ningún ámbito: {@code 403 VAL-015}.</li>

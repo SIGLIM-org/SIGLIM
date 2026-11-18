@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.18 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.19 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -66,7 +66,7 @@ Versión 5.18 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.15 | 17 de noviembre de 2026 | B-09.1: §6.5 con el contrato de la disponibilidad arbitral (`GET /arbitros/{id}/disponibilidad?desde=&hasta=`, `POST` y `DELETE …/{disponibilidadId}`): intervalos `[desde, hasta)`, `disponible` opcional con `true` por omisión, solo árbitros `VALIDADO`, borrado físico porque no es historial deportivo, permiso `arbitraje.disponibilidad:EDITAR` sobre la persona del árbitro (Comisión en `LIGA`, árbitro en `PROPIO`) y auditoría `REGISTRAR_DISPONIBILIDAD_ARBITRAL`/`ELIMINAR_DISPONIBILIDAD_ARBITRAL` (RF-022). |
 | 5.16 | 17 de noviembre de 2026 | B-30: §6.7 indica que publicar la jornada emite `JornadaPublicada`; §6.13 con «Cobros automáticos al publicar la jornada» (RF-136): cobros `ARBITRAJE` y `CANCHA` a cada equipo con la tarifa de la temporada y la categoría, sin cobro de cancha al dueño de la cancha (DEC-33), omisión auditada sin tarifa o con tarifa en cero, periodo configurable (`dias-para-pagar`), idempotencia por `ux_cobros_partido` y auditoría `GENERAR_COBRO` y `GENERAR_COBROS_JORNADA`. |
 | 5.17 | 17 de noviembre de 2026 | B-06.1: §6.4 con la renovación y la transferencia entre temporadas (`POST /registros-jugador/renovaciones` y `/transferencias`): `{ personaId, equipoId }`, registro nuevo `PENDIENTE_VALIDACION` enlazado por `registro_anterior_id`, `422 RF-015`/`RF-016` si el registro anterior no existe o no corresponde al tipo de movimiento, `409 RF-111` si la temporada no permite el cambio de club, `409 VAL-026`/`RN-039` dentro de la temporada, documentos aprobados heredados solo en la renovación del mismo club y auditoría `RENOVAR_REGISTRO`/`TRANSFERIR_REGISTRO`; §3.2 con `RF-015` y `RF-016` en `422` y `RF-111` en `409` (DEC-146). |
-| 5.18 | 17 de noviembre de 2026 | B-06.2: §6.4 con `GET /registros-jugador/movimientos/opcion?personaId=&equipoId=` (DEC-147): `{ tipo, permitido, temporadaAnterior, motivo }` para que el asistente de alta (F-18) ofrezca la renovación o la transferencia, o la muestre deshabilitada si la temporada no permite el cambio de club (RF-111), sin datos del club de origen; solo lectura y sin auditoría. |
+| 5.19 | 17 de noviembre de 2026 | B-06.2: §6.4 con `GET /registros-jugador/movimientos/opcion?personaId=&equipoId=` (DEC-153): `{ tipo, permitido, temporadaAnterior, motivo }` para que el asistente de alta (F-18) ofrezca la renovación o la transferencia, o la muestre deshabilitada si la temporada no permite el cambio de club (RF-111), sin datos del club de origen; solo lectura y sin auditoría. |
 
 ## Índice
 
@@ -1872,7 +1872,7 @@ la temporada «…»». Se audita en `M-04` sobre `registros_jugador` como `RENO
 `TRANSFERIR_REGISTRO`, con `{ "personaId", "equipoId", "temporadaId", "registroAnteriorId",
 "clubAnteriorId", "equipoAnteriorId", "temporadaAnteriorId", "estado" }`, sin datos personales.
 
-**Opción para el asistente de alta (B-06.2, DEC-147).** `GET /registros-jugador/movimientos/opcion?personaId=&equipoId=`
+**Opción para el asistente de alta (B-06.2, DEC-153).** `GET /registros-jugador/movimientos/opcion?personaId=&equipoId=`
 responde `200` con `Cache-Control: no-store` y
 `{ "tipo": "RENOVACION" | "TRANSFERENCIA" | null, "permitido", "temporadaAnterior", "motivo" }`, con
 las mismas reglas que los `POST` (que vuelven a validar al enviar). Es de solo lectura y no se audita.

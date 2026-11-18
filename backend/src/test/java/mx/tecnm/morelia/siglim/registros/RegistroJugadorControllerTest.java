@@ -196,7 +196,7 @@ class RegistroJugadorControllerTest {
     }
 
     @Test
-    @DisplayName("RF-111 · DEC-147: GET /registros-jugador/movimientos/opcion responde 200 con no-store y la opción")
+    @DisplayName("RF-111 · DEC-153: GET /registros-jugador/movimientos/opcion responde 200 con no-store y la opción")
     void opcionMovimiento() {
         given(servicio.opcionMovimiento(PERSONA, EQUIPO)).willReturn(new OpcionMovimientoDto("TRANSFERENCIA", false,
                 "Temporada 2025", "La temporada «Temporada 2026» no permite cambios de club entre temporadas."));

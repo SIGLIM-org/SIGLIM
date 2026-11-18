@@ -10,7 +10,7 @@ type Props = {
 }
 
 /**
- * Oferta del paso 1 de F-18 (B-06.2, DEC-147): si la persona jugó en una temporada anterior, el
+ * Oferta del paso 1 de F-18 (B-06.2, DEC-153): si la persona jugó en una temporada anterior, el
  * registro se crea como renovación (mismo club, RF-015) o como transferencia (otro club, RF-016).
  * Una transferencia que la temporada no admite (RF-111) queda deshabilitada con la explicación, no
  * se oculta. Los textos no nombran al otro club (DEC-88, DEC-90, PEN-016).

@@ -664,10 +664,10 @@ class RegistroJugadorServiceTest {
         verifyNoInteractions(auditoria);
     }
 
-    // ── Opción de movimiento para el asistente (B-06.2, DEC-147) ────────────────────────────────
+    // ── Opción de movimiento para el asistente (B-06.2, DEC-153) ────────────────────────────────
 
     @Test
-    @DisplayName("RF-015 · DEC-147: ofrece la renovación si el registro anterior es del mismo club")
+    @DisplayName("RF-015 · DEC-153: ofrece la renovación si el registro anterior es del mismo club")
     void opcionRenovacion() {
         prepararMovimiento(false, ANTERIOR_MISMO_CLUB, false);
 
@@ -679,7 +679,7 @@ class RegistroJugadorServiceTest {
     }
 
     @Test
-    @DisplayName("RF-016 · RF-111 · DEC-147: ofrece la transferencia permitida si la temporada admite el cambio")
+    @DisplayName("RF-016 · RF-111 · DEC-153: ofrece la transferencia permitida si la temporada admite el cambio")
     void opcionTransferenciaPermitida() {
         prepararMovimiento(false, ANTERIOR_OTRO_CLUB, true);
 
@@ -691,7 +691,7 @@ class RegistroJugadorServiceTest {
     }
 
     @Test
-    @DisplayName("RF-111 · DEC-147: la transferencia queda no permitida con la explicación y sin datos del otro club")
+    @DisplayName("RF-111 · DEC-153: la transferencia queda no permitida con la explicación y sin datos del otro club")
     void opcionTransferenciaNoPermitida() {
         prepararMovimiento(false, ANTERIOR_OTRO_CLUB, false);
 
@@ -704,7 +704,7 @@ class RegistroJugadorServiceTest {
     }
 
     @Test
-    @DisplayName("VAL-017 · DEC-147: no ofrece movimiento si la persona ya está registrada en la temporada destino")
+    @DisplayName("VAL-017 · DEC-153: no ofrece movimiento si la persona ya está registrada en la temporada destino")
     void opcionConRegistroEnLaTemporada() {
         prepararMovimiento(false, ANTERIOR_MISMO_CLUB, true);
         given(registros.registrosEnTemporada(PERSONA, TEMPORADA)).willReturn(List.of(
@@ -717,7 +717,7 @@ class RegistroJugadorServiceTest {
     }
 
     @Test
-    @DisplayName("DEC-147: un registro rechazado en la temporada destino no impide ofrecer el movimiento")
+    @DisplayName("DEC-153: un registro rechazado en la temporada destino no impide ofrecer el movimiento")
     void opcionConRegistroRechazado() {
         prepararMovimiento(false, ANTERIOR_MISMO_CLUB, true);
         given(registros.registrosEnTemporada(PERSONA, TEMPORADA)).willReturn(List.of(
@@ -727,7 +727,7 @@ class RegistroJugadorServiceTest {
     }
 
     @Test
-    @DisplayName("DEC-147: sin registro anterior no hay movimiento que ofrecer")
+    @DisplayName("DEC-153: sin registro anterior no hay movimiento que ofrecer")
     void opcionSinRegistroAnterior() {
         prepararMovimiento(false, null, true);
 
@@ -735,7 +735,7 @@ class RegistroJugadorServiceTest {
     }
 
     @Test
-    @DisplayName("VAL-015 · VAL-024 · DEC-147: sin permiso, sin datos o con un equipo fuera de ámbito no responde la opción")
+    @DisplayName("VAL-015 · VAL-024 · DEC-153: sin permiso, sin datos o con un equipo fuera de ámbito no responde la opción")
     void opcionSinPermisoOFaltanDatos() {
         given(autorizacion.alcance(EDITAR)).willThrow(Autorizacion.sinPermiso());
         esperar(() -> servicio.opcionMovimiento(PERSONA, EQUIPO), HttpStatus.FORBIDDEN, "VAL-015");

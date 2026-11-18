@@ -95,7 +95,7 @@ export function agruparEquipos(equipos: readonly Equipo[]): GrupoEquipos[] {
 
 /**
  * Equipo con el que el paso 1 pregunta si se ofrece una renovación o una transferencia (B-06.2,
- * DEC-147). La respuesta depende solo del club y de la temporada del equipo, así que vale cualquier
+ * DEC-153). La respuesta depende solo del club y de la temporada del equipo, así que vale cualquier
  * equipo cuando todos los elegibles son del mismo club y de la misma temporada (el caso de la
  * Directiva). Si hay varios clubes o temporadas no se pregunta y el asistente sigue con el alta
  * normal **[PROPUESTA]**.

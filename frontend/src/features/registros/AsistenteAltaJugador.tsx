@@ -83,7 +83,7 @@ function erroresPersona(contexto: 'persona' | 'tutor', errores: Record<string, s
  * escrituras al volver o reintentar; la interfaz decide por `codigo` (DEC-63, DEC-107).
  *
  * Si la persona jugó en una temporada anterior y no tiene registro en esta, el paso 1 ofrece la
- * renovación o la transferencia (B-06.2, DEC-147): el registro se crea con ese movimiento al final del
+ * renovación o la transferencia (B-06.2, DEC-153): el registro se crea con ese movimiento al final del
  * paso 2, reutilizando la tutela y el consentimiento vigentes; solo si falta el consentimiento
  * (`VAL-025 CONSENTIMIENTO`) se pide en el paso 3.
  *

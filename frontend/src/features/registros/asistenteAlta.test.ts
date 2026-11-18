@@ -255,7 +255,7 @@ describe('Estado del asistente (DEC-103)', () => {
   })
 })
 
-describe('Equipo de referencia del movimiento (B-06.2, DEC-147)', () => {
+describe('Equipo de referencia del movimiento (B-06.2, DEC-153)', () => {
   const activa = { id: 't-2026', estado: 'ACTIVA' as const }
 
   it('con un solo club y una sola temporada devuelve el primer equipo elegible', () => {
