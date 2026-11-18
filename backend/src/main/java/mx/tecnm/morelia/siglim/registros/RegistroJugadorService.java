@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
@@ -23,6 +24,7 @@ import mx.tecnm.morelia.siglim.registros.DocumentoDto.TipoDocumentoDto;
 import mx.tecnm.morelia.siglim.registros.DocumentoRegistroRepository.RegistroDeDocumentos;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorDetalleDto.TutorDto;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorRepository.EquipoDelRegistro;
+import mx.tecnm.morelia.siglim.registros.RegistroJugadorRepository.RegistroAnterior;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorRepository.RegistroEnTemporada;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorRepository.RequisitosMenor;
 import mx.tecnm.morelia.siglim.registros.RequisitosDocumentos.Avance;
@@ -70,11 +72,20 @@ import org.springframework.transaction.annotation.Transactional;
  *       {@code baja_en} es la fecha de México. Se bloquea el registro con {@code bloquearRegistro} y el
  *       {@code UPDATE} es condicional. Un equipo en {@code BAJA} no la impide.
  *       {@code SUSPENDIDO → BAJA} queda para la sanción de M-09.</li>
+ *   <li><b>Renovación y transferencia (B-06, DEC-139).</b> {@code registros.registro:EDITAR} sobre el
+ *       club destino; el registro anterior es el más reciente de la persona en una temporada previa
+ *       ({@code siglim.registro_anterior}). La renovación exige el mismo club y reutiliza los
+ *       documentos aprobados del anterior; la transferencia exige otro club y que la temporada
+ *       destino permita el cambio en sus parámetros (RF-111). VAL-026/RN-039 impiden el cambio
+ *       dentro de la temporada. El registro nuevo queda {@code PENDIENTE_VALIDACION} con
+ *       {@code registro_anterior_id}; se audita como {@code RENOVAR_REGISTRO_JUGADOR} o
+ *       {@code TRANSFERIR_REGISTRO_JUGADOR}.</li>
  * </ul>
  *
- * <p>Refs: H-09.2, H-10.2, H-10.5, H-23.1, RF-003, RF-013, RF-014, RF-016, RF-017, RF-018, RF-093, RF-101,
- * RF-107, RF-109, RN-021, RN-037, RN-039, RN-055, RNF-012, VAL-001, VAL-015, VAL-017, VAL-022, VAL-024, VAL-025,
- * VAL-026, CU-004, DEC-78, DEC-85 a DEC-90, DEC-97 a DEC-102, DEC-109, DEC-110, DEC-118 a DEC-124
+ * <p>Refs: B-06, H-09.2, H-10.2, H-10.5, H-23.1, RF-003, RF-013, RF-014, RF-015, RF-016, RF-017, RF-018, RF-093,
+ * RF-101, RF-107, RF-109, RF-111, RN-021, RN-037, RN-039, RN-055, RNF-012, VAL-001, VAL-015, VAL-017, VAL-022,
+ * VAL-024, VAL-025, VAL-026, CU-004, DEC-13, DEC-78, DEC-85 a DEC-90, DEC-97 a DEC-102, DEC-109, DEC-110,
+ * DEC-118 a DEC-124, DEC-139
  */
 @Service
 public class RegistroJugadorService {
@@ -127,6 +138,9 @@ public class RegistroJugadorService {
      *   <li>Registro activo en la temporada: {@code 409 VAL-017} con {@code club} y {@code equipo}.</li>
      *   <li>Registro en {@code BAJA} en otro club de la temporada: {@code 409 VAL-026}.</li>
      *   <li>Registro en {@code BAJA} en otro equipo del mismo club: {@code 409 RN-039}.</li>
+     *   <li>La persona ya tiene un registro en una temporada anterior: {@code 422 RF-015} si es del
+     *       mismo club (usa la renovación) o {@code 422 RF-016} si es de otro (usa la transferencia);
+     *       si es de otro club y la temporada no permite el cambio, {@code 409 RF-111} (DEC-139).</li>
      *   <li>Menor sin tutela vigente o sin consentimiento de un tutor vigente: {@code 422 VAL-025} con
      *       {@code requisito} {@code TUTOR} o {@code CONSENTIMIENTO}.</li>
      * </ol>
@@ -167,6 +181,7 @@ public class RegistroJugadorService {
 
         List<RegistroEnTemporada> previos = registros.registrosEnTemporada(personaId, equipo.temporadaId());
         validarUnicidad(previos, equipo);
+        validarMovimientoPendiente(personaId, equipo);
         if (esMenor) {
             validarRequisitosMenor(registros.requisitosMenor(personaId),
                     "Registra primero a su tutor y después da de alta el registro.",
@@ -187,6 +202,174 @@ public class RegistroJugadorService {
 
         return registros.buscar(id)
                 .orElseThrow(() -> new IllegalStateException("El registro " + id + " no es visible tras guardarlo"));
+    }
+
+    // ── Renovación y transferencia entre temporadas (B-06, DEC-139) ──────────────────────────────
+
+    /**
+     * Renueva en una temporada nueva el registro de una persona que sigue en el mismo club (RF-015).
+     * Crea un registro {@code PENDIENTE_VALIDACION} en el equipo de destino y lo enlaza con el último
+     * registro de la persona en una temporada anterior ({@code registro_anterior_id}); los documentos
+     * aprobados de sus registros anteriores del mismo club cuentan para VAL-001 (DEC-139).
+     *
+     * <p>Orden de errores (el mismo del alta más los de DEC-139):
+     * <ol>
+     *   <li>Sin {@code registros.registro:EDITAR} en ningún ámbito: {@code 403 VAL-015}.</li>
+     *   <li>Falta {@code personaId} o {@code equipoId}: {@code 400 VALIDACION}.</li>
+     *   <li>Equipo inexistente en la liga o de un club fuera de ámbito: {@code 404} (VAL-024).</li>
+     *   <li>Temporada del equipo {@code CERRADA}: {@code 409 RF-003}.</li>
+     *   <li>Equipo en {@code BAJA}: {@code 422 RF-013}.</li>
+     *   <li>Club sin afiliación {@code APROBADA} en la temporada: {@code 409 RF-101}.</li>
+     *   <li>Persona inexistente: {@code 422 REFERENCIA_INVALIDA}.</li>
+     *   <li>Registro activo en la temporada destino: {@code 409 VAL-017}; una baja en otro club de
+     *       esa temporada, {@code 409 VAL-026}; en otro equipo del mismo club, {@code 409 RN-039}.</li>
+     *   <li>Sin registro anterior en una temporada previa: {@code 422 RF-015}.</li>
+     *   <li>El registro anterior es de otro club: {@code 422 RF-015} (usa la transferencia).</li>
+     *   <li>Menor sin tutela vigente o sin consentimiento: {@code 422 VAL-025}.</li>
+     * </ol>
+     */
+    @Transactional
+    public RegistroJugadorDto renovar(MovimientoRegistroRequest peticion) {
+        return movimiento(TipoMovimientoRegistro.RENOVACION, peticion);
+    }
+
+    /**
+     * Transfiere a una persona a un equipo de otro club en una temporada nueva (RF-016, RF-111). El
+     * registro queda {@code PENDIENTE_VALIDACION} y enlazado con el último registro de la persona en
+     * una temporada anterior; también conserva el historial de clubes (RF-012, DEC-13).
+     *
+     * <p>Valen las mismas reglas de {@link #renovar}, con dos propias de la transferencia:
+     * <ul>
+     *   <li>El registro anterior debe ser de otro club; si es del mismo, {@code 422 RF-016} (usa la
+     *       renovación).</li>
+     *   <li>La temporada destino debe permitir el cambio de club en su versión vigente de
+     *       parámetros; si no, {@code 409 RF-111} (RF-111, DEC-13). Sin versión de parámetros rige el
+     *       valor por omisión de la tabla, {@code true}.</li>
+     * </ul>
+     * Una transferencia no hereda los documentos del club de origen: el club destino carga los que
+     * correspondan al registro nuevo (DEC-139).
+     */
+    @Transactional
+    public RegistroJugadorDto transferir(MovimientoRegistroRequest peticion) {
+        return movimiento(TipoMovimientoRegistro.TRANSFERENCIA, peticion);
+    }
+
+    /** Reglas comunes de la renovación y la transferencia (RF-015, RF-016, RF-111, VAL-026). */
+    private RegistroJugadorDto movimiento(TipoMovimientoRegistro tipo, MovimientoRegistroRequest peticion) {
+        autorizacion.alcance(EDITAR);
+        if (peticion == null || peticion.personaId() == null || peticion.equipoId() == null) {
+            throw ReglaNegocioException.invalida(ErroresTecnicos.VALIDACION,
+                    "Indica la persona y el equipo de destino.");
+        }
+        EquipoDelRegistro equipo = registros.buscarEquipo(ligaId, peticion.equipoId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Equipo " + peticion.equipoId()));
+        autorizacion.exigir(EDITAR, ObjetivoAutorizacion.deClubes(equipo.clubId()));
+
+        if (equipo.temporadaEstado() == EstadoTemporada.CERRADA) {
+            throw ReglaNegocioException.conflicto("RF-003",
+                    "La temporada «" + equipo.temporadaNombre() + "» está cerrada: ya no admite registros "
+                            + "de jugadores.");
+        }
+        if (!equipo.activo()) {
+            throw ReglaNegocioException.noProcesable("RF-013",
+                    "El equipo «" + equipo.nombre() + "» está dado de baja y no admite registros de "
+                            + "jugadores. Elige otro equipo de tu club.");
+        }
+        if (!registros.clubAfiliado(equipo.clubId(), equipo.temporadaId())) {
+            throw ReglaNegocioException.conflicto("RF-101",
+                    "El club «" + equipo.clubNombre() + "» no tiene su tarjetón aprobado en la temporada «"
+                            + equipo.temporadaNombre() + "». Tramita el tarjetón o espera a que la liga lo "
+                            + "apruebe para registrar jugadores.");
+        }
+
+        UUID personaId = peticion.personaId();
+        LocalDate altaEn = LocalDate.now(reloj.withZone(ZONA_DE_NEGOCIO));
+        boolean esMenor = registros.esMenor(personaId, altaEn)
+                .orElseThrow(() -> ReglaNegocioException.noProcesable(ErroresTecnicos.REFERENCIA_INVALIDA,
+                        "La persona indicada no está registrada. Regístrala primero con su CURP."));
+
+        // La temporada destino no admite un segundo registro activo ni un cambio de club (VAL-017,
+        // VAL-026, RN-039); la renovación y la transferencia son entre temporadas.
+        validarUnicidad(registros.registrosEnTemporada(personaId, equipo.temporadaId()), equipo);
+
+        RegistroAnterior anterior = registros.registroAnterior(personaId, equipo.temporadaId())
+                .orElseThrow(() -> ReglaNegocioException.noProcesable(tipo.codigo(), sinRegistroAnterior(tipo)));
+        boolean mismoClub = anterior.clubId().equals(equipo.clubId());
+        if (tipo == TipoMovimientoRegistro.RENOVACION && !mismoClub) {
+            throw ReglaNegocioException.noProcesable("RF-015",
+                    "El registro anterior es del club «" + anterior.clubNombre() + "»: para cambiarlo de "
+                            + "club usa la transferencia.");
+        }
+        if (tipo == TipoMovimientoRegistro.TRANSFERENCIA && mismoClub) {
+            throw ReglaNegocioException.noProcesable("RF-016",
+                    "El registro anterior ya es de tu club: para conservar al jugador usa la renovación.");
+        }
+        if (!mismoClub && !registros.permiteCambioClub(equipo.temporadaId())) {
+            throw ReglaNegocioException.conflicto("RF-111",
+                    "La temporada «" + equipo.temporadaNombre() + "» no permite cambios de club entre "
+                            + "temporadas. La liga puede habilitarlo en los parámetros de la temporada.");
+        }
+        if (esMenor) {
+            validarRequisitosMenor(registros.requisitosMenor(personaId),
+                    "Registra primero a su tutor y después " + tipo.verbo() + " el registro.",
+                    "Registra el consentimiento del tutor y después " + tipo.verbo() + " el registro.");
+        }
+
+        String motivo = mismoClub
+                ? "Renovación desde la temporada «" + anterior.temporadaNombre() + "»"
+                : "Transferencia desde el club «" + anterior.clubNombre() + "» de la temporada «"
+                        + anterior.temporadaNombre() + "»";
+        motivoOperacion.fijar(motivo);
+        UUID id = registros.insertar(personaId, equipo.id(), equipo.temporadaId(), altaEn, anterior.id(),
+                        UsuarioActual.idRequerido())
+                .orElseThrow(() -> registrosEnCarrera(personaId, equipo));
+
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("personaId", personaId.toString());
+        detalle.put("equipoId", equipo.id().toString());
+        detalle.put("temporadaId", equipo.temporadaId().toString());
+        detalle.put("registroAnteriorId", anterior.id().toString());
+        detalle.put("clubAnteriorId", anterior.clubId().toString());
+        detalle.put("equipoAnteriorId", anterior.equipoId().toString());
+        detalle.put("temporadaAnteriorId", anterior.temporadaId().toString());
+        detalle.put("estado", EstadoRegistro.PENDIENTE_VALIDACION.name());
+        auditoria.registrar(new EventoAuditoria(ligaId, MODULO, tipo.accion(), ENTIDAD, id.toString(),
+                motivo, detalle));
+
+        return registros.buscar(id)
+                .orElseThrow(() -> new IllegalStateException("El registro " + id + " no es visible tras guardarlo"));
+    }
+
+    /**
+     * Un alta normal no puede saltarse la renovación ni la transferencia: si la persona jugó en una
+     * temporada anterior, el registro debe quedar enlazado y auditarse como movimiento (DEC-139). La
+     * transferencia además respeta {@code permite_cambio_club} (RF-111). Así el alta no es una vía
+     * para cambiar de club dentro de una temporada ni para evadir la configuración de la liga.
+     */
+    private void validarMovimientoPendiente(UUID personaId, EquipoDelRegistro equipo) {
+        Optional<RegistroAnterior> anterior = registros.registroAnterior(personaId, equipo.temporadaId());
+        if (anterior.isEmpty()) {
+            return;
+        }
+        boolean mismoClub = anterior.get().clubId().equals(equipo.clubId());
+        if (!mismoClub && !registros.permiteCambioClub(equipo.temporadaId())) {
+            throw ReglaNegocioException.conflicto("RF-111",
+                    "La temporada «" + equipo.temporadaNombre() + "» no permite cambios de club entre "
+                            + "temporadas. La liga puede habilitarlo en los parámetros de la temporada.");
+        }
+        throw ReglaNegocioException.noProcesable(mismoClub ? "RF-015" : "RF-016", mismoClub
+                ? "La persona ya tiene un registro anterior en tu club («"
+                        + anterior.get().temporadaNombre() + "»): usa la renovación para conservarla en "
+                        + "una temporada nueva."
+                : "La persona tiene un registro anterior en el club «"
+                        + anterior.get().clubNombre() + "»: usa la transferencia para cambiarla de club.");
+    }
+
+    /** Mensaje cuando la persona no tiene registros en temporadas anteriores (RF-015, RF-016). */
+    private static String sinRegistroAnterior(TipoMovimientoRegistro tipo) {
+        String accion = tipo == TipoMovimientoRegistro.RENOVACION ? "renovar" : "transferir";
+        return "La persona no tiene un registro anterior en una temporada previa de la liga: no hay nada que "
+                + accion + ". Da de alta su registro en el equipo.";
     }
 
     /**
@@ -414,7 +597,7 @@ public class RegistroJugadorService {
         boolean esMenor = documentos.esMenor(registro.personaId(), registro.altaEn())
                 .orElseThrow(() -> new IllegalStateException("La persona del registro " + registro.id() + " no existe"));
         Avance avance = RequisitosDocumentos.calcular(documentos.requisitos(ligaId, registro.categoriaTipo()), esMenor,
-                documentos.vigentes(registro.id()));
+                documentos.vigentesConRenovaciones(registro.id()));
         if (!avance.listoParaValidar()) {
             throw faltanDocumentos(avance);
         }

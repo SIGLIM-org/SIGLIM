@@ -22,10 +22,11 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>El alta responde {@code 201} con {@code Location: /api/v1/registros-jugador/{id}} (DEC-109). Todas
  * las respuestas llevan {@code Cache-Control: no-store} porque incluyen el nombre de la persona y, en
  * el detalle, su CURP (RNF-012). La validación (DEC-102) y la baja (DEC-124) responden {@code 200}
- * con el registro.
+ * con el registro. La renovación y la transferencia (B-06, DEC-139) responden {@code 201} con
+ * {@code Location}, como el alta.
  *
- * <p>Refs: H-09.2, H-10.2, H-10.5, H-23.1, RF-013, RF-014, RF-017, RF-107, RF-109, DEC-85, DEC-90, DEC-97,
- * DEC-102, DEC-109, DEC-110, DEC-121, DEC-124
+ * <p>Refs: B-06, H-09.2, H-10.2, H-10.5, H-23.1, RF-013, RF-014, RF-015, RF-016, RF-017, RF-107,
+ * RF-109, RF-111, DEC-85, DEC-90, DEC-97, DEC-102, DEC-109, DEC-110, DEC-121, DEC-124, DEC-139
  */
 @RestController
 @RequestMapping("/api/v1/registros-jugador")
@@ -64,6 +65,30 @@ class RegistroJugadorController {
     @PostMapping
     ResponseEntity<RegistroJugadorDto> registrar(@RequestBody CrearRegistroJugadorRequest peticion) {
         RegistroJugadorDto registro = servicio.registrar(peticion);
+        return ResponseEntity.created(URI.create(RUTA + registro.id()))
+                .cacheControl(CacheControl.noStore())
+                .body(registro);
+    }
+
+    /**
+     * Renueva en una temporada nueva el registro de una persona del mismo club: {@code 201} con
+     * {@code Location} y el registro (RF-015, DEC-139).
+     */
+    @PostMapping("/renovaciones")
+    ResponseEntity<RegistroJugadorDto> renovar(@RequestBody MovimientoRegistroRequest peticion) {
+        RegistroJugadorDto registro = servicio.renovar(peticion);
+        return ResponseEntity.created(URI.create(RUTA + registro.id()))
+                .cacheControl(CacheControl.noStore())
+                .body(registro);
+    }
+
+    /**
+     * Transfiere a una persona a un equipo de otro club en una temporada nueva: {@code 201} con
+     * {@code Location} y el registro (RF-016, RF-111, DEC-139).
+     */
+    @PostMapping("/transferencias")
+    ResponseEntity<RegistroJugadorDto> transferir(@RequestBody MovimientoRegistroRequest peticion) {
+        RegistroJugadorDto registro = servicio.transferir(peticion);
         return ResponseEntity.created(URI.create(RUTA + registro.id()))
                 .cacheControl(CacheControl.noStore())
                 .body(registro);

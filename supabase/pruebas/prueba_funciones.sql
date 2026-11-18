@@ -88,6 +88,18 @@ SELECT prueba.verifica(
   obj_description('siglim.ux_registros_activo'::regclass, 'pg_class') LIKE 'VAL-017:%',
   'DEC-90: ux_registros_activo documenta VAL-017 para traducir su 23505');
 
+-- Renovación y transferencia (B-06, DEC-139): la función que enlaza el registro anterior es de
+-- lectura mínima y solo la ejecuta el backend.
+SELECT prueba.verifica(
+  (SELECT bool_and(p.prosecdef) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'siglim' AND p.proname = 'registro_anterior'),
+  'DEC-139: registro_anterior es SECURITY DEFINER');
+SELECT prueba.verifica(
+  has_function_privilege('siglim_app', 'siglim.registro_anterior(uuid, uuid)', 'EXECUTE')
+  AND NOT has_function_privilege('siglim_publico', 'siglim.registro_anterior(uuid, uuid)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'siglim.registro_anterior(uuid, uuid)', 'EXECUTE'),
+  'DEC-139: solo siglim_app ejecuta registro_anterior');
+
 BEGIN;
 SET LOCAL ROLE siglim_app;
 SELECT prueba.como('30000000-0000-4000-8000-000000000006');   -- Directiva B

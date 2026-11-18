@@ -180,6 +180,47 @@ class RegistroJugadorRepository {
                 .list();
     }
 
+    /**
+     * El registro no rechazado más reciente de la persona en una temporada anterior de la liga, con
+     * su club, equipo y temporada. Sale de {@code siglim.registro_anterior}, que es {@code SECURITY
+     * DEFINER}: el club destino de una transferencia puede enlazarlo sin ver los demás datos del club
+     * de origen (DEC-139). Vacío si la persona no tiene registros anteriores.
+     */
+    Optional<RegistroAnterior> registroAnterior(UUID personaId, UUID temporadaId) {
+        return jdbc.sql("""
+                        SELECT registro_id, club_id, club_nombre, equipo_id, equipo_nombre, temporada_id,
+                               temporada_nombre, estado
+                          FROM siglim.registro_anterior(:persona, :temporada)
+                        """)
+                .param("persona", personaId)
+                .param("temporada", temporadaId)
+                .query((fila, numero) -> new RegistroAnterior(
+                        fila.getObject("registro_id", UUID.class),
+                        fila.getObject("club_id", UUID.class),
+                        fila.getString("club_nombre"),
+                        fila.getObject("equipo_id", UUID.class),
+                        fila.getString("equipo_nombre"),
+                        fila.getObject("temporada_id", UUID.class),
+                        fila.getString("temporada_nombre"),
+                        EstadoRegistro.valueOf(fila.getString("estado"))))
+                .optional();
+    }
+
+    /**
+     * Si la versión vigente de los parámetros de la temporada permite el cambio de club entre
+     * temporadas (RF-111, DEC-13). Sin versión de parámetros rige el valor por omisión de la tabla,
+     * {@code true}.
+     */
+    boolean permiteCambioClub(UUID temporadaId) {
+        return jdbc.sql("""
+                        SELECT coalesce((SELECT permite_cambio_club
+                                           FROM siglim.parametros_vigentes(:temporada)), true)
+                        """)
+                .param("temporada", temporadaId)
+                .query(Boolean.class)
+                .single();
+    }
+
     /** Tutela vigente y consentimiento del tutor, con la condición del trigger al activar (DEC-89). */
     RequisitosMenor requisitosMenor(UUID personaId) {
         return jdbc.sql("""
@@ -200,9 +241,19 @@ class RegistroJugadorRepository {
      * {@code tg_registros_historial}.
      */
     Optional<UUID> insertar(UUID personaId, UUID equipoId, UUID temporadaId, LocalDate altaEn, UUID creadoPor) {
+        return insertar(personaId, equipoId, temporadaId, altaEn, null, creadoPor);
+    }
+
+    /**
+     * Igual que el alta, pero enlaza el registro de la temporada anterior de una renovación o
+     * transferencia ({@code registro_anterior_id}); el trigger valida el enlace (DEC-139).
+     */
+    Optional<UUID> insertar(UUID personaId, UUID equipoId, UUID temporadaId, LocalDate altaEn,
+            UUID registroAnteriorId, UUID creadoPor) {
         return jdbc.sql("""
-                        INSERT INTO registros_jugador (persona_id, equipo_id, temporada_id, alta_en, creado_por)
-                        VALUES (:persona, :equipo, :temporada, :altaEn, :creadoPor)
+                        INSERT INTO registros_jugador (persona_id, equipo_id, temporada_id, alta_en,
+                                                      registro_anterior_id, creado_por)
+                        VALUES (:persona, :equipo, :temporada, :altaEn, :anterior, :creadoPor)
                         ON CONFLICT (persona_id, temporada_id)
                            WHERE estado IN ('PENDIENTE_VALIDACION', 'ACTIVO', 'SUSPENDIDO')
                         DO NOTHING
@@ -212,6 +263,7 @@ class RegistroJugadorRepository {
                 .param("equipo", equipoId)
                 .param("temporada", temporadaId)
                 .param("altaEn", altaEn)
+                .param("anterior", registroAnteriorId)
                 .param("creadoPor", creadoPor)
                 .query(UUID.class)
                 .optional();
@@ -442,6 +494,11 @@ class RegistroJugadorRepository {
     /** Registro no rechazado de la persona en la temporada, de cualquier club (DEC-88). */
     record RegistroEnTemporada(UUID clubId, String clubNombre, UUID equipoId, String equipoNombre,
                                EstadoRegistro estado) {
+    }
+
+    /** Registro anterior de la persona, con su club, equipo y temporada (RF-015, DEC-139). */
+    record RegistroAnterior(UUID id, UUID clubId, String clubNombre, UUID equipoId, String equipoNombre,
+            UUID temporadaId, String temporadaNombre, EstadoRegistro estado) {
     }
 
     /** Requisitos de un menor para que su registro coincida con la activación (VAL-025, DEC-89). */

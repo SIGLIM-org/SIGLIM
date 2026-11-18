@@ -1,7 +1,7 @@
 # Diccionario de datos
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.11 · 16 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
+Versión 2.12 · 17 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
 
 > [!NOTE]
 > Este diccionario describe la migración
@@ -28,6 +28,7 @@ Versión 2.11 · 16 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alinea
 | 2.9 | 12 de noviembre de 2026 | Migración `20261112180000_validacion_registro.sql` (H-10.2, DEC-101): `tg_registros_validar` se reescribe con la misma firma y conserva todas sus reglas; agrega que solo un usuario de liga (`es_usuario_liga()`) hace la transición `PENDIENTE_VALIDACION → ACTIVO \| RECHAZADO` o cambia `validado_por` o `validado_en` (`VAL-015`), y que al activar cada requisito aplicable de `requisitos_documento` tenga al menos `cantidad` documentos vigentes `APROBADO` (`VAL-001`). Orden: `RF-017` → `VAL-015` → `RN-021` → `VAL-001` → `VAL-025`. La política `registros_editar` no cambia. Sin cambios en columnas. |
 | 2.10 | 16 de noviembre de 2026 | Migración `20261116100000_cuota_arbitros_parametro.sql` (B-08.1, RF-114, DEC-17): `parametros_temporada` agrega `equipos_por_arbitro` (`smallint`, no nulo, default 4 **[DEMO]**) con `ck_parametros_arbitros` (`> 0`); la cuota de árbitros del club se calcula con la versión vigente del parámetro y se redondea hacia arriba. Las versiones existentes reciben el valor por default. |
 | 2.11 | 16 de noviembre de 2026 | Migración `20261116180000_parametros_localia.sql` (B-15.1, RF-120, VAL-027, RN-049, DEC-34): `parametros_temporada` agrega `fechas_fase_regular` (`smallint`, nulo = sin definir) y `fechas_finales_unidad_deportiva` (`smallint`, no nulo, default 10 **[DEMO]**) con `ck_parametros_localia`; el backend advierte una cancha fuera de la unidad deportiva en las jornadas de la fase regular con `numero > fechas_fase_regular − fechas_finales_unidad_deportiva` y guarda el motivo con que se acepta en `partidos.motivo_localia`. Las versiones existentes quedan sin total de fechas (la regla no se evalúa) y con 10. |
+| 2.12 | 17 de noviembre de 2026 | Migración `20261117190000_renovacion_transferencia_registros.sql` (B-06, RF-015, RF-016, RF-111, VAL-026, DEC-139): función `SECURITY DEFINER` de lectura mínima `registro_anterior(uuid, uuid)` (registro no rechazado más reciente de la persona en una temporada anterior, con club, equipo y temporada) e índice `ix_registros_anterior`; `tg_registros_validar` valida `registro_anterior_id` (misma persona, temporada anterior, mismo club o cambio permitido por `permite_cambio_club` de la temporada destino) y, al activar, VAL-001 cuenta también los documentos aprobados de los registros anteriores del mismo club (renovación). Sin cambios en columnas. |
 
 ## 1. Propósito y alcance
 
@@ -849,7 +850,7 @@ Persona en un equipo por temporada. Una CURP con un solo registro activo por tem
 | `equipo_id` | uuid | No |  | FK → equipos.id | Equipo. |
 | `temporada_id` | uuid | No |  | FK → temporadas.id | Temporada del equipo; la fija un trigger para validar la unicidad por CURP. |
 | `estado` | estado_registro | No | PENDIENTE_VALIDACION |  | Estado actual (máquinas de estado del ERS §4.3). |
-| `registro_anterior_id` | uuid | Sí |  | FK → registros_jugador.id | Registro de la temporada anterior (renovación o transferencia). |
+| `registro_anterior_id` | uuid | Sí |  | FK → registros_jugador.id | Registro de la temporada anterior (renovación o transferencia); lo valida `tg_registros_validar` y no cambia después del alta (DEC-139). |
 | `alta_en` | date | No | CURRENT_DATE |  | Fecha de alta. |
 | `baja_en` | date | Sí |  |  | Fecha de baja; obligatoria con estado BAJA. |
 | `validado_por` | uuid | Sí |  | FK → perfiles.id | Perfil que validó. |
@@ -862,6 +863,7 @@ Persona en un equipo por temporada. Una CURP con un solo registro activo por tem
 Restricciones, índices y triggers:
 
 - `ck_registros_baja`: `CHECK (((estado = 'BAJA') = (baja_en IS NOT NULL)))`
+- Índice `ix_registros_anterior`: `USING btree (registro_anterior_id) WHERE (registro_anterior_id IS NOT NULL)`. Versión 2.12: recorre la cadena de renovaciones para heredar documentos (RF-015, DEC-139).
 - Índice `ix_registros_equipo`: `USING btree (equipo_id, estado)`
 - Índice `ix_registros_persona`: `USING btree (persona_id)`
 - Índice único `ux_registros_activo`: `USING btree (persona_id, temporada_id) WHERE (estado = ANY (ARRAY['PENDIENTE_VALIDACION', 'ACTIVO', 'SUSPENDIDO']))`. Comentario (versión 2.7): `VAL-017: la CURP ya tiene un registro activo en la temporada.`
@@ -869,17 +871,22 @@ Restricciones, índices y triggers:
 - Trigger `tg_registros_jugador_actualizado_en` (before update) → `tg_actualizado_en()`
 - Trigger `tg_registros_validar` (before insert or update) → `tg_registros_validar()`
 
-Reglas de `tg_registros_validar` (migración `20261112180000`, DEC-101). En el alta: equipo activo
-(`RF-013`), sin otro registro activo de la CURP en la temporada (`VAL-017`) y sin cambio de club
-(`VAL-026`). En un cambio: el registro no cambia de equipo (`RN-039`); en este orden, la transición
-es una de §4.3.3 del ERS (`RF-017`); solo un usuario de liga (`es_usuario_liga()`) pasa de
+Reglas de `tg_registros_validar` (migraciones `20261112180000` y `20261117190000`, DEC-101 y
+DEC-139). En el alta: equipo activo (`RF-013`), sin otro registro activo de la CURP en la temporada
+(`VAL-017`) y sin cambio de club (`VAL-026`). Si el alta trae `registro_anterior_id`, debe ser de la
+misma persona, de una temporada anterior y del mismo club o de una temporada cuyo
+`permite_cambio_club` vigente sea verdadero (`RF-015`, `RF-016`, `RF-111`); el enlace no cambia
+después del alta. En un cambio: el registro no cambia de equipo (`RN-039`); en este orden, la
+transición es una de §4.3.3 del ERS (`RF-017`); solo un usuario de liga (`es_usuario_liga()`) pasa de
 `PENDIENTE_VALIDACION` a `ACTIVO` o `RECHAZADO`, o cambia `validado_por` o `validado_en` (`VAL-015`);
 todo cambio de estado lleva motivo (`RN-021`); y al pasar de `PENDIENTE_VALIDACION` a `ACTIVO`, cada
 requisito aplicable (`requisitos_documento` de la liga del club del equipo para el `tipo` de la
 categoría; los `solo_menores` si `es_menor(persona_id, alta_en)`) necesita al menos `cantidad`
-documentos del registro vigentes (`reemplazado_por_id IS NULL`) en `APROBADO` (`VAL-001`), y un menor
-necesita tutela vigente y consentimiento no revocado de un tutor vigente (`VAL-025`). El INE del tutor
-es un documento: su falta es `VAL-001`. Las transiciones desde `ACTIVO` y `SUSPENDIDO` no cambian.
+documentos vigentes (`reemplazado_por_id IS NULL`) en `APROBADO` (`VAL-001`) **del registro o, en una
+renovación, de sus registros anteriores no rechazados del mismo club**; la cadena se corta cuando cambia el club,
+así que una transferencia no hereda documentos. Un menor necesita tutela vigente y consentimiento no
+revocado de un tutor vigente (`VAL-025`). El INE del tutor es un documento: su falta es `VAL-001`.
+Las transiciones desde `ACTIVO` y `SUSPENDIDO` no cambian.
 
 #### `requisitos_documento`
 
@@ -1856,6 +1863,7 @@ Restricciones, índices y triggers:
 | `persona_usuario()` | `uuid` | SECURITY DEFINER | Persona asociada al perfil del usuario actual. |
 | `persona_visible(p_persona uuid)` | `boolean` | SECURITY DEFINER | Ámbito de datos personales: liga, club (jugadores, tutores, directivos y árbitros del club) o propio (RN-054, RNF-012). |
 | `registrar_administrador_inicial(p_correo text)` | `uuid` | invocador | Arranque: crea el perfil y la asignación del primer Administrador general. Solo el dueño del esquema la ejecuta. |
+| `registro_anterior(p_persona uuid, p_temporada uuid)` | `TABLE(registro_id uuid, club_id uuid, club_nombre text, equipo_id uuid, equipo_nombre text, temporada_id uuid, temporada_nombre text, estado estado_registro)` | SECURITY DEFINER | Registro no rechazado más reciente de la persona en una temporada anterior de la liga, con club y equipo, aunque RLS no lo muestre al club destino; enlaza la renovación o transferencia (RF-015, RF-016, DEC-139). |
 | `registro_visible(p_registro uuid)` | `boolean` | SECURITY DEFINER | Verdadero si el registro de jugador está en el ámbito del usuario. |
 | `registros_en_temporada(p_persona uuid, p_temporada uuid)` | `TABLE(club_id uuid, club_nombre text, equipo_id uuid, equipo_nombre text, estado estado_registro)` | SECURITY DEFINER | Registros no rechazados de la persona en la temporada, con club y equipo, aunque RLS no los muestre; el backend no expone el estado ni los ids de otro club (RF-107, VAL-017, VAL-026, DEC-88, DEC-90). |
 | `requisitos_menor(p_persona uuid)` | `TABLE(tiene_tutor_vigente boolean, tiene_consentimiento boolean)` | SECURITY DEFINER | Si el menor tiene tutela vigente y consentimiento no revocado de un tutor vigente: la misma condición que `tg_registros_validar` al activar (VAL-025, DEC-89, DEC-90). |
@@ -1875,6 +1883,13 @@ alta de un registro (H-09.2): explican dónde está ya registrada una CURP (VAL-
 baja en otro club (VAL-026) o los requisitos que le faltan a un menor (VAL-025) aunque RLS no
 muestre esos registros, tutelas o consentimientos al club. Solo las ejecuta `siglim_app`; el
 `INSERT` del registro sigue sujeto a `registros_crear`.
+
+`registro_anterior` (versión 2.12, DEC-139) completa la lectura mínima para la renovación y la
+transferencia (B-06): devuelve solo el último registro no rechazado de la persona en una temporada
+anterior de la liga, con su club, equipo y temporada, para enlazarlo desde la temporada destino sin
+abrir el resto del historial del club de origen. El servicio decide si el movimiento es renovación
+(mismo club) o transferencia (otro club), consulta `parametros_vigentes(temporada).permite_cambio_club`
+(RF-111) y el trigger repite las reglas como última garantía.
 
 ## 8. Vistas del portal público
 

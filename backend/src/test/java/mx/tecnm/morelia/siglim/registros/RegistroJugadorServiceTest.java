@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willReturn;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -37,6 +38,7 @@ import mx.tecnm.morelia.siglim.registros.RegistroJugadorDto.PersonaResumenDto;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorDto.ReferenciaDto;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorDto.TemporadaResumenDto;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorRepository.EquipoDelRegistro;
+import mx.tecnm.morelia.siglim.registros.RegistroJugadorRepository.RegistroAnterior;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorRepository.RegistroEnTemporada;
 import mx.tecnm.morelia.siglim.registros.RegistroJugadorRepository.RequisitosMenor;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
@@ -83,6 +85,14 @@ class RegistroJugadorServiceTest {
     private static final UUID OTRO_CLUB = UUID.fromString("c0000000-0000-4000-8000-000000000002");
     private static final UUID TEMPORADA = UUID.fromString("50000000-0000-4000-8000-000000000001");
     private static final UUID REGISTRO = UUID.fromString("80000000-0000-4000-8000-000000000001");
+    private static final UUID REGISTRO_ANTERIOR = UUID.fromString("80000000-0000-4000-8000-000000000002");
+    private static final UUID TEMPORADA_ANTERIOR = UUID.fromString("50000000-0000-4000-8000-000000000000");
+    private static final RegistroAnterior ANTERIOR_MISMO_CLUB = new RegistroAnterior(REGISTRO_ANTERIOR, CLUB,
+            "Club Halcones", OTRO_EQUIPO, "Halcones 2025", TEMPORADA_ANTERIOR, "Temporada 2025",
+            EstadoRegistro.ACTIVO);
+    private static final RegistroAnterior ANTERIOR_OTRO_CLUB = new RegistroAnterior(REGISTRO_ANTERIOR, OTRO_CLUB,
+            "Club Águilas", OTRO_EQUIPO, "Águilas 2025", TEMPORADA_ANTERIOR, "Temporada 2025",
+            EstadoRegistro.ACTIVO);
     private static final UUID PERFIL = UUID.fromString("55555555-5555-4555-8555-555555555555");
     /** 11 nov 2026 a las 12:00 en Morelia. */
     private static final Instant AHORA = Instant.parse("2026-11-11T18:00:00Z");
@@ -404,6 +414,58 @@ class RegistroJugadorServiceTest {
     }
 
     @Test
+    @DisplayName("RF-015 · DEC-139: un alta con registro anterior del mismo club pide la renovación")
+    void altaConRegistroAnteriorDelMismoClub() {
+        prepararAlta(false);
+        given(registros.registroAnterior(PERSONA, TEMPORADA)).willReturn(Optional.of(ANTERIOR_MISMO_CLUB));
+
+        assertThatThrownBy(() -> servicio.registrar(PETICION)).isInstanceOfSatisfying(ReglaNegocioException.class,
+                error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+                    assertThat(error.codigo()).isEqualTo("RF-015");
+                    assertThat(error.getMessage()).contains("renovación");
+                });
+
+        verify(registros, never()).insertar(any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-016 · DEC-139: un alta con registro anterior de otro club pide la transferencia")
+    void altaConRegistroAnteriorDeOtroClub() {
+        prepararAlta(false);
+        given(registros.registroAnterior(PERSONA, TEMPORADA)).willReturn(Optional.of(ANTERIOR_OTRO_CLUB));
+        given(registros.permiteCambioClub(TEMPORADA)).willReturn(true);
+
+        assertThatThrownBy(() -> servicio.registrar(PETICION)).isInstanceOfSatisfying(ReglaNegocioException.class,
+                error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+                    assertThat(error.codigo()).isEqualTo("RF-016");
+                    assertThat(error.getMessage()).contains("transferencia");
+                });
+
+        verify(registros, never()).insertar(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("RF-111 · DEC-13: un alta no evade el cambio de club prohibido por la temporada")
+    void altaConCambioDeClubProhibido() {
+        prepararAlta(false);
+        given(registros.registroAnterior(PERSONA, TEMPORADA)).willReturn(Optional.of(ANTERIOR_OTRO_CLUB));
+        given(registros.permiteCambioClub(TEMPORADA)).willReturn(false);
+
+        assertThatThrownBy(() -> servicio.registrar(PETICION)).isInstanceOfSatisfying(ReglaNegocioException.class,
+                error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(error.codigo()).isEqualTo("RF-111");
+                    assertThat(error.getMessage()).contains("no permite cambios de club");
+                });
+
+        verify(registros, never()).insertar(any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
     @DisplayName("VAL-025: un menor sin tutela vigente responde 422 con requisito TUTOR")
     void menorSinTutor() {
         prepararAlta(true);
@@ -449,6 +511,171 @@ class RegistroJugadorServiceTest {
                     assertThat(error.codigo()).isEqualTo("VAL-017");
                     assertThat(error.propiedades()).containsEntry("club", "Club Águilas");
                 });
+
+        verifyNoInteractions(auditoria);
+    }
+
+    // ── Renovación y transferencia (B-06, DEC-139) ─────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-015 · DEC-139: renueva en el mismo club, enlaza el registro anterior y audita")
+    void renuevaEnElMismoClub() {
+        prepararMovimiento(false, ANTERIOR_MISMO_CLUB, true);
+
+        assertThat(servicio.renovar(new MovimientoRegistroRequest(PERSONA, EQUIPO))).isEqualTo(CREADO);
+
+        verify(registros).registroAnterior(PERSONA, TEMPORADA);
+        verify(registros, never()).permiteCambioClub(any());
+        verify(motivo).fijar("Renovación desde la temporada «Temporada 2025»");
+        verify(registros).insertar(PERSONA, EQUIPO, TEMPORADA, HOY, REGISTRO_ANTERIOR, PERFIL);
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.accion()).isEqualTo("RENOVAR_REGISTRO_JUGADOR");
+        assertThat(evento.entidad()).isEqualTo("registros_jugador");
+        assertThat(evento.entidadId()).isEqualTo(REGISTRO.toString());
+        assertThat(evento.detalle()).containsExactly(
+                Map.entry("personaId", PERSONA.toString()),
+                Map.entry("equipoId", EQUIPO.toString()),
+                Map.entry("temporadaId", TEMPORADA.toString()),
+                Map.entry("registroAnteriorId", REGISTRO_ANTERIOR.toString()),
+                Map.entry("clubAnteriorId", CLUB.toString()),
+                Map.entry("equipoAnteriorId", OTRO_EQUIPO.toString()),
+                Map.entry("temporadaAnteriorId", TEMPORADA_ANTERIOR.toString()),
+                Map.entry("estado", "PENDIENTE_VALIDACION"));
+        assertThat(evento.detalle().toString()).doesNotContain("Ana", "López", "curp");
+    }
+
+    @Test
+    @DisplayName("RF-016 · RF-111: transfiere a otro club si la temporada permite el cambio y audita")
+    void transfiereConCambioPermitido() {
+        prepararMovimiento(false, ANTERIOR_OTRO_CLUB, true);
+
+        assertThat(servicio.transferir(new MovimientoRegistroRequest(PERSONA, EQUIPO))).isEqualTo(CREADO);
+
+        verify(registros).permiteCambioClub(TEMPORADA);
+        verify(motivo).fijar("Transferencia desde el club «Club Águilas» de la temporada «Temporada 2025»");
+        verify(registros).insertar(PERSONA, EQUIPO, TEMPORADA, HOY, REGISTRO_ANTERIOR, PERFIL);
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.accion()).isEqualTo("TRANSFERIR_REGISTRO_JUGADOR");
+        assertThat(evento.detalle()).containsEntry("clubAnteriorId", OTRO_CLUB.toString());
+        assertThat(evento.detalle()).containsEntry("estado", "PENDIENTE_VALIDACION");
+    }
+
+    @Test
+    @DisplayName("RF-111 · DEC-13: la temporada que no permite cambio de club responde 409 sin insertar")
+    void transferenciaSinCambioDeClub() {
+        prepararMovimiento(false, ANTERIOR_OTRO_CLUB, false);
+
+        assertThatThrownBy(() -> servicio.transferir(new MovimientoRegistroRequest(PERSONA, EQUIPO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(error.codigo()).isEqualTo("RF-111");
+                    assertThat(error.getMessage()).contains("no permite cambios de club");
+                });
+
+        verify(registros, never()).insertar(any(), any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-015 · RF-016: una renovación con registro de otro club y una transferencia del mismo club se rechazan")
+    void movimientoDelTipoEquivocado() {
+        prepararMovimiento(false, ANTERIOR_OTRO_CLUB, true);
+
+        assertThatThrownBy(() -> servicio.renovar(new MovimientoRegistroRequest(PERSONA, EQUIPO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+                    assertThat(error.codigo()).isEqualTo("RF-015");
+                    assertThat(error.getMessage()).contains("transferencia");
+                });
+
+        prepararMovimiento(false, ANTERIOR_MISMO_CLUB, true);
+        assertThatThrownBy(() -> servicio.transferir(new MovimientoRegistroRequest(PERSONA, EQUIPO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+                    assertThat(error.codigo()).isEqualTo("RF-016");
+                    assertThat(error.getMessage()).contains("renovación");
+                });
+
+        verify(registros, never()).insertar(any(), any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("RF-015 · RF-016: sin registro anterior responde 422 con el código del movimiento")
+    void sinRegistroAnterior() {
+        prepararMovimiento(false, null, true);
+
+        assertThatThrownBy(() -> servicio.renovar(new MovimientoRegistroRequest(PERSONA, EQUIPO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+                    assertThat(error.codigo()).isEqualTo("RF-015");
+                    assertThat(error.getMessage()).contains("registro anterior");
+                });
+
+        verify(registros, never()).insertar(any(), any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("VAL-026: una baja en otro club de la temporada destino se rechaza antes de buscar el anterior")
+    void movimientoDentroDeLaTemporada() {
+        given(registros.buscarEquipo(LIGA, EQUIPO)).willReturn(Optional.of(EQUIPO_ACTIVO));
+        given(registros.clubAfiliado(CLUB, TEMPORADA)).willReturn(true);
+        given(registros.esMenor(PERSONA, HOY)).willReturn(Optional.of(false));
+        given(registros.registrosEnTemporada(PERSONA, TEMPORADA)).willReturn(List.of(
+                new RegistroEnTemporada(OTRO_CLUB, "Club Águilas", OTRO_EQUIPO, "Águilas", EstadoRegistro.BAJA)));
+
+        esperar(() -> servicio.renovar(new MovimientoRegistroRequest(PERSONA, EQUIPO)), HttpStatus.CONFLICT, "VAL-026");
+
+        verify(registros, never()).registroAnterior(any(), any());
+        verify(registros, never()).insertar(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("VAL-025: un menor sin tutor no se transfiere")
+    void transferenciaDeMenorSinTutor() {
+        prepararMovimiento(true, ANTERIOR_OTRO_CLUB, true);
+        given(registros.requisitosMenor(PERSONA)).willReturn(new RequisitosMenor(false, false));
+
+        assertThatThrownBy(() -> servicio.transferir(new MovimientoRegistroRequest(PERSONA, EQUIPO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+                    assertThat(error.codigo()).isEqualTo("VAL-025");
+                    assertThat(error.propiedades()).containsEntry("requisito", "TUTOR");
+                });
+
+        verify(registros, never()).insertar(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("VAL-015 · DEC-85: sin permiso o sin datos, el movimiento no lee el equipo")
+    void movimientoSinPermisoOFaltanDatos() {
+        given(autorizacion.alcance(EDITAR)).willThrow(Autorizacion.sinPermiso());
+
+        esperar(() -> servicio.renovar(new MovimientoRegistroRequest(PERSONA, EQUIPO)),
+                HttpStatus.FORBIDDEN, "VAL-015");
+        verifyNoInteractions(registros, auditoria);
+
+        willReturn(new AlcanceAutorizacion(false, Set.of(CLUB), false)).given(autorizacion).alcance(EDITAR);
+        esperar(() -> servicio.transferir(new MovimientoRegistroRequest(null, EQUIPO)),
+                HttpStatus.BAD_REQUEST, "VALIDACION");
+        verifyNoInteractions(registros);
+    }
+
+    @Test
+    @DisplayName("VAL-017 · DEC-90: si una carrera gana el INSERT de la renovación, responde 409 con nombres")
+    void carreraDeMovimiento() {
+        prepararMovimiento(false, ANTERIOR_MISMO_CLUB, true);
+        given(registros.insertar(PERSONA, EQUIPO, TEMPORADA, HOY, REGISTRO_ANTERIOR, PERFIL))
+                .willReturn(Optional.empty());
+        given(registros.registrosEnTemporada(PERSONA, TEMPORADA)).willReturn(
+                List.of(),
+                List.of(new RegistroEnTemporada(OTRO_CLUB, "Club Águilas", OTRO_EQUIPO, "Águilas",
+                        EstadoRegistro.PENDIENTE_VALIDACION)));
+
+        assertThatThrownBy(() -> servicio.renovar(new MovimientoRegistroRequest(PERSONA, EQUIPO)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class,
+                        error -> assertThat(error.codigo()).isEqualTo("VAL-017"));
 
         verifyNoInteractions(auditoria);
     }
@@ -512,7 +739,7 @@ class RegistroJugadorServiceTest {
         verify(motivo).fijar(OBSERVACIONES);
         verify(registros).validar(REGISTRO, EstadoRegistro.RECHAZADO, PERFIL, OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC),
                 OBSERVACIONES);
-        verify(documentos, never()).vigentes(any());
+        verify(documentos, never()).vigentesConRenovaciones(any());
         verify(documentos, never()).requisitos(any(), any());
         verify(registros, never()).requisitosMenor(any());
         EventoAuditoria evento = eventoAuditado();
@@ -645,7 +872,7 @@ class RegistroJugadorServiceTest {
 
         esperar(() -> servicio.validar(REGISTRO, activar(null)), HttpStatus.UNPROCESSABLE_CONTENT, "RF-013");
 
-        verify(documentos, never()).vigentes(any());
+        verify(documentos, never()).vigentesConRenovaciones(any());
         verifyNoInteractions(motivo);
     }
 
@@ -993,12 +1220,25 @@ class RegistroJugadorServiceTest {
      * Registro {@code buscarRegistro} pendiente y, con el bloqueo, {@code bloqueado}; documentos de la
      * categoría LIBRE, la persona menor o no en la fecha de alta, y un {@code UPDATE} que sí actualiza.
      */
+    /** Equipo destino, persona existente sin registros en la temporada y alta exitosa del movimiento. */
+    private void prepararMovimiento(boolean menor, RegistroAnterior anterior, boolean permiteCambioClub) {
+        given(registros.buscarEquipo(LIGA, EQUIPO)).willReturn(Optional.of(EQUIPO_ACTIVO));
+        given(registros.clubAfiliado(CLUB, TEMPORADA)).willReturn(true);
+        given(registros.esMenor(PERSONA, HOY)).willReturn(Optional.of(menor));
+        given(registros.registrosEnTemporada(PERSONA, TEMPORADA)).willReturn(List.of());
+        given(registros.registroAnterior(PERSONA, TEMPORADA)).willReturn(Optional.ofNullable(anterior));
+        given(registros.permiteCambioClub(TEMPORADA)).willReturn(permiteCambioClub);
+        given(registros.insertar(PERSONA, EQUIPO, TEMPORADA, HOY, anterior == null ? null : anterior.id(), PERFIL))
+                .willReturn(Optional.of(REGISTRO));
+        given(registros.buscar(REGISTRO)).willReturn(Optional.of(CREADO));
+    }
+
     private void prepararValidacion(RegistroDeDocumentos bloqueado, boolean menor, List<DocumentoRegistro> vigentes) {
         given(documentos.buscarRegistro(LIGA, REGISTRO)).willReturn(Optional.of(pendiente()));
         given(documentos.bloquearRegistro(LIGA, REGISTRO)).willReturn(Optional.of(bloqueado));
         given(documentos.esMenor(PERSONA, HOY)).willReturn(Optional.of(menor));
         given(documentos.requisitos(LIGA, TipoCategoria.LIBRE)).willReturn(REQUISITOS_LIBRE);
-        given(documentos.vigentes(REGISTRO)).willReturn(vigentes);
+        given(documentos.vigentesConRenovaciones(REGISTRO)).willReturn(vigentes);
         given(registros.validar(any(), any(), any(), any(), any())).willReturn(true);
         given(registros.buscar(REGISTRO)).willReturn(Optional.of(VALIDADO));
     }

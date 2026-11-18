@@ -414,7 +414,7 @@ class DocumentoRegistroServiceTest {
         @DisplayName("RF-108 · DEC-91: los requisitos se autorizan con el club y la persona del registro")
         void requisitosDeUnMenor() {
             DocumentoRegistro foto = documento(UUID.randomUUID(), FOTOGRAFIA, EstadoValidacion.RECHAZADO, PERFIL, null);
-            given(repositorio.vigentes(REGISTRO)).willReturn(List.of(foto));
+            given(repositorio.vigentesConRenovaciones(REGISTRO)).willReturn(List.of(foto));
 
             RequisitosRegistroDto requisitos = servicio.requisitos(REGISTRO);
 
@@ -450,7 +450,7 @@ class DocumentoRegistroServiceTest {
 
             willThrow(Autorizacion.fueraDeAmbito(CONSULTAR_REGISTRO)).given(autorizacion).exigir(any(), any());
             assertThatThrownBy(() -> servicio.requisitos(REGISTRO)).isInstanceOf(RecursoNoEncontradoException.class);
-            verify(repositorio, never()).vigentes(any());
+            verify(repositorio, never()).vigentesConRenovaciones(any());
         }
     }
 

@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.16 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.17 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -65,6 +65,7 @@ Versión 5.16 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.14 | 17 de noviembre de 2026 | B-29.2: §6.13 con `GET /tarifas/contexto`: temporadas de la liga (de la más reciente a la más antigua) con su estado y sus categorías en el orden del catálogo, autorizado con `tesoreria.tarifa:EDITAR` porque el Tesorero no tiene `temporadas.temporada:CONSULTAR`, como los contextos de afiliaciones y de operaciones de equipo. |
 | 5.15 | 17 de noviembre de 2026 | B-09.1: §6.5 con el contrato de la disponibilidad arbitral (`GET /arbitros/{id}/disponibilidad?desde=&hasta=`, `POST` y `DELETE …/{disponibilidadId}`): intervalos `[desde, hasta)`, `disponible` opcional con `true` por omisión, solo árbitros `VALIDADO`, borrado físico porque no es historial deportivo, permiso `arbitraje.disponibilidad:EDITAR` sobre la persona del árbitro (Comisión en `LIGA`, árbitro en `PROPIO`) y auditoría `REGISTRAR_DISPONIBILIDAD_ARBITRAL`/`ELIMINAR_DISPONIBILIDAD_ARBITRAL` (RF-022). |
 | 5.16 | 17 de noviembre de 2026 | B-30: §6.7 indica que publicar la jornada emite `JornadaPublicada`; §6.13 con «Cobros automáticos al publicar la jornada» (RF-136): cobros `ARBITRAJE` y `CANCHA` a cada equipo con la tarifa de la temporada y la categoría, sin cobro de cancha al dueño de la cancha (DEC-33), omisión auditada sin tarifa o con tarifa en cero, periodo configurable (`dias-para-pagar`), idempotencia por `ux_cobros_partido` y auditoría `GENERAR_COBRO` y `GENERAR_COBROS_JORNADA`. |
+| 5.17 | 17 de noviembre de 2026 | B-06: §6.4 con la renovación y la transferencia entre temporadas (`POST /registros-jugador/renovaciones` y `/transferencias`): `{ personaId, equipoId }`, registro nuevo `PENDIENTE_VALIDACION` enlazado por `registro_anterior_id`, `422 RF-015`/`RF-016` si el registro anterior no existe o no corresponde al tipo de movimiento, `409 RF-111` si la temporada no permite el cambio de club, `409 VAL-026`/`RN-039` dentro de la temporada, documentos aprobados heredados solo en la renovación del mismo club y auditoría `RENOVAR_REGISTRO_JUGADOR`/`TRANSFERIR_REGISTRO_JUGADOR`; §3.2 con `RF-015` y `RF-016` en `422` y `RF-111` en `409` (DEC-139). |
 
 ## Índice
 
@@ -230,8 +231,8 @@ que el mismo código responda siempre con el mismo estado. `error_negocio` arma 
 | --- | --- | --- |
 | `400` | `RN-021` | Falta el motivo obligatorio |
 | `403` | `VAL-015` (la liga valida documentos y registros); `VAL-021`, `VAL-022` | La persona no puede hacer esa acción aunque tenga el permiso |
-| `409` | `VAL-003`, `VAL-005`, `VAL-017`, `VAL-026`, `VAL-028`; `RF-001`, `RF-017`, `RF-039`, `RF-046`, `RF-048`, `RF-062`, `RF-090`, `RF-100`, `RF-109`, `RF-113`, `RF-121`, `RF-122`, `RF-123`, `RF-124`, `RF-127`; `RN-024`, `RN-039`; `RNF-015`, `RNF-018` | Transición o cambio no permitido por el estado actual, o choque con otros datos |
-| `422` | `VAL-001` (activar un registro sin todos sus documentos aprobados); `VAL-018`, `VAL-019`, `VAL-020`, `VAL-025`; `RF-013`, `RF-019`, `RF-020`, `RF-025`, `RF-033`; `RF-119` (horario de club o comodato incompatible con la cancha, o traslapado); `RF-139` (pago que no cubre el monto) | El contenido de la petición incumple una regla |
+| `409` | `VAL-003`, `VAL-005`, `VAL-017`, `VAL-026`, `VAL-028`; `RF-001`, `RF-017`, `RF-039`, `RF-046`, `RF-048`, `RF-062`, `RF-090`, `RF-100`, `RF-109`, `RF-111`, `RF-113`, `RF-121`, `RF-122`, `RF-123`, `RF-124`, `RF-127`; `RN-024`, `RN-039`; `RNF-015`, `RNF-018` | Transición o cambio no permitido por el estado actual, o choque con otros datos |
+| `422` | `VAL-001` (activar un registro sin todos sus documentos aprobados); `VAL-018`, `VAL-019`, `VAL-020`, `VAL-025`; `RF-013`, `RF-015`, `RF-016`, `RF-019`, `RF-020`, `RF-025`, `RF-033`; `RF-119` (horario de club o comodato incompatible con la cancha, o traslapado); `RF-139` (pago que no cubre el monto) | El contenido de la petición incumple una regla |
 
 Algunos códigos cubren más de un caso en la base (`RF-121` y `RF-123` también rechazan una
 devolución sin observaciones, y `RF-123` a quien no es el árbitro central). El servicio detecta esos
@@ -1239,17 +1240,17 @@ del equipo. Un equipo o una operación de otro club responde `404` igual que uno
 | --- | --- | --- | --- | --- |
 | `GET /registros-jugador?estado=&temporadaId=&clubId=&equipoId=&orden=&pagina=&tamano=` | Registros de su ámbito, paginados (§4). `estado` admite varios valores separados por coma; `orden`: `creadoEn,asc` (por defecto), `creadoEn,desc` o `nombre,asc`. Filas con la CURP enmascarada; detalle abajo | `registros.registro:CONSULTAR` (ámbito en el `WHERE` y en el `COUNT`) | RF-017 | N |
 | `GET /registros-jugador/{id}` | Detalle con `esMenor`, tutores vigentes del menor y la CURP completa solo con `organizacion.persona:CONSULTAR` sobre el club; detalle abajo | `registros.registro:CONSULTAR` (club o persona del registro) | RF-017 | N |
-| `POST /registros-jugador` | Alta: `{ personaId, equipoId }`; queda `PENDIENTE_VALIDACION`. `409 VAL-017` dice club y equipo donde ya está registrada la CURP; detalle abajo | `registros.registro:EDITAR` (club del equipo) | RF-013, RF-107, VAL-025 | N |
+| `POST /registros-jugador` | Alta: `{ personaId, equipoId }`; queda `PENDIENTE_VALIDACION`. `409 VAL-017` dice club y equipo donde ya está registrada la CURP; un registro en una temporada anterior exige `POST /renovaciones` o `/transferencias`; detalle abajo | `registros.registro:EDITAR` (club del equipo) | RF-013, RF-107, VAL-025 | N |
 | `GET /registros-jugador/{id}/requisitos` | Documentos que exige su categoría y cuáles faltan; detalle abajo | `registros.registro:CONSULTAR` (club o persona del registro) | RF-108, VAL-001 | N |
 | `POST /registros-jugador/{id}/validacion` | Validar o rechazar; detalle abajo | `registros.registro:VALIDAR` (club del equipo) | RF-109 | N |
 | `POST /registros-jugador/{id}/baja` | Dar de baja un registro `ACTIVO` con motivo; detalle abajo | `registros.registro:EDITAR` (club del equipo) | RF-014 | N |
 | `GET /registros-jugador/{id}/historial` | Cambios de estado con usuario y motivo | `registros.registro:CONSULTAR` | RF-018 | B |
 | `GET /registros-jugador/{id}/elegibilidad?equipoId=` | `{ elegible, causas: [ { codigo, mensaje } ] }` | `registros.registro:CONSULTAR` | RF-019, RF-020, RF-110 | N |
-| `POST /registros-jugador/renovaciones` · `/transferencias` | Renovación y cambio de club entre temporadas | `registros.registro:EDITAR` | RF-015, RF-016 | B |
+| `POST /registros-jugador/renovaciones` · `/transferencias` | Renovación en el mismo club (RF-015) o cambio de club entre temporadas (RF-016): `{ personaId, equipoId }`; queda `PENDIENTE_VALIDACION` y enlaza el registro anterior; detalle abajo | `registros.registro:EDITAR` (club del equipo de destino) | RF-015, RF-016, RF-111 | B |
 | Documentos | Carga, reemplazo, enlace y validación de cada documento; detalle abajo y en §7 | `registros.documento:*` | RF-108, RF-109 | N |
 | `GET /mi-informacion` | Registro, documentos, elegibilidad, partidos y sanciones del jugador o de los menores que tutela | ámbito `PROPIO` | RF-144 | N |
 
-#### Alta de un registro (H-09.2, RF-013, RF-107, VAL-017, VAL-025, DEC-85 a DEC-90)
+#### Alta de un registro (H-09.2, RF-013, RF-015, RF-016, RF-107, VAL-017, VAL-025, DEC-85 a DEC-90, DEC-139)
 
 `POST /registros-jugador` recibe `{ "personaId", "equipoId" }` y registra a la persona en el equipo;
 la temporada es la del grupo del equipo. Exige `registros.registro:EDITAR` sobre el **club del
@@ -1287,7 +1288,12 @@ equipo** (`ObjetivoAutorizacion.deClubes`); hoy solo la Directiva de club lo tie
 10. Con uno en `BAJA` en **otro equipo del mismo club**: `409 RN-039` (dentro de una temporada no hay
     cambio de equipo, RF-016). Registrarse de nuevo en el mismo equipo sí se permite. Los registros
     `RECHAZADO` no cuentan en los pasos 8 a 10.
-11. La persona es menor en la fecha de alta: sin tutela vigente, `422 VAL-025` con
+11. La persona tiene un registro en una **temporada anterior**: `422 RF-015` si es de tu club (usa
+    `POST /registros-jugador/renovaciones`) o `422 RF-016` si es de otro (usa
+    `POST /registros-jugador/transferencias`); si es de otro club y la temporada no permite el
+    cambio, `409 RF-111`. Así el alta no evade la configuración de la temporada ni omite el enlace
+    del historial (DEC-139).
+12. La persona es menor en la fecha de alta: sin tutela vigente, `422 VAL-025` con
     `"requisito": "TUTOR"`; con tutor pero sin consentimiento no revocado otorgado por un tutor
     vigente, `422 VAL-025` con `"requisito": "CONSENTIMIENTO"`. Es la misma condición que
     `tg_registros_validar` al activar. No se exige aviso vigente ni una finalidad concreta
@@ -1295,9 +1301,9 @@ equipo** (`ObjetivoAutorizacion.deClubes`); hoy solo la Directiva de club lo tie
     adultos no se les exige consentimiento (DEC-76).
 
 La fecha de alta (`alta_en`) la calcula el servicio en `America/Mexico_City` y se envía en el
-`INSERT`; con ella se decide si la persona es menor. Los registros de otros clubes y los requisitos
-del menor se leen con `registros_en_temporada` y `requisitos_menor` (`SECURITY DEFINER`, solo
-`siglim_app`). El `INSERT … ON CONFLICT … DO NOTHING` sobre `ux_registros_activo` resuelve una
+`INSERT`; con ella se decide si la persona es menor. Los registros de otros clubes, el registro de
+una temporada anterior y los requisitos del menor se leen con `registros_en_temporada`,
+`registro_anterior` y `requisitos_menor` (`SECURITY DEFINER`, solo `siglim_app`). El `INSERT … ON CONFLICT … DO NOTHING` sobre `ux_registros_activo` resuelve una
 carrera sin abortar la transacción: si otra petición registró antes a la persona, se responde el
 mismo `409 VAL-017` con los nombres. Si aun así llega un `23505` de ese índice, se traduce como
 `VAL-017` por su comentario (§3.2).
@@ -1704,6 +1710,48 @@ Responde `200` con `Cache-Control: no-store` y el registro, con los mismos campo
 `BAJA` del historial (DEC-124). Se audita en `M-04` como `DAR_BAJA_REGISTRO_JUGADOR` (entidad
 `registros_jugador`) con `{ "personaId", "equipoId", "temporadaId", "estadoAnterior": "ACTIVO",
 "estado": "BAJA", "bajaEn" }` y el motivo como motivo del evento, sin datos personales (DEC-123).
+
+#### Renovación y transferencia entre temporadas (B-06, RF-015, RF-016, RF-111, VAL-026, DEC-139)
+
+`POST /registros-jugador/renovaciones` y `POST /registros-jugador/transferencias` reciben
+`{ "personaId", "equipoId" }`; la temporada es la del grupo del equipo de destino y el registro
+anterior lo deduce el servicio (`siglim.registro_anterior`): el registro no rechazado más reciente de
+la persona en una temporada anterior de la liga. Ambos exigen `registros.registro:EDITAR` sobre el
+**club del equipo de destino** y responden `201` con `Location: /api/v1/registros-jugador/{id}`,
+`Cache-Control: no-store` y el mismo registro del alta; queda `PENDIENTE_VALIDACION` con
+`registro_anterior_id`, que no va en la respuesta pero queda en la base para la trazabilidad.
+
+- **Renovación.** El registro anterior debe ser del mismo club; se conserva al jugador y los documentos aprobados y
+  no reemplazados de sus registros anteriores no rechazados del mismo club cuentan para VAL-001, sin copiarlos en
+  S3 (DEC-139).
+- **Transferencia.** El registro anterior debe ser de otro club y la versión vigente de parámetros
+  de la temporada destino debe permitir el cambio (`permite_cambio_club`, RF-111); si no, `409
+  RF-111`. Sin versión de parámetros rige el valor por omisión de la tabla (`true`). No hereda los
+  documentos del club de origen: el club destino carga los del registro nuevo. Nunca hay cambio de
+  club dentro de una temporada (VAL-026, DEC-13): el registro anterior debe ser de una temporada
+  anterior.
+
+Orden de errores (el del alta más los de DEC-139):
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. Falta `personaId` o `equipoId`: `400 VALIDACION`.
+3. El equipo no existe en la liga o es de un club fuera de ámbito: `404` (VAL-024).
+4. Temporada `CERRADA`: `409 RF-003`; equipo `BAJA`: `422 RF-013`; club sin afiliación `APROBADA`:
+   `409 RF-101`.
+5. Persona inexistente: `422 REFERENCIA_INVALIDA`.
+6. Registro activo en la temporada destino: `409 VAL-017` (con `club` y `equipo`); una baja en otro
+   club de la misma temporada: `409 VAL-026`; en otro equipo del mismo club: `409 RN-039`.
+7. No hay registro anterior en una temporada previa: `422 RF-015` en la renovación y `422 RF-016` en
+   la transferencia.
+8. El registro anterior no corresponde al movimiento: otro club en una renovación, `422 RF-015`; el
+   mismo club en una transferencia, `422 RF-016`.
+9. Menor sin tutor vigente o sin consentimiento: `422 VAL-025` con `requisito` `TUTOR` o
+   `CONSENTIMIENTO`.
+
+El motivo del historial es «Renovación desde la temporada «…»» o «Transferencia desde el club «…» de
+la temporada «…»». Se audita en `M-04` sobre `registros_jugador` como `RENOVAR_REGISTRO_JUGADOR` o
+`TRANSFERIR_REGISTRO_JUGADOR`, con `{ "personaId", "equipoId", "temporadaId", "registroAnteriorId",
+"clubAnteriorId", "equipoAnteriorId", "temporadaAnteriorId", "estado" }`, sin datos personales.
 
 ### 6.5 M-05 Árbitros y designaciones
 
