@@ -1,0 +1,57 @@
+B-30.2 · Auditoría de la corrida en el Supabase compartido
+Consultado: 2026-11-18 15:30 (America/Mexico_City), develop en b531ffc
+Eventos 147 a 183 (antes de la prueba el último era el 146). Horas en America/Mexico_City.
+
+-- Preparación (147 a 168)
+147 13:57:57 M-02 REGISTRAR_TEMPORADA          Administrador general  «Temporada prueba B-30», CONFIGURACION
+148 13:58:31 M-02 ASIGNAR_CATEGORIA_TEMPORADA  Administrador general  Libre Demostración
+149 13:58:34 M-02 ASIGNAR_CATEGORIA_TEMPORADA  Administrador general  Veteranos Demostración
+150 13:58:51 M-02 REGISTRAR_GRUPO              Administrador general
+151 13:58:57 M-02 REGISTRAR_GRUPO              Administrador general
+152 13:59:01 M-02 EDITAR_GRUPO                 Administrador general  campos: [nombre] (se renombró un grupo a «Grupo A»)
+153 14:01:11 M-02 REGISTRAR_PARAMETROS         Administrador general  v1, esDemo, sin fechasFaseRegular
+154 14:04:23 M-13 REGISTRAR_TARIFA             Tesorero  Libre · ARBITRAJE · 400
+155 14:04:24 M-13 REGISTRAR_TARIFA             Tesorero  Libre · CANCHA · 200
+156 14:04:24 M-13 REGISTRAR_TARIFA             Tesorero  Veteranos · CANCHA · 0  (Veteranos · ARBITRAJE sin registrar)
+157 14:05:02 M-02 ACTIVAR_TEMPORADA            Administrador general  CONFIGURACION → ACTIVA, versionParametros 1
+158-163      M-03 REGISTRAR_EQUIPO x6          Secretario  B30 Halcones, Águilas, Venados (Real Patzcuaro); Toros, Lobos, Pumas (CamiloSextos)
+164 14:10:52 M-07 REGISTRAR_JORNADA            Programador  Libre / Grupo A, Jornada 1
+165 14:12:59 M-07 REGISTRAR_PARTIDO            Programador  P1 B30 Halcones vs B30 Toros, Cancha Real Pátzcuaro
+166 14:17:12 M-07 REGISTRAR_PARTIDO            Programador  P2 B30 Lobos vs B30 Águilas, Cancha externa
+167 14:17:29 M-07 REGISTRAR_JORNADA            Programador  Veteranos / Grupo A, Jornada 1
+168 14:18:13 M-07 REGISTRAR_PARTIDO            Programador  P3 B30 Pumas vs B30 Venados, Cancha externa
+(Ningún ACEPTAR_LOCALIA: ningún partido se guardó con motivo de localía.)
+
+-- CA-3 · Veteranos, Jornada 1 (24d36054-ccde-4856-bd2b-e1f98afed6a2)
+169 14:22:41 M-07 ENVIAR_JORNADA_A_APROBACION  Programador  BORRADOR → REVISION, partidos 1
+170 14:23:43 M-07 APROBAR_JORNADA              Presidente   REVISION → PUBLICADO
+171 14:23:43 M-13 GENERAR_COBROS_JORNADA       Presidente   motivo «cobro automático al publicar la jornada»
+    { partidos: 1, cobrosGenerados: 0, omitidos: [
+      { ARBITRAJE, SIN_TARIFA,     equipo B30 Pumas   (db367b54…), partido P3 (138072ba…) },
+      { CANCHA,    TARIFA_EN_CERO, equipo B30 Pumas   (db367b54…), partido P3 },
+      { ARBITRAJE, SIN_TARIFA,     equipo B30 Venados (32f055e9…), partido P3 },
+      { CANCHA,    TARIFA_EN_CERO, equipo B30 Venados (32f055e9…), partido P3 } ] }
+
+-- CA-4 · Libre, Jornada 1 (31b4c1a2-4b3f-448c-b27d-88a431bf484a), devuelta
+172 14:31:30 M-07 ENVIAR_JORNADA_A_APROBACION  Programador  BORRADOR → REVISION, partidos 2
+173 14:32:15 M-07 DEVOLVER_JORNADA             Presidente   REVISION → BORRADOR, motivo «Revisar los horarios antes de publicar.»
+(Sin ningún evento M-13 entre 172 y 174: la devolución no generó cobros.)
+174 14:53:25 M-07 ENVIAR_JORNADA_A_APROBACION  Programador  BORRADOR → REVISION (reenvío), partidos 2
+
+-- CA-1, CA-2 y V-1 · Libre, Jornada 1, publicada
+175 14:56:44 M-07 APROBAR_JORNADA              Presidente   REVISION → PUBLICADO
+     id  acción         partido                         equipo (club)                  tipo       monto   periodo                 estado
+    176  GENERAR_COBRO  P1 Halcones vs Toros (7f54918e)  B30 Halcones (Real Patzcuaro)  ARBITRAJE  400.00  2026-11-18..2026-12-12  PENDIENTE
+    177  GENERAR_COBRO  P1                               B30 Toros (CamiloSextos)       ARBITRAJE  400.00  2026-11-18..2026-12-12  PENDIENTE
+    178  GENERAR_COBRO  P1                               B30 Toros (CamiloSextos)       CANCHA     200.00  2026-11-18..2026-12-12  PENDIENTE
+    179  GENERAR_COBRO  P2 Lobos vs Águilas (9681a935)   B30 Lobos (CamiloSextos)       ARBITRAJE  400.00  2026-11-18..2026-12-12  PENDIENTE
+    180  GENERAR_COBRO  P2                               B30 Lobos (CamiloSextos)       CANCHA     200.00  2026-11-18..2026-12-12  PENDIENTE
+    181  GENERAR_COBRO  P2                               B30 Águilas (Real Patzcuaro)   ARBITRAJE  400.00  2026-11-18..2026-12-12  PENDIENTE
+    182  GENERAR_COBRO  P2                               B30 Águilas (Real Patzcuaro)   CANCHA     200.00  2026-11-18..2026-12-12  PENDIENTE
+    (B30 Halcones no tiene CANCHA en P1: juega en la cancha de su club, DEC-33.)
+183 14:56:44 M-13 GENERAR_COBROS_JORNADA       Presidente   { partidos: 2, cobrosGenerados: 7, omitidos: [] }
+
+Los 9 eventos M-13 de la corrida (171, 176 a 183) son del Presidente que publicó, con entidad
+cobros o jornadas, el motivo «cobro automático al publicar la jornada» y un detalle sin concepto
+ni datos personales. Ids de club: Real Patzcuaro f6a22ac7-…, CamiloSextos 034779f4-….
+Total en la corrida: 7 GENERAR_COBRO y 2 GENERAR_COBROS_JORNADA.
