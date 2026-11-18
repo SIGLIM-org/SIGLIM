@@ -1,4 +1,11 @@
-import { Building2, CalendarDays, CircleCheck, CircleX, UserRound } from 'lucide-react'
+import {
+  Building2,
+  CalendarClock,
+  CalendarDays,
+  CircleCheck,
+  CircleX,
+  UserRound,
+} from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Insignia } from '@/components/ui/Insignia'
 import { CeldaCumpleCuota } from '@/features/arbitraje/CeldaCumpleCuota'
@@ -16,6 +23,8 @@ type Props = {
   /** La Comisión ve el indicador de cuota del club que presenta al árbitro (B-08.2, RF-114). */
   mostrarCuota: boolean
   onDictamen: (arbitro: Arbitro, decision: DecisionArbitro) => void
+  /** Abre el detalle con la disponibilidad (B-09.2, RF-022); se omite sin el permiso. */
+  onVerDisponibilidad?: (arbitro: Arbitro) => void
 }
 
 const CLASE_ETIQUETA = 'block text-label-sm text-text-muted lg:hidden'
@@ -25,7 +34,13 @@ const CLASE_ETIQUETA = 'block text-label-sm text-text-muted lg:hidden'
  * desplazamiento horizontal (RNF-007). Las acciones solo se ofrecen en `PROPUESTO` y con el permiso
  * de validar; el backend vuelve a decidir (VAL-015).
  */
-export function FilaArbitro({ arbitro, puedeValidar, mostrarCuota, onDictamen }: Props) {
+export function FilaArbitro({
+  arbitro,
+  puedeValidar,
+  mostrarCuota,
+  onDictamen,
+  onVerDisponibilidad,
+}: Props) {
   const estado = etiquetaEstadoArbitro[arbitro.estado]
   const mostrarAcciones = puedeValidar && arbitro.estado === 'PROPUESTO'
 
@@ -96,7 +111,7 @@ export function FilaArbitro({ arbitro, puedeValidar, mostrarCuota, onDictamen }:
 
       <td role="cell" className="block pt-3 lg:table-cell lg:px-4 lg:py-3 lg:text-right">
         <span className={CLASE_ETIQUETA}>Acciones</span>
-        {mostrarAcciones ? (
+        {mostrarAcciones || onVerDisponibilidad ? (
           <div
             className={
               mostrarCuota
@@ -104,21 +119,35 @@ export function FilaArbitro({ arbitro, puedeValidar, mostrarCuota, onDictamen }:
                 : 'flex flex-col gap-2 sm:flex-row lg:justify-end'
             }
           >
-            <Button
-              icono={CircleCheck}
-              aria-label={`Validar a ${arbitro.persona.nombreCompleto}`}
-              onClick={() => onDictamen(arbitro, 'VALIDADO')}
-            >
-              Validar
-            </Button>
-            <Button
-              variante="destructivo"
-              icono={CircleX}
-              aria-label={`Rechazar a ${arbitro.persona.nombreCompleto}`}
-              onClick={() => onDictamen(arbitro, 'RECHAZADO')}
-            >
-              Rechazar
-            </Button>
+            {mostrarAcciones && (
+              <>
+                <Button
+                  icono={CircleCheck}
+                  aria-label={`Validar a ${arbitro.persona.nombreCompleto}`}
+                  onClick={() => onDictamen(arbitro, 'VALIDADO')}
+                >
+                  Validar
+                </Button>
+                <Button
+                  variante="destructivo"
+                  icono={CircleX}
+                  aria-label={`Rechazar a ${arbitro.persona.nombreCompleto}`}
+                  onClick={() => onDictamen(arbitro, 'RECHAZADO')}
+                >
+                  Rechazar
+                </Button>
+              </>
+            )}
+            {onVerDisponibilidad && (
+              <Button
+                variante="secundario"
+                icono={CalendarClock}
+                aria-label={`Ver la disponibilidad de ${arbitro.persona.nombreCompleto}`}
+                onClick={() => onVerDisponibilidad(arbitro)}
+              >
+                Disponibilidad
+              </Button>
+            )}
           </div>
         ) : (
           <span className="text-body-sm text-text-muted">

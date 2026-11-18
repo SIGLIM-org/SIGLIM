@@ -20,6 +20,7 @@ import {
   useCuotasDeClubes,
 } from '@/features/arbitraje/api'
 import { estadosArbitroVisibles } from '@/features/arbitraje/etiquetas'
+import { DetalleArbitro } from '@/features/arbitraje/DetalleArbitro'
 import { ModalDictamenArbitro } from '@/features/arbitraje/ModalDictamenArbitro'
 import { ModalPresentarArbitro } from '@/features/arbitraje/ModalPresentarArbitro'
 import { PaginacionArbitros } from '@/features/arbitraje/PaginacionArbitros'
@@ -64,6 +65,7 @@ function PaginaArbitros() {
   const {
     proponer,
     validar,
+    disponibilidad,
     puedeRegistrarPersona,
     clubesProponer,
     clubesConsulta,
@@ -78,6 +80,7 @@ function PaginaArbitros() {
     decision: DecisionArbitro
   } | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
+  const [detalle, setDetalle] = useState<Arbitro | null>(null)
 
   const conteoPropuestos = useConteoArbitros('PROPUESTO')
   const conteoValidados = useConteoArbitros('VALIDADO')
@@ -206,6 +209,14 @@ function PaginaArbitros() {
           <CircleCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
           {mensaje}
         </p>
+      )}
+
+      {detalle && (
+        <DetalleArbitro
+          key={detalle.id}
+          arbitro={detalle}
+          onCerrar={() => setDetalle(null)}
+        />
       )}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_19rem] xl:items-start">
@@ -398,6 +409,14 @@ function PaginaArbitros() {
                     setMensaje(null)
                     setDictamen({ arbitro, decision })
                   }}
+                  onVerDisponibilidad={
+                    disponibilidad
+                      ? (arbitro) => {
+                          setMensaje(null)
+                          setDetalle(arbitro)
+                        }
+                      : undefined
+                  }
                 />
                 {lista.data.totalPaginas > 1 && (
                   <PaginacionArbitros
