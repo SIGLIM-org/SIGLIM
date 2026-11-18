@@ -73,3 +73,25 @@ export type ClubParaArbitro = {
   id: string
   nombre: string
 }
+
+/** Periodo `[desde, hasta)` en ISO 8601 con desplazamiento (convenciones de API §1). */
+export type PeriodoArbitral = {
+  desde: string
+  hasta: string
+}
+
+/** `GET /arbitros/{id}/disponibilidad` (B-09.1, RF-022): un periodo del árbitro. */
+export type DisponibilidadArbitral = {
+  id: string
+  arbitroId: string
+  periodo: PeriodoArbitral
+  /** `true` si puede ser designado en el periodo; `false` si declara que no puede. */
+  disponible: boolean
+  creadoEn: string
+}
+
+/** `POST /arbitros/{id}/disponibilidad`: `disponible` vale `true` si se omite (RF-022). */
+export type RegistrarDisponibilidadArbitralPeticion = {
+  periodo: PeriodoArbitral
+  disponible: boolean
+}

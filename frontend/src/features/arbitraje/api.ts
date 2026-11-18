@@ -9,8 +9,10 @@ import type {
   Arbitro,
   CrearArbitroPeticion,
   CuotaArbitros,
+  DisponibilidadArbitral,
   EstadoArbitroVisible,
   FiltrosArbitros,
+  RegistrarDisponibilidadArbitralPeticion,
   ValidarArbitroPeticion,
 } from '@/features/arbitraje/tipos'
 import { api } from '@/lib/api/cliente'
@@ -25,6 +27,8 @@ export const clavesArbitros = {
   conteo: (estado: EstadoArbitroVisible) =>
     ['arbitraje', 'arbitros', 'conteo', estado] as const,
   cuota: (clubId: string) => ['arbitraje', 'arbitros', 'cuota', clubId] as const,
+  disponibilidad: (arbitroId: string) =>
+    ['arbitraje', 'arbitros', 'disponibilidad', arbitroId] as const,
 }
 
 function consultaDeArbitros({ estado, pagina, tamano }: FiltrosArbitros): string {
@@ -126,4 +130,47 @@ function consultarCuota(clubId: string | undefined) {
   }
 
   return api.get<CuotaArbitros>(`clubes/${clubId}/cuota-arbitros`)
+}
+
+/**
+ * Periodos de disponibilidad del árbitro, ordenados por inicio (B-09.2, RF-022). Se piden todos,
+ * sin rango: el backend exige `arbitraje.disponibilidad:EDITAR` sobre la persona del árbitro.
+ */
+export function useDisponibilidadArbitro(arbitroId: string) {
+  return useQuery({
+    queryKey: clavesArbitros.disponibilidad(arbitroId),
+    queryFn: () =>
+      api.get<DisponibilidadArbitral[]>(`arbitros/${arbitroId}/disponibilidad`),
+  })
+}
+
+function useInvalidarDisponibilidad(arbitroId: string) {
+  const clienteConsultas = useQueryClient()
+
+  return () =>
+    clienteConsultas.invalidateQueries({
+      queryKey: clavesArbitros.disponibilidad(arbitroId),
+    })
+}
+
+/** Registra un periodo; solo para un árbitro `VALIDADO` (`409 RF-022` si no lo está). */
+export function useRegistrarDisponibilidadArbitro(arbitroId: string) {
+  const invalidar = useInvalidarDisponibilidad(arbitroId)
+
+  return useMutation({
+    mutationFn: (peticion: RegistrarDisponibilidadArbitralPeticion) =>
+      api.post<DisponibilidadArbitral>(`arbitros/${arbitroId}/disponibilidad`, peticion),
+    onSuccess: invalidar,
+  })
+}
+
+/** Retira un periodo (`204`); la disponibilidad no es historial deportivo (B-09.1). */
+export function useRetirarDisponibilidadArbitro(arbitroId: string) {
+  const invalidar = useInvalidarDisponibilidad(arbitroId)
+
+  return useMutation({
+    mutationFn: (disponibilidadId: string) =>
+      api.delete<void>(`arbitros/${arbitroId}/disponibilidad/${disponibilidadId}`),
+    onSuccess: invalidar,
+  })
 }
