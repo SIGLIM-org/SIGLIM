@@ -13,12 +13,13 @@ type Props = {
   registro: RegistroJugadorFila
   permisos: PermisosAccionesPlantilla
   onDarDeBaja: (registro: RegistroJugadorFila) => void
+  onVerHistorial: (registro: RegistroJugadorFila) => void
 }
 
 const CELDA = 'px-4 py-3 align-middle'
 
 /** Fila de la tabla de la plantilla en escritorio (F-17, DEC-117). */
-export function FilaPlantilla({ registro, permisos, onDarDeBaja }: Props) {
+export function FilaPlantilla({ registro, permisos, onDarDeBaja, onVerHistorial }: Props) {
   const estado = etiquetaEstadoRegistro[registro.estado]
 
   return (
@@ -55,6 +56,7 @@ export function FilaPlantilla({ registro, permisos, onDarDeBaja }: Props) {
           registro={registro}
           permisos={permisos}
           onDarDeBaja={onDarDeBaja}
+          onVerHistorial={onVerHistorial}
         />
       </td>
     </tr>

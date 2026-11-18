@@ -13,13 +13,14 @@ type Props = {
   registro: RegistroJugadorFila
   permisos: PermisosAccionesPlantilla
   onDarDeBaja: (registro: RegistroJugadorFila) => void
+  onVerHistorial: (registro: RegistroJugadorFila) => void
 }
 
 /**
  * Registro de la plantilla en móvil y tableta (F-17, DEC-117): los mismos datos que la fila de la
  * tabla, apilados para no desplazar en horizontal desde 360 px (RNF-007).
  */
-export function TarjetaPlantilla({ registro, permisos, onDarDeBaja }: Props) {
+export function TarjetaPlantilla({ registro, permisos, onDarDeBaja, onVerHistorial }: Props) {
   const estado = etiquetaEstadoRegistro[registro.estado]
 
   return (
@@ -52,6 +53,7 @@ export function TarjetaPlantilla({ registro, permisos, onDarDeBaja }: Props) {
         registro={registro}
         permisos={permisos}
         onDarDeBaja={onDarDeBaja}
+        onVerHistorial={onVerHistorial}
       />
     </li>
   )
