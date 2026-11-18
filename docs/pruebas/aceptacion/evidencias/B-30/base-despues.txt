@@ -1,0 +1,39 @@
+B-30.2 · Estado del Supabase compartido después de la prueba y la limpieza
+Consultado: 2026-11-18 15:40 (America/Mexico_City), develop en b531ffc
+
+-- Temporadas (no hay ninguna ACTIVA)
+Temporada 2026–2027     | CONFIGURACION | sin cambios
+Temporada prueba B-05   | CERRADA
+Temporada prueba H-13   | CERRADA
+Temporada prueba B-30   | CERRADA       | cerrada a las 15:38:27 (evento 184, operacionesAplicadas 0)
+
+-- siglim.tarifas (8 filas; +3 de la temporada de prueba)
+Temporada 2026–2027   | Libre Demostración     | ARBITRAJE | 400.00   (B-29, sin cambios)
+Temporada 2026–2027   | Libre Demostración     | CANCHA    | 200.00   (B-29, sin cambios)
+Temporada 2026–2027   | Veteranos Demostración | ARBITRAJE | 300.00   (B-29, sin cambios)
+Temporada 2026–2027   | Veteranos Demostración | CANCHA    |   0.00   (B-29, sin cambios)
+Temporada prueba H-13 | Libre Demostración     | ARBITRAJE | 250.00
+Temporada prueba B-30 | Libre Demostración     | ARBITRAJE | 400.00
+Temporada prueba B-30 | Libre Demostración     | CANCHA    | 200.00
+Temporada prueba B-30 | Veteranos Demostración | CANCHA    |   0.00
+(Temporada prueba B-30 · Veteranos · ARBITRAJE: sin tarifa)
+
+-- siglim.jornadas (3)
+Temporada prueba H-13 | Libre Demostración     | Jornada 1 | PUBLICADO | 1 partido (sin cobros)
+Temporada prueba B-30 | Veteranos Demostración | Jornada 1 | PUBLICADO | 1 partido (0 cobros, 4 omisiones)
+Temporada prueba B-30 | Libre Demostración     | Jornada 1 | PUBLICADO | 2 partidos (7 cobros)
+
+-- siglim.cobros (10: 3 manuales previos + 7 automáticos de B-30)
+Real Patzcuaro | MANUAL    | PENDIENTE | 1 | 200.00   (previo)
+Real Patzcuaro | MANUAL    | VENCIDO   | 2 | 450.00   (previos)
+Real Patzcuaro | ARBITRAJE | PENDIENTE | 2 | 800.00   (B30 Halcones, B30 Águilas)
+Real Patzcuaro | CANCHA    | PENDIENTE | 1 | 200.00   (B30 Águilas)
+CamiloSextos   | ARBITRAJE | PENDIENTE | 2 | 800.00   (B30 Toros, B30 Lobos)
+CamiloSextos   | CANCHA    | PENDIENTE | 2 | 400.00   (B30 Toros, B30 Lobos)
+Automáticos: 7 por 2,200.00 (Real Patzcuaro 1,000.00; CamiloSextos 1,200.00), fecha límite 2026-12-12
+
+-- siglim.auditoria
+Total de eventos: 184 (último id 184; 38 eventos nuevos, 147 a 184)
+M-13: REGISTRAR_COBRO x3, REGISTRAR_TARIFA x7, EDITAR_TARIFA x1, VENCER_COBRO x2,
+      INICIAR_PAGO_SIMULADO x1, GENERAR_COBRO x7, GENERAR_COBROS_JORNADA x2
+Detalle de la corrida: auditoria-cobros.txt

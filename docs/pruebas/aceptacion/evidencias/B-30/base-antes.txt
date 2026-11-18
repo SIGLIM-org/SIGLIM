@@ -1,0 +1,44 @@
+B-30.2 · Estado del Supabase compartido antes de la prueba
+Consultado: 2026-11-18 13:20 (America/Mexico_City), develop en b531ffc
+
+-- Temporadas (no hay ninguna ACTIVA)
+Temporada 2026–2027     | CONFIGURACION | Libre Demostración/Grupo A, Veteranos Demostración/Grupo A
+Temporada prueba B-05   | CERRADA       | Libre Demostración/Grupo A, Veteranos Demostración/Grupo B
+Temporada prueba H-13   | CERRADA       | Libre Demostración/Grupo A
+(«Temporada prueba B-30» todavía no existe)
+
+-- siglim.tarifas (5 filas; ninguna en la temporada de prueba)
+Temporada 2026–2027   | Libre Demostración     | ARBITRAJE | 400.00
+Temporada 2026–2027   | Libre Demostración     | CANCHA    | 200.00
+Temporada 2026–2027   | Veteranos Demostración | ARBITRAJE | 300.00
+Temporada 2026–2027   | Veteranos Demostración | CANCHA    |   0.00
+Temporada prueba H-13 | Libre Demostración     | ARBITRAJE | 250.00
+
+-- siglim.jornadas (1)
+Temporada prueba H-13 | Libre Demostración/Grupo A | Jornada 1 | PUBLICADO | 1 partido
+(publicada el 2026-11-17 a las 15:26, antes de que B-30 llegara a develop: no generó cobros)
+
+-- siglim.cobros (3, todos MANUAL y de Real Patzcuaro; ninguno con partido_id)
+Real Patzcuaro | MANUAL | 200.00 | PENDIENTE
+Real Patzcuaro | MANUAL | 300.00 | VENCIDO
+Real Patzcuaro | MANUAL | 150.00 | VENCIDO
+CamiloSextos   | sin cobros
+
+-- Canchas
+Cancha Real Pátzcuaro · Demostración | CLUB    | Real Patzcuaro
+Cancha externa · Demostración        | EXTERNO | —
+Claude code                          | LIGA    | —
+
+-- siglim.auditoria
+Total de eventos: 146 (último id 146)
+M-13: REGISTRAR_COBRO x3, REGISTRAR_TARIFA x4, EDITAR_TARIFA x1, VENCER_COBRO x2, INICIAR_PAGO_SIMULADO x1
+GENERAR_COBRO y GENERAR_COBROS_JORNADA: 0
+
+-- Cuentas activas que usa la prueba (por rol, sin correos)
+Administrador general · LIGA
+Secretario · LIGA (Secretario de pruebas)
+Tesorero · LIGA (Lio tesorero)
+Programador de partidos · LIGA (Programador de pruebas)
+Presidente del Comité Ejecutivo · LIGA (Presidente Lio)
+Directiva de club · CLUB Real Patzcuaro
+Directiva de club · CLUB CamiloSextos
