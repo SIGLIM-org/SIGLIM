@@ -1247,7 +1247,8 @@ del equipo. Un equipo o una operación de otro club responde `404` igual que uno
 | `GET /registros-jugador/{id}/elegibilidad?equipoId=` | `{ elegible, causas: [ { codigo, mensaje } ] }` | `registros.registro:CONSULTAR` | RF-019, RF-020, RF-110 | N |
 | `POST /registros-jugador/renovaciones` · `/transferencias` | Renovación y cambio de club entre temporadas | `registros.registro:EDITAR` | RF-015, RF-016 | B |
 | Documentos | Carga, reemplazo, enlace y validación de cada documento; detalle abajo y en §7 | `registros.documento:*` | RF-108, RF-109 | N |
-| `GET /mi-informacion` | Registro, documentos, elegibilidad, partidos y sanciones del jugador o de los menores que tutela | ámbito `PROPIO` | RF-144 | N |
+| `GET /mi-informacion` | `{ titulares: [ { personaId, nombre, esPropia, esMenor } ] }`: la persona de la cuenta y los menores bajo su tutela vigente; detalle abajo | `registros.registro:CONSULTAR` (cualquier ámbito) | RF-144 | N |
+| `GET /mi-informacion/{personaId}` | Registros, documentos, elegibilidad, partidos y sanciones de esa persona; solo si es la de la cuenta o un menor bajo su tutela vigente (`es_titular`); detalle abajo | `registros.registro:CONSULTAR` (cualquier ámbito) + `es_titular` | RF-144, RF-019, RF-020 | N |
 
 #### Alta de un registro (H-09.2, RF-013, RF-107, VAL-017, VAL-025, DEC-85 a DEC-90)
 
@@ -1704,6 +1705,125 @@ Responde `200` con `Cache-Control: no-store` y el registro, con los mismos campo
 `BAJA` del historial (DEC-124). Se audita en `M-04` como `DAR_BAJA_REGISTRO_JUGADOR` (entidad
 `registros_jugador`) con `{ "personaId", "equipoId", "temporadaId", "estadoAnterior": "ACTIVO",
 "estado": "BAJA", "bajaEn" }` y el motivo como motivo del evento, sin datos personales (DEC-123).
+
+#### Consulta propia (H-24.1, RF-144, DEC-135 a DEC-141)
+
+Información del jugador o del menor para su tutor (M-04.6, pantalla F-35). Son dos rutas: la lista
+de personas que la cuenta puede consultar y el detalle de una de ellas. Las implementa
+`MiInformacionService`; ninguna se audita, porque no cambian nada.
+
+**Autorización y orden de errores (DEC-136).** Las dos exigen `registros.registro:CONSULTAR` en
+**cualquier** ámbito (`autorizacion.alcance`); el detalle exige además que `siglim.es_titular(personaId)`
+sea verdadero: la persona es la de la cuenta (`perfiles.persona_id`) o un menor con tutela vigente
+cuyo tutor es esa persona. Esto vale también para cuentas con ámbito `LIGA` o `CLUB`: es «mi»
+información, no una consulta administrativa (esas usan `/registros-jugador`).
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. `personaId` mal formado: `400 VALIDACION` (antes del servicio, como el resto de la API).
+3. Persona que no es la de la cuenta ni un menor bajo su tutela vigente, o que no existe:
+   `404 NO_ENCONTRADO`, sin distinguir los casos (VAL-024).
+
+**`GET /mi-informacion` (DEC-135).** Primero la persona de la cuenta (`persona_usuario()`), si
+existe, y después los menores con tutela vigente (`tutelas.tutor_id` = esa persona), por nombre
+completo. Una cuenta sin persona vinculada responde `200` con la lista vacía. `esMenor` se calcula
+con la fecha de hoy en `America/Mexico_City`.
+
+```json
+{
+  "titulares": [
+    { "personaId": "…", "nombre": "María López Ruiz", "esPropia": true, "esMenor": false },
+    { "personaId": "…", "nombre": "Ana López Ruiz", "esPropia": false, "esMenor": true }
+  ]
+}
+```
+
+**`GET /mi-informacion/{personaId}` (DEC-137).** Responde `200` con `Cache-Control: no-store`:
+
+- `persona`: `id`, `nombreCompleto`, `curpEnmascarada` (§9.2; nunca la CURP completa) y `esMenor` (hoy).
+- `registros`: los de temporadas que no estén `CERRADA`, del más reciente al más antiguo, cada uno con
+  `temporada`, `club`, `equipo`, `categoria`, `estado`, `altaEn`, `bajaEn`, `motivoBaja` (DEC-124),
+  `observaciones` (del rechazo o la validación) y:
+  - `elegibilidad`: `{ elegible, causas: [ { codigo, mensaje } ] }` con `ReglaElegibilidad` (DEC-138):
+    `RF-019` si el registro no está `ACTIVO` (mensaje según el estado) y `RF-020` por cada sanción
+    `VIGENTE` de tipo `SUSPENSION_PARTIDOS` o `BAJA`, con el artículo y la vigencia.
+    **[PROPUESTA]** `MULTA`, `PERDIDA_PUNTOS` y `PERDIDA_PARTIDO` no impiden jugar.
+  - `documentos`: los mismos requisitos y avance que `GET /registros-jugador/{id}/requisitos`
+    (`RequisitosDocumentos`, con la edad en la fecha de alta): `requisitos[]` con `tipoDocumento`,
+    `cantidad`, `soloMenores`, `esDemo`, `cargados`, `aprobados`, `faltan` y `documentos[]` (los vigentes:
+    `id`, `tipo`, `estadoValidacion`, `observaciones`, `cargadoEn`), más `completo` y `listoParaValidar`.
+    **Nunca** la URL, el bucket, la clave, el SHA-256, el MIME ni el nombre del archivo (RNF-018).
+  - `proximosPartidos` y `partidosJugados` **[PROPUESTA]** (DEC-140): partidos del equipo del registro,
+    como local o visitante (mientras no haya alineaciones). Próximos: jornada `PUBLICADO` y partido que
+    no esté `FINALIZADO` ni `CANCELADO`, por `inicio` ascendente, hasta 5. Jugados: con resultado
+    oficial vigente, por `inicio` descendente, hasta 10. Cada partido lleva `id`, `jornada` (número),
+    `inicio`, `cancha` (nombre), `local` y `visitante` (`id`, `nombre`), `esLocal`, `estado` y
+    `resultado` (`golesLocal`, `golesVisitante`, `penalesLocal`, `penalesVisitante`) o `null`.
+- `sanciones` (de la persona, no por registro): las de sujeto `JUGADOR` en estado `VIGENTE` más las de
+  temporadas no cerradas, de la más reciente a la más antigua, con `id`, `tipo`, `estado`, `partidos`,
+  `partidosCumplidos`, `vigenteDesde`, `vigenteHasta`, `articulo` (`numero`, `descripcion`) y `folio` del
+  expediente.
+
+```json
+{
+  "persona": { "id": "…", "nombreCompleto": "Ana López Ruiz", "curpEnmascarada": "LORA******MMN***05", "esMenor": true },
+  "registros": [
+    {
+      "id": "…",
+      "temporada": { "id": "…", "nombre": "Temporada 2026", "estado": "ACTIVA" },
+      "club": { "id": "…", "nombre": "Club Halcones" },
+      "equipo": { "id": "…", "nombre": "Halcones" },
+      "categoria": { "id": "…", "nombre": "Infantil" },
+      "estado": "ACTIVO",
+      "altaEn": "2026-11-03",
+      "bajaEn": null,
+      "motivoBaja": null,
+      "observaciones": "Documentos revisados en ventanilla",
+      "elegibilidad": {
+        "elegible": false,
+        "causas": [
+          { "codigo": "RF-020", "mensaje": "Suspensión de 3 partidos por el artículo 12 («Conducta antideportiva»): faltan 2 partidos." }
+        ]
+      },
+      "documentos": {
+        "requisitos": [
+          {
+            "tipoDocumento": { "id": 5, "codigo": "FOTOGRAFIA", "nombre": "Fotografía" },
+            "cantidad": 2, "soloMenores": false, "esDemo": true, "cargados": 2, "aprobados": 2, "faltan": 0,
+            "documentos": [
+              { "id": "…", "tipo": { "id": 5, "codigo": "FOTOGRAFIA", "nombre": "Fotografía" },
+                "estadoValidacion": "APROBADO", "observaciones": null, "cargadoEn": "2026-11-03T10:15:00-06:00" }
+            ]
+          }
+        ],
+        "completo": true,
+        "listoParaValidar": true
+      },
+      "proximosPartidos": [
+        { "id": "…", "jornada": 4, "inicio": "2026-11-22T10:00:00-06:00", "cancha": "Unidad Deportiva 1",
+          "local": { "id": "…", "nombre": "Halcones" }, "visitante": { "id": "…", "nombre": "Lobos" },
+          "esLocal": true, "estado": "PROGRAMADO", "resultado": null }
+      ],
+      "partidosJugados": [
+        { "id": "…", "jornada": 3, "inicio": "2026-11-15T10:00:00-06:00", "cancha": "Unidad Deportiva 2",
+          "local": { "id": "…", "nombre": "Pumas" }, "visitante": { "id": "…", "nombre": "Halcones" },
+          "esLocal": false, "estado": "FINALIZADO",
+          "resultado": { "golesLocal": 1, "golesVisitante": 2, "penalesLocal": null, "penalesVisitante": null } }
+      ]
+    }
+  ],
+  "sanciones": [
+    { "id": "…", "tipo": "SUSPENSION_PARTIDOS", "estado": "VIGENTE", "partidos": 3, "partidosCumplidos": 1,
+      "vigenteDesde": "2026-11-16", "vigenteHasta": null,
+      "articulo": { "numero": "12", "descripcion": "Conducta antideportiva" }, "folio": "EXP-2026-0007" }
+  ]
+}
+```
+
+**Dependencias (DEC-139, ADR-0006).** `registros` (nivel 4) no importa `partidos` ni `disciplina`:
+define `ConsultaPartidosPropios` y `ConsultaSancionesPropias` con sus records (`PartidoPropio`,
+`SancionPropia`), y las implementan `partidos.PartidosPropiosJdbc` y `disciplina.SancionesPropiasJdbc`
+con SQL de solo lectura dentro de la transacción del servicio (contexto de usuario y RLS, ADR-0014).
+Vincular la cuenta con su persona (`perfiles.persona_id`) y los consentimientos quedan fuera (DEC-141).
 
 ### 6.5 M-05 Árbitros y designaciones
 
