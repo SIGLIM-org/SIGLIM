@@ -208,7 +208,7 @@ public class DocumentoRegistroService {
 
         boolean esMenor = esMenor(registro);
         Avance avance = RequisitosDocumentos.calcular(documentos.requisitos(ligaId, registro.categoriaTipo()), esMenor,
-                documentos.vigentes(registro.id()));
+                documentos.vigentesConRenovaciones(registro.id()));
         return new RequisitosRegistroDto(registro.id(), registro.estado(),
                 new CategoriaDto(registro.categoriaId(), registro.categoriaNombre(), registro.categoriaTipo()),
                 esMenor, avance.requisitos(), avance.completo(), avance.listoParaValidar());
