@@ -14,6 +14,9 @@ export const RUTA_DOCUMENTOS_REGISTRO = '/app/organizacion/jugadores/:registroId
 /** Bandeja de validación (F-19, DEC-111). */
 export const RUTA_VALIDACION_REGISTROS = '/app/organizacion/registros'
 
+/** Consulta propia del jugador o tutor (F-35, DEC-147); el titular viaja en `?persona=` (DEC-148). */
+export const RUTA_MI_INFORMACION = '/app/mi-informacion'
+
 export function rutaDocumentosRegistro(registroId: string): string {
   return `/app/organizacion/jugadores/${registroId}/documentos`
 }

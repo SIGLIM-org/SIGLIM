@@ -16,12 +16,13 @@ import { PaginaNoEncontrada } from '@/pages/PaginaNoEncontrada'
 
 /**
  * Marcador de cada módulo de `/app` en un fragmento aparte. Las secciones con pantalla propia
- * (Inicio y Tesorería) se registran más abajo; el resto sigue usando `EnConstruccion` hasta que su
+ * (Inicio, Mi información y Tesorería) se registran más abajo; el resto sigue usando `EnConstruccion` hasta que su
  * historia lo sustituya.
  */
 const RUTAS_CON_PANTALLA_PROPIA = new Set([
   '/app',
   '/app/tesoreria',
+  '/app/mi-informacion',
   '/app/programacion/arbitros',
 ])
 
@@ -120,6 +121,17 @@ export const rutas: RouteObject[] = [
                   )
 
                   return { Component: PantallaTesoreria }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
+                path: '/app/mi-informacion',
+                lazy: async () => {
+                  const { PantallaMiInformacion } = await import(
+                    '@/features/registros/mi-informacion/PantallaMiInformacion'
+                  )
+
+                  return { Component: PantallaMiInformacion }
                 },
                 HydrateFallback: CargandoPagina,
               },
