@@ -70,10 +70,12 @@ import org.springframework.transaction.annotation.Transactional;
  *       {@code baja_en} es la fecha de México. Se bloquea el registro con {@code bloquearRegistro} y el
  *       {@code UPDATE} es condicional. Un equipo en {@code BAJA} no la impide.
  *       {@code SUSPENDIDO → BAJA} queda para la sanción de M-09.</li>
+ *   <li><b>Historial (B-07.1).</b> {@code registros.registro:CONSULTAR} sobre el club del registro,
+ *       solo lectura y sin auditar (RF-018, RNF-015).</li>
  * </ul>
  *
- * <p>Refs: H-09.2, H-10.2, H-10.5, H-23.1, RF-003, RF-013, RF-014, RF-016, RF-017, RF-018, RF-093, RF-101,
- * RF-107, RF-109, RN-021, RN-037, RN-039, RN-055, RNF-012, VAL-001, VAL-015, VAL-017, VAL-022, VAL-024, VAL-025,
+ * <p>Refs: B-07.1, H-09.2, H-10.2, H-10.5, H-23.1, RF-003, RF-013, RF-014, RF-016, RF-017, RF-018, RF-093, RF-101,
+ * RF-107, RF-109, RN-021, RN-037, RN-039, RN-055, RNF-012, RNF-015, VAL-001, VAL-015, VAL-017, VAL-022, VAL-024, VAL-025,
  * VAL-026, CU-004, DEC-78, DEC-85 a DEC-90, DEC-97 a DEC-102, DEC-109, DEC-110, DEC-118 a DEC-124
  */
 @Service
@@ -377,6 +379,31 @@ public class RegistroJugadorService {
         boolean mostrarCurp = autorizacion.permite(CONSULTAR_PERSONA, ObjetivoAutorizacion.deClubes(registro.clubId()));
         List<TutorDto> tutores = detalle.esMenor() ? registros.tutoresVigentes(registro.personaId()) : List.of();
         return detalle.con(mostrarCurp, tutores);
+    }
+
+    /**
+     * Historial de estados del registro del más antiguo al más reciente: el alta y cada cambio de
+     * estado con su motivo, quién lo hizo y cuándo (RF-018). Es de solo lectura (RNF-015): el
+     * historial lo escribe {@code tg_registros_historial}.
+     *
+     * <p>Ámbito: {@code registros.registro:CONSULTAR} sobre el club del registro
+     * ({@code ObjetivoAutorizacion.deClubes}); una cuenta {@code LIGA} ve todos. La consulta propia
+     * del jugador o su tutor ({@code PROPIO}) no se incluye aquí: es de H-24.
+     *
+     * <p>Orden de errores:
+     * <ol>
+     *   <li>Sin {@code registros.registro:CONSULTAR} en ningún ámbito: {@code 403 VAL-015}.</li>
+     *   <li>Registro inexistente en la liga, o de un club fuera del ámbito: {@code 404}, sin
+     *       distinguir los dos casos (VAL-024).</li>
+     * </ol>
+     */
+    @Transactional(readOnly = true)
+    public List<CambioEstadoRegistroDto> historial(UUID registroId) {
+        autorizacion.alcance(CONSULTAR);
+        RegistroDeDocumentos registro = documentos.buscarRegistro(ligaId, registroId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Registro " + registroId));
+        autorizacion.exigir(CONSULTAR, ObjetivoAutorizacion.deClubes(registro.clubId()));
+        return registros.historial(registro.id());
     }
 
     // ── Reglas ─────────────────────────────────────────────────────────────────────────────────

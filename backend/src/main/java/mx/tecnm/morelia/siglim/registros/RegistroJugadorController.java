@@ -1,6 +1,7 @@
 package mx.tecnm.morelia.siglim.registros;
 
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 import mx.tecnm.morelia.siglim.compartido.api.Pagina;
 import org.springframework.http.CacheControl;
@@ -24,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
  * el detalle, su CURP (RNF-012). La validación (DEC-102) y la baja (DEC-124) responden {@code 200}
  * con el registro.
  *
- * <p>Refs: H-09.2, H-10.2, H-10.5, H-23.1, RF-013, RF-014, RF-017, RF-107, RF-109, DEC-85, DEC-90, DEC-97,
+ * <p>Refs: B-07.1, H-09.2, H-10.2, H-10.5, H-23.1, RF-013, RF-014, RF-017, RF-018, RF-107, RF-109, DEC-85, DEC-90, DEC-97,
  * DEC-102, DEC-109, DEC-110, DEC-121, DEC-124
  */
 @RestController
@@ -59,6 +60,17 @@ class RegistroJugadorController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(servicio.consultar(id));
+    }
+
+    /**
+     * Historial de estados del registro, del más antiguo al más reciente; solo lectura (B-07.1,
+     * RF-018, RNF-015).
+     */
+    @GetMapping("/{id}/historial")
+    ResponseEntity<List<CambioEstadoRegistroDto>> historial(@PathVariable UUID id) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(servicio.historial(id));
     }
 
     @PostMapping
