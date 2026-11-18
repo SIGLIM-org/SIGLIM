@@ -1,4 +1,4 @@
-import { FileUp, FileSearch, UserMinus } from 'lucide-react'
+import { FileUp, FileSearch, History, UserMinus } from 'lucide-react'
 import { Link } from 'react-router'
 import { clasesBoton } from '@/components/ui/estilosBoton'
 import { rutaDocumentosRegistro, rutaValidacionRegistro } from '@/features/registros/rutas'
@@ -17,6 +17,8 @@ type Props = {
   registro: RegistroJugadorFila
   permisos: PermisosAccionesPlantilla
   onDarDeBaja: (registro: RegistroJugadorFila) => void
+  /** Abre el historial del registro (B-07.2). */
+  onVerHistorial: (registro: RegistroJugadorFila) => void
 }
 
 function accionesPendiente(registro: RegistroJugadorFila, permisos: PermisosAccionesPlantilla) {
@@ -30,30 +32,19 @@ function puedeDarDeBaja(registro: RegistroJugadorFila, permisos: PermisosAccione
 }
 
 /**
- * ¿La fila ofrece alguna acción? Un registro pendiente tiene las de documentos y validación
- * (DEC-117); uno `ACTIVO` de una temporada no cerrada, la baja con `EDITAR` (DEC-125).
- */
-export function tieneAcciones(registro: RegistroJugadorFila, permisos: PermisosAccionesPlantilla) {
-  return accionesPendiente(registro, permisos) || puedeDarDeBaja(registro, permisos)
-}
-
-/**
  * Acciones de una fila de la plantilla. En `PENDIENTE_VALIDACION` (DEC-111, DEC-117): «Cargar
  * documentos» con `registros.documento:CREAR` y «Revisar» con `registros.registro:VALIDAR`, como
  * enlaces. En `ACTIVO` con la temporada no `CERRADA` (DEC-125): «Dar de baja» con
- * `registros.registro:EDITAR`, un botón que abre el modal de la plantilla. Todos llevan el nombre
- * del jugador en su nombre accesible.
+ * `registros.registro:EDITAR`, un botón que abre el modal de la plantilla. En cualquier estado,
+ * «Ver historial» (B-07.2, RF-018): basta `registros.registro:CONSULTAR`, que la plantilla ya exige
+ * (DEC-116). Todos llevan el nombre del jugador en su nombre accesible.
  */
-export function AccionesRegistroPlantilla({ registro, permisos, onDarDeBaja }: Props) {
-  if (!tieneAcciones(registro, permisos)) {
-    return null
-  }
-
+export function AccionesRegistroPlantilla({ registro, permisos, onDarDeBaja, onVerHistorial }: Props) {
   const nombre = registro.persona.nombreCompleto
   const pendiente = accionesPendiente(registro, permisos)
 
   return (
-    <div className="flex flex-wrap gap-2 lg:flex-nowrap lg:justify-end">
+    <div className="flex flex-wrap gap-2 lg:justify-end">
       {pendiente && permisos.cargar && (
         <Link
           to={rutaDocumentosRegistro(registro.id)}
@@ -85,6 +76,15 @@ export function AccionesRegistroPlantilla({ registro, permisos, onDarDeBaja }: P
           Dar de baja
         </button>
       )}
+      <button
+        type="button"
+        aria-label={`Ver historial de ${nombre}`}
+        onClick={() => onVerHistorial(registro)}
+        className={`${clasesBoton('secundario')} whitespace-nowrap`}
+      >
+        <History aria-hidden="true" className="size-4 shrink-0" />
+        Ver historial
+      </button>
     </div>
   )
 }

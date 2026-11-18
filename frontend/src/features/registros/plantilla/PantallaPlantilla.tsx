@@ -12,6 +12,7 @@ import type { FiltroEstadoRegistro } from '@/features/registros/documentos/etiqu
 import { PERMISOS_PLANTILLA, usePermisosRegistros } from '@/features/registros/permisos'
 import { FILTROS_PLANTILLA, ListaPlantilla } from '@/features/registros/plantilla/ListaPlantilla'
 import { ModalBajaRegistro } from '@/features/registros/plantilla/ModalBajaRegistro'
+import { ModalHistorialRegistro } from '@/features/registros/plantilla/ModalHistorialRegistro'
 import { SelectoresPlantilla } from '@/features/registros/plantilla/SelectoresPlantilla'
 import { RUTA_ALTA_JUGADOR } from '@/features/registros/rutas'
 import type { RegistroJugador, RegistroJugadorFila } from '@/features/registros/tipos'
@@ -53,14 +54,16 @@ type Aviso = { tipo: 'exito' | 'error'; mensaje: string }
  * equipo de la URL que no está en las opciones cuenta como «sin elegir» y no se consultan registros.
  * La baja de un registro abre un modal desde la fila (DEC-125, DEC-126); su resultado se anuncia
  * arriba de la lista y recibe el foco, porque el botón que lo abrió desaparece (DEC-127, DEC-129).
+ * «Ver historial» abre en un modal el historial de estados del registro (B-07.2, RF-018).
  *
- * Refs: RF-014, RF-017, RF-019 (consulta), UI-006, DEC-108, DEC-109, DEC-111, DEC-116, DEC-117,
+ * Refs: B-07, RF-014, RF-017, RF-018, RF-019 (consulta), UI-006, DEC-108, DEC-109, DEC-111, DEC-116, DEC-117,
  * DEC-125 a DEC-129
  */
 function PaginaPlantilla() {
   const [parametros, setParametros] = useSearchParams()
   const [pagina, setPagina] = useState(0)
   const [registroEnBaja, setRegistroEnBaja] = useState<RegistroJugadorFila | null>(null)
+  const [registroEnHistorial, setRegistroEnHistorial] = useState<RegistroJugadorFila | null>(null)
   const [aviso, setAviso] = useState<Aviso | null>(null)
   const avisoRef = useRef<HTMLParagraphElement>(null)
   const recargar = useRecargarRegistro()
@@ -232,6 +235,7 @@ function PaginaPlantilla() {
         onPagina={setPagina}
         onReintentar={() => void lista.refetch()}
         onDarDeBaja={abrirBaja}
+        onVerHistorial={setRegistroEnHistorial}
       />
     )
   }
@@ -305,6 +309,13 @@ function PaginaPlantilla() {
 
       {contenido()}
 
+      {registroEnHistorial && (
+        <ModalHistorialRegistro
+          key={registroEnHistorial.id}
+          registro={registroEnHistorial}
+          onCerrar={() => setRegistroEnHistorial(null)}
+        />
+      )}
       {registroEnBaja && (
         <ModalBajaRegistro
           registro={registroEnBaja}

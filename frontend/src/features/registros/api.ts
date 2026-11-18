@@ -3,6 +3,7 @@ import { clavesOrganizacion } from '@/features/organizacion/api'
 import type {
   AvisoPrivacidad,
   BajaRegistroPeticion,
+  CambioEstadoRegistro,
   Consentimiento,
   CrearRegistroPeticion,
   DocumentoRegistro,
@@ -38,6 +39,8 @@ export const clavesRegistros = {
   registros: ['registros', 'registros'] as const,
   lista: (filtros: FiltrosRegistros) => ['registros', 'registros', 'lista', filtros] as const,
   detalle: (id: string) => ['registros', 'registros', 'detalle', id] as const,
+  /** Bajo `registros`: la validación y la baja, que ya la invalidan, lo dejan al día. */
+  historial: (id: string) => ['registros', 'registros', 'historial', id] as const,
   requisitos: (id: string) => ['registros', 'requisitos', id] as const,
   avisoVigente: ['registros', 'aviso-vigente'] as const,
   opcionMovimiento: (personaId: string, equipoId: string) =>
@@ -191,6 +194,18 @@ export function useRegistro(id: string | undefined) {
     queryKey: clavesRegistros.detalle(id ?? 'sin-seleccion'),
     queryFn: () => api.get<RegistroJugadorDetalle>(`registros-jugador/${id}`),
     enabled: Boolean(id),
+    retry: reintentarConsulta,
+  })
+}
+
+/**
+ * Historial de estados del registro, del más antiguo al más reciente (B-07.1, RF-018). Un registro
+ * de otro club responde 404 igual que uno inexistente (VAL-024).
+ */
+export function useHistorialRegistro(id: string) {
+  return useQuery({
+    queryKey: clavesRegistros.historial(id),
+    queryFn: () => api.get<CambioEstadoRegistro[]>(`registros-jugador/${id}/historial`),
     retry: reintentarConsulta,
   })
 }

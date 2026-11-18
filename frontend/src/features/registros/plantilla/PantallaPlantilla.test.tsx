@@ -78,6 +78,17 @@ function responder(cambios: Partial<typeof servidor> = {}) {
     if (recurso === 'registros-jugador') {
       return pagina(servidor.registros)
     }
+    if (/^registros-jugador\/[^/]+\/historial$/.test(recurso)) {
+      return [
+        {
+          estadoAnterior: null,
+          estadoNuevo: 'PENDIENTE_VALIDACION',
+          motivo: 'Alta del registro',
+          cambiadoPor: { id: 'perfil-1', nombre: 'Directiva Halcones' },
+          cambiadoEn: '2026-11-11T12:00:00-06:00',
+        },
+      ]
+    }
     throw new Error(`Ruta no simulada: ${ruta}`)
   })
 }
@@ -274,6 +285,21 @@ describe('PantallaPlantilla (F-17, H-09.4)', () => {
 
     await waitFor(() => expect(enrutador.state.location.search).not.toContain('estado='))
     expect(rutasRegistros().at(-1)?.has('estado')).toBe(false)
+  })
+
+  it('B-07.2 · RF-018: «Ver historial» de la fila abre el historial de ese registro y se cierra', async () => {
+    const user = userEvent.setup()
+    montar()
+
+    const ana = within((await tabla()).getAllByRole('row')[1])
+    await user.click(ana.getByRole('button', { name: 'Ver historial de Ana López Ruiz' }))
+
+    const dialogo = await screen.findByRole('dialog', { name: 'Historial de Ana López Ruiz' })
+    expect(await within(dialogo).findByText('«Alta del registro»')).toBeInTheDocument()
+    expect(get).toHaveBeenCalledWith(`registros-jugador/${ANA.id}/historial`)
+
+    await user.click(within(dialogo).getByRole('button', { name: 'Cerrar' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('DEC-117: las flechas mueven la pestaña elegida', async () => {

@@ -56,6 +56,20 @@ export type RegistroJugadorFila = {
   creadoEn: string
 }
 
+/**
+ * Un cambio del historial de estados del registro (`GET /registros-jugador/{id}/historial`, B-07.1,
+ * RF-018). `estadoAnterior` es `null` en el alta; `cambiadoPor.nombre` es `null` si la sesión no
+ * puede ver ese perfil y `cambiadoPor` es `null` si el historial no guardó usuario.
+ */
+export type CambioEstadoRegistro = {
+  estadoAnterior: EstadoRegistro | null
+  estadoNuevo: EstadoRegistro
+  motivo: string
+  cambiadoPor: { id: string; nombre: string | null } | null
+  /** Instante con desfase de `America/Mexico_City`. */
+  cambiadoEn: string
+}
+
 /** Tutela vigente del menor, solo con nombre y parentesco (DEC-109). */
 export type TutorRegistro = {
   nombreCompleto: string

@@ -40,6 +40,8 @@ type Props = {
   onReintentar: () => void
   /** Abre el modal de baja de la plantilla (DEC-125). */
   onDarDeBaja: (registro: RegistroJugadorFila) => void
+  /** Abre el historial del registro (B-07.2). */
+  onVerHistorial: (registro: RegistroJugadorFila) => void
 }
 
 /**
@@ -60,6 +62,7 @@ export function ListaPlantilla({
   onPagina,
   onReintentar,
   onDarDeBaja,
+  onVerHistorial,
 }: Props) {
   const id = useId()
   const totalPaginas = datos?.totalPaginas ?? 0
@@ -185,6 +188,7 @@ export function ListaPlantilla({
                     registro={registro}
                     permisos={permisos}
                     onDarDeBaja={onDarDeBaja}
+                    onVerHistorial={onVerHistorial}
                   />
                 ))}
               </tbody>
@@ -200,6 +204,7 @@ export function ListaPlantilla({
                   registro={registro}
                   permisos={permisos}
                   onDarDeBaja={onDarDeBaja}
+                  onVerHistorial={onVerHistorial}
                 />
               ))}
             </ul>
