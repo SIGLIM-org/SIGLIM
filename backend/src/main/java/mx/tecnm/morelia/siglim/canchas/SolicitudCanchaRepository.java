@@ -24,7 +24,7 @@ import tools.jackson.databind.json.JsonMapper;
  *   <li><b>Ámbito.</b> El listado filtra por {@code club_id} con el alcance unificado; una oferta
  *       de un externo ({@code club_id} nulo) solo la ve un ámbito de liga (ADR-0007).</li>
  *   <li><b>Número de oficio.</b> Consecutivo por liga y año con la forma {@code OF-AAAA-NNNN}
- *       [PROPUESTA]. Un candado consultivo de la transacción serializa dos capturas simultáneas;
+ *       (DEC-135, [PROPUESTA]). Un candado consultivo de la transacción serializa dos capturas simultáneas;
  *       {@code UNIQUE (liga_id, numero_oficio)} es la última garantía.</li>
  *   <li><b>Candados.</b> La resolución lee el trámite con {@code FOR UPDATE}.</li>
  * </ul>
@@ -157,7 +157,7 @@ class SolicitudCanchaRepository {
     }
 
     /**
-     * Siguiente número de oficio del año, {@code OF-AAAA-NNNN} [PROPUESTA]. Toma un candado
+     * Siguiente número de oficio del año, {@code OF-AAAA-NNNN} (DEC-135, [PROPUESTA]). Toma un candado
      * consultivo de la transacción por liga y año: dos capturas simultáneas no obtienen el mismo
      * consecutivo. El candado se libera al confirmar o deshacer la transacción.
      */

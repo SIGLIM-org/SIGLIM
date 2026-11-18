@@ -41,23 +41,26 @@ import org.springframework.transaction.annotation.Transactional;
  *       un externo sin cuenta; la de un externo la captura un ámbito de liga (el Secretario), porque
  *       se autoriza sobre la liga y no sobre un club.</li>
  *   <li><b>Número de oficio (RF-118).</b> Lo asigna el sistema al capturar, consecutivo por liga y
- *       año con la forma {@code OF-AAAA-NNNN} [PROPUESTA]. La carta se arma con los datos del
+ *       año con la forma {@code OF-AAAA-NNNN} (DEC-135, [PROPUESTA]). La carta se arma con los datos del
  *       trámite y la plantilla del formato del cliente (R8); no se guarda un PDF.</li>
  *   <li><b>Permisos (ADR-0007).</b> Capturar exige {@code canchas.solicitud:CREAR} sobre el club o
  *       la liga; dictaminar, {@code canchas.solicitud:APROBAR}; la carta,
- *       {@code canchas.oficio:GENERAR}. El catálogo no tiene un permiso de consulta propio: la
- *       bandeja usa el alcance unificado de los tres [PROPUESTA], en el {@code WHERE} y en el
+ *       {@code canchas.oficio:GENERAR} (DEC-137: en la matriz inicial solo el Secretario; la
+ *       Directiva no imprime su carta salvo que la matriz se lo otorgue). El catálogo no tiene un
+ *       permiso de consulta propio: la bandeja usa el alcance unificado de los tres (DEC-136,
+ *       [PROPUESTA]), en el {@code WHERE} y en el
  *       {@code COUNT}. Un trámite fuera del alcance responde {@code 404} igual que uno inexistente
  *       (VAL-024).</li>
  *   <li><b>Fuera de esta historia.</b> Aceptar una oferta o aprobar un comodato <b>no</b> da de alta
- *       la cancha ni sus horarios: eso es RF-119 (horarios de club), con su propia historia.</li>
+ *       la cancha ni sus horarios (DEC-138): la cancha se registra con RF-027 y los horarios con
+ *       RF-119 (B-13).</li>
  *   <li><b>Auditoría (RF-093).</b> Captura y dictamen se registran en {@code M-06} sobre
  *       {@code solicitudes_cancha} con identificadores, tipo, número de oficio y estados; nunca con
  *       los nombres o teléfonos del formato. La decisión desfavorable deja sus observaciones como
  *       motivo (RN-021).</li>
  * </ul>
  *
- * <p>Refs: B-14, RF-116, RF-117, RF-118, RF-093, CU-024, CU-025, DEC-35, RN-021, VAL-015, VAL-024,
+ * <p>Refs: B-14, RF-116, RF-117, RF-118, RF-093, CU-024, CU-025, DEC-35, DEC-135 a DEC-138, RN-021, VAL-015, VAL-024,
  * ADR-0007
  */
 @Service
@@ -312,7 +315,7 @@ public class SolicitudCanchaService {
 
     /**
      * Une el alcance de los tres permisos del trámite: quien captura, quien dictamina y quien genera
-     * la carta ven la bandeja [PROPUESTA]. Sin ninguno, {@code 403 VAL-015}.
+     * la carta ven la bandeja (DEC-136, [PROPUESTA]). Sin ninguno, {@code 403 VAL-015}.
      */
     private AlcanceAutorizacion alcanceConsulta() {
         boolean todaLaLiga = false;
