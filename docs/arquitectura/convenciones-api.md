@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.19 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.20 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -68,6 +68,7 @@ Versión 5.19 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.17 | 17 de noviembre de 2026 | B-06.1: §6.4 con la renovación y la transferencia entre temporadas (`POST /registros-jugador/renovaciones` y `/transferencias`): `{ personaId, equipoId }`, registro nuevo `PENDIENTE_VALIDACION` enlazado por `registro_anterior_id`, `422 RF-015`/`RF-016` si el registro anterior no existe o no corresponde al tipo de movimiento, `409 RF-111` si la temporada no permite el cambio de club, `409 VAL-026`/`RN-039` dentro de la temporada, documentos aprobados heredados solo en la renovación del mismo club y auditoría `RENOVAR_REGISTRO`/`TRANSFERIR_REGISTRO`; §3.2 con `RF-015` y `RF-016` en `422` y `RF-111` en `409` (DEC-146). |
 | 5.18 | 17 de noviembre de 2026 | B-07.1: §6.4 con el historial de un registro (`GET /registros-jugador/{id}/historial`): arreglo sin paginar del más antiguo al más reciente con `estadoAnterior`, `estadoNuevo`, `motivo`, `cambiadoPor { id, nombre }` y `cambiadoEn`; `registros.registro:CONSULTAR` sobre el club del registro (otro club, `404`, VAL-024; `PROPIO` queda para H-24), `Cache-Control: no-store`, solo lectura y sin auditar (RF-018, RNF-015). |
 | 5.19 | 17 de noviembre de 2026 | B-06.2: §6.4 con `GET /registros-jugador/movimientos/opcion?personaId=&equipoId=` (DEC-153): `{ tipo, permitido, temporadaAnterior, motivo }` para que el asistente de alta (F-18) ofrezca la renovación o la transferencia, o la muestre deshabilitada si la temporada no permite el cambio de club (RF-111), sin datos del club de origen; solo lectura y sin auditoría. |
+| 5.20 | 17 de noviembre de 2026 | §6.4 «Alta de un registro», paso 11: `POST /registros-jugador` responde `409 RF-111` si el registro anterior más reciente de la persona es de otro club y la temporada no permite el cambio de club, como la transferencia; no obliga a usar el movimiento (DEC-154). |
 
 ## Índice
 
@@ -1254,7 +1255,7 @@ del equipo. Un equipo o una operación de otro club responde `404` igual que uno
 | `GET /mi-informacion` | `{ titulares: [ { personaId, nombre, esPropia, esMenor } ] }`: la persona de la cuenta y los menores bajo su tutela vigente; detalle abajo | `registros.registro:CONSULTAR` (cualquier ámbito) | RF-144 | N |
 | `GET /mi-informacion/{personaId}` | Registros, documentos, elegibilidad, partidos y sanciones de esa persona; solo si es la de la cuenta o un menor bajo su tutela vigente (`es_titular`); detalle abajo | `registros.registro:CONSULTAR` (cualquier ámbito) + `es_titular` | RF-144, RF-019, RF-020 | N |
 
-#### Alta de un registro (H-09.2, RF-013, RF-107, VAL-017, VAL-025, DEC-85 a DEC-90)
+#### Alta de un registro (H-09.2, RF-013, RF-107, RF-111, VAL-017, VAL-025, DEC-85 a DEC-90, DEC-154)
 
 `POST /registros-jugador` recibe `{ "personaId", "equipoId" }` y registra a la persona en el equipo;
 la temporada es la del grupo del equipo. Exige `registros.registro:EDITAR` sobre el **club del
@@ -1292,7 +1293,11 @@ equipo** (`ObjetivoAutorizacion.deClubes`); hoy solo la Directiva de club lo tie
 10. Con uno en `BAJA` en **otro equipo del mismo club**: `409 RN-039` (dentro de una temporada no hay
     cambio de equipo, RF-016). Registrarse de nuevo en el mismo equipo sí se permite. Los registros
     `RECHAZADO` no cuentan en los pasos 8 a 10.
-11. La persona es menor en la fecha de alta: sin tutela vigente, `422 VAL-025` con
+11. El registro anterior más reciente de la persona (`registro_anterior`) es de **otro club** y la
+    versión vigente de parámetros de la temporada no permite el cambio de club: `409 RF-111`, con el
+    mismo mensaje de la transferencia y sin nombrar al otro club (DEC-154). El alta no obliga a usar
+    la renovación o la transferencia (pendiente, DEC-146) y no enlaza el registro anterior.
+12. La persona es menor en la fecha de alta: sin tutela vigente, `422 VAL-025` con
     `"requisito": "TUTOR"`; con tutor pero sin consentimiento no revocado otorgado por un tutor
     vigente, `422 VAL-025` con `"requisito": "CONSENTIMIENTO"`. Es la misma condición que
     `tg_registros_validar` al activar. No se exige aviso vigente ni una finalidad concreta

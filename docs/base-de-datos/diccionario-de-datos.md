@@ -1,7 +1,7 @@
 # Diccionario de datos
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.12 · 17 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
+Versión 2.13 · 17 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
 
 > [!NOTE]
 > Este diccionario describe la migración
@@ -29,6 +29,7 @@ Versión 2.12 · 17 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alinea
 | 2.10 | 16 de noviembre de 2026 | Migración `20261116100000_cuota_arbitros_parametro.sql` (B-08.1, RF-114, DEC-17): `parametros_temporada` agrega `equipos_por_arbitro` (`smallint`, no nulo, default 4 **[DEMO]**) con `ck_parametros_arbitros` (`> 0`); la cuota de árbitros del club se calcula con la versión vigente del parámetro y se redondea hacia arriba. Las versiones existentes reciben el valor por default. |
 | 2.11 | 16 de noviembre de 2026 | Migración `20261116180000_parametros_localia.sql` (B-15.1, RF-120, VAL-027, RN-049, DEC-34): `parametros_temporada` agrega `fechas_fase_regular` (`smallint`, nulo = sin definir) y `fechas_finales_unidad_deportiva` (`smallint`, no nulo, default 10 **[DEMO]**) con `ck_parametros_localia`; el backend advierte una cancha fuera de la unidad deportiva en las jornadas de la fase regular con `numero > fechas_fase_regular − fechas_finales_unidad_deportiva` y guarda el motivo con que se acepta en `partidos.motivo_localia`. Las versiones existentes quedan sin total de fechas (la regla no se evalúa) y con 10. |
 | 2.12 | 17 de noviembre de 2026 | Migración `20261117190000_renovacion_transferencia_registros.sql` (B-06.1, RF-015, RF-016, RF-111, VAL-026, DEC-146): función `SECURITY DEFINER` de lectura mínima `registro_anterior(uuid, uuid)` (registro no rechazado más reciente de la persona en una temporada anterior, con club, equipo y temporada) e índice `ix_registros_anterior`; `tg_registros_validar` valida `registro_anterior_id` (misma persona, temporada anterior, mismo club o cambio permitido por `permite_cambio_club` de la temporada destino) y, al activar, VAL-001 cuenta también los documentos aprobados de los registros anteriores del mismo club (renovación). Sin cambios en columnas. |
+| 2.13 | 17 de noviembre de 2026 | Migración `20261117220000_alta_normal_cambio_club.sql` (B-06, RF-111, DEC-154): `tg_registros_validar` conserva sus reglas y, en un alta sin `registro_anterior_id`, rechaza con `RF-111` el cambio de club entre temporadas si el registro anterior más reciente de la persona es de otro club y la versión vigente de parámetros de la temporada destino no lo permite. Sin cambios en columnas. |
 
 ## 1. Propósito y alcance
 
@@ -871,12 +872,14 @@ Restricciones, índices y triggers:
 - Trigger `tg_registros_jugador_actualizado_en` (before update) → `tg_actualizado_en()`
 - Trigger `tg_registros_validar` (before insert or update) → `tg_registros_validar()`
 
-Reglas de `tg_registros_validar` (migraciones `20261112180000` y `20261117190000`, DEC-101 y
-DEC-146). En el alta: equipo activo (`RF-013`), sin otro registro activo de la CURP en la temporada
+Reglas de `tg_registros_validar` (migraciones `20261112180000`, `20261117190000` y `20261117220000`,
+DEC-101, DEC-146 y DEC-154). En el alta: equipo activo (`RF-013`), sin otro registro activo de la CURP en la temporada
 (`VAL-017`) y sin cambio de club (`VAL-026`). Si el alta trae `registro_anterior_id`, debe ser de la
 misma persona, de una temporada anterior y del mismo club o de una temporada cuyo
 `permite_cambio_club` vigente sea verdadero (`RF-015`, `RF-016`, `RF-111`); el enlace no cambia
-después del alta. En un cambio: el registro no cambia de equipo (`RN-039`); en este orden, la
+después del alta. Si el alta no trae `registro_anterior_id` y el registro anterior más reciente de la
+persona (`registro_anterior`) es de otro club, la temporada también debe permitir el cambio de club
+(`RF-111`, DEC-154); no obliga a usar la renovación o la transferencia (DEC-146). En un cambio: el registro no cambia de equipo (`RN-039`); en este orden, la
 transición es una de §4.3.3 del ERS (`RF-017`); solo un usuario de liga (`es_usuario_liga()`) pasa de
 `PENDIENTE_VALIDACION` a `ACTIVO` o `RECHAZADO`, o cambia `validado_por` o `validado_en` (`VAL-015`);
 todo cambio de estado lleva motivo (`RN-021`); y al pasar de `PENDIENTE_VALIDACION` a `ACTIVO`, cada

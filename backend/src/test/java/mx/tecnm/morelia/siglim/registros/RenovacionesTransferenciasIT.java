@@ -232,6 +232,107 @@ class RenovacionesTransferenciasIT extends BaseDatosPrueba {
                 });
     }
 
+    // ── Alta normal y RF-111 (DEC-154) ─────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-111 · DEC-154: el alta normal con registro anterior de otro club y cambio no permitido responde 409")
+    void altaNormalSinCambioDeClub() {
+        UUID anterior = temporada(2032);
+        UUID nueva = temporada(2033);
+        UUID origen = club("Águilas");
+        UUID destino = club("Pumas");
+        UUID equipoOrigen = equipo(origen, anterior, "Águilas 2032");
+        UUID equipoDestino = equipo(destino, nueva, "Pumas 2033");
+        afiliar(origen, anterior, "APROBADA");
+        afiliar(destino, nueva, "APROBADA");
+        parametros(nueva, false);
+        iniciarSesion(perfilDeDirectiva(origen));
+        UUID persona = registrarPersona();
+        registros.registrar(new CrearRegistroJugadorRequest(persona, equipoOrigen));
+
+        iniciarSesion(perfilDeDirectiva(destino));
+        assertThatThrownBy(() -> registros.registrar(new CrearRegistroJugadorRequest(persona, equipoDestino)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.codigo()).isEqualTo("RF-111");
+                    assertThat(error.estado().value()).isEqualTo(409);
+                    assertThat(error.getMessage()).doesNotContain("Águilas");
+                });
+        assertThat(registrosDe(persona)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("RF-111 · DEC-154: el alta normal con registro anterior de otro club y cambio permitido crea el registro")
+    void altaNormalConCambioDeClubPermitido() {
+        UUID anterior = temporada(2032);
+        UUID nueva = temporada(2033);
+        UUID origen = club("Águilas");
+        UUID destino = club("Pumas");
+        UUID equipoOrigen = equipo(origen, anterior, "Águilas 2032");
+        UUID equipoDestino = equipo(destino, nueva, "Pumas 2033");
+        afiliar(origen, anterior, "APROBADA");
+        afiliar(destino, nueva, "APROBADA");
+        parametros(nueva, true);
+        iniciarSesion(perfilDeDirectiva(origen));
+        UUID persona = registrarPersona();
+        registros.registrar(new CrearRegistroJugadorRequest(persona, equipoOrigen));
+
+        iniciarSesion(perfilDeDirectiva(destino));
+        RegistroJugadorDto nuevo = registros.registrar(new CrearRegistroJugadorRequest(persona, equipoDestino));
+
+        assertThat(nuevo.estado()).isEqualTo(EstadoRegistro.PENDIENTE_VALIDACION);
+        assertThat(jdbc.sql("SELECT registro_anterior_id IS NULL FROM siglim.registros_jugador WHERE id = :id")
+                .param("id", nuevo.id()).query(Boolean.class).single()).isTrue();
+        assertThat(registrosDe(persona)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("DEC-154: el alta normal en el mismo club no depende de permite_cambio_club")
+    void altaNormalDelMismoClub() {
+        UUID anterior = temporada(2032);
+        UUID nueva = temporada(2033);
+        UUID club = club("Halcones");
+        UUID equipoAnterior = equipo(club, anterior, "Halcones 2032");
+        UUID equipoNuevo = equipo(club, nueva, "Halcones 2033");
+        afiliar(club, anterior, "APROBADA");
+        afiliar(club, nueva, "APROBADA");
+        parametros(nueva, false);
+        iniciarSesion(perfilDeDirectiva(club));
+        UUID persona = registrarPersona();
+        registros.registrar(new CrearRegistroJugadorRequest(persona, equipoAnterior));
+
+        RegistroJugadorDto nuevo = registros.registrar(new CrearRegistroJugadorRequest(persona, equipoNuevo));
+
+        assertThat(nuevo.estado()).isEqualTo(EstadoRegistro.PENDIENTE_VALIDACION);
+        assertThat(registrosDe(persona)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("RF-111 · DEC-154: el trigger rechaza un alta sin registro_anterior_id que cambia de club sin permiso")
+    void triggerRechazaAltaNormalConCambioDeClub() {
+        UUID anterior = temporada(2032);
+        UUID nueva = temporada(2033);
+        UUID origen = club("Águilas");
+        UUID destino = club("Pumas");
+        UUID equipoOrigen = equipo(origen, anterior, "Águilas 2032");
+        UUID equipoDestino = equipo(destino, nueva, "Pumas 2033");
+        afiliar(origen, anterior, "APROBADA");
+        afiliar(destino, nueva, "APROBADA");
+        parametros(nueva, false);
+        UUID directiva = perfilDeDirectiva(origen);
+        iniciarSesion(directiva);
+        UUID persona = registrarPersona();
+        registros.registrar(new CrearRegistroJugadorRequest(persona, equipoOrigen));
+
+        assertThatThrownBy(() -> jdbc.sql("""
+                        INSERT INTO siglim.registros_jugador (persona_id, equipo_id, temporada_id, alta_en, creado_por)
+                        VALUES (:persona, :equipo, :temporada, DATE '2033-08-15', :perfil)
+                        """)
+                .param("persona", persona).param("equipo", equipoDestino).param("temporada", nueva)
+                .param("perfil", directiva).update())
+                .hasMessageContaining("La temporada destino no permite cambios de club.");
+        assertThat(registrosDe(persona)).isEqualTo(1);
+    }
+
     // ── Apoyo ──────────────────────────────────────────────────────────────────────────────────
 
     private UUID temporada(int anio) {
@@ -318,6 +419,11 @@ class RenovacionesTransferenciasIT extends BaseDatosPrueba {
                         .param("sha", "a".repeat(64)).param("perfil", perfil).update();
             }
         }
+    }
+
+    private int registrosDe(UUID persona) {
+        return jdbc.sql("SELECT count(*) FROM siglim.registros_jugador WHERE persona_id = :persona")
+                .param("persona", persona).query(Integer.class).single();
     }
 
     private UUID anteriorDe(UUID registro) {
