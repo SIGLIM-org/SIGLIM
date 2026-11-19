@@ -1,0 +1,39 @@
+Pruebas automáticas ejecutadas sobre develop en bdc1cfc (rama test/m04-h24.3-aceptacion-consulta-propia), 2026-11-18
+
+── Backend: ./mvnw verify
+Tests run: 2113, Failures: 0, Errors: 0, Skipped: 0        (surefire: unitarias y de controlador)
+Tests run: 333, Failures: 0, Errors: 0, Skipped: 1         (failsafe: integración con PostgreSQL 17 en Testcontainers)
+BUILD SUCCESS — Total time: 06:09 min
+Omitida: AlmacenamientoDocumentosAwsIT (sin credenciales de AWS)
+
+Clases de H-24:
+Tests run: 13, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.registros.MiInformacionControllerTest
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.registros.MiInformacionServiceTest
+Tests run: 19, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.registros.ReglaElegibilidadTest
+Tests run: 6, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.registros.MiInformacionIT
+
+Los tres criterios de H-24 están mapeados en MiInformacionIT:
+- «H-24 criterio 1 · DEC-139: un tutor con dos menores ve a ambos por nombre y el detalle de cada uno»
+- «H-24 criterio 2 · RF-020: un jugador con suspensión VIGENTE ve elegible=false con artículo, folio y vigencia»
+- «H-24 criterio 3 · VAL-024: otro usuario PROPIO y uno con ámbito LIGA reciben 404 por quien no tutelan»
+
+Nota de entorno: el equipo no tiene un JDK 21 instalado; la verificación corrió con el JDK 25 de
+JetBrains Runtime (JBR). El proyecto compila con <java.version>21</java.version> y BUILD SUCCESS.
+
+── Frontend: npm run lint && npm test && npm run build
+oxlint: sin advertencias ni errores
+ Test Files  90 passed (90)
+      Tests  839 passed (839)
+   Duration  304.36s
+Incluye PantallaMiInformacion.test.tsx (13 pruebas de F-35 y DEC-147 a DEC-152).
+
+`npm test` se ejecutó con `--maxWorkers=2 --testTimeout=30000`: la máquina de la corrida tenía ~0.6 GB
+de RAM libre y la suite completa con todos los workers abortaba por falta de memoria (código 134 del
+worker), no por fallos de prueba. Con dos workers y el tiempo límite ampliado, las 839 pruebas pasan.
+
+npm run build (tsc -b && vite build): ✓ built in 5.12s
+
+── Base de datos
+La corrida de aceptación usó PostgreSQL 17 local (`postgres:17-alpine`) con la simulación de Supabase y
+las catorce migraciones del repositorio. Las pruebas de integración del backend usan la misma versión
+con Testcontainers.
