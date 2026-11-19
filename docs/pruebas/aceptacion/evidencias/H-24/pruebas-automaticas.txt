@@ -1,9 +1,10 @@
-Pruebas automáticas ejecutadas sobre develop en bdc1cfc (rama test/m04-h24.3-aceptacion-consulta-propia), 2026-11-18
+Pruebas automáticas ejecutadas sobre develop en bdc1cfc (rama test/m04-h24.3-aceptacion-consulta-propia),
+verificación repetida el 2026-11-18 tras la corrida de aceptación.
 
-── Backend: ./mvnw verify
+── Backend: ./mvnw -B verify (JDK 21 Temurin 21.0.13, Docker 29.9.2)
 Tests run: 2113, Failures: 0, Errors: 0, Skipped: 0        (surefire: unitarias y de controlador)
 Tests run: 333, Failures: 0, Errors: 0, Skipped: 1         (failsafe: integración con PostgreSQL 17 en Testcontainers)
-BUILD SUCCESS — Total time: 06:09 min
+BUILD SUCCESS — Total time: 04:41 min
 Omitida: AlmacenamientoDocumentosAwsIT (sin credenciales de AWS)
 
 Clases de H-24:
@@ -17,21 +18,21 @@ Los tres criterios de H-24 están mapeados en MiInformacionIT:
 - «H-24 criterio 2 · RF-020: un jugador con suspensión VIGENTE ve elegible=false con artículo, folio y vigencia»
 - «H-24 criterio 3 · VAL-024: otro usuario PROPIO y uno con ámbito LIGA reciben 404 por quien no tutelan»
 
-Nota de entorno: el equipo no tiene un JDK 21 instalado; la verificación corrió con el JDK 25 de
-JetBrains Runtime (JBR). El proyecto compila con <java.version>21</java.version> y BUILD SUCCESS.
+Nota de entorno: el equipo no tiene un JDK 21 en el PATH; la verificación se ejecutó con el Temurin 21.0.13
+instalado en %LOCALAPPDATA%\siglim-tools\jdk21, con JAVA_HOME apuntando a esa carpeta.
 
 ── Frontend: npm run lint && npm test && npm run build
-oxlint: sin advertencias ni errores
+oxlint: 0 advertencias y 0 errores (438 archivos)
  Test Files  90 passed (90)
       Tests  839 passed (839)
-   Duration  304.36s
+   Duration  165.06s
 Incluye PantallaMiInformacion.test.tsx (13 pruebas de F-35 y DEC-147 a DEC-152).
 
-`npm test` se ejecutó con `--maxWorkers=2 --testTimeout=30000`: la máquina de la corrida tenía ~0.6 GB
-de RAM libre y la suite completa con todos los workers abortaba por falta de memoria (código 134 del
-worker), no por fallos de prueba. Con dos workers y el tiempo límite ampliado, las 839 pruebas pasan.
+`npm test` se ejecutó con `--maxWorkers=2 --testTimeout=30000`: la máquina de la corrida tiene alrededor
+de 0.7 GB de RAM libre y la suite completa con todos los workers abortaba por falta de memoria (código 134
+del worker), no por fallos de prueba. Con dos workers y el tiempo límite ampliado, las 839 pruebas pasan.
 
-npm run build (tsc -b && vite build): ✓ built in 5.12s
+npm run build (tsc -b && vite build): correcto, sin errores de tipos.
 
 ── Base de datos
 La corrida de aceptación usó PostgreSQL 17 local (`postgres:17-alpine`) con la simulación de Supabase y

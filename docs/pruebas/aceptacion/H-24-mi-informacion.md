@@ -242,15 +242,15 @@ Ninguno.
 
 | Verificación | Resultado real |
 | --- | --- |
-| `./mvnw verify` (backend) | **BUILD SUCCESS** en 6:09: 2 113 pruebas de surefire y 333 de failsafe, 0 fallos; 1 omitida (`AlmacenamientoDocumentosAwsIT`, sin credenciales de AWS) |
+| `./mvnw verify` (backend) | **BUILD SUCCESS** en 4:41: 2 113 pruebas de surefire y 333 de failsafe, 0 fallos; 1 omitida (`AlmacenamientoDocumentosAwsIT`, sin credenciales de AWS) |
 | `MiInformacionIT` (Testcontainers, PostgreSQL 17) | **6 de 6**, con los tres criterios de H-24 |
 | `MiInformacionControllerTest`, `MiInformacionServiceTest` y `ReglaElegibilidadTest` | **39 de 39** (13 + 7 + 19) |
 | `npm run lint` (frontend) | oxlint sin advertencias ni errores |
-| `npm test` (frontend) | **90 archivos y 839 pruebas en verde**, incluidas las 13 de `PantallaMiInformacion.test.tsx` |
+| `npm test` (frontend) | **90 archivos y 839 pruebas en verde** en 165 s, incluidas las 13 de `PantallaMiInformacion.test.tsx` |
 | `npm run build` (frontend) | `tsc -b && vite build` correcto |
 
 La suite completa del frontend se ejecutó con `--maxWorkers=2 --testTimeout=30000`: la máquina de la
-corrida tenía alrededor de 0.6 GB de RAM libre y, con todos los workers, Vitest abortaba por falta de
+corrida tenía alrededor de 0.7 GB de RAM libre y, con todos los workers, Vitest abortaba por falta de
 memoria (código 134 del worker), no por fallos de prueba. Con dos workers y el tiempo límite ampliado,
 las 839 pruebas pasan. El detalle de comandos y salidas está en
 [`pruebas-automaticas.txt`](evidencias/H-24/pruebas-automaticas.txt).
