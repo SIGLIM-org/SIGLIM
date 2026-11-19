@@ -1,0 +1,75 @@
+===== Contexto de la tutora (perfil bbbb…0001) =====
+SET
+SET
+SET
+         persona_de_la_cuenta         
+--------------------------------------
+ aaaaaaaa-1111-4111-8111-000000000001
+(1 row)
+
+                  id                  | nombre_completo  | es_menor 
+--------------------------------------+------------------+----------
+ aaaaaaaa-1111-4111-8111-000000000001 | María López Ruiz | f
+ aaaaaaaa-1111-4111-8111-000000000002 | Ana López Ruiz   | t
+ aaaaaaaa-1111-4111-8111-000000000003 | Luis López Ruiz  | t
+(3 rows)
+
+ titular_de_jorge 
+------------------
+ f
+(1 row)
+
+RESET
+===== Contexto del jugador de otro club (perfil bbbb…0002) =====
+SET
+SET
+         persona_de_la_cuenta         
+--------------------------------------
+ aaaaaaaa-1111-4111-8111-000000000004
+(1 row)
+
+ titular_de_ana 
+----------------
+ f
+(1 row)
+
+RESET
+===== Tutelas vigentes =====
+               menor_id               |               tutor_id               | parentesco | vigente 
+--------------------------------------+--------------------------------------+------------+---------
+ aaaaaaaa-1111-4111-8111-000000000002 | aaaaaaaa-1111-4111-8111-000000000001 | Madre      | t
+ aaaaaaaa-1111-4111-8111-000000000003 | aaaaaaaa-1111-4111-8111-000000000001 | Madre      | t
+(2 rows)
+
+===== Registros de Ana y Luis =====
+                  id                  |              persona_id              | estado |  alta_en   |      validado_en       |      equipo       |      temporada      
+--------------------------------------+--------------------------------------+--------+------------+------------------------+-------------------+---------------------
+ 80000000-0000-4000-8000-000000000020 | aaaaaaaa-1111-4111-8111-000000000002 | ACTIVO | 2026-09-01 | 2026-09-05 17:00:00+00 | Halcones Infantil | Temporada 2026-2027
+ 80000000-0000-4000-8000-000000000021 | aaaaaaaa-1111-4111-8111-000000000003 | ACTIVO | 2026-09-01 | 2026-09-05 17:00:00+00 | Halcones Infantil | Temporada 2026-2027
+(2 rows)
+
+===== Documentos por registro =====
+             registro_id              |       codigo        | documentos |  estado  
+--------------------------------------+---------------------+------------+----------
+ 80000000-0000-4000-8000-000000000020 | CONSTANCIA_ESTUDIOS |          1 | APROBADO
+ 80000000-0000-4000-8000-000000000020 | FOTOGRAFIA          |          2 | APROBADO
+ 80000000-0000-4000-8000-000000000020 | IDENTIFICACION      |          1 | APROBADO
+ 80000000-0000-4000-8000-000000000020 | INE_TUTOR           |          1 | APROBADO
+ 80000000-0000-4000-8000-000000000021 | CONSTANCIA_ESTUDIOS |          1 | APROBADO
+ 80000000-0000-4000-8000-000000000021 | FOTOGRAFIA          |          2 | APROBADO
+ 80000000-0000-4000-8000-000000000021 | IDENTIFICACION      |          1 | APROBADO
+(7 rows)
+
+===== Sanción de Ana =====
+                  id                  |        tipo         | estado  | partidos | partidos_cumplidos | vigente_desde | vigente_hasta | articulo | articulo_descripcion |    folio     |      temporada      
+--------------------------------------+---------------------+---------+----------+--------------------+---------------+---------------+----------+----------------------+--------------+---------------------
+ 90000000-0000-4000-8000-000000000052 | SUSPENSION_PARTIDOS | VIGENTE |        3 |                  1 | 2026-11-10    | 2026-12-20    | 12       | Juego brusco         | EXP-2026-014 | Temporada 2026-2027
+(1 row)
+
+===== Jornada publicada y partidos del equipo =====
+ jornada | estado_publicacion |         inicio         |   estado   |       local       |     visitante     |       cancha       
+---------+--------------------+------------------------+------------+-------------------+-------------------+--------------------
+       2 | PUBLICADO          | 2026-11-22 16:00:00+00 | PROGRAMADO | Halcones Infantil | Lobos Infantil    | Unidad Deportiva 1
+       2 | PUBLICADO          | 2026-11-29 18:00:00+00 | PROGRAMADO | Pumas Infantil    | Halcones Infantil | Unidad Deportiva 1
+(2 rows)
+
