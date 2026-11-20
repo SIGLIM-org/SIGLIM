@@ -1,0 +1,28 @@
+Prueba de aceptación B-06.3 · auditoría y registros en la base local (hora de Morelia)
+
+   hora   |            perfil            | modulo |          accion          |                                        motivo                                        |                                                                                                                                                                                                                        detalle                                                                                                                                                                                                                        
+----------+------------------------------+--------+--------------------------+--------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 19:50:33 | Directiva Halcones de prueba | M-04   | RENOVAR_REGISTRO         | Renovación desde la temporada «Temporada local 2025-2026»                            | {"estado": "PENDIENTE_VALIDACION", "equipoId": "b0660021-0000-4000-8000-000000000001", "personaId": "b0670001-0000-4000-8000-000000000001", "temporadaId": "b0610002-0000-4000-8000-000000000001", "clubAnteriorId": "b0650001-0000-4000-8000-000000000001", "equipoAnteriorId": "b0660011-0000-4000-8000-000000000001", "registroAnteriorId": "b0690001-0000-4000-8000-000000000001", "temporadaAnteriorId": "b0610001-0000-4000-8000-000000000001"}
+ 19:51:13 | Directiva Halcones de prueba | M-04   | TRANSFERIR_REGISTRO      | Transferencia desde el club «Club Toros» de la temporada «Temporada local 2025-2026» | {"estado": "PENDIENTE_VALIDACION", "equipoId": "b0660021-0000-4000-8000-000000000001", "personaId": "b0670002-0000-4000-8000-000000000001", "temporadaId": "b0610002-0000-4000-8000-000000000001", "clubAnteriorId": "b0650002-0000-4000-8000-000000000001", "equipoAnteriorId": "b0660012-0000-4000-8000-000000000001", "registroAnteriorId": "b0690002-0000-4000-8000-000000000001", "temporadaAnteriorId": "b0610001-0000-4000-8000-000000000001"}
+ 19:52:02 | Administrador de prueba      | M-02   | REGISTRAR_PARAMETROS     | Prueba local: la Liga no permite cambios de club esta temporada                      | {"campos": ["permiteCambioClub"], "esDemo": true, "version": 2, "temporadaId": "b0610002-0000-4000-8000-000000000001", "versionAnterior": 1}
+ 19:53:49 | Secretario de prueba         | M-04   | VALIDAR_REGISTRO_JUGADOR | Registro validado por la liga                                                        | {"estado": "ACTIVO", "equipoId": "b0660021-0000-4000-8000-000000000001", "personaId": "b0670001-0000-4000-8000-000000000001", "temporadaId": "b0610002-0000-4000-8000-000000000001", "estadoAnterior": "PENDIENTE_VALIDACION"}
+(4 rows)
+
+Búsqueda de CURP o nombres en auditoria.detalle: 0 coincidencias.
+
+Registros de la temporada destino al terminar (con el equipo del registro anterior enlazado)
+     jugador      |    equipo     |        estado        | equipo_anterior 
+------------------+---------------+----------------------+-----------------
+ Andrés Activo    | Toros 2026    | ACTIVO               | —
+ Bruno Baja       | Toros 2026    | BAJA                 | —
+ Renato Renueva   | Halcones 2026 | ACTIVO               | Halcones 2025
+ Tadeo Transfiere | Halcones 2026 | PENDIENTE_VALIDACION | Toros 2025
+(4 rows)
+
+Versiones de parámetros de la temporada destino
+ version | permite_cambio_club |                             motivo                              
+---------+---------------------+-----------------------------------------------------------------
+       1 | t                   | Parámetros de prueba [DEMO]
+       2 | f                   | Prueba local: la Liga no permite cambios de club esta temporada
+(2 rows)
+
