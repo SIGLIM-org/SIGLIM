@@ -1,0 +1,28 @@
+Prueba de aceptación B-14.3 · auditoría de M-06 y estado final en la base local (hora de Morelia)
+
+   hora   |            perfil            | modulo |           accion           |                          motivo                          |                                                                                             detalle                                                                                             
+----------+------------------------------+--------+----------------------------+----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 19:24:53 | Directiva Halcones de prueba | M-06   | REGISTRAR_SOLICITUD_CANCHA |                                                          | {"tipo": "PRESTAMO", "clubId": "b1450001-0000-4000-8000-000000000001", "estado": "PENDIENTE", "formato": 1, "canchaId": "b1470000-0000-4000-8000-000000000002", "numeroOficio": "OF-2026-0001"}
+ 19:25:37 | Directiva Halcones de prueba | M-06   | REGISTRAR_SOLICITUD_CANCHA |                                                          | {"tipo": "COMODATO", "clubId": "b1450001-0000-4000-8000-000000000001", "estado": "PENDIENTE", "formato": 1, "canchaId": "b1470000-0000-4000-8000-000000000001", "numeroOficio": "OF-2026-0002"}
+ 19:25:38 | Directiva Halcones de prueba | M-06   | REGISTRAR_SOLICITUD_CANCHA |                                                          | {"tipo": "OFERTA", "clubId": "b1450001-0000-4000-8000-000000000001", "estado": "PENDIENTE_NEGOCIACION", "formato": 2, "numeroOficio": "OF-2026-0003"}
+ 19:25:41 | Secretario de prueba         | M-06   | REGISTRAR_SOLICITUD_CANCHA |                                                          | {"tipo": "OFERTA", "estado": "PENDIENTE_NEGOCIACION", "formato": 2, "numeroOficio": "OF-2026-0004", "oferenteExterno": true}
+ 19:25:42 | Directiva Toros de prueba    | M-06   | REGISTRAR_SOLICITUD_CANCHA |                                                          | {"tipo": "PRESTAMO", "clubId": "b1450002-0000-4000-8000-000000000001", "estado": "PENDIENTE", "formato": 1, "numeroOficio": "OF-2026-0005"}
+ 19:27:31 | Presidente de prueba         | M-06   | RESOLVER_SOLICITUD_CANCHA  | El ejido tiene ocupado el campo ese sábado por una feria | {"tipo": "PRESTAMO", "estado": "NO_APROBADA", "numeroOficio": "OF-2026-0001", "estadoAnterior": "PENDIENTE"}
+ 19:27:55 | Presidente de prueba         | M-06   | RESOLVER_SOLICITUD_CANCHA  |                                                          | {"tipo": "COMODATO", "estado": "APROBADA", "numeroOficio": "OF-2026-0002", "estadoAnterior": "PENDIENTE"}
+ 19:28:12 | Presidente de prueba         | M-06   | RESOLVER_SOLICITUD_CANCHA  |                                                          | {"tipo": "OFERTA", "estado": "ACEPTADA", "numeroOficio": "OF-2026-0003", "estadoAnterior": "PENDIENTE_NEGOCIACION"}
+ 19:28:35 | Presidente de prueba         | M-06   | RESOLVER_SOLICITUD_CANCHA  | El costo por partido excede el presupuesto de la liga    | {"tipo": "OFERTA", "estado": "RECHAZADA", "numeroOficio": "OF-2026-0004", "estadoAnterior": "PENDIENTE_NEGOCIACION"}
+(9 rows)
+
+Búsqueda de nombres, teléfonos o correos del formato en auditoria.detalle: 0 coincidencias (la única coincidencia del patrón es la bandera booleana "oferenteExterno": true).
+
+Trámites al terminar
+ numero_oficio |   tipo   |             solicitante              |   estado    |                      observaciones                       
+---------------+----------+--------------------------------------+-------------+----------------------------------------------------------
+ OF-2026-0001  | PRESTAMO | Club Halcones                        | NO_APROBADA | El ejido tiene ocupado el campo ese sábado por una feria
+ OF-2026-0002  | COMODATO | Club Halcones                        | APROBADA    | Entregar la cancha limpia al término de cada uso
+ OF-2026-0003  | OFERTA   | Club Halcones                        | ACEPTADA    | 
+ OF-2026-0004  | OFERTA   | Deportivo Privado El Sauz (ficticio) | RECHAZADA   | El costo por partido excede el presupuesto de la liga
+ OF-2026-0005  | PRESTAMO | Club Toros                           | PENDIENTE   | 
+(5 rows)
+
+DEC-138 · canchas en el catálogo antes y después de aprobar el comodato y aceptar la oferta: 2 / 2; horarios_cancha_club: 0 / 0
