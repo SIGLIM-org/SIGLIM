@@ -1,0 +1,22 @@
+Prueba de aceptación B-14.3 · verificación automática sobre develop en 04e9949 (19-nov-2026)
+
+## Backend: ./mvnw verify (Java 25, Testcontainers para las pruebas *IT)
+Tests run: 31, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.canchas.SolicitudCanchaControllerTest
+Tests run: 18, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.canchas.SolicitudCanchaServiceTest
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.canchas.SolicitudesCanchaIT
+Tests run: 2113, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 333, Failures: 0, Errors: 0, Skipped: 1
+BUILD SUCCESS
+Omitida: AlmacenamientoDocumentosAwsIT (sin credenciales de AWS)
+
+## Frontend
+npm run lint: sin errores (oxlint)
+npx vitest run --maxWorkers=2: Test Files  90 passed (90) · Tests  839 passed (839)
+Pruebas de src/features/canchas/tramites:
+  ✓ src/features/canchas/tramites/PantallaTramitesCancha.test.tsx > PantallaTramitesCancha (B-07, UI-028) > RF-117: sin ninguno de los tres permisos no pide datos
+  ✓ src/features/canchas/tramites/PantallaTramitesCancha.test.tsx > PantallaTramitesCancha (B-07, UI-028) > RF-117: la pestaña Formato 1 pide préstamos y comodatos y muestra el oficio y su estado
+  ✓ src/features/canchas/tramites/PantallaTramitesCancha.test.tsx > PantallaTramitesCancha (B-07, UI-028) > RF-116: la pestaña Formato 2 pide las ofertas con sus estados
+  ✓ src/features/canchas/tramites/PantallaTramitesCancha.test.tsx > PantallaTramitesCancha (B-07, UI-028) > RF-117: la Directiva captura un préstamo con los campos del Formato 1
+  ✓ src/features/canchas/tramites/PantallaTramitesCancha.test.tsx > PantallaTramitesCancha (B-07, UI-028) > RN-021: la Presidencia no aprueba sin motivo y lo envía con él
+  ✓ src/features/canchas/tramites/PantallaTramitesCancha.test.tsx > PantallaTramitesCancha (B-07, UI-028) > RF-118: quien genera oficios ve la vista previa de la carta con su número
+npm run build: correcto

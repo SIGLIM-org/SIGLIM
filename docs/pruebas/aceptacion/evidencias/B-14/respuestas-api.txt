@@ -1,0 +1,697 @@
+Prueba de aceptación B-14.3 · respuestas de la API local (19-nov-2026)
+Base local efímera; cuentas y datos de los formatos ficticios, identificados por su rol. Los tokens no se registran.
+
+### CA-1: comodato de la Directiva de Halcones (Formato 1) con una cancha del catálogo
+> POST /api/v1/solicitudes-cancha  (cuenta: Directiva Halcones de prueba)
+> {"tipo":"COMODATO","clubId":"b1450001-0000-4000-8000-000000000001","canchaId":"b1470000-0000-4000-8000-000000000001","prestamo":{"lugar":"Morelia, Michoacán","dirigidaA":"LIGA","destinatarioNombre":"Presidencia de la Liga","destinatarioCargo":"Liga Municipal de Futbol Amateur Morelia","solicitanteNombre":"Solicitante Ficticio","solicitanteCargo":"Secretario del club","instalacion":"Morelos 1","finalidad":"Entrenamientos de la temporada","fechaUtilizacion":"2027-01-09","horaInicio":"08:00","horaTermino":"10:00","actividad":"Entrenamiento semanal de los equipos del club","responsableActividad":"Responsable Ficticio","telefonoContacto":"4430000001"}}
+< HTTP 201
+{
+  "id": "ca3d594b-2644-4d0e-b73d-2e13ed68887d",
+  "tipo": "COMODATO",
+  "formato": 1,
+  "estado": "PENDIENTE",
+  "numeroOficio": "OF-2026-0002",
+  "club": {
+    "id": "b1450001-0000-4000-8000-000000000001",
+    "nombre": "Club Halcones"
+  },
+  "cancha": {
+    "id": "b1470000-0000-4000-8000-000000000001",
+    "nombre": "Morelos 1"
+  },
+  "prestamo": {
+    "lugar": "Morelia, Michoacán",
+    "dirigidaA": "LIGA",
+    "destinatarioNombre": "Presidencia de la Liga",
+    "destinatarioCargo": "Liga Municipal de Futbol Amateur Morelia",
+    "solicitanteNombre": "Solicitante Ficticio",
+    "solicitanteCargo": "Secretario del club",
+    "instalacion": "Morelos 1",
+    "finalidad": "Entrenamientos de la temporada",
+    "fechaUtilizacion": "2027-01-09",
+    "horaInicio": "08:00:00",
+    "horaTermino": "10:00:00",
+    "actividad": "Entrenamiento semanal de los equipos del club",
+    "responsableActividad": "Responsable Ficticio",
+    "telefonoContacto": "4430000001"
+  },
+  "capturadaPor": {
+    "id": "b14000ff-0000-4000-8000-000000000001",
+    "nombreMostrado": "Directiva Halcones de prueba"
+  },
+  "capturadaEn": "2026-11-19T19:25:37.042017-06:00"
+}
+
+### CA-2: oferta de cancha de la Directiva de Halcones (Formato 2)
+> POST /api/v1/solicitudes-cancha  (cuenta: Directiva Halcones de prueba)
+> {"tipo":"OFERTA","clubId":"b1450001-0000-4000-8000-000000000001","oferta":{"lugar":"Morelia, Michoacán","oferenteNombre":"Oferente Ficticio","oferenteCaracter":"Propietario","nombreCancha":"Campo Las Huertas","ubicacion":"Camino a Las Huertas km 2, Morelia","tipoSuperficie":"Pasto natural","disponibilidad":"Sábados y domingos de 8:00 a 14:00","costoUso":"Gratuito","personaResponsable":"Responsable Ficticio","telefonoContacto":"4430000002"}}
+< HTTP 201
+{
+  "id": "d1d30109-0dcb-4472-b19c-113408984440",
+  "tipo": "OFERTA",
+  "formato": 2,
+  "estado": "PENDIENTE_NEGOCIACION",
+  "numeroOficio": "OF-2026-0003",
+  "club": {
+    "id": "b1450001-0000-4000-8000-000000000001",
+    "nombre": "Club Halcones"
+  },
+  "oferta": {
+    "lugar": "Morelia, Michoacán",
+    "oferenteNombre": "Oferente Ficticio",
+    "oferenteCaracter": "Propietario",
+    "nombreCancha": "Campo Las Huertas",
+    "ubicacion": "Camino a Las Huertas km 2, Morelia",
+    "tipoSuperficie": "Pasto natural",
+    "disponibilidad": "Sábados y domingos de 8:00 a 14:00",
+    "costoUso": "Gratuito",
+    "personaResponsable": "Responsable Ficticio",
+    "telefonoContacto": "4430000002"
+  },
+  "capturadaPor": {
+    "id": "b14000ff-0000-4000-8000-000000000001",
+    "nombreMostrado": "Directiva Halcones de prueba"
+  },
+  "capturadaEn": "2026-11-19T19:25:38.864443-06:00"
+}
+
+### CA-2: la Directiva no captura la oferta de un oferente externo
+> POST /api/v1/solicitudes-cancha  (cuenta: Directiva Halcones de prueba)
+> {"tipo":"OFERTA","solicitanteExterno":"Deportivo Privado El Sauz (ficticio)","oferta":{"lugar":"Morelia, Michoacán","oferenteNombre":"Oferente Ficticio","oferenteCaracter":"Administrador","nombreCancha":"Campo El Sauz","ubicacion":"Camino a Las Huertas km 2, Morelia","tipoSuperficie":"Pasto natural","disponibilidad":"Sábados y domingos de 8:00 a 14:00","costoUso":"$500 por partido","personaResponsable":"Responsable Ficticio","telefonoContacto":"4430000002","institucion":"Deportivo Privado El Sauz (ficticio)","condicionesPago":"Pago al terminar el partido"}}
+< HTTP 404
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/solicitudes-cancha",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
+
+### CA-2: el Secretario captura la oferta de un oferente externo
+> POST /api/v1/solicitudes-cancha  (cuenta: Secretario de prueba)
+> {"tipo":"OFERTA","solicitanteExterno":"Deportivo Privado El Sauz (ficticio)","oferta":{"lugar":"Morelia, Michoacán","oferenteNombre":"Oferente Ficticio","oferenteCaracter":"Administrador","nombreCancha":"Campo El Sauz","ubicacion":"Camino a Las Huertas km 2, Morelia","tipoSuperficie":"Pasto natural","disponibilidad":"Sábados y domingos de 8:00 a 14:00","costoUso":"$500 por partido","personaResponsable":"Responsable Ficticio","telefonoContacto":"4430000002","institucion":"Deportivo Privado El Sauz (ficticio)","condicionesPago":"Pago al terminar el partido"}}
+< HTTP 201
+{
+  "id": "9083e898-687c-42ab-a65c-59e81f57636c",
+  "tipo": "OFERTA",
+  "formato": 2,
+  "estado": "PENDIENTE_NEGOCIACION",
+  "numeroOficio": "OF-2026-0004",
+  "solicitanteExterno": "Deportivo Privado El Sauz (ficticio)",
+  "oferta": {
+    "lugar": "Morelia, Michoacán",
+    "oferenteNombre": "Oferente Ficticio",
+    "oferenteCaracter": "Administrador",
+    "institucion": "Deportivo Privado El Sauz (ficticio)",
+    "nombreCancha": "Campo El Sauz",
+    "ubicacion": "Camino a Las Huertas km 2, Morelia",
+    "tipoSuperficie": "Pasto natural",
+    "disponibilidad": "Sábados y domingos de 8:00 a 14:00",
+    "costoUso": "$500 por partido",
+    "condicionesPago": "Pago al terminar el partido",
+    "personaResponsable": "Responsable Ficticio",
+    "telefonoContacto": "4430000002"
+  },
+  "capturadaPor": {
+    "id": "b14000ff-0000-4000-8000-000000000003",
+    "nombreMostrado": "Secretario de prueba"
+  },
+  "capturadaEn": "2026-11-19T19:25:41.546146-06:00"
+}
+
+### CA-5: la Directiva de Toros pide un préstamo para su club
+> POST /api/v1/solicitudes-cancha  (cuenta: Directiva Toros de prueba)
+> {"tipo":"PRESTAMO","clubId":"b1450002-0000-4000-8000-000000000001","prestamo":{"lugar":"Morelia, Michoacán","dirigidaA":"LIGA","destinatarioNombre":"Presidencia de la Liga","destinatarioCargo":"Liga Municipal de Futbol Amateur Morelia","solicitanteNombre":"Solicitante Ficticio","solicitanteCargo":"Secretario del club","instalacion":"Campo Ejidal Tarímbaro","finalidad":"Entrenamientos de la temporada","fechaUtilizacion":"2027-01-09","horaInicio":"08:00","horaTermino":"10:00","actividad":"Entrenamiento semanal de los equipos del club","responsableActividad":"Responsable Ficticio","telefonoContacto":"4430000001"}}
+< HTTP 201
+{
+  "id": "e718efbc-5d5e-48da-b88f-5113e9c77923",
+  "tipo": "PRESTAMO",
+  "formato": 1,
+  "estado": "PENDIENTE",
+  "numeroOficio": "OF-2026-0005",
+  "club": {
+    "id": "b1450002-0000-4000-8000-000000000001",
+    "nombre": "Club Toros"
+  },
+  "prestamo": {
+    "lugar": "Morelia, Michoacán",
+    "dirigidaA": "LIGA",
+    "destinatarioNombre": "Presidencia de la Liga",
+    "destinatarioCargo": "Liga Municipal de Futbol Amateur Morelia",
+    "solicitanteNombre": "Solicitante Ficticio",
+    "solicitanteCargo": "Secretario del club",
+    "instalacion": "Campo Ejidal Tarímbaro",
+    "finalidad": "Entrenamientos de la temporada",
+    "fechaUtilizacion": "2027-01-09",
+    "horaInicio": "08:00:00",
+    "horaTermino": "10:00:00",
+    "actividad": "Entrenamiento semanal de los equipos del club",
+    "responsableActividad": "Responsable Ficticio",
+    "telefonoContacto": "4430000001"
+  },
+  "capturadaPor": {
+    "id": "b14000ff-0000-4000-8000-000000000002",
+    "nombreMostrado": "Directiva Toros de prueba"
+  },
+  "capturadaEn": "2026-11-19T19:25:42.555494-06:00"
+}
+
+### Validaciones del alta
+## Oferta con club y oferente externo a la vez
+> POST /api/v1/solicitudes-cancha  (cuenta: Secretario de prueba)
+> {"tipo":"OFERTA","clubId":"b1450001-0000-4000-8000-000000000001","solicitanteExterno":"Otro (ficticio)","oferta":{"lugar":"Morelia, Michoacán","oferenteNombre":"Oferente Ficticio","oferenteCaracter":"Propietario","nombreCancha":"Campo Las Huertas","ubicacion":"Camino a Las Huertas km 2, Morelia","tipoSuperficie":"Pasto natural","disponibilidad":"Sábados y domingos de 8:00 a 14:00","costoUso":"Gratuito","personaResponsable":"Responsable Ficticio","telefonoContacto":"4430000002"}}
+< HTTP 400
+{
+  "detail": "Indica quién ofrece la cancha: un club o un oferente externo, no ambos.",
+  "instance": "/api/v1/solicitudes-cancha",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION"
+}
+
+## Préstamo que además trae el bloque de oferta
+> POST /api/v1/solicitudes-cancha  (cuenta: Directiva Halcones de prueba)
+> {"tipo":"PRESTAMO","clubId":"b1450001-0000-4000-8000-000000000001","prestamo":{"lugar":"Morelia, Michoacán","dirigidaA":"LIGA","destinatarioNombre":"Presidencia de la Liga","destinatarioCargo":"Liga Municipal de Futbol Amateur Morelia","solicitanteNombre":"Solicitante Ficticio","solicitanteCargo":"Secretario del club","instalacion":"Morelos 1","finalidad":"Entrenamientos de la temporada","fechaUtilizacion":"2027-01-09","horaInicio":"08:00","horaTermino":"10:00","actividad":"Entrenamiento semanal de los equipos del club","responsableActividad":"Responsable Ficticio","telefonoContacto":"4430000001"},"oferta":{"lugar":"Morelia, Michoacán","oferenteNombre":"Oferente Ficticio","oferenteCaracter":"Propietario","nombreCancha":"Campo Las Huertas","ubicacion":"Camino a Las Huertas km 2, Morelia","tipoSuperficie":"Pasto natural","disponibilidad":"Sábados y domingos de 8:00 a 14:00","costoUso":"Gratuito","personaResponsable":"Responsable Ficticio","telefonoContacto":"4430000002"}}
+< HTTP 400
+{
+  "detail": "Un préstamo o comodato se captura con los campos del Formato 1 (solicitud de préstamo).",
+  "instance": "/api/v1/solicitudes-cancha",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION"
+}
+
+## Hora de término anterior al inicio
+> POST /api/v1/solicitudes-cancha  (cuenta: Directiva Halcones de prueba)
+> {"tipo":"PRESTAMO","clubId":"b1450001-0000-4000-8000-000000000001","prestamo":{"lugar":"Morelia, Michoacán","dirigidaA":"LIGA","destinatarioNombre":"Presidencia de la Liga","destinatarioCargo":"Liga Municipal de Futbol Amateur Morelia","solicitanteNombre":"Solicitante Ficticio","solicitanteCargo":"Secretario del club","instalacion":"Morelos 1","finalidad":"Entrenamientos de la temporada","fechaUtilizacion":"2027-01-09","horaInicio":"12:00","horaTermino":"10:00","actividad":"Entrenamiento semanal de los equipos del club","responsableActividad":"Responsable Ficticio","telefonoContacto":"4430000001"}}
+< HTTP 400
+{
+  "detail": "La hora de término debe ser posterior a la hora de inicio.",
+  "instance": "/api/v1/solicitudes-cancha",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION"
+}
+
+## Club cerrado (Secretario, ámbito de liga)
+> POST /api/v1/solicitudes-cancha  (cuenta: Secretario de prueba)
+> {"tipo":"PRESTAMO","clubId":"b1450003-0000-4000-8000-000000000001","prestamo":{"lugar":"Morelia, Michoacán","dirigidaA":"LIGA","destinatarioNombre":"Presidencia de la Liga","destinatarioCargo":"Liga Municipal de Futbol Amateur Morelia","solicitanteNombre":"Solicitante Ficticio","solicitanteCargo":"Secretario del club","instalacion":"Morelos 1","finalidad":"Entrenamientos de la temporada","fechaUtilizacion":"2027-01-09","horaInicio":"08:00","horaTermino":"10:00","actividad":"Entrenamiento semanal de los equipos del club","responsableActividad":"Responsable Ficticio","telefonoContacto":"4430000001"}}
+< HTTP 422
+{
+  "detail": "El club indicado no existe en la liga o está cerrado. Actualiza la página y elige otro.",
+  "instance": "/api/v1/solicitudes-cancha",
+  "status": 422,
+  "title": "No se puede procesar",
+  "type": "https://siglim.mx/errores/referencia-invalida",
+  "codigo": "REFERENCIA_INVALIDA"
+}
+
+## Cancha que no es de la liga
+> POST /api/v1/solicitudes-cancha  (cuenta: Directiva Halcones de prueba)
+> {"tipo":"PRESTAMO","clubId":"b1450001-0000-4000-8000-000000000001","canchaId":"00000000-0000-4000-8000-000000000000","prestamo":{"lugar":"Morelia, Michoacán","dirigidaA":"LIGA","destinatarioNombre":"Presidencia de la Liga","destinatarioCargo":"Liga Municipal de Futbol Amateur Morelia","solicitanteNombre":"Solicitante Ficticio","solicitanteCargo":"Secretario del club","instalacion":"Morelos 1","finalidad":"Entrenamientos de la temporada","fechaUtilizacion":"2027-01-09","horaInicio":"08:00","horaTermino":"10:00","actividad":"Entrenamiento semanal de los equipos del club","responsableActividad":"Responsable Ficticio","telefonoContacto":"4430000001"}}
+< HTTP 422
+{
+  "detail": "La cancha indicada no existe en la liga. Actualiza la página y elige otra.",
+  "instance": "/api/v1/solicitudes-cancha",
+  "status": 422,
+  "title": "No se puede procesar",
+  "type": "https://siglim.mx/errores/referencia-invalida",
+  "codigo": "REFERENCIA_INVALIDA"
+}
+
+### CA-5 Ámbito y permisos
+## La Directiva de Halcones pide para el club Toros
+> POST /api/v1/solicitudes-cancha  (cuenta: Directiva Halcones de prueba)
+> {"tipo":"PRESTAMO","clubId":"b1450002-0000-4000-8000-000000000001","prestamo":{"lugar":"Morelia, Michoacán","dirigidaA":"LIGA","destinatarioNombre":"Presidencia de la Liga","destinatarioCargo":"Liga Municipal de Futbol Amateur Morelia","solicitanteNombre":"Solicitante Ficticio","solicitanteCargo":"Secretario del club","instalacion":"Morelos 1","finalidad":"Entrenamientos de la temporada","fechaUtilizacion":"2027-01-09","horaInicio":"08:00","horaTermino":"10:00","actividad":"Entrenamiento semanal de los equipos del club","responsableActividad":"Responsable Ficticio","telefonoContacto":"4430000001"}}
+< HTTP 404
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/solicitudes-cancha",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
+
+## La Directiva de Halcones consulta la carta de un trámite de Toros
+> GET /api/v1/solicitudes-cancha/e718efbc-5d5e-48da-b88f-5113e9c77923/oficio  (cuenta: Directiva Halcones de prueba)
+< HTTP 403
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/solicitudes-cancha/e718efbc-5d5e-48da-b88f-5113e9c77923/oficio",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}
+
+## El Tesorero (sin ninguno de los tres permisos) abre la bandeja
+> GET /api/v1/solicitudes-cancha?tipo=PRESTAMO&tipo=COMODATO  (cuenta: Tesorero de prueba)
+< HTTP 403
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/solicitudes-cancha",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}
+
+## La Directiva de Halcones abre la bandeja de ofertas: solo las de su club, sin la del externo
+> GET /api/v1/solicitudes-cancha?tipo=OFERTA  (cuenta: Directiva Halcones de prueba)
+< HTTP 200
+{
+  "contenido": [
+    {
+      "id": "d1d30109-0dcb-4472-b19c-113408984440",
+      "tipo": "OFERTA",
+      "formato": 2,
+      "estado": "PENDIENTE_NEGOCIACION",
+      "numeroOficio": "OF-2026-0003",
+      "club": {
+        "id": "b1450001-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones"
+      },
+      "oferta": {
+        "lugar": "Morelia, Michoacán",
+        "oferenteNombre": "Oferente Ficticio",
+        "oferenteCaracter": "Propietario",
+        "nombreCancha": "Campo Las Huertas",
+        "ubicacion": "Camino a Las Huertas km 2, Morelia",
+        "tipoSuperficie": "Pasto natural",
+        "disponibilidad": "Sábados y domingos de 8:00 a 14:00",
+        "costoUso": "Gratuito",
+        "personaResponsable": "Responsable Ficticio",
+        "telefonoContacto": "4430000002"
+      },
+      "capturadaPor": {
+        "id": "b14000ff-0000-4000-8000-000000000001",
+        "nombreMostrado": "Directiva Halcones de prueba"
+      },
+      "capturadaEn": "2026-11-19T19:25:38.864443-06:00"
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 1,
+  "totalPaginas": 1
+}
+
+## La Directiva de Halcones abre la bandeja del Formato 1: no ve el préstamo de Toros
+> GET /api/v1/solicitudes-cancha?tipo=PRESTAMO&tipo=COMODATO  (cuenta: Directiva Halcones de prueba)
+< HTTP 200
+{
+  "contenido": [
+    {
+      "id": "ca3d594b-2644-4d0e-b73d-2e13ed68887d",
+      "tipo": "COMODATO",
+      "formato": 1,
+      "estado": "PENDIENTE",
+      "numeroOficio": "OF-2026-0002",
+      "club": {
+        "id": "b1450001-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones"
+      },
+      "cancha": {
+        "id": "b1470000-0000-4000-8000-000000000001",
+        "nombre": "Morelos 1"
+      },
+      "prestamo": {
+        "lugar": "Morelia, Michoacán",
+        "dirigidaA": "LIGA",
+        "destinatarioNombre": "Presidencia de la Liga",
+        "destinatarioCargo": "Liga Municipal de Futbol Amateur Morelia",
+        "solicitanteNombre": "Solicitante Ficticio",
+        "solicitanteCargo": "Secretario del club",
+        "instalacion": "Morelos 1",
+        "finalidad": "Entrenamientos de la temporada",
+        "fechaUtilizacion": "2027-01-09",
+        "horaInicio": "08:00:00",
+        "horaTermino": "10:00:00",
+        "actividad": "Entrenamiento semanal de los equipos del club",
+        "responsableActividad": "Responsable Ficticio",
+        "telefonoContacto": "4430000001"
+      },
+      "capturadaPor": {
+        "id": "b14000ff-0000-4000-8000-000000000001",
+        "nombreMostrado": "Directiva Halcones de prueba"
+      },
+      "capturadaEn": "2026-11-19T19:25:37.042017-06:00"
+    },
+    {
+      "id": "a43354db-95d6-425b-9de9-8258ca807c1d",
+      "tipo": "PRESTAMO",
+      "formato": 1,
+      "estado": "PENDIENTE",
+      "numeroOficio": "OF-2026-0001",
+      "club": {
+        "id": "b1450001-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones"
+      },
+      "cancha": {
+        "id": "b1470000-0000-4000-8000-000000000002",
+        "nombre": "Campo Ejidal Tarímbaro"
+      },
+      "prestamo": {
+        "lugar": "Morelia, Michoacán",
+        "dirigidaA": "DUENO_EXTERNO",
+        "destinatarioNombre": "Comisariado Ejidal de prueba",
+        "destinatarioCargo": "Ejido Tarímbaro",
+        "solicitanteNombre": "Solicitante Ficticio Halcones",
+        "solicitanteCargo": "Presidente del club",
+        "instalacion": "Campo Ejidal Tarímbaro",
+        "finalidad": "Partido amistoso de pretemporada",
+        "fechaUtilizacion": "2026-12-05",
+        "horaInicio": "12:00:00",
+        "horaTermino": "14:00:00",
+        "actividad": "Partido de futbol 11 entre dos equipos del club",
+        "equiposParticipantes": "Halcones Primera y Halcones Veteranos",
+        "asistentesAproximados": 80,
+        "responsableActividad": "Responsable Ficticio Halcones",
+        "telefonoContacto": "4430000000"
+      },
+      "capturadaPor": {
+        "id": "b14000ff-0000-4000-8000-000000000001",
+        "nombreMostrado": "Directiva Halcones de prueba"
+      },
+      "capturadaEn": "2026-11-19T19:24:53.153194-06:00"
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 2,
+  "totalPaginas": 1
+}
+
+### CA-3: rechazar la oferta del externo sin observaciones (RN-021)
+> POST /api/v1/solicitudes-cancha/9083e898-687c-42ab-a65c-59e81f57636c/resolucion  (cuenta: Presidente de prueba)
+> {"decision":"RECHAZADA"}
+< HTTP 400
+{
+  "detail": "Escribe observaciones de al menos 10 caracteres que expliquen la decisión.",
+  "instance": "/api/v1/solicitudes-cancha/9083e898-687c-42ab-a65c-59e81f57636c/resolucion",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/rn-021",
+  "codigo": "RN-021"
+}
+
+### CA-3: rechazar la oferta del externo con observaciones
+> POST /api/v1/solicitudes-cancha/9083e898-687c-42ab-a65c-59e81f57636c/resolucion  (cuenta: Presidente de prueba)
+> {"decision":"RECHAZADA","observaciones":"El costo por partido excede el presupuesto de la liga"}
+< HTTP 200
+{
+  "id": "9083e898-687c-42ab-a65c-59e81f57636c",
+  "tipo": "OFERTA",
+  "formato": 2,
+  "estado": "RECHAZADA",
+  "numeroOficio": "OF-2026-0004",
+  "solicitanteExterno": "Deportivo Privado El Sauz (ficticio)",
+  "oferta": {
+    "lugar": "Morelia, Michoacán",
+    "oferenteNombre": "Oferente Ficticio",
+    "oferenteCaracter": "Administrador",
+    "institucion": "Deportivo Privado El Sauz (ficticio)",
+    "nombreCancha": "Campo El Sauz",
+    "ubicacion": "Camino a Las Huertas km 2, Morelia",
+    "tipoSuperficie": "Pasto natural",
+    "disponibilidad": "Sábados y domingos de 8:00 a 14:00",
+    "costoUso": "$500 por partido",
+    "condicionesPago": "Pago al terminar el partido",
+    "personaResponsable": "Responsable Ficticio",
+    "telefonoContacto": "4430000002"
+  },
+  "capturadaPor": {
+    "id": "b14000ff-0000-4000-8000-000000000003",
+    "nombreMostrado": "Secretario de prueba"
+  },
+  "capturadaEn": "2026-11-19T19:25:41.546146-06:00",
+  "resueltaPor": {
+    "id": "b14000ff-0000-4000-8000-000000000004",
+    "nombreMostrado": "Presidente de prueba"
+  },
+  "resueltaEn": "2026-11-19T19:28:35.347334-06:00",
+  "observaciones": "El costo por partido excede el presupuesto de la liga"
+}
+
+### CA-3: una decision del Formato 2 sobre un prestamo (Formato 1)
+> POST /api/v1/solicitudes-cancha/e718efbc-5d5e-48da-b88f-5113e9c77923/resolucion  (cuenta: Presidente de prueba)
+> {"decision":"ACEPTADA"}
+< HTTP 400
+{
+  "detail": "Un préstamo o comodato se aprueba o no se aprueba.",
+  "instance": "/api/v1/solicitudes-cancha/e718efbc-5d5e-48da-b88f-5113e9c77923/resolucion",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION"
+}
+
+### CA-3: dictaminar otra vez un prestamo ya no aprobado
+> POST /api/v1/solicitudes-cancha/a43354db-95d6-425b-9de9-8258ca807c1d/resolucion  (cuenta: Presidente de prueba)
+> {"decision":"APROBADA"}
+< HTTP 409
+{
+  "detail": "Este trámite ya se dictaminó: está no aprobada.",
+  "instance": "/api/v1/solicitudes-cancha/a43354db-95d6-425b-9de9-8258ca807c1d/resolucion",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/rf-117",
+  "codigo": "RF-117"
+}
+
+### CA-3: dictaminar otra vez una oferta ya aceptada
+> POST /api/v1/solicitudes-cancha/d1d30109-0dcb-4472-b19c-113408984440/resolucion  (cuenta: Presidente de prueba)
+> {"decision":"RECHAZADA","observaciones":"Intento de cambiar un estado final"}
+< HTTP 409
+{
+  "detail": "Este trámite ya se dictaminó: está aceptada.",
+  "instance": "/api/v1/solicitudes-cancha/d1d30109-0dcb-4472-b19c-113408984440/resolucion",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/rf-116",
+  "codigo": "RF-116"
+}
+
+### CA-5: la Directiva de Halcones no dictamina (sin canchas.solicitud:APROBAR)
+> POST /api/v1/solicitudes-cancha/ca3d594b-2644-4d0e-b73d-2e13ed68887d/resolucion  (cuenta: Directiva Halcones de prueba)
+> {"decision":"NO_APROBADA","observaciones":"Intento de dictamen sin permiso"}
+< HTTP 403
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/solicitudes-cancha/ca3d594b-2644-4d0e-b73d-2e13ed68887d/resolucion",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}
+
+### CA-4: la Presidencia no genera la carta (sin canchas.oficio:GENERAR, DEC-137)
+> GET /api/v1/solicitudes-cancha/ca3d594b-2644-4d0e-b73d-2e13ed68887d/oficio  (cuenta: Presidente de prueba)
+< HTTP 403
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/solicitudes-cancha/ca3d594b-2644-4d0e-b73d-2e13ed68887d/oficio",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}
+
+### CA-4: la Directiva de Halcones no genera la carta de su propio tramite (DEC-137)
+> GET /api/v1/solicitudes-cancha/ca3d594b-2644-4d0e-b73d-2e13ed68887d/oficio  (cuenta: Directiva Halcones de prueba)
+< HTTP 403
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/solicitudes-cancha/ca3d594b-2644-4d0e-b73d-2e13ed68887d/oficio",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}
+
+### CA-4: el Secretario genera los datos de la carta del comodato aprobado
+> GET /api/v1/solicitudes-cancha/ca3d594b-2644-4d0e-b73d-2e13ed68887d/oficio  (cuenta: Secretario de prueba)
+< HTTP 200
+{
+  "numeroOficio": "OF-2026-0002",
+  "tipo": "COMODATO",
+  "formato": 1,
+  "asunto": "Solicitud de comodato de cancha deportiva.",
+  "liga": "Liga Municipal de Futbol Amateur Morelia",
+  "fechaEmision": "2026-11-19",
+  "solicitante": "Club Halcones",
+  "prestamo": {
+    "lugar": "Morelia, Michoacán",
+    "dirigidaA": "LIGA",
+    "destinatarioNombre": "Presidencia de la Liga",
+    "destinatarioCargo": "Liga Municipal de Futbol Amateur Morelia",
+    "solicitanteNombre": "Solicitante Ficticio",
+    "solicitanteCargo": "Secretario del club",
+    "instalacion": "Morelos 1",
+    "finalidad": "Entrenamientos de la temporada",
+    "fechaUtilizacion": "2027-01-09",
+    "horaInicio": "08:00:00",
+    "horaTermino": "10:00:00",
+    "actividad": "Entrenamiento semanal de los equipos del club",
+    "responsableActividad": "Responsable Ficticio",
+    "telefonoContacto": "4430000001"
+  },
+  "estado": "APROBADA",
+  "resueltaEn": "2026-11-19T19:27:55.808322-06:00",
+  "resueltaPor": "Presidente de prueba",
+  "observaciones": "Entregar la cancha limpia al término de cada uso"
+}
+
+### CA-5: la Directiva de Toros solo ve el tramite de su club
+> GET /api/v1/solicitudes-cancha?tipo=PRESTAMO&tipo=COMODATO  (cuenta: Directiva Toros de prueba)
+< HTTP 200
+{
+  "contenido": [
+    {
+      "id": "e718efbc-5d5e-48da-b88f-5113e9c77923",
+      "tipo": "PRESTAMO",
+      "formato": 1,
+      "estado": "PENDIENTE",
+      "numeroOficio": "OF-2026-0005",
+      "club": {
+        "id": "b1450002-0000-4000-8000-000000000001",
+        "nombre": "Club Toros"
+      },
+      "prestamo": {
+        "lugar": "Morelia, Michoacán",
+        "dirigidaA": "LIGA",
+        "destinatarioNombre": "Presidencia de la Liga",
+        "destinatarioCargo": "Liga Municipal de Futbol Amateur Morelia",
+        "solicitanteNombre": "Solicitante Ficticio",
+        "solicitanteCargo": "Secretario del club",
+        "instalacion": "Campo Ejidal Tarímbaro",
+        "finalidad": "Entrenamientos de la temporada",
+        "fechaUtilizacion": "2027-01-09",
+        "horaInicio": "08:00:00",
+        "horaTermino": "10:00:00",
+        "actividad": "Entrenamiento semanal de los equipos del club",
+        "responsableActividad": "Responsable Ficticio",
+        "telefonoContacto": "4430000001"
+      },
+      "capturadaPor": {
+        "id": "b14000ff-0000-4000-8000-000000000002",
+        "nombreMostrado": "Directiva Toros de prueba"
+      },
+      "capturadaEn": "2026-11-19T19:25:42.555494-06:00"
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 1,
+  "totalPaginas": 1
+}
+
+### CA-5: el Secretario (liga) filtra el Formato 2 por estado ACEPTADA
+> GET /api/v1/solicitudes-cancha?tipo=OFERTA&estado=ACEPTADA  (cuenta: Secretario de prueba)
+< HTTP 200
+{
+  "contenido": [
+    {
+      "id": "d1d30109-0dcb-4472-b19c-113408984440",
+      "tipo": "OFERTA",
+      "formato": 2,
+      "estado": "ACEPTADA",
+      "numeroOficio": "OF-2026-0003",
+      "club": {
+        "id": "b1450001-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones"
+      },
+      "oferta": {
+        "lugar": "Morelia, Michoacán",
+        "oferenteNombre": "Oferente Ficticio",
+        "oferenteCaracter": "Propietario",
+        "nombreCancha": "Campo Las Huertas",
+        "ubicacion": "Camino a Las Huertas km 2, Morelia",
+        "tipoSuperficie": "Pasto natural",
+        "disponibilidad": "Sábados y domingos de 8:00 a 14:00",
+        "costoUso": "Gratuito",
+        "personaResponsable": "Responsable Ficticio",
+        "telefonoContacto": "4430000002"
+      },
+      "capturadaPor": {
+        "id": "b14000ff-0000-4000-8000-000000000001",
+        "nombreMostrado": "Directiva Halcones de prueba"
+      },
+      "capturadaEn": "2026-11-19T19:25:38.864443-06:00",
+      "resueltaPor": {
+        "id": "b14000ff-0000-4000-8000-000000000004",
+        "nombreMostrado": "Presidente de prueba"
+      },
+      "resueltaEn": "2026-11-19T19:28:12.67146-06:00"
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 1,
+  "totalPaginas": 1
+}
+
+### CA-5: contexto de captura de la Directiva de Halcones (solo su club, sin externos)
+> GET /api/v1/solicitudes-cancha/contexto  (cuenta: Directiva Halcones de prueba)
+< HTTP 200
+{
+  "clubes": [
+    {
+      "id": "b1450001-0000-4000-8000-000000000001",
+      "nombre": "Club Halcones"
+    }
+  ],
+  "canchas": [
+    {
+      "id": "b1470000-0000-4000-8000-000000000002",
+      "nombre": "Campo Ejidal Tarímbaro"
+    },
+    {
+      "id": "b1470000-0000-4000-8000-000000000001",
+      "nombre": "Morelos 1"
+    }
+  ],
+  "capturaExternos": false
+}
+
+### CA-5: contexto de captura del Secretario (clubes ACTIVO de la liga y captura de externos)
+> GET /api/v1/solicitudes-cancha/contexto  (cuenta: Secretario de prueba)
+< HTTP 200
+{
+  "clubes": [
+    {
+      "id": "b1450001-0000-4000-8000-000000000001",
+      "nombre": "Club Halcones"
+    },
+    {
+      "id": "b1450002-0000-4000-8000-000000000001",
+      "nombre": "Club Toros"
+    }
+  ],
+  "canchas": [
+    {
+      "id": "b1470000-0000-4000-8000-000000000002",
+      "nombre": "Campo Ejidal Tarímbaro"
+    },
+    {
+      "id": "b1470000-0000-4000-8000-000000000001",
+      "nombre": "Morelos 1"
+    }
+  ],
+  "capturaExternos": true
+}
+
+### CA-5: contexto de la Presidencia (sin CREAR: listas vacias)
+> GET /api/v1/solicitudes-cancha/contexto  (cuenta: Presidente de prueba)
+< HTTP 200
+{
+  "clubes": [],
+  "canchas": [],
+  "capturaExternos": false
+}
+
