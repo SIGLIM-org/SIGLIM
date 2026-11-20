@@ -1,0 +1,26 @@
+Prueba de aceptación B-08.3 · verificación automática sobre develop en 04e9949 (19-nov-2026)
+
+## Backend: ./mvnw verify (Java 25, Testcontainers para las pruebas *IT)
+Tests run: 27, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.arbitraje.ArbitroControllerTest
+Tests run: 30, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.arbitraje.ArbitroServiceTest
+Tests run: 11, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.arbitraje.CuotaArbitrosControllerTest
+Tests run: 38, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.temporadas.ParametrosServiceTest
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.arbitraje.ArbitrosIT
+Tests run: 2113, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 333, Failures: 0, Errors: 0, Skipped: 1
+BUILD SUCCESS
+Omitida: AlmacenamientoDocumentosAwsIT (sin credenciales de AWS)
+
+## Frontend
+npm run lint: sin errores (oxlint)
+npx vitest run --maxWorkers=2: Test Files  90 passed (90) · Tests  839 passed (839)
+Pruebas de la cuota en src/features/arbitraje:
+  ✓ src/features/arbitraje/PantallaArbitros.test.tsx > PantallaArbitros (F-20, H-11.2) > RF-114: el club ve los árbitros validados frente a los requeridos y la advertencia
+  ✓ src/features/arbitraje/PantallaArbitros.test.tsx > PantallaArbitros (F-20, H-11.2) > RF-114: el club ve el cumplimiento cuando alcanza la cuota
+  ✓ src/features/arbitraje/PantallaArbitros.test.tsx > PantallaArbitros (F-20, H-11.2) > RF-114: la Comisión ve la insignia «Cumple cuota» por club
+  ✓ src/features/arbitraje/PantallaArbitros.test.tsx > PantallaArbitros (F-20, H-11.2) > RF-114: la Comisión filtra los clubes por «Cumple cuota»
+  ✓ src/features/arbitraje/PantallaArbitros.test.tsx > PantallaArbitros (F-20, H-11.2) > RF-114: si la cuota no se puede calcular, muestra la causa y permite reintentar
+  ✓ src/features/arbitraje/PantallaArbitros.test.tsx > PantallaArbitros (F-20, H-11.2) > RF-114: la Comisión marca «Sin dato» si la cuota de un club no está disponible
+  ✓ src/features/arbitraje/PantallaArbitros.test.tsx > PantallaArbitros (F-20, H-11.2) > RF-114: un club sin equipos activos muestra el estado vacío de la cuota
+  ✓ src/features/arbitraje/PantallaArbitros.test.tsx > PantallaArbitros (F-20, H-11.2) > RF-114: muestra el estado de carga de la cuota
+npm run build: correcto
