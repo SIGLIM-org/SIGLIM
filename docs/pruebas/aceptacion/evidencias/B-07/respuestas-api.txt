@@ -1,0 +1,198 @@
+Prueba de aceptación B-07.3 · respuestas de la API local (19-nov-2026)
+Base local efímera; personas y cuentas ficticias. Los tokens no se registran.
+Cuentas: 0 = Directiva Halcones, 1 = Secretario, 2 = Tesorero.
+
+### CA-1/CA-3: el Secretario (LIGA) consulta el historial de Héctor: ve los nombres de todos
+> GET /api/v1/registros-jugador/bc1d9d7f-ac60-469d-9025-0fb7cad1143e/historial  (cuenta: Secretario de prueba)
+< HTTP 200
+[
+  {
+    "estadoAnterior": null,
+    "estadoNuevo": "PENDIENTE_VALIDACION",
+    "motivo": "Alta del registro",
+    "cambiadoPor": {
+      "id": "b07000ff-0000-4000-8000-000000000001",
+      "nombre": "Directiva Halcones de prueba"
+    },
+    "cambiadoEn": "2026-11-19T20:42:36.39064-06:00"
+  },
+  {
+    "estadoAnterior": "PENDIENTE_VALIDACION",
+    "estadoNuevo": "ACTIVO",
+    "motivo": "Documentos revisados en ventanilla",
+    "cambiadoPor": {
+      "id": "b07000ff-0000-4000-8000-000000000002",
+      "nombre": "Secretario de prueba"
+    },
+    "cambiadoEn": "2026-11-19T20:43:16.196619-06:00"
+  },
+  {
+    "estadoAnterior": "ACTIVO",
+    "estadoNuevo": "BAJA",
+    "motivo": "El jugador se muda a otra ciudad por trabajo",
+    "cambiadoPor": {
+      "id": "b07000ff-0000-4000-8000-000000000001",
+      "nombre": "Directiva Halcones de prueba"
+    },
+    "cambiadoEn": "2026-11-19T20:44:00.56757-06:00"
+  }
+]
+
+### CA-3: la Directiva de Halcones consulta el mismo historial: el nombre de la liga no es visible (RLS perfiles_leer)
+> GET /api/v1/registros-jugador/bc1d9d7f-ac60-469d-9025-0fb7cad1143e/historial  (cuenta: Directiva Halcones de prueba)
+< HTTP 200
+[
+  {
+    "estadoAnterior": null,
+    "estadoNuevo": "PENDIENTE_VALIDACION",
+    "motivo": "Alta del registro",
+    "cambiadoPor": {
+      "id": "b07000ff-0000-4000-8000-000000000001",
+      "nombre": "Directiva Halcones de prueba"
+    },
+    "cambiadoEn": "2026-11-19T20:42:36.39064-06:00"
+  },
+  {
+    "estadoAnterior": "PENDIENTE_VALIDACION",
+    "estadoNuevo": "ACTIVO",
+    "motivo": "Documentos revisados en ventanilla",
+    "cambiadoPor": {
+      "id": "b07000ff-0000-4000-8000-000000000002",
+      "nombre": null
+    },
+    "cambiadoEn": "2026-11-19T20:43:16.196619-06:00"
+  },
+  {
+    "estadoAnterior": "ACTIVO",
+    "estadoNuevo": "BAJA",
+    "motivo": "El jugador se muda a otra ciudad por trabajo",
+    "cambiadoPor": {
+      "id": "b07000ff-0000-4000-8000-000000000001",
+      "nombre": "Directiva Halcones de prueba"
+    },
+    "cambiadoEn": "2026-11-19T20:44:00.56757-06:00"
+  }
+]
+
+### CA-4: el Secretario consulta el historial de Omar (Club Toros)
+> GET /api/v1/registros-jugador/b0790002-0000-4000-8000-000000000001/historial  (cuenta: Secretario de prueba)
+< HTTP 200
+[
+  {
+    "estadoAnterior": null,
+    "estadoNuevo": "PENDIENTE_VALIDACION",
+    "motivo": "Alta del registro",
+    "cambiadoPor": {
+      "id": "b07000ff-0000-4000-8000-000000000002",
+      "nombre": "Secretario de prueba"
+    },
+    "cambiadoEn": "2026-11-19T20:40:57.389337-06:00"
+  },
+  {
+    "estadoAnterior": "PENDIENTE_VALIDACION",
+    "estadoNuevo": "ACTIVO",
+    "motivo": "Documentos revisados en ventanilla",
+    "cambiadoPor": {
+      "id": "b07000ff-0000-4000-8000-000000000002",
+      "nombre": "Secretario de prueba"
+    },
+    "cambiadoEn": "2026-11-19T20:40:57.421063-06:00"
+  }
+]
+
+### CA-4: la Directiva de Halcones consulta el historial de Omar (Club Toros)
+> GET /api/v1/registros-jugador/b0790002-0000-4000-8000-000000000001/historial  (cuenta: Directiva Halcones de prueba)
+< HTTP 404
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/registros-jugador/b0790002-0000-4000-8000-000000000001/historial",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
+
+### CA-4: la Directiva de Halcones consulta un registro inexistente
+> GET /api/v1/registros-jugador/00000000-0000-4000-8000-000000000000/historial  (cuenta: Directiva Halcones de prueba)
+< HTTP 404
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/registros-jugador/00000000-0000-4000-8000-000000000000/historial",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
+
+### CA-4: el Tesorero (sin registros.registro:CONSULTAR)
+> GET /api/v1/registros-jugador/bc1d9d7f-ac60-469d-9025-0fb7cad1143e/historial  (cuenta: Tesorero de prueba)
+< HTTP 403
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/registros-jugador/bc1d9d7f-ac60-469d-9025-0fb7cad1143e/historial",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}
+
+### CA-5: la ruta es de solo lectura
+> POST /api/v1/registros-jugador/bc1d9d7f-ac60-469d-9025-0fb7cad1143e/historial  (cuenta: Secretario de prueba)
+> {}
+< HTTP 405
+{
+  "detail": "Esta operación no está disponible para este recurso.",
+  "instance": "/api/v1/registros-jugador/bc1d9d7f-ac60-469d-9025-0fb7cad1143e/historial",
+  "status": 405,
+  "title": "Método no permitido",
+  "type": "https://siglim.mx/errores/metodo-no-permitido",
+  "codigo": "METODO_NO_PERMITIDO"
+}
+
+> PATCH /api/v1/registros-jugador/bc1d9d7f-ac60-469d-9025-0fb7cad1143e/historial  (cuenta: Secretario de prueba)
+> {}
+< HTTP 405
+{
+  "detail": "Esta operación no está disponible para este recurso.",
+  "instance": "/api/v1/registros-jugador/bc1d9d7f-ac60-469d-9025-0fb7cad1143e/historial",
+  "status": 405,
+  "title": "Método no permitido",
+  "type": "https://siglim.mx/errores/metodo-no-permitido",
+  "codigo": "METODO_NO_PERMITIDO"
+}
+
+> DELETE /api/v1/registros-jugador/bc1d9d7f-ac60-469d-9025-0fb7cad1143e/historial  (cuenta: Secretario de prueba)
+> {}
+< HTTP 405
+{
+  "detail": "Esta operación no está disponible para este recurso.",
+  "instance": "/api/v1/registros-jugador/bc1d9d7f-ac60-469d-9025-0fb7cad1143e/historial",
+  "status": 405,
+  "title": "Método no permitido",
+  "type": "https://siglim.mx/errores/metodo-no-permitido",
+  "codigo": "METODO_NO_PERMITIDO"
+}
+
+> PUT /api/v1/registros-jugador/bc1d9d7f-ac60-469d-9025-0fb7cad1143e/historial  (cuenta: Secretario de prueba)
+> {}
+< HTTP 405
+{
+  "detail": "Esta operación no está disponible para este recurso.",
+  "instance": "/api/v1/registros-jugador/bc1d9d7f-ac60-469d-9025-0fb7cad1143e/historial",
+  "status": 405,
+  "title": "Método no permitido",
+  "type": "https://siglim.mx/errores/metodo-no-permitido",
+  "codigo": "METODO_NO_PERMITIDO"
+}
+
+auditoria antes/despues de las consultas: 4 / 4
+
+### Encabezados de GET /registros-jugador/{id}/historial (Secretario)
+HTTP/1.1 200 
+Cache-Control: no-store
+
+### RNF-015: el rol de la aplicación (siglim_app) no puede modificar ni borrar el historial
+ERROR:  permission denied for table registro_estado_historial
+ERROR:  permission denied for table registro_estado_historial
+Privilegios sobre siglim.registro_estado_historial:
+siglim_app: INSERT, SELECT
