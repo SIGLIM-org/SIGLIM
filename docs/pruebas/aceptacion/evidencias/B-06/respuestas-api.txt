@@ -1,0 +1,296 @@
+Prueba de aceptación B-06.3 · respuestas de la API local (19-nov-2026)
+Base local efímera; personas y cuentas ficticias (las CURP tienen formato válido y no corresponden a nadie). Los tokens no se registran.
+Cuentas: 0 = Directiva Halcones, 1 = Secretario, 3 = Tesorero.
+
+## Simón Sincambio (anterior en Toros) con la versión 2: permite_cambio_club = false
+### CA-3: opción del asistente
+> GET /api/v1/registros-jugador/movimientos/opcion?personaId=b0670003-0000-4000-8000-000000000001&equipoId=b0660021-0000-4000-8000-000000000001  (cuenta: Directiva Halcones de prueba)
+< HTTP 200
+{
+  "tipo": "TRANSFERENCIA",
+  "permitido": false,
+  "temporadaAnterior": "Temporada local 2025-2026",
+  "motivo": "La temporada «Temporada local 2026-2027» no permite cambios de club entre temporadas. La liga puede habilitarlo en los parámetros de la temporada."
+}
+
+### CA-3: transferencia
+> POST /api/v1/registros-jugador/transferencias  (cuenta: Directiva Halcones de prueba)
+> {"personaId":"b0670003-0000-4000-8000-000000000001","equipoId":"b0660021-0000-4000-8000-000000000001"}
+< HTTP 409
+{
+  "detail": "La temporada «Temporada local 2026-2027» no permite cambios de club entre temporadas. La liga puede habilitarlo en los parámetros de la temporada.",
+  "instance": "/api/v1/registros-jugador/transferencias",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/rf-111",
+  "codigo": "RF-111"
+}
+
+### CA-3 (DEC-154): alta normal del mismo jugador
+> POST /api/v1/registros-jugador  (cuenta: Directiva Halcones de prueba)
+> {"personaId":"b0670003-0000-4000-8000-000000000001","equipoId":"b0660021-0000-4000-8000-000000000001"}
+< HTTP 409
+{
+  "detail": "La temporada «Temporada local 2026-2027» no permite cambios de club entre temporadas. La liga puede habilitarlo en los parámetros de la temporada.",
+  "instance": "/api/v1/registros-jugador",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/rf-111",
+  "codigo": "RF-111"
+}
+
+### CA-4: renovación de alguien cuyo registro anterior es de otro club
+> POST /api/v1/registros-jugador/renovaciones  (cuenta: Directiva Halcones de prueba)
+> {"personaId":"b0670003-0000-4000-8000-000000000001","equipoId":"b0660021-0000-4000-8000-000000000001"}
+< HTTP 422
+{
+  "detail": "El registro anterior es del club «Club Toros»: para cambiarlo de club usa la transferencia.",
+  "instance": "/api/v1/registros-jugador/renovaciones",
+  "status": 422,
+  "title": "No se puede procesar",
+  "type": "https://siglim.mx/errores/rf-015",
+  "codigo": "RF-015"
+}
+
+## Nicolás Nuevo (sin registro anterior)
+### CA-4: opción del asistente
+> GET /api/v1/registros-jugador/movimientos/opcion?personaId=b0670004-0000-4000-8000-000000000001&equipoId=b0660021-0000-4000-8000-000000000001  (cuenta: Directiva Halcones de prueba)
+< HTTP 200
+{
+  "tipo": null,
+  "permitido": false,
+  "temporadaAnterior": null,
+  "motivo": null
+}
+
+### CA-4: renovación
+> POST /api/v1/registros-jugador/renovaciones  (cuenta: Directiva Halcones de prueba)
+> {"personaId":"b0670004-0000-4000-8000-000000000001","equipoId":"b0660021-0000-4000-8000-000000000001"}
+< HTTP 422
+{
+  "detail": "La persona no tiene un registro anterior en una temporada previa de la liga: no hay nada que renovar. Da de alta su registro en el equipo.",
+  "instance": "/api/v1/registros-jugador/renovaciones",
+  "status": 422,
+  "title": "No se puede procesar",
+  "type": "https://siglim.mx/errores/rf-015",
+  "codigo": "RF-015"
+}
+
+### CA-4: transferencia
+> POST /api/v1/registros-jugador/transferencias  (cuenta: Directiva Halcones de prueba)
+> {"personaId":"b0670004-0000-4000-8000-000000000001","equipoId":"b0660021-0000-4000-8000-000000000001"}
+< HTTP 422
+{
+  "detail": "La persona no tiene un registro anterior en una temporada previa de la liga: no hay nada que transferir. Da de alta su registro en el equipo.",
+  "instance": "/api/v1/registros-jugador/transferencias",
+  "status": 422,
+  "title": "No se puede procesar",
+  "type": "https://siglim.mx/errores/rf-016",
+  "codigo": "RF-016"
+}
+
+## Mateo Menor (anterior en Halcones, consentimiento revocado)
+### CA-4: transferencia de alguien cuyo registro anterior es del mismo club
+> POST /api/v1/registros-jugador/transferencias  (cuenta: Directiva Halcones de prueba)
+> {"personaId":"b0670006-0000-4000-8000-000000000001","equipoId":"b0660021-0000-4000-8000-000000000001"}
+< HTTP 422
+{
+  "detail": "El registro anterior ya es de tu club: para conservar al jugador usa la renovación.",
+  "instance": "/api/v1/registros-jugador/transferencias",
+  "status": 422,
+  "title": "No se puede procesar",
+  "type": "https://siglim.mx/errores/rf-016",
+  "codigo": "RF-016"
+}
+
+### CA-4: renovación del menor sin consentimiento vigente
+> POST /api/v1/registros-jugador/renovaciones  (cuenta: Directiva Halcones de prueba)
+> {"personaId":"b0670006-0000-4000-8000-000000000001","equipoId":"b0660021-0000-4000-8000-000000000001"}
+< HTTP 422
+{
+  "detail": "La persona es menor de edad y falta el consentimiento de su tutor. Registra el consentimiento del tutor y después renueva el registro.",
+  "instance": "/api/v1/registros-jugador/renovaciones",
+  "status": 422,
+  "title": "No se puede procesar",
+  "type": "https://siglim.mx/errores/val-025",
+  "codigo": "VAL-025",
+  "requisito": "CONSENTIMIENTO"
+}
+
+## Andrés Activo (ACTIVO en Toros en la temporada destino)
+### CA-5: transferencia
+> POST /api/v1/registros-jugador/transferencias  (cuenta: Directiva Halcones de prueba)
+> {"personaId":"b0670005-0000-4000-8000-000000000001","equipoId":"b0660021-0000-4000-8000-000000000001"}
+< HTTP 409
+{
+  "detail": "Esta persona ya está registrada en esta temporada en el club «Club Toros», equipo «Toros 2026». Un jugador solo puede estar en un equipo por temporada.",
+  "instance": "/api/v1/registros-jugador/transferencias",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/val-017",
+  "codigo": "VAL-017",
+  "club": "Club Toros",
+  "equipo": "Toros 2026"
+}
+
+## Bruno Baja (BAJA en Toros en la temporada destino)
+### CA-5: transferencia dentro de la misma temporada
+> POST /api/v1/registros-jugador/transferencias  (cuenta: Directiva Halcones de prueba)
+> {"personaId":"b0670008-0000-4000-8000-000000000001","equipoId":"b0660021-0000-4000-8000-000000000001"}
+< HTTP 409
+{
+  "detail": "Esta persona estuvo registrada en otro club en esta temporada. Dentro de una temporada no se permite cambiar de club.",
+  "instance": "/api/v1/registros-jugador/transferencias",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/val-026",
+  "codigo": "VAL-026"
+}
+
+## Permisos y ámbito
+### CA-5: la Directiva de Halcones renueva hacia un equipo de Toros
+> POST /api/v1/registros-jugador/renovaciones  (cuenta: Directiva Halcones de prueba)
+> {"personaId":"b0670004-0000-4000-8000-000000000001","equipoId":"b0660022-0000-4000-8000-000000000001"}
+< HTTP 404
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/registros-jugador/renovaciones",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
+
+### CA-5: sin equipoId
+> POST /api/v1/registros-jugador/renovaciones  (cuenta: Directiva Halcones de prueba)
+> {"personaId":"b0670004-0000-4000-8000-000000000001"}
+< HTTP 400
+{
+  "detail": "Indica la persona y el equipo de destino.",
+  "instance": "/api/v1/registros-jugador/renovaciones",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION"
+}
+
+### CA-5: el Tesorero (sin registros.registro:EDITAR)
+> POST /api/v1/registros-jugador/renovaciones  (cuenta: Tesorero de prueba)
+> {"personaId":"b0670004-0000-4000-8000-000000000001","equipoId":"b0660021-0000-4000-8000-000000000001"}
+< HTTP 403
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/registros-jugador/renovaciones",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}
+
+### CA-1: historial del registro renovado (Renato Renueva)
+> GET /api/v1/registros-jugador/98c21dba-e074-4dff-8af8-1d9a410c3787/historial  (cuenta: Secretario de prueba)
+< HTTP 200
+[
+  {
+    "estadoAnterior": null,
+    "estadoNuevo": "PENDIENTE_VALIDACION",
+    "motivo": "Renovación desde la temporada «Temporada local 2025-2026»",
+    "cambiadoPor": {
+      "id": "b06000ff-0000-4000-8000-000000000001",
+      "nombre": "Directiva Halcones de prueba"
+    },
+    "cambiadoEn": "2026-11-19T19:50:33.0721-06:00"
+  }
+]
+
+### CA-2: historial del registro transferido (Tadeo Transfiere)
+> GET /api/v1/registros-jugador/d3d7d91d-7600-4cb7-89e5-7580614daea9/historial  (cuenta: Secretario de prueba)
+< HTTP 200
+[
+  {
+    "estadoAnterior": null,
+    "estadoNuevo": "PENDIENTE_VALIDACION",
+    "motivo": "Transferencia desde el club «Club Toros» de la temporada «Temporada local 2025-2026»",
+    "cambiadoPor": {
+      "id": "b06000ff-0000-4000-8000-000000000001",
+      "nombre": "Directiva Halcones de prueba"
+    },
+    "cambiadoEn": "2026-11-19T19:51:13.06818-06:00"
+  }
+]
+
+### CA-1 (VAL-001): el Secretario valida la renovación sin documentos nuevos: los heredados cuentan
+> POST /api/v1/registros-jugador/98c21dba-e074-4dff-8af8-1d9a410c3787/validacion  (cuenta: Secretario de prueba)
+> {"decision":"ACTIVO"}
+< HTTP 200
+{
+  "id": "98c21dba-e074-4dff-8af8-1d9a410c3787",
+  "persona": {
+    "id": "b0670001-0000-4000-8000-000000000001",
+    "nombreCompleto": "Renato Renueva Prueba"
+  },
+  "equipo": {
+    "id": "b0660021-0000-4000-8000-000000000001",
+    "nombre": "Halcones 2026"
+  },
+  "club": {
+    "id": "b0650001-0000-4000-8000-000000000001",
+    "nombre": "Club Halcones"
+  },
+  "categoria": {
+    "id": "b0620000-0000-4000-8000-000000000001",
+    "nombre": "Libre Primera B-06"
+  },
+  "temporada": {
+    "id": "b0610002-0000-4000-8000-000000000001",
+    "nombre": "Temporada local 2026-2027",
+    "estado": "ACTIVA"
+  },
+  "estado": "ACTIVO",
+  "altaEn": "2026-11-19",
+  "creadoEn": "2026-11-19T19:50:33.0721-06:00",
+  "validadoPor": {
+    "id": "b06000ff-0000-4000-8000-000000000002",
+    "nombre": "Secretario de prueba"
+  },
+  "validadoEn": "2026-11-19T19:53:49.213618-06:00",
+  "observaciones": null,
+  "bajaEn": null,
+  "motivoBaja": null
+}
+
+### CA-2 (VAL-001): el Secretario intenta validar la transferencia sin documentos: no hereda los del club de origen
+> POST /api/v1/registros-jugador/d3d7d91d-7600-4cb7-89e5-7580614daea9/validacion  (cuenta: Secretario de prueba)
+> {"decision":"ACTIVO"}
+< HTTP 422
+{
+  "detail": "El registro no se puede activar: faltan documentos aprobados de «Identificación», «Fotografía». Aprueba los documentos pendientes o pide al club que cargue los que faltan.",
+  "instance": "/api/v1/registros-jugador/d3d7d91d-7600-4cb7-89e5-7580614daea9/validacion",
+  "status": 422,
+  "title": "No se puede procesar",
+  "type": "https://siglim.mx/errores/val-001",
+  "codigo": "VAL-001",
+  "faltantes": [
+    {
+      "tipoDocumento": {
+        "id": 2,
+        "codigo": "IDENTIFICACION",
+        "nombre": "Identificación"
+      },
+      "cantidad": 1,
+      "cargados": 0,
+      "aprobados": 0
+    },
+    {
+      "tipoDocumento": {
+        "id": 5,
+        "codigo": "FOTOGRAFIA",
+        "nombre": "Fotografía"
+      },
+      "cantidad": 2,
+      "cargados": 0,
+      "aprobados": 0
+    }
+  ]
+}
+
