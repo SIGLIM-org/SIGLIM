@@ -7,10 +7,10 @@ respaldado por un escenario ya aprobado.
 
 | Campo | Valor |
 | --- | --- |
-| Rama y versión | `develop` en `4199541` (8 nov 2026) |
-| Alcance demostrable | 20 historias con prueba de aceptación aprobada + la autorización y la auditoría transversales (H-02, H-21) |
-| Duración | 20 min el núcleo; 35 min el extendido; 50 min si se parte de una base vacía |
-| Pantallas | Portal, F-07/F-08 (panel), F-10/F-11 (temporadas), F-15 (clubes), F-21 (canchas), F-12/F-13 (usuarios, roles), F-14 (auditoría), F-33/F-34 (tesorería), B-08 (comunicados), F-32 (catálogos) |
+| Rama y versión | `v0.3.0` (`main` en `17c9c86`, cierre del Sprint 3, 21 nov 2026) |
+| Alcance demostrable | 39 historias con prueba de aceptación aprobada (20 del Sprint 2 y 19 del Sprint 3) + la autorización y la auditoría transversales (H-02, H-21) |
+| Duración | 20 min el núcleo del Sprint 2; 15 min más con los actos del Sprint 3 (§4.1); 35 min el extendido; 50 min si se parte de una base vacía |
+| Pantallas | Portal, F-07/F-08 (panel), F-10/F-11 (temporadas), F-15/F-16 (clubes, tarjetón), F-17/F-18/F-19 (plantilla, alta de jugador, validación), F-20 (árbitros), F-21 (canchas), F-22/F-23 (programación y revisión de jornada), F-12/F-13 (usuarios, roles), F-14 (auditoría), F-33/F-34 (tesorería), F-35 (mi información), B-08 (comunicados), F-32 (catálogos) |
 | Regla de oro | Si algo no está implementado, se dice. Este guion incluye los límites para no prometer de más |
 
 ---
@@ -40,21 +40,42 @@ respaldado por un escenario ya aprobado.
 | B-27 | Comunicado: borrador → revisión → publicado; no se aprueba el propio | `/app/administracion/comunicados` | Secretario + Presidente |
 | H-21 | Auditoría filtrable con el motivo completo de cada operación | `/app/administracion/auditoria` | Presidente / Administrador |
 
-**Cifras del avance (decirlas, no enseñarlas todas):** 27 controladores REST, 72 tablas en
-`siglim`, 6 migraciones, 73 permisos, 107 archivos de prueba de backend y 66 de frontend.
-Del Sprint 2 replanificado, **21 de 24 elementos** están implementados; faltan B-05 (venta de
-equipo), B-13 (horarios de cancha de club y comodato) y B-29 (tarifas de arbitraje y cancha).
+**Agregado en el Sprint 3** (actos 7 a 9, §4.1):
+
+| Historia | Qué se ve | Ruta | Cuenta |
+| --- | --- | --- | --- |
+| H-08 | Tarjetón de afiliación por temporada: queda SOLICITADA con folio y la Presidencia lo aprueba o rechaza con observaciones | `/app/organizacion/afiliaciones` | Directiva + Presidente |
+| H-09 | Alta de jugador por CURP con tutor y consentimiento; la misma CURP no se registra dos veces en la temporada (VAL-017) | `/app/organizacion/jugadores/alta` | Directiva |
+| H-10 | Documentos del registro en S3 con visor de enlace temporal (60 s); el Secretario activa o rechaza el registro (VAL-001) | `/app/organizacion/jugadores/:id/documentos` · `/app/organizacion/registros` | Directiva + Secretario |
+| H-23 | Baja de un registro ACTIVO con motivo, sin perder su historial | `/app/organizacion/jugadores` | Directiva |
+| H-24 | «Mi información» del jugador o tutor, en móvil | `/app/mi-informacion` | Jugador o tutor (vínculo por SQL hasta DEF-10) |
+| B-05 | Venta de equipo y conservación de plaza, aplicadas al cerrar la temporada | `/app/organizacion/operaciones-equipo` | Directiva + Presidente |
+| B-06 / B-07 | Renovación y transferencia entre temporadas; historial de estados del registro | Asistente de alta y plantilla | Directiva |
+| H-11 | Árbitros presentados por el club (PROPUESTO) y validados o rechazados por la Comisión | `/app/programacion/arbitros` | Directiva + Comisión de Arbitraje |
+| B-08 / B-09 | Cuota de árbitros por club y disponibilidad arbitral | `/app/programacion/arbitros` | Comisión de Arbitraje |
+| B-13 / B-14 | Horarios de cancha de club y comodato; trámites de préstamo, comodato y oferta con oficio | `/app/programacion/canchas` · `/app/programacion/tramites-cancha` | Administrador / Directiva |
+| H-12 | Programación manual de la jornada con conflictos explicados (VAL-003 a VAL-006) y verificación sin guardar | `/app/programacion/jornadas` | Programador |
+| B-15 | Advertencia de localía que se acepta con motivo | `/app/programacion/jornadas` | Programador |
+| H-13 | Envío a aprobación, dictamen y publicación de la jornada | `/app/programacion/jornadas/:id/revision` | Programador + Presidente |
+| B-29 / B-30 | Tarifas por temporada y categoría; cobros automáticos al publicar la jornada | `/app/tesoreria` → «Tarifas» | Tesorero |
+| B-01 | Solicitudes ARCO con seguimiento (solo API; la evidencia visual es la auditoría) | `/api/v1/solicitudes-arco` · `/app/administracion/auditoria` | Administrador |
+
+**Cifras del avance (decirlas, no enseñarlas todas):** 43 controladores REST, 72 tablas en
+`siglim`, 14 migraciones, 73 permisos, 161 archivos de prueba de backend y 90 de frontend (839
+pruebas). El Sprint 3 terminó **48 SP**: los 41 comprometidos y los 7 que venían del Sprint 2
+(B-05, B-13 y B-29).
 
 ### Lo que todavía **no** existe (decirlo antes de que lo pregunten)
 
-- **Programación de partidos, cédula, resultados y tabla de posiciones** (M-07, M-08, de H-12 a H-19):
-  no hay pantalla ni endpoint. Por eso el portal público (`/`, `/resultados`, `/tabla`) muestra
-  estados vacíos a propósito: *no se usan datos de ejemplo*.
-- **Registro de jugadores, documentos y árbitros** (M-04, M-05): solo permisos y tablas.
+- **Designación de árbitros, estado del partido, cédula, resultados y tabla de posiciones** (H-14 a
+  H-18): son del Sprint 4. La jornada ya se publica, pero el portal público (`/`, `/resultados`,
+  `/tabla`) todavía no la consulta (H-19), así que muestra estados vacíos a propósito: *no se usan
+  datos de ejemplo*.
+- **Disciplina** (expedientes y sanciones, H-27): solo existen los catálogos de H-26.
+- **Vínculo de una cuenta con su persona** (DEF-10): para enseñar «Mi información» (H-24) la cuenta
+  se vincula por SQL en la base local; se corrige en el Sprint 4.
 - **Competencias (liguilla, ascensos), reportes REP-xxx, avisos y correo** (M-10, M-12, M-14):
   pendientes de sprint.
-- **Personas**: no hay pantalla para darlas de alta; la directiva de H-22 solo busca personas ya
-  registradas.
 - Fuera de alcance por el ERS §2.6: programación automática, pasarela real, reconocimiento facial,
   WhatsApp/SMS, mapas, API pública, login social.
 
@@ -328,8 +349,68 @@ externo sí exige comprobante y queda ligado al cobro; un pago no puede ser parc
 
 **Cierre (1 min):** «Este es el flujo central: identidad, permisos y auditoría; configuración
 deportiva versionada; organización; canchas; cobranza con pago simulado y externo; comunicación
-oficial. Lo que sigue —programación, cédula, resultados y tabla— se apoya en estos cimientos y
-es el siguiente sprint». Enseñar la tabla de §1 o el plan de sprints.
+oficial». Si el tiempo da, seguir con los actos del Sprint 3 (§4.1); si no, enseñar la tabla de §1.
+
+### 4.1 Actos del Sprint 3 (15 min)
+
+Hacen falta, además, las cuentas de **Secretario**, **Comisión de Arbitraje** y **Programador de
+partidos**, y una temporada **ACTIVA** con categoría, grupo, dos equipos de clubes distintos y dos
+canchas disponibles el mismo sábado. Los nombres llevan el sufijo «Demostración», y la CURP del
+jugador es una de las ficticias de la prueba de aceptación de H-10 (§2): nunca una CURP real.
+
+#### Acto 7 · Afiliación, jugador y documentos (6 min)
+
+1. Como **Directiva** → Organización → Afiliaciones → capturar el tarjetón del club en la temporada
+   activa. **Debe verse:** el tarjetón en **SOLICITADA** con su folio.
+2. Como **Presidente** → la misma bandeja → abrir el tarjetón → «Aprobar». **Debe verse:**
+   **APROBADA** con quién y cuándo. *(Rechazar sin observaciones no se permite: enseñarlo si sobra
+   tiempo.)*
+3. Como **Directiva** → Organización → Jugadores → «Registrar jugador»: buscar la CURP; como es nueva,
+   capturar los datos de un **menor**, su tutor con el parentesco y el consentimiento. **Debe verse:**
+   el registro en **PENDIENTE_VALIDACION** y el paso 4 (documentos).
+4. En el paso 4, cargar un archivo cuyo contenido no es imagen ni PDF aunque se llame `.pdf`.
+   **Debe verse:** «El tipo de archivo no está permitido…» (415, por la firma del archivo). Después
+   cargar los documentos que pide la categoría: quedan **PENDIENTE**.
+5. Como **Secretario** → Organización → Registros → abrir el registro. **Debe verse:** «Activar
+   registro» deshabilitado mientras haya documentos pendientes (VAL-001). Abrir un documento en el
+   visor (el enlace vence a los 60 s y no se guarda), aprobar cada uno y «Activar registro» →
+   **ACTIVO**.
+6. Volver a registrar la misma CURP en otro equipo de la temporada. **Debe verse:** el rechazo
+   **VAL-017** con el club y el equipo donde ya está, sin otros datos.
+
+*Frase:* «la identidad es única y global por CURP; un menor necesita tutor y consentimiento, y nadie
+juega sin documentos revisados por la Liga».
+
+#### Acto 8 · Árbitros (2 min)
+
+1. Como **Directiva** → Programación → Árbitros → presentar un árbitro. **Debe verse:**
+   **PROPUESTO**, ligado a su club.
+2. Como **Comisión de Arbitraje** → la pestaña de propuestos → validar con una nota. **Debe verse:**
+   **VALIDADO**; la nota queda en la auditoría (DEF-09). Enseñar el indicador de cuota del club
+   (B-08) y la disponibilidad del árbitro (B-09).
+
+#### Acto 9 · Jornada sin conflictos y publicación (6 min)
+
+1. Como **Programador** → Programación → Jornadas → elegir grupo y jornada → registrar un partido
+   en la Cancha 1 a las 10:00 del sábado.
+2. Registrar otro partido en la **misma cancha y horario**. **Debe verse:** «La cancha «…» ya está
+   ocupada por el partido «…» del … a …» (**409 VAL-004**) y el partido no se guarda. Repetir con
+   un **equipo** que ya juega en ese bloque → **VAL-003**.
+3. «Verificar conflictos». **Debe verse:** la lista de conflictos sin guardar nada. Si aparece la
+   advertencia de localía (B-15), aceptarla con motivo.
+4. Con la jornada sin conflictos → «Enviar a aprobación». **Debe verse:** **En revisión** y los
+   partidos ya sin «Editar».
+5. Como **Presidente** → la revisión de la jornada → «Devolver» sin observaciones (se rechaza) y
+   después «Aprobar y publicar». **Debe verse:** «Jornada N aprobada y publicada…» y la insignia
+   **Publicado**.
+6. Como **Tesorero** → Tesorería: los **cobros automáticos** de la jornada publicada según las
+   tarifas de la pestaña «Tarifas» (B-29, B-30).
+
+*Frase:* «el sistema no programa solo (eso está fuera de alcance): valida y explica cada choque, y
+nada se publica sin la aprobación de alguien distinto de quien programó».
+
+**Cierre del Sprint 3 (30 s):** «Lo que sigue —designar árbitros, jugar el partido, capturar y
+validar la cédula, la tabla y el portal con resultados— es el Sprint 4».
 
 ---
 
@@ -358,16 +439,16 @@ Añadir, en este orden:
 
 | Pregunta | Respuesta corta |
 | --- | --- |
-| «¿Ya programa partidos?» | No. La programación manual es H-12 y H-13, el cambio de estado del partido H-15 y la cédula H-16 y H-17; hoy están las bases: temporada, categoría, grupo, equipo, cancha, disponibilidad y bloqueo, que es todo lo que la programación necesita validar. |
-| «¿Y la tabla de posiciones?» | Se calcula con `calcular_tabla()` a partir de resultados oficiales; no se guarda en una tabla. Faltan la captura y la oficialización de resultados (H-16 y H-17) y la pantalla de la tabla (H-18). |
-| «¿Por qué el portal está vacío?» | Es una decisión: el portal solo muestra lo `PUBLICADO` y no se usan datos de ejemplo (RF-056, VAL-014). |
+| «¿Ya programa partidos?» | Sí, de forma manual (H-12, H-13): el sistema rechaza y explica los conflictos, y la jornada se publica con la aprobación de la Presidencia. La programación automática está fuera de alcance. El cambio de estado del partido (H-15) y la cédula (H-16, H-17) son del Sprint 4. |
+| «¿Y la tabla de posiciones?» | Se calcula con `calcular_tabla()` a partir de resultados oficiales; no se guarda en una tabla. Faltan la captura y la oficialización de resultados (H-16 y H-17) y la pantalla de la tabla (H-18), en el Sprint 4. |
+| «¿Por qué el portal está vacío?» | Es una decisión: el portal solo muestra lo `PUBLICADO` y no usa datos de ejemplo (RF-056, VAL-014). La jornada ya se publica, pero el portal la consultará con H-19 (Sprint 4). |
 | «¿Esto es una pasarela de pago?» | No, es una simulación rotulada (DEC-37): no pide tarjeta ni cobra. La pasarela real está fuera de alcance. |
 | «¿Quién puede cambiar permisos?» | El Administrador los edita, pero un par incompatible se convierte en solicitud y la resuelve el Presidente; nadie edita su propio rol ni su propia cuenta (VAL-022). |
 | «¿Se puede borrar un club, un cobro, un partido?» | No. Todo cambio es de estado con motivo y queda en auditoría (RN-005, RF-093). |
 | «¿Dónde están los datos personales?» | En el esquema `siglim`, que no está expuesto por la API de Supabase: solo entra el backend (ADR-0014); el frontend usa Supabase únicamente para iniciar sesión. |
-| «¿Qué falta para terminar?» | Programación y cédula, registros de jugadores, árbitros, resultados, competencias, reportes, avisos y el portal con datos; el detalle está en el [plan de sprints](../planning/sprint-plan.md). |
+| «¿Qué falta para terminar?» | Designación de árbitros, estado del partido, cédula, resultados, tabla, disciplina, avisos y el portal con datos (Sprint 4); competencias y reportes quedan como extras. El detalle está en el [plan de sprints](../planning/sprint-plan.md). |
 | «¿Es a prueba de errores?» | Cada operación valida en el servicio (mensaje que explica) y el trigger de la base es la última garantía; las transiciones de estado se rechazan por ambos lados. |
-| «¿Cómo sé que funciona?» | 20 historias tienen prueba de aceptación de punta a punta con evidencia, más 173 archivos de pruebas automáticas (107 backend, 66 frontend). |
+| «¿Cómo sé que funciona?» | 39 historias tienen prueba de aceptación de punta a punta con evidencia, hecha por un integrante distinto de quien programó, más 251 archivos de pruebas automáticas (161 de backend y 90 de frontend). |
 
 ---
 
@@ -438,3 +519,15 @@ Cada acto tiene su prueba de aceptación con pasos, resultados y capturas:
 [B-04](aceptacion/B-04-cambio-nombre-club.md) · [B-11](aceptacion/B-11-sedes.md) ·
 [B-12](aceptacion/B-12-mantenimiento-canchas.md) · [B-27](aceptacion/B-27-comunicados.md) ·
 [B-31](aceptacion/B-31-vencimiento-cobros.md)
+
+Sprint 3:
+[H-08](aceptacion/H-08-afiliacion.md) · [H-10](aceptacion/H-10-registro-documentos.md) (incluye
+H-09) · [H-11](aceptacion/H-11-arbitros.md) · [H-12](aceptacion/H-12-conflictos.md) ·
+[H-13](aceptacion/H-13-publicacion-jornada.md) · [H-23](aceptacion/H-23-baja-registro.md) ·
+[H-24](aceptacion/H-24-mi-informacion.md) · [B-01](aceptacion/B-01-solicitudes-arco.md) ·
+[B-05](aceptacion/B-05-venta-equipo.md) · [B-06](aceptacion/B-06-renovacion-transferencia.md) ·
+[B-07](aceptacion/B-07-historial-registro.md) · [B-08](aceptacion/B-08-cuota-arbitros.md) ·
+[B-09](aceptacion/B-09-disponibilidad-arbitral.md) · [B-13](aceptacion/B-13-horarios-club.md) ·
+[B-14](aceptacion/B-14-tramites-cancha.md) · [B-15](aceptacion/B-15-advertencia-localia.md) ·
+[B-29](aceptacion/B-29-tarifas.md) · [B-30](aceptacion/B-30-cobros-automaticos.md) ·
+[DEF-07](aceptacion/DEF-07-migraciones-compartido.md)

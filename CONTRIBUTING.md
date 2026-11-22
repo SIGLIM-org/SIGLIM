@@ -28,6 +28,24 @@ Decisión del equipo del 26 de octubre de 2026 ([DEC-51](docs/requisitos/decisio
   resumen del incremento. Se fusiona con **«Create a merge commit»**, no con *squash*: si se
   aplasta, `main` y `develop` quedan con historiales distintos y los siguientes PR muestran
   conflictos que no existen.
+- **Etiqueta y Release del sprint:** después de fusionar el PR `develop → main`, quien cierra el
+  sprint crea una etiqueta **anotada** sobre ese commit de fusión, la sube sola y publica su
+  Release. Por cada sprint sube el número del medio: `v0.1.0` (Sprint 1), `v0.2.0` (Sprint 2),
+  `v0.3.0` (Sprint 3); la entrega final es `v1.0.0`.
+
+  ```bash
+  git fetch origin --tags
+  git log -1 --oneline origin/main          # debe ser la fusión del PR de cierre
+  git tag -a v0.4.0 <hash> -m "Sprint 4: <objetivo del sprint en una línea>"
+  git show v0.4.0 --no-patch                # tag anotada, Tagger y el commit correcto
+  git push origin v0.4.0                    # solo esa etiqueta, nunca --tags
+  ```
+
+  En GitHub, **Releases → Draft a new release**: la etiqueta nueva, *Previous tag* la del sprint
+  anterior, título `vX.Y.0 · Sprint N: <objetivo>` y la descripción en Markdown (qué incluye por
+  módulo con sus PR, defectos corregidos, cómo se verificó, decisiones y pendientes). Pega el texto
+  en la pestaña **Write** desde el archivo `.md`, no desde una vista ya mostrada, o se duplica en
+  HTML. Marca *Set as the latest release* solo en la nueva.
 - Una corrección urgente sobre lo ya demostrado también sale de `develop` y llega a `main` en el
   siguiente cierre de sprint.
 
