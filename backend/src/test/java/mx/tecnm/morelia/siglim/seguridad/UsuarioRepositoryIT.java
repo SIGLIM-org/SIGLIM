@@ -2,9 +2,12 @@ package mx.tecnm.morelia.siglim.seguridad;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import mx.tecnm.morelia.siglim.BaseDatosPrueba;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion.AlcanceAutorizacion;
@@ -139,7 +142,8 @@ class UsuarioRepositoryIT extends BaseDatosPrueba {
 
         TransactionTemplate escritura = new TransactionTemplate(transacciones);
         FilaAsignacion creada = escritura.execute(estado -> {
-            UUID perfil = repositorio.insertarPerfil(auth, "Nuevo " + sufijo, "nuevo-" + sufijo + "@ejemplo.mx");
+            UUID perfil = repositorio.insertarPerfil(auth, "Nuevo " + sufijo, "nuevo-" + sufijo + "@ejemplo.mx",
+                    null).orElseThrow();
             UUID asignacion = repositorio.insertarAsignacion(perfil, directiva, LIGA, "CLUB", club, admin);
             assertThat(repositorio.existeAsignacionActiva(perfil, directiva, club)).isTrue();
             return repositorio.buscarAsignacion(asignacion).orElseThrow();
@@ -167,6 +171,54 @@ class UsuarioRepositoryIT extends BaseDatosPrueba {
         assertThat(revocada.revocadaEn()).isNotNull();
     }
 
+    @Test
+    @DisplayName("DEF-10.1: persona_por_curp y es_menor ven a la persona; sin ella, vacío")
+    void personaPorCurpYMinoria() {
+        String curp = curpAlAzar();
+        UUID persona = crearPersona(curp, LocalDate.parse("1985-03-03"));
+        UUID menor = crearPersona(curpAlAzar(), LocalDate.now().minusYears(10));
+        iniciarSesionComoAdministrador();
+        LocalDate hoy = LocalDate.now();
+
+        assertThat(leer(() -> repositorio.personaPorCurp(curp))).contains(persona);
+        assertThat(leer(() -> repositorio.personaPorCurp(curpAlAzar()))).isEmpty();
+        assertThat(leer(() -> repositorio.esMenor(persona, hoy))).contains(false);
+        assertThat(leer(() -> repositorio.esMenor(menor, hoy))).contains(true);
+        assertThat(leer(() -> repositorio.esMenor(UUID.randomUUID(), hoy))).isEmpty();
+        assertThat(leer(() -> repositorio.perfilDePersona(persona))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("DEC-157: insertarPerfil guarda persona_id y, con la persona ya vinculada, devuelve vacío sin abortar")
+    void insertarPerfilConPersona() {
+        String sufijo = UUID.randomUUID().toString().substring(0, 8);
+        UUID persona = crearPersona(curpAlAzar(), LocalDate.parse("1985-03-03"));
+        UUID primeraCuenta = crearCuentaAuth("vinculo-" + sufijo + "@ejemplo.mx");
+        UUID segundaCuenta = crearCuentaAuth("carrera-" + sufijo + "@ejemplo.mx");
+        iniciarSesionComoAdministrador();
+
+        TransactionTemplate escritura = new TransactionTemplate(transacciones);
+        escritura.executeWithoutResult(estado -> {
+            Optional<UUID> perfil = repositorio.insertarPerfil(primeraCuenta, "Vínculo " + sufijo,
+                    "vinculo-" + sufijo + "@ejemplo.mx", persona);
+            assertThat(perfil).isPresent();
+
+            assertThat(repositorio.insertarPerfil(segundaCuenta, "Carrera " + sufijo,
+                    "carrera-" + sufijo + "@ejemplo.mx", persona))
+                    .as("el único de persona_id choca sin lanzar").isEmpty();
+
+            // La transacción sigue viva: se puede consultar después del conflicto.
+            assertThat(repositorio.perfilDePersona(persona)).isEqualTo(perfil);
+            assertThat(repositorio.buscarPerfil(perfil.orElseThrow()))
+                    .hasValueSatisfying(fila -> assertThat(fila.personaId()).isEqualTo(persona));
+            assertThat(repositorio.existeCorreo("carrera-" + sufijo + "@ejemplo.mx")).isFalse();
+        });
+
+        assertThat(leer(() -> repositorio.listar(new FiltroUsuarios(sufijo, null, null, null, null, 0, 20),
+                new AlcanceAutorizacion(true, Set.of(), false))))
+                .singleElement().satisfies(fila -> assertThat(fila.personaId()).isEqualTo(persona));
+    }
+
     // ── Apoyo ─────────────────────────────────────────────────────────────────────────────────
 
     /** Ejecuta una consulta en una transacción de solo lectura con la sesión ya iniciada. */
@@ -183,6 +235,24 @@ class UsuarioRepositoryIT extends BaseDatosPrueba {
                         """)
                 .param("nombre", nombre)
                 .param("correo", correo)
+                .query(UUID.class)
+                .single();
+    }
+
+    /** CURP con el formato de {@code ck_personas_curp}, al azar para no chocar entre pruebas. */
+    private static String curpAlAzar() {
+        ThreadLocalRandom azar = ThreadLocalRandom.current();
+        return "PEAA" + String.format("%06d", azar.nextInt(1_000_000)) + "HMNRRN"
+                + (char) ('A' + azar.nextInt(26)) + azar.nextInt(10);
+    }
+
+    private UUID crearPersona(String curp, LocalDate nacimiento) {
+        return jdbc.sql("""
+                        INSERT INTO siglim.personas (curp, nombre, apellido_paterno, apellido_materno, fecha_nacimiento)
+                        VALUES (:curp, 'Persona', 'Vínculo', 'Prueba', :nacimiento) RETURNING id
+                        """)
+                .param("curp", curp)
+                .param("nacimiento", nacimiento)
                 .query(UUID.class)
                 .single();
     }

@@ -1,5 +1,6 @@
 package mx.tecnm.morelia.siglim.seguridad;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -17,13 +18,18 @@ import org.springframework.stereotype.Repository;
  * solo la ve quien tiene el permiso en toda la liga. El perfil técnico {@code SISTEMA} no se lista
  * ni se opera.
  *
- * <p>Refs: H-03.1, RF-094, RN-005, RN-054, ADR-0007
+ * <p>La persona que se vincula al invitar (DEF-10.1) se consulta con las funciones
+ * {@code SECURITY DEFINER} {@code persona_por_curp} y {@code es_menor} (DEC-78), como
+ * {@link ConsentimientoRepository}: M-01 es de nivel 1 y no depende del paquete
+ * {@code organizacion} (ADR-0006).
+ *
+ * <p>Refs: H-03.1, DEF-10.1, RF-094, RN-005, RN-054, ADR-0006, ADR-0007, DEC-78, DEC-157
  */
 @Repository
 class UsuarioRepository {
 
     /** Cuenta tal como sale de la base; el servicio la convierte al DTO. */
-    record FilaPerfil(UUID id, String nombreMostrado, String correo, boolean activo,
+    record FilaPerfil(UUID id, String nombreMostrado, String correo, UUID personaId, boolean activo,
                       OffsetDateTime creadoEn) {
     }
 
@@ -34,7 +40,7 @@ class UsuarioRepository {
     }
 
     private static final String SELECCION_PERFIL = """
-            SELECT p.id, p.nombre_mostrado, p.correo, p.activo, p.creado_en
+            SELECT p.id, p.nombre_mostrado, p.correo, p.persona_id, p.activo, p.creado_en
               FROM perfiles p
             """;
 
@@ -148,17 +154,52 @@ class UsuarioRepository {
                 .single();
     }
 
-    UUID insertarPerfil(UUID usuarioAuthId, String nombreMostrado, String correo) {
+    /** Persona con esa CURP, aunque RLS no la muestre (DEC-78); vacío si no existe. */
+    Optional<UUID> personaPorCurp(String curp) {
+        return jdbc.sql("SELECT id FROM siglim.persona_por_curp(:curp)")
+                .param("curp", curp)
+                .query(UUID.class)
+                .optional();
+    }
+
+    /** Si la persona es menor en esa fecha; vacío si no existe (DEC-78). */
+    Optional<Boolean> esMenor(UUID personaId, LocalDate fecha) {
+        return jdbc.sql("SELECT siglim.es_menor(:persona, :fecha) AS menor")
+                .param("persona", personaId)
+                .param("fecha", fecha)
+                .query((fila, numero) -> {
+                    boolean menor = fila.getBoolean("menor");
+                    return fila.wasNull() ? Optional.<Boolean>empty() : Optional.of(menor);
+                })
+                .single();
+    }
+
+    /** Perfil, activo o no, ya vinculado a la persona ({@code perfiles.persona_id} es único). */
+    Optional<UUID> perfilDePersona(UUID personaId) {
+        return jdbc.sql("SELECT id FROM perfiles WHERE persona_id = :persona")
+                .param("persona", personaId)
+                .query(UUID.class)
+                .optional();
+    }
+
+    /**
+     * Inserta el perfil, vinculado a la persona si se indica. {@code ON CONFLICT DO NOTHING} sin
+     * destino cubre los únicos de {@code usuario_auth_id} y {@code persona_id}: si otra invitación
+     * vinculó a la misma persona en paralelo, devuelve vacío sin abortar la transacción (DEC-157).
+     */
+    Optional<UUID> insertarPerfil(UUID usuarioAuthId, String nombreMostrado, String correo, UUID personaId) {
         return jdbc.sql("""
-                        INSERT INTO perfiles (usuario_auth_id, nombre_mostrado, correo)
-                        VALUES (:usuarioAuthId, :nombreMostrado, :correo)
+                        INSERT INTO perfiles (usuario_auth_id, nombre_mostrado, correo, persona_id)
+                        VALUES (:usuarioAuthId, :nombreMostrado, :correo, :personaId)
+                        ON CONFLICT DO NOTHING
                         RETURNING id
                         """)
                 .param("usuarioAuthId", usuarioAuthId)
                 .param("nombreMostrado", nombreMostrado)
                 .param("correo", correo)
+                .param("personaId", personaId)
                 .query(UUID.class)
-                .single();
+                .optional();
     }
 
     void actualizarActivo(UUID perfilId, boolean activo) {
