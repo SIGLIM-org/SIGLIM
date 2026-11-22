@@ -44,8 +44,9 @@ import org.springframework.transaction.annotation.Transactional;
  *       respuesta lista en {@code camposDemo} los campos que la interfaz rotula «No oficial»
  *       ({@link #CAMPOS_DEMO}); sin él, la lista va vacía. «Oficial» significa que la Liga confirmó
  *       los valores (PEN-021).</li>
- *   <li><b>Juego completo (D3).</b> Cada versión se registra con todos sus valores; nada se hereda
- *       de la anterior. Las versiones no se editan ni se borran (RF-006).</li>
+ *   <li><b>Juego completo (D3).</b> Cada versión se registra con todos sus valores; nada se hereda de
+ *       la anterior salvo {@code equiposPorArbitro} y los dos parámetros de localía, que si se
+ *       omiten conservan los de la versión vigente (RF-114, RF-120). Las versiones no se editan ni se borran (RF-006).</li>
  *   <li><b>Estado (D4).</b> Se registra con la temporada en {@code CONFIGURACION} o {@code ACTIVA};
  *       {@code CERRADA} responde {@code 409 RF-003} (RN-005).</li>
  *   <li><b>Motivo (D5, RN-021).</b> Obligatorio, de 10 a 500 caracteres sin espacios en los extremos:
@@ -102,6 +103,10 @@ public class ParametrosService {
     private static final int MAXIMO_MINUTOS = 600;
     /** [PROPUESTA] Tope de equipos que ascienden o descienden. */
     private static final int MAXIMO_MOVIMIENTOS = 32;
+    /** [PROPUESTA] Tope de equipos por árbitro de la cuota de RF-114. */
+    private static final int MAXIMO_EQUIPOS_POR_ARBITRO = 100;
+    /** [PROPUESTA] Tope de fechas de la fase regular y de las últimas fechas de VAL-027. */
+    private static final int MAXIMO_FECHAS = 99;
     /** {@code ck_parametros_liguilla}. */
     private static final Set<Integer> CLASIFICADOS_VALIDOS = Set.of(2, 4, 8, 16, 32);
     private static final int MAXIMO_CRITERIOS = CriterioDesempate.values().length;
@@ -109,15 +114,16 @@ public class ParametrosService {
     /**
      * Campos [DEMO] que la interfaz rotula «No oficial» mientras {@code esDemo} sea {@code true}
      * (D2): puntos (DEC-26), desempates (DEC-27), marcador por default (DEC-24), plazo de la cédula
-     * (DEC-20), bloque de cancha (DEC-25), liguilla (DEC-28) y ascensos y descensos (DEC-29). No
-     * incluye {@code duracionJuegoMin}, que DEC-25 adopta como estándar, ni
-     * {@code permiteCambioClub}, que decide DEC-13.
+     * (DEC-20), bloque de cancha (DEC-25), liguilla (DEC-28), ascensos y descensos (DEC-29), la
+     * cuota de árbitros (RF-114) y las últimas fechas sin canchas externas (VAL-027). El total de
+     * fechas de la fase regular no es [DEMO]: es el calendario de la temporada. No incluye {@code duracionJuegoMin}, que DEC-25 adopta como
+     * estándar, ni {@code permiteCambioClub}, que decide DEC-13.
      */
     static final List<String> CAMPOS_DEMO = List.of(
             "puntosVictoria", "puntosEmpate", "puntosDerrota", "criteriosDesempate",
             "golesDefaultGanador", "golesDefaultPerdedor", "plazoValidacionCedulaHoras", "bloqueCanchaMin",
             "clasificadosLiguilla", "formatoLiguilla", "empateLiguillaPorPenales",
-            "equiposAscienden", "equiposDescienden");
+            "equiposAscienden", "equiposDescienden", "equiposPorArbitro", "fechasFinalesUnidadDeportiva");
 
     /** Campos de una versión en el orden del contrato, para {@code camposCambiados}. */
     private static final Map<String, Function<ValoresParametros, Object>> CAMPOS = campos();
@@ -185,6 +191,9 @@ public class ParametrosService {
      * ({@code 400 VALIDACION} con la extensión {@code errores}) → temporada, con candado
      * ({@code 404}) → categorías asignadas ({@code 422 REFERENCIA_INVALIDA}) → temporada cerrada
      * ({@code 409 RF-003}).
+     *
+     * <p>Si la petición omite {@code equiposPorArbitro}, la versión nueva conserva el de la versión
+     * vigente; solo la primera versión usa el 4 [DEMO] de la tabla (RF-114).
      */
     @Transactional
     public ParametrosDto registrar(UUID temporadaId, RegistrarParametrosRequest peticion) {
@@ -204,6 +213,8 @@ public class ParametrosService {
         }
 
         FilaVersion vigente = parametros.buscarVigente(temporada.id()).orElse(null);
+        valores = heredarEquiposPorArbitro(valores, peticion, vigente);
+        valores = heredarLocalia(valores, peticion, vigente);
         ValoresParametros anterior = vigente == null ? null
                 : completos(vigente, parametros.categoriasDeVersion(vigente.id()));
 
@@ -219,6 +230,39 @@ public class ParametrosService {
         auditoria.registrar(new EventoAuditoria(ligaId, MODULO, ACCION, ENTIDAD, creada.id().toString(), motivo,
                 detalle));
         return version(temporada.id(), creada.version());
+    }
+
+    /**
+     * RF-114: una petición sin {@code equiposPorArbitro} conserva el divisor de la versión vigente;
+     * solo la primera versión usa el 4 [DEMO] de la tabla. Se resuelve con la temporada ya bloqueada
+     * para heredar el mismo valor con el que se compara la versión nueva.
+     */
+    private static ValoresParametros heredarEquiposPorArbitro(ValoresParametros valores,
+            RegistrarParametrosRequest peticion, FilaVersion vigente) {
+        if (peticion.equiposPorArbitro() != null) {
+            return valores;
+        }
+        int heredado = vigente == null
+                ? ParametrosPredeterminadosDto.DE_LA_TABLA.equiposPorArbitro()
+                : vigente.valores().equiposPorArbitro();
+        return valores.conEquiposPorArbitro(heredado);
+    }
+
+    /**
+     * RF-120, RN-049: los dos parámetros de localía que se omiten conservan el valor de la versión
+     * vigente, para que registrar puntos o tiempos no borre el calendario ni el 10 [DEMO]. Sin
+     * versión vigente, el total de fechas queda sin definir y las últimas fechas valen 10.
+     */
+    private static ValoresParametros heredarLocalia(ValoresParametros valores,
+            RegistrarParametrosRequest peticion, FilaVersion vigente) {
+        ParametrosPredeterminadosDto tabla = ParametrosPredeterminadosDto.DE_LA_TABLA;
+        Integer fechasFaseRegular = peticion.fechasFaseRegular() != null ? valores.fechasFaseRegular()
+                : vigente == null ? tabla.fechasFaseRegular() : vigente.valores().fechasFaseRegular();
+        int fechasFinales = peticion.fechasFinalesUnidadDeportiva() != null
+                ? valores.fechasFinalesUnidadDeportiva()
+                : vigente == null ? tabla.fechasFinalesUnidadDeportiva()
+                        : vigente.valores().fechasFinalesUnidadDeportiva();
+        return valores.conLocalia(fechasFaseRegular, fechasFinales);
     }
 
     // ── Validación del cuerpo ──────────────────────────────────────────────────────────────────
@@ -288,13 +332,28 @@ public class ParametrosService {
         int descienden = errores.entero("equiposDescienden", p.equiposDescienden(), 0, MAXIMO_MOVIMIENTOS,
                 "los equipos que descienden");
         errores.obligatorio("permiteCambioClub", p.permiteCambioClub(), "indicar si se permite el cambio de club");
+        // RF-114: si se omite, registrar() lo reemplaza por el de la versión vigente tras el candado.
+        int equiposPorArbitro = p.equiposPorArbitro() == null
+                ? ParametrosPredeterminadosDto.DE_LA_TABLA.equiposPorArbitro()
+                : errores.entero("equiposPorArbitro", p.equiposPorArbitro(), 1, MAXIMO_EQUIPOS_POR_ARBITRO,
+                        "los equipos por árbitro de la cuota (RF-114)");
+
+        // RF-120, RN-049: si se omiten, registrar() los reemplaza por los de la versión vigente.
+        Integer fechasFaseRegular = p.fechasFaseRegular() == null ? null
+                : errores.entero("fechasFaseRegular", p.fechasFaseRegular(), 1, MAXIMO_FECHAS,
+                        "el total de fechas de la fase regular");
+        int fechasFinales = p.fechasFinalesUnidadDeportiva() == null
+                ? ParametrosPredeterminadosDto.DE_LA_TABLA.fechasFinalesUnidadDeportiva()
+                : errores.entero("fechasFinalesUnidadDeportiva", p.fechasFinalesUnidadDeportiva(), 0, MAXIMO_FECHAS,
+                        "las últimas fechas sin canchas externas (VAL-027)");
 
         List<ValorCategoria> categorias = categorias(p.categorias(), errores);
 
         errores.lanzarSiHay();
         return new ValoresParametros(victoria, empate, derrota, criterios, ganador, perdedor, plazo, duracion, bloque,
                 clasificados, p.formatoLiguilla(), p.empateLiguillaPorPenales(), ascienden, descienden,
-                p.permiteCambioClub(), p.esDemo() == null || p.esDemo(), categorias);
+                p.permiteCambioClub(), equiposPorArbitro, fechasFaseRegular, fechasFinales,
+                p.esDemo() == null || p.esDemo(), categorias);
     }
 
     /** D6: de 1 a 8, el primero PUNTOS, sin repetidos y SORTEO solo al final (RF-050, DEC-27). */
@@ -409,7 +468,8 @@ public class ParametrosService {
                 v.puntosDerrota(), v.criteriosDesempate(), v.golesDefaultGanador(), v.golesDefaultPerdedor(),
                 v.plazoValidacionCedulaHoras(), v.duracionJuegoMin(), v.bloqueCanchaMin(), v.clasificadosLiguilla(),
                 v.formatoLiguilla(), v.empateLiguillaPorPenales(), v.equiposAscienden(), v.equiposDescienden(),
-                v.permiteCambioClub(),
+                v.permiteCambioClub(), v.equiposPorArbitro(), v.fechasFaseRegular(),
+                v.fechasFinalesUnidadDeportiva(),
                 categorias.stream()
                         .map(c -> new ParametrosCategoriaDto(c.categoria(), c.duracionJuegoMin(), c.bloqueCanchaMin()))
                         .toList(),
@@ -456,6 +516,9 @@ public class ParametrosService {
         campos.put("equiposAscienden", ValoresParametros::equiposAscienden);
         campos.put("equiposDescienden", ValoresParametros::equiposDescienden);
         campos.put("permiteCambioClub", ValoresParametros::permiteCambioClub);
+        campos.put("equiposPorArbitro", ValoresParametros::equiposPorArbitro);
+        campos.put("fechasFaseRegular", ValoresParametros::fechasFaseRegular);
+        campos.put("fechasFinalesUnidadDeportiva", ValoresParametros::fechasFinalesUnidadDeportiva);
         campos.put("esDemo", ValoresParametros::esDemo);
         return Collections.unmodifiableMap(campos);
     }

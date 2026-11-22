@@ -14,6 +14,8 @@ import { rangoSemana } from '@/features/canchas/fechas'
 import { FormularioCancha } from '@/features/canchas/FormularioCancha'
 import { ModalEstadoCancha } from '@/features/canchas/ModalEstadoCancha'
 import { ModalIntervalo } from '@/features/canchas/ModalIntervalo'
+import { usePermisosHorarios } from '@/features/canchas/permisosHorarios'
+import { SeccionHorariosClub } from '@/features/canchas/SeccionHorariosClub'
 import type { PartidoEnCancha, TipoDisponibilidad } from '@/features/canchas/tipos'
 import { ConPermiso } from '@/features/seguridad/ConPermiso'
 
@@ -45,6 +47,8 @@ export function DetalleCancha({ canchaId, semana, rutaCatalogo, onCambiarSemana 
   const ocupacion = useOcupacion(canchaId, rango)
   const [modal, setModal] = useState<Modal>(null)
   const [aviso, setAviso] = useState<Aviso | null>(null)
+  // Sin cancha cargada se evalúa como EXTERNO: no se ve nada hasta saber el propietario.
+  const permisosHorarios = usePermisosHorarios(consulta.data?.propietario ?? 'EXTERNO')
 
   if (consulta.isPending) {
     return <EstadoCarga etiqueta="Cargando la cancha…" filas={3} columnas={2} />
@@ -161,6 +165,9 @@ export function DetalleCancha({ canchaId, semana, rutaCatalogo, onCambiarSemana 
         onReintentar={() => void ocupacion.refetch()}
         onCambiarSemana={onCambiarSemana}
       />
+
+      {/* B-13.2: horarios de club o comodato; una cancha EXTERNO no admite horarios (DEC-33). */}
+      {cancha.propietario !== 'EXTERNO' && permisosHorarios.ver && <SeccionHorariosClub cancha={cancha} />}
 
       {(modal === 'disponibilidad' || modal === 'bloqueo') && (
         <ModalIntervalo

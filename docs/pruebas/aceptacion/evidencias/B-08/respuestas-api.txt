@@ -1,0 +1,162 @@
+Prueba de aceptación B-08.3 · respuestas de la API local (19-nov-2026)
+Base local efímera; cuentas ficticias identificadas por su rol. Los tokens no se registran.
+
+### V-2: sin temporada ACTIVA, la cuota sin temporadaId responde 409 RF-114
+> GET /api/v1/clubes/b0850001-0000-4000-8000-000000000001/cuota-arbitros  (cuenta: Directiva de prueba)
+< HTTP 409
+{
+  "detail": "La liga no tiene una temporada activa: indica la temporada de la cuota.",
+  "instance": "/api/v1/clubes/b0850001-0000-4000-8000-000000000001/cuota-arbitros",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/rf-114",
+  "codigo": "RF-114"
+}
+
+### (Se activa la Temporada local B-08 en la base local)
+
+### CA-1: la Directiva consulta la cuota de su club (temporada activa)
+> GET /api/v1/clubes/b0850001-0000-4000-8000-000000000001/cuota-arbitros  (cuenta: Directiva de prueba)
+< HTTP 200
+{
+  "club": {
+    "id": "b0850001-0000-4000-8000-000000000001",
+    "nombre": "Club Halcones de Pátzcuaro"
+  },
+  "temporada": {
+    "id": "b0810000-0000-4000-8000-000000000001",
+    "nombre": "Temporada local B-08"
+  },
+  "equiposActivos": 5,
+  "equiposPorArbitro": 4,
+  "cuotaArbitros": {
+    "requeridos": 2,
+    "validados": 1,
+    "cumple": false
+  }
+}
+
+### CA-4: la Directiva consulta otro club (fuera de su ámbito) → 404
+> GET /api/v1/clubes/b0850002-0000-4000-8000-000000000001/cuota-arbitros  (cuenta: Directiva de prueba)
+< HTTP 404
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/clubes/b0850002-0000-4000-8000-000000000001/cuota-arbitros",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
+
+### CA-4: club inexistente → 404 (igual que el ajeno, VAL-024)
+> GET /api/v1/clubes/00000000-0000-4000-8000-000000000000/cuota-arbitros  (cuenta: Directiva de prueba)
+< HTTP 404
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/clubes/00000000-0000-4000-8000-000000000000/cuota-arbitros",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
+
+### CA-4: temporada inexistente → 404
+> GET /api/v1/clubes/b0850001-0000-4000-8000-000000000001/cuota-arbitros?temporadaId=00000000-0000-4000-8000-000000000000  (cuenta: Directiva de prueba)
+< HTTP 404
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/clubes/b0850001-0000-4000-8000-000000000001/cuota-arbitros",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
+
+### CA-4: identificadores mal formados → 400 VALIDACION
+> GET /api/v1/clubes/no-es-uuid/cuota-arbitros  (cuenta: Directiva de prueba)
+< HTTP 400
+{
+  "detail": "La solicitud no es válida. Revisa los datos enviados.",
+  "instance": "/api/v1/clubes/no-es-uuid/cuota-arbitros",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION"
+}
+
+> GET /api/v1/clubes/b0850001-0000-4000-8000-000000000001/cuota-arbitros?temporadaId=no-es-uuid  (cuenta: Directiva de prueba)
+< HTTP 400
+{
+  "detail": "La solicitud no es válida. Revisa los datos enviados.",
+  "instance": "/api/v1/clubes/b0850001-0000-4000-8000-000000000001/cuota-arbitros",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION"
+}
+
+### La Comisión (ámbito LIGA) consulta la cuota de cualquier club con temporadaId explícito
+> GET /api/v1/clubes/b0850002-0000-4000-8000-000000000001/cuota-arbitros?temporadaId=b0810000-0000-4000-8000-000000000001  (cuenta: Comisión de prueba)
+< HTTP 200
+{
+  "club": {
+    "id": "b0850002-0000-4000-8000-000000000001",
+    "nombre": "Club Deportivo Uruapan"
+  },
+  "temporada": {
+    "id": "b0810000-0000-4000-8000-000000000001",
+    "nombre": "Temporada local B-08"
+  },
+  "equiposActivos": 4,
+  "equiposPorArbitro": 4,
+  "cuotaArbitros": {
+    "requeridos": 1,
+    "validados": 1,
+    "cumple": true
+  }
+}
+
+### CA-2: tras validar al árbitro PROPUESTO, la Directiva ve 2 de 2 y cumple
+> GET /api/v1/clubes/b0850001-0000-4000-8000-000000000001/cuota-arbitros  (cuenta: Directiva de prueba)
+< HTTP 200
+{
+  "club": {
+    "id": "b0850001-0000-4000-8000-000000000001",
+    "nombre": "Club Halcones de Pátzcuaro"
+  },
+  "temporada": {
+    "id": "b0810000-0000-4000-8000-000000000001",
+    "nombre": "Temporada local B-08"
+  },
+  "equiposActivos": 5,
+  "equiposPorArbitro": 4,
+  "cuotaArbitros": {
+    "requeridos": 2,
+    "validados": 2,
+    "cumple": true
+  }
+}
+
+### C-1 (DEC-72): versión 2 de parámetros con equiposPorArbitro = 2 (registrada en la base local); la cuota usa la versión vigente
+version 2: equipos_por_arbitro = 2
+
+> GET /api/v1/clubes/b0850001-0000-4000-8000-000000000001/cuota-arbitros  (cuenta: Directiva de prueba)
+< HTTP 200
+{
+  "club": {
+    "id": "b0850001-0000-4000-8000-000000000001",
+    "nombre": "Club Halcones de Pátzcuaro"
+  },
+  "temporada": {
+    "id": "b0810000-0000-4000-8000-000000000001",
+    "nombre": "Temporada local B-08"
+  },
+  "equiposActivos": 5,
+  "equiposPorArbitro": 2,
+  "cuotaArbitros": {
+    "requeridos": 3,
+    "validados": 2,
+    "cumple": false
+  }
+}
+

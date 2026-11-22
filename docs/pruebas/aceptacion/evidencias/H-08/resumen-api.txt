@@ -1,0 +1,7 @@
+# Resumen de la corrida de aceptación H-08 (entorno local)
+CA-1 alta: POST /api/v1/afiliaciones -> folio AF-2026-0001, estado SOLICITADA
+CA-2 aprobación: POST /api/v1/afiliaciones/c2f5c46f-4866-487f-a3ae-7c6c1e78d437/resolucion -> APROBADA, resueltaPor Presidencia del Comité, resueltaEn 2026-11-12T18:13:55.561823-06:00
+CA-2 rechazo: POST /api/v1/afiliaciones/e7978ba3-2f8d-46ea-8cf7-185b4481f072/resolucion -> RECHAZADA, observaciones "Faltan las firmas del secretario y la categoría no corresponde a la convocatoria."
+CA-3 consulta de la Directiva Riviera sobre el tarjetón de Halcones: GET /api/v1/afiliaciones/c2f5c46f-4866-487f-a3ae-7c6c1e78d437 -> 404 NO_ENCONTRADO
+CA-3 listado propio: 200, 1 tarjetón(es) visibles (Club Riviera)
+CA-2 rechazo sin observaciones: POST /api/v1/afiliaciones/6da98bf4-8d9b-4b59-a1e5-c216affd9455/resolucion -> 400 RF-101 "Escribe observaciones de al menos 10 caracteres para rechazar la afiliación."

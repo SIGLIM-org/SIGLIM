@@ -1,0 +1,25 @@
+Prueba de aceptación B-06.3 · verificación automática sobre develop en 04e9949 (19-nov-2026)
+
+## Backend: ./mvnw verify (Java 25, Testcontainers para las pruebas *IT)
+Tests run: 66, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.registros.RegistroJugadorControllerTest
+Tests run: 81, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.registros.RegistroJugadorServiceTest
+Tests run: 38, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.temporadas.ParametrosServiceTest
+Tests run: 10, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.registros.RenovacionesTransferenciasIT
+Tests run: 2113, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 333, Failures: 0, Errors: 0, Skipped: 1
+BUILD SUCCESS
+Omitida: AlmacenamientoDocumentosAwsIT (sin credenciales de AWS)
+
+## Frontend
+npm run lint: sin errores (oxlint)
+npx vitest run --maxWorkers=2 (1.ª corrida, máquina cargada): Test Files  3 failed | 87 passed (90) · Tests  13 failed | 826 passed (839) — fallas por tiempo de espera de 5 s
+  Repetición sola de los 3 archivos (PantallaClubes, PantallaAltaJugador, PestanaParametros): Test Files  3 passed (3) · Tests  68 passed (68)
+npx vitest run --maxWorkers=2 (2.ª corrida): Test Files  90 passed (90) · Tests  839 passed (839)
+Pruebas de B-06 en el frontend:
+  ✓ src/features/temporadas/PestanaParametros.test.tsx > PestanaParametros > RF-111: el interruptor de cambio de club se rotula «No oficial» y envía permiteCambioClub:false
+  ✓ src/features/temporadas/PestanaParametros.test.tsx > PestanaParametros > RF-111: con valores oficiales el interruptor de cambio de club no lleva «No oficial»
+  ✓ src/features/registros/PantallaAltaJugador.test.tsx > PantallaAltaJugador (F-18, F-06, H-09.3) > RF-015: con un registro anterior en el club ofrece «Renovar en mi club» y crea la renovación sin pedir otra vez el consentimiento
+  ✓ src/features/registros/PantallaAltaJugador.test.tsx > PantallaAltaJugador (F-18, F-06, H-09.3) > RF-016: con un registro anterior en otro club ofrece «Registrar en este equipo» y, si falta el consentimiento, lo pide antes de transferir
+  ✓ src/features/registros/PantallaAltaJugador.test.tsx > PantallaAltaJugador (F-18, F-06, H-09.3) > RF-111: si la Liga no permite el cambio de club, «Registrar en este equipo» queda deshabilitado con la explicación
+  ✓ src/features/registros/PantallaAltaJugador.test.tsx > PantallaAltaJugador (F-18, F-06, H-09.3) > DEC-153: sin registro anterior no se ofrece movimiento y sigue el alta normal
+npm run build: correcto

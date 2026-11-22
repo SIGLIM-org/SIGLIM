@@ -1,6 +1,7 @@
 import type { VarianteInsignia } from '@/components/ui/Insignia'
 import type {
   Cancha,
+  DiaSemana,
   PropietarioCancha,
   TipoBloqueOcupacion,
   UbicacionCancha,
@@ -16,6 +17,17 @@ export const etiquetaPropietario: Record<PropietarioCancha, string> = {
   LIGA: 'Liga',
   CLUB: 'Club',
   EXTERNO: 'Externo',
+}
+
+/** Días de un horario semanal; 1 es lunes (convenciones §6.6.1). */
+export const etiquetaDia: Record<DiaSemana, string> = {
+  1: 'Lunes',
+  2: 'Martes',
+  3: 'Miércoles',
+  4: 'Jueves',
+  5: 'Viernes',
+  6: 'Sábado',
+  7: 'Domingo',
 }
 
 export const etiquetaBloque: Record<TipoBloqueOcupacion, string> = {

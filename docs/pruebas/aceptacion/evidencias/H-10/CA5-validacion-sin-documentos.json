@@ -1,0 +1,30 @@
+{
+    "detail": "El registro no se puede activar: faltan documentos aprobados de \u00abIdentificaci\u00f3n\u00bb, \u00abFotograf\u00eda\u00bb. Aprueba los documentos pendientes o pide al club que cargue los que faltan.",
+    "instance": "/api/v1/registros-jugador/15dd8585-6b3a-4244-a7e1-a4c7591bdb1d/validacion",
+    "status": 422,
+    "title": "No se puede procesar",
+    "type": "https://siglim.mx/errores/val-001",
+    "codigo": "VAL-001",
+    "faltantes": [
+        {
+            "tipoDocumento": {
+                "id": 2,
+                "codigo": "IDENTIFICACION",
+                "nombre": "Identificaci\u00f3n"
+            },
+            "cantidad": 1,
+            "cargados": 0,
+            "aprobados": 0
+        },
+        {
+            "tipoDocumento": {
+                "id": 5,
+                "codigo": "FOTOGRAFIA",
+                "nombre": "Fotograf\u00eda"
+            },
+            "cantidad": 2,
+            "cargados": 0,
+            "aprobados": 0
+        }
+    ]
+}

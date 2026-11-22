@@ -1,0 +1,780 @@
+Prueba de aceptación B-01.2 · respuestas de la API local (21-nov-2026)
+Base local efímera; personas y cuentas ficticias. Los tokens no se registran.
+Cuentas: 0 = Administrador general (LIGA), 1 = Secretario (LIGA), 2 = Directiva de club (CLUB), 3 = Titular jugador (PROPIO).
+
+## CA-1 · Registrar solicitudes (Administrador general, ámbito LIGA)
+### Solicitud de acceso
+> POST /api/v1/solicitudes-arco  (cuenta: Administrador de prueba)
+> {"personaId":"b0170001-0000-4000-8000-000000000001","tipo":"ACCESO","descripcion":"El titular pide una copia de los datos personales que la Liga tiene registrados."}
+< HTTP 201
+{
+  "id": "ca8b216e-7b06-4b92-a678-3b4a7491fd65",
+  "personaId": "b0170001-0000-4000-8000-000000000001",
+  "personaNombre": "Tomás Titular Prueba",
+  "tipo": "ACCESO",
+  "descripcion": "El titular pide una copia de los datos personales que la Liga tiene registrados.",
+  "estado": "RECIBIDA",
+  "recibidaEn": "2026-11-21T19:28:50.941833Z",
+  "atendidaPor": null,
+  "atendidaPorNombre": null,
+  "atendidaEn": null,
+  "respuesta": null
+}
+
+### Solicitud de rectificacion
+> POST /api/v1/solicitudes-arco  (cuenta: Administrador de prueba)
+> {"personaId":"b0170002-0000-4000-8000-000000000001","tipo":"RECTIFICACION","descripcion":"La titular pide corregir su segundo apellido en el registro."}
+< HTTP 201
+{
+  "id": "f6c4b43e-a5b0-4954-9947-91cf9564b275",
+  "personaId": "b0170002-0000-4000-8000-000000000001",
+  "personaNombre": "Rosa Rectifica Prueba",
+  "tipo": "RECTIFICACION",
+  "descripcion": "La titular pide corregir su segundo apellido en el registro.",
+  "estado": "RECIBIDA",
+  "recibidaEn": "2026-11-21T19:28:51.930128Z",
+  "atendidaPor": null,
+  "atendidaPorNombre": null,
+  "atendidaEn": null,
+  "respuesta": null
+}
+
+### Solicitud de cancelacion
+> POST /api/v1/solicitudes-arco  (cuenta: Administrador de prueba)
+> {"personaId":"b0170003-0000-4000-8000-000000000001","tipo":"CANCELACION","descripcion":"El titular pide cancelar su correo y teléfono porque ya no juega en la Liga."}
+< HTTP 201
+{
+  "id": "51bd60bc-3951-484f-95ce-7bb8070af476",
+  "personaId": "b0170003-0000-4000-8000-000000000001",
+  "personaNombre": "Carlos Cancela Prueba",
+  "tipo": "CANCELACION",
+  "descripcion": "El titular pide cancelar su correo y teléfono porque ya no juega en la Liga.",
+  "estado": "RECIBIDA",
+  "recibidaEn": "2026-11-21T19:28:52.707397Z",
+  "atendidaPor": null,
+  "atendidaPorNombre": null,
+  "atendidaEn": null,
+  "respuesta": null
+}
+
+### Solicitud de oposicion
+> POST /api/v1/solicitudes-arco  (cuenta: Administrador de prueba)
+> {"personaId":"b0170001-0000-4000-8000-000000000001","tipo":"OPOSICION","descripcion":"El titular se opone a la difusión de su nombre en el portal."}
+< HTTP 201
+{
+  "id": "361a80db-514b-4f7f-b1b3-e1d8df242b71",
+  "personaId": "b0170001-0000-4000-8000-000000000001",
+  "personaNombre": "Tomás Titular Prueba",
+  "tipo": "OPOSICION",
+  "descripcion": "El titular se opone a la difusión de su nombre en el portal.",
+  "estado": "RECIBIDA",
+  "recibidaEn": "2026-11-21T19:28:53.703117Z",
+  "atendidaPor": null,
+  "atendidaPorNombre": null,
+  "atendidaEn": null,
+  "respuesta": null
+}
+
+## CA-1 · Validaciones del registro
+### Sin persona titular
+> POST /api/v1/solicitudes-arco  (cuenta: Administrador de prueba)
+> {"tipo":"ACCESO","descripcion":"Solicitud sin titular."}
+< HTTP 400
+{
+  "detail": "Indica la persona titular de los datos.",
+  "instance": "/api/v1/solicitudes-arco",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION"
+}
+
+### Tipo que no existe
+> POST /api/v1/solicitudes-arco  (cuenta: Administrador de prueba)
+> {"personaId":"b0170001-0000-4000-8000-000000000001","tipo":"BORRADO","descripcion":"Tipo que no existe."}
+< HTTP 400
+{
+  "detail": "El tipo de solicitud debe ser ACCESO, RECTIFICACION, CANCELACION u OPOSICION.",
+  "instance": "/api/v1/solicitudes-arco",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION"
+}
+
+### Descripción vacía
+> POST /api/v1/solicitudes-arco  (cuenta: Administrador de prueba)
+> {"personaId":"b0170001-0000-4000-8000-000000000001","tipo":"ACCESO","descripcion":"   "}
+< HTTP 400
+{
+  "detail": "Describe lo que pide el titular de los datos.",
+  "instance": "/api/v1/solicitudes-arco",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION"
+}
+
+### Persona inexistente
+> POST /api/v1/solicitudes-arco  (cuenta: Administrador de prueba)
+> {"personaId":"00000000-0000-4000-8000-000000000000","tipo":"ACCESO","descripcion":"Titular inexistente."}
+< HTTP 422
+{
+  "detail": "La persona indicada no existe. Búscala por su CURP y vuelve a intentarlo.",
+  "instance": "/api/v1/solicitudes-arco",
+  "status": 422,
+  "title": "No se puede procesar",
+  "type": "https://siglim.mx/errores/referencia-invalida",
+  "codigo": "REFERENCIA_INVALIDA"
+}
+
+## CA-2 · Seguimiento (Administrador general)
+### Acceso: RECIBIDA → EN_ATENCION
+> PATCH /api/v1/solicitudes-arco/ca8b216e-7b06-4b92-a678-3b4a7491fd65  (cuenta: Administrador de prueba)
+> {"estado":"EN_ATENCION"}
+< HTTP 200
+{
+  "id": "ca8b216e-7b06-4b92-a678-3b4a7491fd65",
+  "personaId": "b0170001-0000-4000-8000-000000000001",
+  "personaNombre": "Tomás Titular Prueba",
+  "tipo": "ACCESO",
+  "descripcion": "El titular pide una copia de los datos personales que la Liga tiene registrados.",
+  "estado": "EN_ATENCION",
+  "recibidaEn": "2026-11-21T19:28:50.941833Z",
+  "atendidaPor": null,
+  "atendidaPorNombre": null,
+  "atendidaEn": null,
+  "respuesta": null
+}
+
+### Acceso: EN_ATENCION → EN_ATENCION otra vez
+> PATCH /api/v1/solicitudes-arco/ca8b216e-7b06-4b92-a678-3b4a7491fd65  (cuenta: Administrador de prueba)
+> {"estado":"EN_ATENCION"}
+< HTTP 422
+{
+  "detail": "La solicitud ya está EN_ATENCION.",
+  "instance": "/api/v1/solicitudes-arco/ca8b216e-7b06-4b92-a678-3b4a7491fd65",
+  "status": 422,
+  "title": "No se puede procesar",
+  "type": "https://siglim.mx/errores/rf-098",
+  "codigo": "RF-098"
+}
+
+### Acceso: cerrar como ATENDIDA sin respuesta
+> PATCH /api/v1/solicitudes-arco/ca8b216e-7b06-4b92-a678-3b4a7491fd65  (cuenta: Administrador de prueba)
+> {"estado":"ATENDIDA"}
+< HTTP 400
+{
+  "detail": "Escribe la respuesta que se entrega al titular para cerrar la solicitud.",
+  "instance": "/api/v1/solicitudes-arco/ca8b216e-7b06-4b92-a678-3b4a7491fd65",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION"
+}
+
+### Acceso: EN_ATENCION → ATENDIDA con respuesta
+> PATCH /api/v1/solicitudes-arco/ca8b216e-7b06-4b92-a678-3b4a7491fd65  (cuenta: Administrador de prueba)
+> {"estado":"ATENDIDA","respuesta":"Se entregó al titular la copia de sus datos personales en ventanilla."}
+< HTTP 200
+{
+  "id": "ca8b216e-7b06-4b92-a678-3b4a7491fd65",
+  "personaId": "b0170001-0000-4000-8000-000000000001",
+  "personaNombre": "Tomás Titular Prueba",
+  "tipo": "ACCESO",
+  "descripcion": "El titular pide una copia de los datos personales que la Liga tiene registrados.",
+  "estado": "ATENDIDA",
+  "recibidaEn": "2026-11-21T19:28:50.941833Z",
+  "atendidaPor": "b01000ff-0000-4000-8000-000000000001",
+  "atendidaPorNombre": "Administrador de prueba",
+  "atendidaEn": "2026-11-21T19:29:17.197739Z",
+  "respuesta": "Se entregó al titular la copia de sus datos personales en ventanilla."
+}
+
+### Acceso: una solicitud ATENDIDA no admite más cambios
+> PATCH /api/v1/solicitudes-arco/ca8b216e-7b06-4b92-a678-3b4a7491fd65  (cuenta: Administrador de prueba)
+> {"estado":"RECHAZADA","respuesta":"La titular no presentó el acta de nacimiento que acredita el cambio."}
+< HTTP 422
+{
+  "detail": "La solicitud ya está ATENDIDA y no admite más cambios de estado.",
+  "instance": "/api/v1/solicitudes-arco/ca8b216e-7b06-4b92-a678-3b4a7491fd65",
+  "status": 422,
+  "title": "No se puede procesar",
+  "type": "https://siglim.mx/errores/rf-098",
+  "codigo": "RF-098"
+}
+
+### Rectificación: respuesta al pasar a EN_ATENCION (solo se registra al cerrar)
+> PATCH /api/v1/solicitudes-arco/f6c4b43e-a5b0-4954-9947-91cf9564b275  (cuenta: Administrador de prueba)
+> {"estado":"EN_ATENCION","respuesta":"Respuesta antes de cerrar."}
+< HTTP 400
+{
+  "detail": "La respuesta al titular se registra al cerrar la solicitud (ATENDIDA o RECHAZADA).",
+  "instance": "/api/v1/solicitudes-arco/f6c4b43e-a5b0-4954-9947-91cf9564b275",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION"
+}
+
+### Rectificación: RECIBIDA → RECHAZADA con respuesta (cierre directo)
+> PATCH /api/v1/solicitudes-arco/f6c4b43e-a5b0-4954-9947-91cf9564b275  (cuenta: Administrador de prueba)
+> {"estado":"RECHAZADA","respuesta":"La titular no presentó el acta de nacimiento que acredita el cambio."}
+< HTTP 200
+{
+  "id": "f6c4b43e-a5b0-4954-9947-91cf9564b275",
+  "personaId": "b0170002-0000-4000-8000-000000000001",
+  "personaNombre": "Rosa Rectifica Prueba",
+  "tipo": "RECTIFICACION",
+  "descripcion": "La titular pide corregir su segundo apellido en el registro.",
+  "estado": "RECHAZADA",
+  "recibidaEn": "2026-11-21T19:28:51.930128Z",
+  "atendidaPor": "b01000ff-0000-4000-8000-000000000001",
+  "atendidaPorNombre": "Administrador de prueba",
+  "atendidaEn": "2026-11-21T19:29:19.145045Z",
+  "respuesta": "La titular no presentó el acta de nacimiento que acredita el cambio."
+}
+
+### Oposición: volver a RECIBIDA no es un estado destino
+> PATCH /api/v1/solicitudes-arco/361a80db-514b-4f7f-b1b3-e1d8df242b71  (cuenta: Administrador de prueba)
+> {"estado":"RECIBIDA"}
+< HTTP 400
+{
+  "detail": "El nuevo estado debe ser EN_ATENCION, ATENDIDA o RECHAZADA.",
+  "instance": "/api/v1/solicitudes-arco/361a80db-514b-4f7f-b1b3-e1d8df242b71",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION"
+}
+
+### Solicitud inexistente
+> PATCH /api/v1/solicitudes-arco/00000000-0000-4000-8000-000000000000  (cuenta: Administrador de prueba)
+> {"estado":"EN_ATENCION"}
+< HTTP 404
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/solicitudes-arco/00000000-0000-4000-8000-000000000000",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
+
+## CA-5 · Cancelación: se atiende como bloqueo, sin borrar
+### Cancelación: RECIBIDA → EN_ATENCION
+> PATCH /api/v1/solicitudes-arco/51bd60bc-3951-484f-95ce-7bb8070af476  (cuenta: Administrador de prueba)
+> {"estado":"EN_ATENCION"}
+< HTTP 200
+{
+  "id": "51bd60bc-3951-484f-95ce-7bb8070af476",
+  "personaId": "b0170003-0000-4000-8000-000000000001",
+  "personaNombre": "Carlos Cancela Prueba",
+  "tipo": "CANCELACION",
+  "descripcion": "El titular pide cancelar su correo y teléfono porque ya no juega en la Liga.",
+  "estado": "EN_ATENCION",
+  "recibidaEn": "2026-11-21T19:28:52.707397Z",
+  "atendidaPor": null,
+  "atendidaPorNombre": null,
+  "atendidaEn": null,
+  "respuesta": null
+}
+
+### Cancelación: EN_ATENCION → ATENDIDA
+> PATCH /api/v1/solicitudes-arco/51bd60bc-3951-484f-95ce-7bb8070af476  (cuenta: Administrador de prueba)
+> {"estado":"ATENDIDA","respuesta":"Se bloquearon el correo y el teléfono del titular; el historial deportivo se conserva (DEC-67)."}
+< HTTP 200
+{
+  "id": "51bd60bc-3951-484f-95ce-7bb8070af476",
+  "personaId": "b0170003-0000-4000-8000-000000000001",
+  "personaNombre": "Carlos Cancela Prueba",
+  "tipo": "CANCELACION",
+  "descripcion": "El titular pide cancelar su correo y teléfono porque ya no juega en la Liga.",
+  "estado": "ATENDIDA",
+  "recibidaEn": "2026-11-21T19:28:52.707397Z",
+  "atendidaPor": "b01000ff-0000-4000-8000-000000000001",
+  "atendidaPorNombre": "Administrador de prueba",
+  "atendidaEn": "2026-11-21T19:29:22.038697Z",
+  "respuesta": "Se bloquearon el correo y el teléfono del titular; el historial deportivo se conserva (DEC-67)."
+}
+
+## CA-3 · Listado y filtros (Administrador general)
+### Todas, de la más reciente a la más antigua
+> GET /api/v1/solicitudes-arco  (cuenta: Administrador de prueba)
+< HTTP 200
+{
+  "contenido": [
+    {
+      "id": "361a80db-514b-4f7f-b1b3-e1d8df242b71",
+      "personaId": "b0170001-0000-4000-8000-000000000001",
+      "personaNombre": "Tomás Titular Prueba",
+      "tipo": "OPOSICION",
+      "descripcion": "El titular se opone a la difusión de su nombre en el portal.",
+      "estado": "RECIBIDA",
+      "recibidaEn": "2026-11-21T19:28:53.703117Z",
+      "atendidaPor": null,
+      "atendidaPorNombre": null,
+      "atendidaEn": null,
+      "respuesta": null
+    },
+    {
+      "id": "51bd60bc-3951-484f-95ce-7bb8070af476",
+      "personaId": "b0170003-0000-4000-8000-000000000001",
+      "personaNombre": "Carlos Cancela Prueba",
+      "tipo": "CANCELACION",
+      "descripcion": "El titular pide cancelar su correo y teléfono porque ya no juega en la Liga.",
+      "estado": "ATENDIDA",
+      "recibidaEn": "2026-11-21T19:28:52.707397Z",
+      "atendidaPor": "b01000ff-0000-4000-8000-000000000001",
+      "atendidaPorNombre": "Administrador de prueba",
+      "atendidaEn": "2026-11-21T19:29:22.038697Z",
+      "respuesta": "Se bloquearon el correo y el teléfono del titular; el historial deportivo se conserva (DEC-67)."
+    },
+    {
+      "id": "f6c4b43e-a5b0-4954-9947-91cf9564b275",
+      "personaId": "b0170002-0000-4000-8000-000000000001",
+      "personaNombre": "Rosa Rectifica Prueba",
+      "tipo": "RECTIFICACION",
+      "descripcion": "La titular pide corregir su segundo apellido en el registro.",
+      "estado": "RECHAZADA",
+      "recibidaEn": "2026-11-21T19:28:51.930128Z",
+      "atendidaPor": "b01000ff-0000-4000-8000-000000000001",
+      "atendidaPorNombre": "Administrador de prueba",
+      "atendidaEn": "2026-11-21T19:29:19.145045Z",
+      "respuesta": "La titular no presentó el acta de nacimiento que acredita el cambio."
+    },
+    {
+      "id": "ca8b216e-7b06-4b92-a678-3b4a7491fd65",
+      "personaId": "b0170001-0000-4000-8000-000000000001",
+      "personaNombre": "Tomás Titular Prueba",
+      "tipo": "ACCESO",
+      "descripcion": "El titular pide una copia de los datos personales que la Liga tiene registrados.",
+      "estado": "ATENDIDA",
+      "recibidaEn": "2026-11-21T19:28:50.941833Z",
+      "atendidaPor": "b01000ff-0000-4000-8000-000000000001",
+      "atendidaPorNombre": "Administrador de prueba",
+      "atendidaEn": "2026-11-21T19:29:17.197739Z",
+      "respuesta": "Se entregó al titular la copia de sus datos personales en ventanilla."
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 4,
+  "totalPaginas": 1
+}
+
+### Filtro estado=ATENDIDA
+> GET /api/v1/solicitudes-arco?estado=ATENDIDA  (cuenta: Administrador de prueba)
+< HTTP 200
+{
+  "contenido": [
+    {
+      "id": "51bd60bc-3951-484f-95ce-7bb8070af476",
+      "personaId": "b0170003-0000-4000-8000-000000000001",
+      "personaNombre": "Carlos Cancela Prueba",
+      "tipo": "CANCELACION",
+      "descripcion": "El titular pide cancelar su correo y teléfono porque ya no juega en la Liga.",
+      "estado": "ATENDIDA",
+      "recibidaEn": "2026-11-21T19:28:52.707397Z",
+      "atendidaPor": "b01000ff-0000-4000-8000-000000000001",
+      "atendidaPorNombre": "Administrador de prueba",
+      "atendidaEn": "2026-11-21T19:29:22.038697Z",
+      "respuesta": "Se bloquearon el correo y el teléfono del titular; el historial deportivo se conserva (DEC-67)."
+    },
+    {
+      "id": "ca8b216e-7b06-4b92-a678-3b4a7491fd65",
+      "personaId": "b0170001-0000-4000-8000-000000000001",
+      "personaNombre": "Tomás Titular Prueba",
+      "tipo": "ACCESO",
+      "descripcion": "El titular pide una copia de los datos personales que la Liga tiene registrados.",
+      "estado": "ATENDIDA",
+      "recibidaEn": "2026-11-21T19:28:50.941833Z",
+      "atendidaPor": "b01000ff-0000-4000-8000-000000000001",
+      "atendidaPorNombre": "Administrador de prueba",
+      "atendidaEn": "2026-11-21T19:29:17.197739Z",
+      "respuesta": "Se entregó al titular la copia de sus datos personales en ventanilla."
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 2,
+  "totalPaginas": 1
+}
+
+### Filtro tipo=RECTIFICACION
+> GET /api/v1/solicitudes-arco?tipo=RECTIFICACION  (cuenta: Administrador de prueba)
+< HTTP 200
+{
+  "contenido": [
+    {
+      "id": "f6c4b43e-a5b0-4954-9947-91cf9564b275",
+      "personaId": "b0170002-0000-4000-8000-000000000001",
+      "personaNombre": "Rosa Rectifica Prueba",
+      "tipo": "RECTIFICACION",
+      "descripcion": "La titular pide corregir su segundo apellido en el registro.",
+      "estado": "RECHAZADA",
+      "recibidaEn": "2026-11-21T19:28:51.930128Z",
+      "atendidaPor": "b01000ff-0000-4000-8000-000000000001",
+      "atendidaPorNombre": "Administrador de prueba",
+      "atendidaEn": "2026-11-21T19:29:19.145045Z",
+      "respuesta": "La titular no presentó el acta de nacimiento que acredita el cambio."
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 1,
+  "totalPaginas": 1
+}
+
+### Filtro personaId (Tomás Titular)
+> GET /api/v1/solicitudes-arco?personaId=b0170001-0000-4000-8000-000000000001  (cuenta: Administrador de prueba)
+< HTTP 200
+{
+  "contenido": [
+    {
+      "id": "361a80db-514b-4f7f-b1b3-e1d8df242b71",
+      "personaId": "b0170001-0000-4000-8000-000000000001",
+      "personaNombre": "Tomás Titular Prueba",
+      "tipo": "OPOSICION",
+      "descripcion": "El titular se opone a la difusión de su nombre en el portal.",
+      "estado": "RECIBIDA",
+      "recibidaEn": "2026-11-21T19:28:53.703117Z",
+      "atendidaPor": null,
+      "atendidaPorNombre": null,
+      "atendidaEn": null,
+      "respuesta": null
+    },
+    {
+      "id": "ca8b216e-7b06-4b92-a678-3b4a7491fd65",
+      "personaId": "b0170001-0000-4000-8000-000000000001",
+      "personaNombre": "Tomás Titular Prueba",
+      "tipo": "ACCESO",
+      "descripcion": "El titular pide una copia de los datos personales que la Liga tiene registrados.",
+      "estado": "ATENDIDA",
+      "recibidaEn": "2026-11-21T19:28:50.941833Z",
+      "atendidaPor": "b01000ff-0000-4000-8000-000000000001",
+      "atendidaPorNombre": "Administrador de prueba",
+      "atendidaEn": "2026-11-21T19:29:17.197739Z",
+      "respuesta": "Se entregó al titular la copia de sus datos personales en ventanilla."
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 2,
+  "totalPaginas": 1
+}
+
+### Paginación tamano=2
+> GET /api/v1/solicitudes-arco?tamano=2  (cuenta: Administrador de prueba)
+< HTTP 200
+{
+  "contenido": [
+    {
+      "id": "361a80db-514b-4f7f-b1b3-e1d8df242b71",
+      "personaId": "b0170001-0000-4000-8000-000000000001",
+      "personaNombre": "Tomás Titular Prueba",
+      "tipo": "OPOSICION",
+      "descripcion": "El titular se opone a la difusión de su nombre en el portal.",
+      "estado": "RECIBIDA",
+      "recibidaEn": "2026-11-21T19:28:53.703117Z",
+      "atendidaPor": null,
+      "atendidaPorNombre": null,
+      "atendidaEn": null,
+      "respuesta": null
+    },
+    {
+      "id": "51bd60bc-3951-484f-95ce-7bb8070af476",
+      "personaId": "b0170003-0000-4000-8000-000000000001",
+      "personaNombre": "Carlos Cancela Prueba",
+      "tipo": "CANCELACION",
+      "descripcion": "El titular pide cancelar su correo y teléfono porque ya no juega en la Liga.",
+      "estado": "ATENDIDA",
+      "recibidaEn": "2026-11-21T19:28:52.707397Z",
+      "atendidaPor": "b01000ff-0000-4000-8000-000000000001",
+      "atendidaPorNombre": "Administrador de prueba",
+      "atendidaEn": "2026-11-21T19:29:22.038697Z",
+      "respuesta": "Se bloquearon el correo y el teléfono del titular; el historial deportivo se conserva (DEC-67)."
+    }
+  ],
+  "pagina": 0,
+  "tamano": 2,
+  "totalElementos": 4,
+  "totalPaginas": 2
+}
+
+### Filtro estado inválido
+> GET /api/v1/solicitudes-arco?estado=BORRADA  (cuenta: Administrador de prueba)
+< HTTP 400
+{
+  "detail": "La solicitud no es válida. Revisa los datos enviados.",
+  "instance": "/api/v1/solicitudes-arco",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION"
+}
+
+## CA-4 · Permisos con la matriz inicial (solo el Administrador general tiene seguridad.arco:GESTIONAR)
+### Secretario: listar
+> GET /api/v1/solicitudes-arco  (cuenta: Secretario de prueba)
+< HTTP 403
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/solicitudes-arco",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}
+
+### Secretario: registrar
+> POST /api/v1/solicitudes-arco  (cuenta: Secretario de prueba)
+> {"personaId":"b0170001-0000-4000-8000-000000000001","tipo":"ACCESO","descripcion":"El titular pide una copia de los datos personales que la Liga tiene registrados."}
+< HTTP 403
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/solicitudes-arco",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}
+
+### Secretario: cambiar estado
+> PATCH /api/v1/solicitudes-arco/361a80db-514b-4f7f-b1b3-e1d8df242b71  (cuenta: Secretario de prueba)
+> {"estado":"EN_ATENCION"}
+< HTTP 403
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/solicitudes-arco/361a80db-514b-4f7f-b1b3-e1d8df242b71",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}
+
+### Directiva de club: listar
+> GET /api/v1/solicitudes-arco  (cuenta: Directiva Halcones de prueba)
+< HTTP 403
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/solicitudes-arco",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}
+
+### Titular (jugador, PROPIO): listar
+> GET /api/v1/solicitudes-arco  (cuenta: Titular (jugador) de prueba)
+< HTTP 403
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/solicitudes-arco",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}
+
+### Sin sesión
+< HTTP 401
+### DELETE no existe
+> DELETE /api/v1/solicitudes-arco/361a80db-514b-4f7f-b1b3-e1d8df242b71  (cuenta: Administrador de prueba)
+< HTTP 405
+{
+  "detail": "Esta operación no está disponible para este recurso.",
+  "instance": "/api/v1/solicitudes-arco/361a80db-514b-4f7f-b1b3-e1d8df242b71",
+  "status": 405,
+  "title": "Método no permitido",
+  "type": "https://siglim.mx/errores/metodo-no-permitido",
+  "codigo": "METODO_NO_PERMITIDO"
+}
+
+## CA-4 · Configuración de la matriz (H-20): el Administrador otorga seguridad.arco:GESTIONAR a la Directiva de club y al Jugador o tutor
+### DIRECTIVA_CLUB
+< HTTP 200
+  "codigo": "DIRECTIVA_CLUB",
+      "codigo": "seguridad.arco:GESTIONAR",
+### JUGADOR_TUTOR
+< HTTP 200
+  "codigo": "JUGADOR_TUTOR",
+      "codigo": "seguridad.arco:GESTIONAR",
+
+## CA-4 · Ámbito CLUB: la solicitud no pertenece a un club
+### Directiva: listar (página vacía)
+> GET /api/v1/solicitudes-arco  (cuenta: Directiva Halcones de prueba)
+< HTTP 200
+{
+  "contenido": [],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 0,
+  "totalPaginas": 0
+}
+
+### Directiva: registrar para una persona
+> POST /api/v1/solicitudes-arco  (cuenta: Directiva Halcones de prueba)
+> {"personaId":"b0170001-0000-4000-8000-000000000001","tipo":"ACCESO","descripcion":"El titular pide una copia de los datos personales que la Liga tiene registrados."}
+< HTTP 404
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/solicitudes-arco",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
+
+### Directiva: cambiar estado (exige ámbito LIGA)
+> PATCH /api/v1/solicitudes-arco/361a80db-514b-4f7f-b1b3-e1d8df242b71  (cuenta: Directiva Halcones de prueba)
+> {"estado":"EN_ATENCION"}
+< HTTP 404
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/solicitudes-arco/361a80db-514b-4f7f-b1b3-e1d8df242b71",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
+
+## CA-4 · Ámbito PROPIO: el titular gestiona solo lo suyo
+### Titular: listar (solo sus solicitudes)
+> GET /api/v1/solicitudes-arco  (cuenta: Titular (jugador) de prueba)
+< HTTP 200
+{
+  "contenido": [
+    {
+      "id": "361a80db-514b-4f7f-b1b3-e1d8df242b71",
+      "personaId": "b0170001-0000-4000-8000-000000000001",
+      "personaNombre": "Tomás Titular Prueba",
+      "tipo": "OPOSICION",
+      "descripcion": "El titular se opone a la difusión de su nombre en el portal.",
+      "estado": "RECIBIDA",
+      "recibidaEn": "2026-11-21T19:28:53.703117Z",
+      "atendidaPor": null,
+      "atendidaPorNombre": null,
+      "atendidaEn": null,
+      "respuesta": null
+    },
+    {
+      "id": "ca8b216e-7b06-4b92-a678-3b4a7491fd65",
+      "personaId": "b0170001-0000-4000-8000-000000000001",
+      "personaNombre": "Tomás Titular Prueba",
+      "tipo": "ACCESO",
+      "descripcion": "El titular pide una copia de los datos personales que la Liga tiene registrados.",
+      "estado": "ATENDIDA",
+      "recibidaEn": "2026-11-21T19:28:50.941833Z",
+      "atendidaPor": "b01000ff-0000-4000-8000-000000000001",
+      "atendidaPorNombre": null,
+      "atendidaEn": "2026-11-21T19:29:17.197739Z",
+      "respuesta": "Se entregó al titular la copia de sus datos personales en ventanilla."
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 2,
+  "totalPaginas": 1
+}
+
+### Titular: registrar una solicitud propia
+> POST /api/v1/solicitudes-arco  (cuenta: Titular (jugador) de prueba)
+> {"personaId":"b0170001-0000-4000-8000-000000000001","tipo":"ACCESO","descripcion":"Como titular pido ver qué datos míos tiene la Liga."}
+< HTTP 201
+{
+  "id": "c184e979-7d5e-4883-8031-bf8a57706715",
+  "personaId": "b0170001-0000-4000-8000-000000000001",
+  "personaNombre": "Tomás Titular Prueba",
+  "tipo": "ACCESO",
+  "descripcion": "Como titular pido ver qué datos míos tiene la Liga.",
+  "estado": "RECIBIDA",
+  "recibidaEn": "2026-11-21T19:30:25.155782Z",
+  "atendidaPor": null,
+  "atendidaPorNombre": null,
+  "atendidaEn": null,
+  "respuesta": null
+}
+
+### Titular: registrar una solicitud de otra persona
+> POST /api/v1/solicitudes-arco  (cuenta: Titular (jugador) de prueba)
+> {"personaId":"b0170002-0000-4000-8000-000000000001","tipo":"ACCESO","descripcion":"Intento pedir los datos de otra persona."}
+< HTTP 404
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/solicitudes-arco",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
+
+### Titular: cambiar el estado de su solicitud (exige ámbito LIGA)
+> PATCH /api/v1/solicitudes-arco/361a80db-514b-4f7f-b1b3-e1d8df242b71  (cuenta: Titular (jugador) de prueba)
+> {"estado":"EN_ATENCION"}
+< HTTP 404
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/solicitudes-arco/361a80db-514b-4f7f-b1b3-e1d8df242b71",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
+
+### Titular: listar después de registrar
+> GET /api/v1/solicitudes-arco  (cuenta: Titular (jugador) de prueba)
+< HTTP 200
+{
+  "contenido": [
+    {
+      "id": "c184e979-7d5e-4883-8031-bf8a57706715",
+      "personaId": "b0170001-0000-4000-8000-000000000001",
+      "personaNombre": "Tomás Titular Prueba",
+      "tipo": "ACCESO",
+      "descripcion": "Como titular pido ver qué datos míos tiene la Liga.",
+      "estado": "RECIBIDA",
+      "recibidaEn": "2026-11-21T19:30:25.155782Z",
+      "atendidaPor": null,
+      "atendidaPorNombre": null,
+      "atendidaEn": null,
+      "respuesta": null
+    },
+    {
+      "id": "361a80db-514b-4f7f-b1b3-e1d8df242b71",
+      "personaId": "b0170001-0000-4000-8000-000000000001",
+      "personaNombre": "Tomás Titular Prueba",
+      "tipo": "OPOSICION",
+      "descripcion": "El titular se opone a la difusión de su nombre en el portal.",
+      "estado": "RECIBIDA",
+      "recibidaEn": "2026-11-21T19:28:53.703117Z",
+      "atendidaPor": null,
+      "atendidaPorNombre": null,
+      "atendidaEn": null,
+      "respuesta": null
+    },
+    {
+      "id": "ca8b216e-7b06-4b92-a678-3b4a7491fd65",
+      "personaId": "b0170001-0000-4000-8000-000000000001",
+      "personaNombre": "Tomás Titular Prueba",
+      "tipo": "ACCESO",
+      "descripcion": "El titular pide una copia de los datos personales que la Liga tiene registrados.",
+      "estado": "ATENDIDA",
+      "recibidaEn": "2026-11-21T19:28:50.941833Z",
+      "atendidaPor": "b01000ff-0000-4000-8000-000000000001",
+      "atendidaPorNombre": null,
+      "atendidaEn": "2026-11-21T19:29:17.197739Z",
+      "respuesta": "Se entregó al titular la copia de sus datos personales en ventanilla."
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 3,
+  "totalPaginas": 1
+}
+
+
+### Encabezados de POST /solicitudes-arco (Administrador): 201 sin Location
+HTTP/1.1 201 
+Cache-Control: no-store
+(sin encabezado Location)

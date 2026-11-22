@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -219,7 +220,121 @@ class CanchaControllerTest {
                 .isEqualTo("Halcones");
     }
 
+    // ── Horarios de club y comodato (B-13.1) ──────────────────────────────────────────────────
+
+    private static final UUID TEMPORADA = UUID.fromString("66666666-6666-4666-8666-666666666666");
+    private static final UUID CATEGORIA = UUID.fromString("77777777-7777-4777-8777-777777777777");
+    private static final UUID CLUB = UUID.fromString("22222222-2222-4222-8222-222222222222");
+    private static final HorarioCanchaClubDto HORARIO = new HorarioCanchaClubDto(
+            UUID.fromString("55555555-5555-4555-8555-555555555555"), ID, TEMPORADA,
+            new HorarioCanchaClubDto.ReferenciaDto(CATEGORIA, "Libre"),
+            new HorarioCanchaClubDto.ReferenciaDto(CLUB, "Halcones"), 6, LocalTime.of(10, 0), LocalTime.of(12, 0), false);
+    private static final String CUERPO_HORARIOS = """
+            {"temporadaId":"66666666-6666-4666-8666-666666666666",
+             "horarios":[{"categoriaId":"77777777-7777-4777-8777-777777777777","diaSemana":6,
+                          "horaInicio":"10:00","horaFin":"12:00:00"}]}
+            """;
+
+    @Test
+    @DisplayName("RF-119: GET de horarios responde 200 con las horas en HH:mm:ss")
+    void listarHorarios() {
+        given(servicio.listarHorariosClub(ID, TEMPORADA)).willReturn(List.of(HORARIO));
+
+        MvcTestResult resultado = mvc.get().uri(BASE + "/" + ID + "/horarios-club?temporadaId=" + TEMPORADA)
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatusOk();
+        assertThat(resultado).bodyJson().extractingPath("$[0].id").isEqualTo(HORARIO.id().toString());
+        assertThat(resultado).bodyJson().extractingPath("$[0].canchaId").isEqualTo(ID.toString());
+        assertThat(resultado).bodyJson().extractingPath("$[0].temporadaId").isEqualTo(TEMPORADA.toString());
+        assertThat(resultado).bodyJson().extractingPath("$[0].categoria.nombre").isEqualTo("Libre");
+        assertThat(resultado).bodyJson().extractingPath("$[0].club.id").isEqualTo(CLUB.toString());
+        assertThat(resultado).bodyJson().extractingPath("$[0].diaSemana").isEqualTo(6);
+        assertThat(resultado).bodyJson().extractingPath("$[0].horaInicio").isEqualTo("10:00:00");
+        assertThat(resultado).bodyJson().extractingPath("$[0].horaFin").isEqualTo("12:00:00");
+        assertThat(resultado).bodyJson().extractingPath("$[0].esComodato").isEqualTo(false);
+    }
+
+    @Test
+    @DisplayName("RF-119: GET de horarios sin temporadaId responde 400 VALIDACION y no llega al servicio")
+    void listarHorariosSinTemporada() {
+        MvcTestResult resultado = mvc.get().uri(BASE + "/" + ID + "/horarios-club")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.VALIDACION);
+        Mockito.verifyNoInteractions(servicio);
+    }
+
+    @Test
+    @DisplayName("RF-119: PUT de horarios responde 200 con la lista y acepta HH:mm y HH:mm:ss")
+    void reemplazarHorarios() {
+        given(servicio.reemplazarHorariosClub(eq(ID), any(ReemplazarHorariosClubRequest.class)))
+                .willReturn(List.of(HORARIO));
+
+        MvcTestResult resultado = mvc.put().uri(BASE + "/" + ID + "/horarios-club")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(CUERPO_HORARIOS).exchange();
+
+        assertThat(resultado).hasStatusOk();
+        assertThat(resultado).bodyJson().extractingPath("$[0].horaInicio").isEqualTo("10:00:00");
+        ArgumentCaptor<ReemplazarHorariosClubRequest> peticion =
+                ArgumentCaptor.forClass(ReemplazarHorariosClubRequest.class);
+        Mockito.verify(servicio).reemplazarHorariosClub(eq(ID), peticion.capture());
+        assertThat(peticion.getValue()).isEqualTo(new ReemplazarHorariosClubRequest(TEMPORADA, List.of(
+                new ReemplazarHorariosClubRequest.HorarioRequest(CATEGORIA, 6, LocalTime.of(10, 0),
+                        LocalTime.of(12, 0), null))));
+    }
+
+    @Test
+    @DisplayName("RF-119: PUT de horarios con una hora inválida responde 400 VALIDACION")
+    void reemplazarHorariosHoraInvalida() {
+        MvcTestResult resultado = mvc.put().uri(BASE + "/" + ID + "/horarios-club")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).contentType(MediaType.APPLICATION_JSON)
+                .content(CUERPO_HORARIOS.replace("\"10:00\"", "\"25:00\"")).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.VALIDACION);
+        Mockito.verifyNoInteractions(servicio);
+    }
+
+    @Test
+    @DisplayName("RF-119: el 422 del traslape llega con su código")
+    void reemplazarHorariosTraslapados() {
+        given(servicio.reemplazarHorariosClub(eq(ID), any(ReemplazarHorariosClubRequest.class)))
+                .willThrow(ReglaNegocioException.noProcesable("RF-119", "Los horarios se traslapan."));
+
+        MvcTestResult resultado = mvc.put().uri(BASE + "/" + ID + "/horarios-club")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(CUERPO_HORARIOS).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.UNPROCESSABLE_CONTENT);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo("RF-119");
+    }
+
     // ── 401, 403 y 404 de cada endpoint (convenciones de API §10) ───────────────────────────────
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de GET /api/v1/canchas/{id}/horarios-club")
+    Stream<DynamicTest> seguridadListarHorarios() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.GET, BASE + "/{id}/horarios-club?temporadaId=" + TEMPORADA, ID)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.listarHorariosClub(ID, TEMPORADA)).willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de PUT /api/v1/canchas/{id}/horarios-club")
+    Stream<DynamicTest> seguridadReemplazarHorarios() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.PUT, BASE + "/{id}/horarios-club", ID)
+                .cuerpoJson(CUERPO_HORARIOS)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.reemplazarHorariosClub(eq(ID),
+                        any(ReemplazarHorariosClubRequest.class))).willThrow(error))
+                .pruebas();
+    }
 
     @TestFactory
     @DisplayName("RNF-003: seguridad de GET /api/v1/canchas")

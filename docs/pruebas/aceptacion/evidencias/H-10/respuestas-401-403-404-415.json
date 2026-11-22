@@ -1,0 +1,42 @@
+{
+    "401_sin_token": {
+        "type": "https://siglim.mx/errores/no-autenticado",
+        "title": "No autenticado",
+        "status": 401,
+        "detail": "Inicia sesi\u00f3n para continuar.",
+        "instance": "/api/v1/registros-jugador/93e5b80f-d53c-4bda-89c1-832715f1c4d9/requisitos",
+        "codigo": "NO_AUTENTICADO"
+    },
+    "403_directiva_valida": {
+        "detail": "Tu cuenta no tiene el permiso necesario para esta operaci\u00f3n.",
+        "instance": "/api/v1/registros-jugador/93e5b80f-d53c-4bda-89c1-832715f1c4d9/validacion",
+        "status": 403,
+        "title": "Acci\u00f3n no permitida",
+        "type": "https://siglim.mx/errores/val-015",
+        "codigo": "VAL-015"
+    },
+    "403_secretario_carga": {
+        "detail": "Tu cuenta no tiene el permiso necesario para esta operaci\u00f3n.",
+        "instance": "/api/v1/registros-jugador/93e5b80f-d53c-4bda-89c1-832715f1c4d9/documentos",
+        "status": 403,
+        "title": "Acci\u00f3n no permitida",
+        "type": "https://siglim.mx/errores/val-015",
+        "codigo": "VAL-015"
+    },
+    "404_registro_inexistente": {
+        "detail": "El recurso no existe o no tienes acceso a \u00e9l.",
+        "instance": "/api/v1/registros-jugador/00000000-0000-4000-8000-000000000000/requisitos",
+        "status": 404,
+        "title": "Recurso no encontrado",
+        "type": "https://siglim.mx/errores/no-encontrado",
+        "codigo": "NO_ENCONTRADO"
+    },
+    "415_firma_no_permitida": {
+        "detail": "El tipo de archivo no est\u00e1 permitido. Usa JPG, PNG, WebP o PDF.",
+        "instance": "/api/v1/documentos/ec470233-5bea-48bd-9473-a7de146ed406/reemplazo",
+        "status": 415,
+        "title": "Formato no soportado",
+        "type": "https://siglim.mx/errores/tipo-archivo-no-permitido",
+        "codigo": "TIPO_ARCHIVO_NO_PERMITIDO"
+    }
+}

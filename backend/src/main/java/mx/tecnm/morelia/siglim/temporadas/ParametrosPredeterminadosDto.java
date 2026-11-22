@@ -25,6 +25,9 @@ public record ParametrosPredeterminadosDto(
         int equiposAscienden,
         int equiposDescienden,
         boolean permiteCambioClub,
+        int equiposPorArbitro,
+        Integer fechasFaseRegular,
+        int fechasFinalesUnidadDeportiva,
         boolean esDemo) {
 
     /**
@@ -36,7 +39,7 @@ public record ParametrosPredeterminadosDto(
             List.of(CriterioDesempate.PUNTOS, CriterioDesempate.DIFERENCIA_GOLES, CriterioDesempate.GOLES_FAVOR,
                     CriterioDesempate.ENFRENTAMIENTO_DIRECTO, CriterioDesempate.MENOS_EXPULSIONES,
                     CriterioDesempate.SORTEO),
-            3, 0, 48, 90, 120, 8, FormatoLiguilla.PARTIDO_UNICO, true, 2, 2, true, true);
+            3, 0, 48, 90, 120, 8, FormatoLiguilla.PARTIDO_UNICO, true, 2, 2, true, 4, null, 10, true);
 
     public ParametrosPredeterminadosDto {
         criteriosDesempate = List.copyOf(criteriosDesempate);

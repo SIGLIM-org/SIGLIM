@@ -1,0 +1,25 @@
+Prueba de aceptación B-15.3 · auditoría de M-07 en la base local (hora de Morelia)
+
+   hora   |        perfil         |           accion            |                         motivo                         |        reglas        
+----------+-----------------------+-----------------------------+--------------------------------------------------------+----------------------
+ 22:10:31 | Programador de prueba | REGISTRAR_PARTIDO           |                                                        | 
+ 22:10:31 | Programador de prueba | ACEPTAR_LOCALIA             | Campo Halcones en remodelación hasta diciembre         | ["CANCHA_DEL_LOCAL"]
+ 22:11:36 | Programador de prueba | REGISTRAR_PARTIDO           |                                                        | 
+ 22:11:36 | Programador de prueba | ACEPTAR_LOCALIA             | Morelos 2 ocupada por torneo infantil ese sábado       | ["CANCHA_DEL_LOCAL"]
+ 22:12:23 | Programador de prueba | REGISTRAR_PARTIDO           |                                                        | 
+ 22:12:23 | Programador de prueba | ACEPTAR_LOCALIA             | La unidad deportiva cierra por evento municipal        | ["UNIDAD_DEPORTIVA"]
+ 22:13:00 | Programador de prueba | REGISTRAR_PARTIDO           |                                                        | 
+ 22:13:54 | Programador de prueba | ACEPTAR_LOCALIA             | Campo Leones sin alumbrado para el horario de la tarde | ["CANCHA_DEL_LOCAL"]
+ 22:14:23 | Programador de prueba | AJUSTAR_PARTIDO             | Se libera Morelos 2: el torneo infantil cambio de sede | 
+ 22:14:52 | Programador de prueba | ENVIAR_JORNADA_A_APROBACION |                                                        | 
+(10 rows)
+
+Estado final de los partidos
+ jornada | estado_publicacion |  local   | visitante |        cancha        |      inicio      |                     motivo_localia                     
+---------+--------------------+----------+-----------+----------------------+------------------+--------------------------------------------------------
+       2 | BORRADOR           | Halcones | Toros     | Morelos 1            | 21/11/2026 10:00 | Campo Halcones en remodelación hasta diciembre
+       2 | BORRADOR           | Águilas  | Pumas     | Morelos 2            | 21/11/2026 14:00 | (sin motivo)
+       2 | BORRADOR           | Leones   | Tigres    | Deportivo Las Flores | 21/11/2026 16:00 | Campo Leones sin alumbrado para el horario de la tarde
+      12 | REVISION           | Leones   | Tigres    | Deportivo Las Flores | 13/02/2027 10:00 | La unidad deportiva cierra por evento municipal
+(4 rows)
+

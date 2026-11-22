@@ -78,8 +78,9 @@ describe('PestanaParametros', () => {
         'Aún no hay parámetros. La temporada no podrá activarse hasta guardar la versión 1 (RF-100).',
       ),
     ).toBeInTheDocument()
-    // Los 13 campos [DEMO] de §6.2, con una sola insignia para los criterios de desempate.
-    expect(within(formularioParametros).getAllByText('No oficial')).toHaveLength(13)
+    // Los 13 campos [DEMO] de §6.2, con una sola insignia para los criterios de desempate, más el
+    // cambio de club entre temporadas (B-06.2).
+    expect(within(formularioParametros).getAllByText('No oficial')).toHaveLength(14)
     expect(screen.getByRole('button', { name: 'Guardar la versión 1' })).toBeEnabled()
   })
 
@@ -132,6 +133,48 @@ describe('PestanaParametros', () => {
       'temporadas/t-1/parametros',
       expect.objectContaining({ esDemo: false }),
     )
+  })
+
+  it('RF-111: el interruptor de cambio de club se rotula «No oficial» y envía permiteCambioClub:false', async () => {
+    sinVersion()
+    post.mockResolvedValue(version(1, { permiteCambioClub: false }))
+    montarEstructura()
+    await formulario()
+
+    const interruptor = screen.getByRole('switch', { name: 'Permitir cambio de club entre temporadas' })
+    expect(interruptor).toBeChecked()
+    expect(interruptor).toHaveAccessibleDescription(
+      'Si lo desactivas, los clubes no pueden registrar como transferencia a un jugador que jugó en otro club en una temporada anterior.',
+    )
+    const fila = interruptor.closest('div')?.parentElement
+    expect(fila).not.toBeNull()
+    expect(within(fila as HTMLElement).getByText('No oficial')).toBeInTheDocument()
+
+    await userEvent.click(interruptor)
+    expect(interruptor).not.toBeChecked()
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar la versión 1' }))
+    const dialogo = screen.getByRole('dialog', { name: 'Guardar la versión 1' })
+    await userEvent.type(within(dialogo).getByLabelText(/Motivo/), MOTIVO)
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Guardar versión' }))
+
+    expect(post).toHaveBeenCalledWith(
+      'temporadas/t-1/parametros',
+      expect.objectContaining({ permiteCambioClub: false, esDemo: true }),
+    )
+  })
+
+  it('RF-111: con valores oficiales el interruptor de cambio de club no lleva «No oficial»', async () => {
+    sinVersion()
+    montarEstructura()
+    await formulario()
+
+    await userEvent.click(
+      screen.getByRole('switch', { name: 'Valores confirmados por la Liga (oficiales)' }),
+    )
+
+    const interruptor = screen.getByRole('switch', { name: 'Permitir cambio de club entre temporadas' })
+    const fila = interruptor.closest('div')?.parentElement as HTMLElement
+    expect(within(fila).queryByText('No oficial')).not.toBeInTheDocument()
   })
 
   it('RF-050: subir un desempate cambia el orden enviado y PUNTOS sigue primero', async () => {

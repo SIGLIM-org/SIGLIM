@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 4.4 · 8 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.20 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -43,6 +43,32 @@ Versión 4.4 · 8 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | 4.2 | 7 de noviembre de 2026 | H-20.1: §6.1 con el contrato de la matriz de permisos (`GET /roles/{id}`, `GET /permisos` y `PATCH /roles/{id}/permisos` con `200`/`202`), el listado de solicitudes y su dictamen, los errores de VAL-022, VAL-023 y RF-096 y las acciones de auditoría `CAMBIAR_PERMISOS_ROL`, `SOLICITAR_CAMBIO_PERMISOS`, `APROBAR_CAMBIO_PERMISOS` y `RECHAZAR_CAMBIO_PERMISOS`. |
 | 4.3 | 8 de noviembre de 2026 | H-22.1: §6.3 documenta la consulta, registro pendiente y autorización de cargos de directiva con vigencias consecutivas (RF-102). |
 | 4.4 | 8 de noviembre de 2026 | H-22.2: §6.3 documenta la consulta de una persona por CURP que usa F-15 para identificar al titular de un cambio de directiva, con el permiso en cualquier ámbito y `Cache-Control: no-store` (RF-010, RF-011, RF-102). |
+| 4.5 | 10 de noviembre de 2026 | B-13.1: §6.6 con `canchas.cancha:CONSULTAR` en el `GET` de horarios de club y `EDITAR` en el `PUT`; §6.6.1 con el contrato de `GET`/`PUT /canchas/{id}/horarios-club` (reemplazo atómico por temporada, reglas por tipo de cancha de DEC-33, traslapes en el mismo día), su orden de errores y la acción `REGISTRAR_HORARIOS_CANCHA`; §3.2 con `RF-119` en `422`. |
+| 4.6 | 11 de noviembre de 2026 | DEC-63 y DEC-68: §11 quita los textos de los mensajes de error (PEN-016) y el proveedor de correo (PEN-034), ya resueltos; §6.6 cita DEC-64 como regla final del bloqueo de cancha sobre partidos (PEN-007). |
+| 4.7 | 11 de noviembre de 2026 | H-09.1: §6.1 con el aviso de privacidad vigente (`GET /avisos-privacidad/vigente`) y el registro del consentimiento (`POST /personas/{id}/consentimientos`), su orden de errores y la acción `REGISTRAR_CONSENTIMIENTO`; §6.3 con el alta y la edición de personas (`POST`/`PATCH /personas`) y la tutela (`POST /personas/{id}/tutelas`), sus órdenes de errores y las acciones `REGISTRAR_PERSONA`, `EDITAR_PERSONA` y `REGISTRAR_TUTELA`; la consulta por CURP de H-22.2 usa `persona_por_curp` (DEC-78 a DEC-84). |
+| 4.8 | 11 de noviembre de 2026 | H-09.2: §6.4 con el contrato del alta de un registro de jugador (`POST /registros-jugador`): permiso sobre el club del equipo, orden de errores (`RF-003`, `RF-013`, `RF-101`, `REFERENCIA_INVALIDA`, `VAL-017` con `club` y `equipo`, `VAL-026`, `RN-039` y `VAL-025` con `requisito`), fecha de alta en `America/Mexico_City`, respuesta `201` sin `Location` y la acción `REGISTRAR_REGISTRO_JUGADOR` (DEC-85 a DEC-90). |
+| 4.9 | 11 de noviembre de 2026 | H-11.1: §6.5 con el contrato de árbitros (`GET`/`POST /arbitros` y `POST /arbitros/{id}/validacion`), el estado `PROPUESTO`, la validación y el rechazo con observaciones, el `409 DUPLICADO` que solo nombra el club (DEC-88) y el `INSERT … ON CONFLICT DO NOTHING` de las carreras (DEC-90); permisos `CONSULTAR`/`PROPONER`/`VALIDAR` y auditoría `PROPONER_ARBITRO`, `VALIDAR_ARBITRO` y `RECHAZAR_ARBITRO`. |
+| 5.0 | 12 de noviembre de 2026 | H-10.1: §6.4 y §7 con los documentos de un registro: carga (`POST /registros-jugador/{id}/documentos`), reemplazo (`POST /documentos/{id}/reemplazo`, solo de `PENDIENTE` o `RECHAZADO`), requisitos (`GET /registros-jugador/{id}/requisitos`), enlace prefirmado (`GET /documentos/{id}/enlace`) y validación de un documento (`POST /documentos/{id}/validacion`), con sus permisos y ámbitos, órdenes de errores, `201` sin `Location`, `Cache-Control: no-store` y las acciones de auditoría `CARGAR_DOCUMENTO`, `REEMPLAZAR_DOCUMENTO`, `VALIDAR_DOCUMENTO` y `CONSULTAR_DOCUMENTO`; §3.2 con `RF-109` en `409` y `VAL-015` en `403` (DEC-91 a DEC-96). |
+| 5.1 | 12 de noviembre de 2026 | H-10.2: §6.4 con la validación de un registro (`POST /registros-jugador/{id}/validacion`): permiso `registros.registro:VALIDAR` sobre el club del equipo, orden de errores, `VAL-022` **[PROPUESTA]** para quien dio de alta el registro, RF-013, `422 VAL-001` con la extensión `faltantes`, VAL-025, `UPDATE` condicional con el registro bloqueado, respuesta `200` con `validadoPor`, `validadoEn` y `observaciones`, motivo del historial y auditoría `VALIDAR_REGISTRO_JUGADOR`; el alta muestra los tres campos nuevos en `null`; §2.1 con las observaciones opcionales al aprobar; §3.2 con `VAL-001` en `422` y `VAL-015` también para registros (DEC-97 a DEC-102). |
+| 5.2 | 12 de noviembre de 2026 | H-09.3: §6.3 con `esMenor` en `GET /personas?curp=` (DEC-104). |
+| 5.3 | 12 de noviembre de 2026 | H-10.5: §6.4 con la consulta de registros: `GET /registros-jugador` (filtros `estado`, `temporadaId`, `clubId`, `equipoId`; orden `creadoEn,asc`, `creadoEn,desc` o `nombre,asc`; ámbito en el `WHERE` y en el `COUNT`; filas con la CURP enmascarada, sin avance de documentos) y `GET /registros-jugador/{id}` (detalle con `esMenor`, tutores vigentes y la CURP completa solo con `organizacion.persona:CONSULTAR` sobre el club), ambos con `Cache-Control: no-store` y su orden de errores; el alta responde `201` con `Location`; §9.2 cita DEC-110 como la aplicación del enmascarado en M-04 (DEC-109, DEC-110). |
+| 5.4 | 12 de noviembre de 2026 | H-10.3: §7 precisa que `GET /registros-jugador/{id}/documentos` sigue fuera porque la página de documentos y la bandeja de validación no lo usan: los documentos vigentes vienen en `GET /registros-jugador/{id}/requisitos` (DEC-96, DEC-112). |
+| 5.5 | 14 de noviembre de 2026 | H-23.1: §6.4 con la baja de un registro (`POST /registros-jugador/{id}/baja`): permiso `registros.registro:EDITAR` sobre el club del equipo, motivo obligatorio de 10 a 500 caracteres (`400 RN-021`), solo desde `ACTIVO` con un `409 RF-017` por estado de origen, `409 RF-003` con la temporada cerrada, `UPDATE` condicional con el registro bloqueado, `baja_en` en `America/Mexico_City`, motivo solo en el historial, respuesta `200` con `bajaEn` y `motivoBaja` y auditoría `DAR_BAJA_REGISTRO_JUGADOR`; el alta y el detalle muestran los dos campos nuevos (`null` salvo en `BAJA`) (DEC-118 a DEC-124). |
+| 5.6 | 14 de noviembre de 2026 | B-05.1: §6.3 con el contrato de la venta y la conservación de plaza (`POST /operaciones-equipo` y `POST /operaciones-equipo/{id}/resolucion`), la conservación como operación independiente (RF-104), el dictamen del Presidente, las reglas del club destino, los permisos `organizacion.venta:SOLICITAR`/`APROBAR` y las acciones `SOLICITAR_OPERACION_EQUIPO` (con las observaciones de la solicitud), `AUTORIZAR_OPERACION_EQUIPO` y `RECHAZAR_OPERACION_EQUIPO`; una sola operación vigente por equipo y tipo (`409 RF-103`/`RF-104`, DEC-132); autorizar sin nota conserva las observaciones y revalida la temporada y el club destino; §2.1 con la transición. |
+| 5.7 | 15 de noviembre de 2026 | B-05.2: §6.2 documenta el efecto del cierre de la temporada sobre las operaciones de equipo: en la misma transacción, las `AUTORIZADA` pasan a `APLICADA` con `aplicadaEn`, la venta mueve el equipo a su club destino y las `SOLICITADA` no se aplican; cada aplicación se audita como `APLICAR_OPERACION_EQUIPO` y `CERRAR_TEMPORADA` registra `operacionesAplicadas` (RF-103, RF-104, RN-040). |
+| 5.8 | 16 de noviembre de 2026 | H-13.1: §6.7 con el envío a aprobación (`POST /jornadas/{id}/envio`, `409 RF-039` con la extensión `conflictos`, `409 RF-121` sin partidos vigentes) y el dictamen (`POST /jornadas/{id}/resolucion`) con la separación de funciones (`403 RF-121` si quien dictamina creó o envió la jornada o tiene también `programacion.jornada:EDITAR`), la devolución con observaciones (`400 RF-121`), los campos de publicación del detalle y la auditoría `ENVIAR_JORNADA_A_APROBACION`, `APROBAR_JORNADA` y `DEVOLVER_JORNADA`; §6.11 con el contrato de `GET /publicaciones/pendientes`. |
+| 5.9 | 16 de noviembre de 2026 | B-05.3: §6.3 con la consulta de operaciones de equipo que necesita B-09: `GET /operaciones-equipo` (filtro `temporadaId`/`estado`, paginación, alcance unificado de `SOLICITAR`/`APROBAR` en el `WHERE` y el `COUNT`), `GET /operaciones-equipo/{id}` (404 fuera de ámbito) y `GET /operaciones-equipo/contexto` (clubes `ACTIVO` de la liga para elegir el destino de una venta); `POST` responde `201` con `Location`. |
+| 5.10 | 16 de noviembre de 2026 | B-08.1: §6.5 con el contrato de `GET /clubes/{id}/cuota-arbitros?temporadaId=` (equipos activos, árbitros `VALIDADO`, redondeo hacia arriba y `cumple`), su ámbito de club, errores y la temporada activa por omisión; §6.2 con el parámetro `equiposPorArbitro` de la temporada (4 **[DEMO]**, DEC-72), su herencia de la versión vigente cuando se omite y su inclusión en `camposDemo` (RF-114, DEC-17). |
+| 5.11 | 16 de noviembre de 2026 | B-15.1: §6.7 con las advertencias de localía (VAL-027): las reglas de la cancha del local (DEC-33, DEC-34) y de las últimas fechas en la unidad deportiva (RN-049), el `409 VAL-027` con `aceptable` y `advertencias` al registrar o ajustar un partido sin `motivoAceptacion`, el motivo guardado en `motivoLocalia`, su conservación en los ajustes, la lista `advertencias` de la verificación y la auditoría `ACEPTAR_LOCALIA`; §6.2 con los parámetros `fechasFaseRegular` (sin default) y `fechasFinalesUnidadDeportiva` (10 **[DEMO]**), heredados de la versión vigente cuando se omiten. |
+| 5.12 | 16 de noviembre de 2026 | B-29.1: §6.13 con el contrato de tarifas (`GET /tarifas?temporadaId=` sin paginar, `POST /tarifas` y `PATCH /tarifas/{id}` solo del monto): una tarifa por temporada, categoría y concepto (`409 DUPLICADO`), monto mayor o igual a cero, categoría asignada a la temporada (`422 REFERENCIA_INVALIDA`), temporada cerrada de solo lectura (`409 RF-003`), `esDemo` siempre `true` mientras siga PEN-042 y auditoría `REGISTRAR_TARIFA` y `EDITAR_TARIFA` (RF-135). |
+| 5.13 | 17 de noviembre de 2026 | B-15.2: §6.7 aclara que un `PATCH /partidos/{id}` que solo trae `motivoAceptacion` registra la aceptación de la advertencia de localía sin cambiar equipos, cancha ni inicio (VAL-027), y la audita como `ACEPTAR_LOCALIA`; si el partido ya respeta la localía, no escribe. |
+| 5.14 | 17 de noviembre de 2026 | B-29.2: §6.13 con `GET /tarifas/contexto`: temporadas de la liga (de la más reciente a la más antigua) con su estado y sus categorías en el orden del catálogo, autorizado con `tesoreria.tarifa:EDITAR` porque el Tesorero no tiene `temporadas.temporada:CONSULTAR`, como los contextos de afiliaciones y de operaciones de equipo. |
+| 5.15 | 17 de noviembre de 2026 | B-09.1: §6.5 con el contrato de la disponibilidad arbitral (`GET /arbitros/{id}/disponibilidad?desde=&hasta=`, `POST` y `DELETE …/{disponibilidadId}`): intervalos `[desde, hasta)`, `disponible` opcional con `true` por omisión, solo árbitros `VALIDADO`, borrado físico porque no es historial deportivo, permiso `arbitraje.disponibilidad:EDITAR` sobre la persona del árbitro (Comisión en `LIGA`, árbitro en `PROPIO`) y auditoría `REGISTRAR_DISPONIBILIDAD_ARBITRAL`/`ELIMINAR_DISPONIBILIDAD_ARBITRAL` (RF-022). |
+| 5.16 | 17 de noviembre de 2026 | B-30: §6.7 indica que publicar la jornada emite `JornadaPublicada`; §6.13 con «Cobros automáticos al publicar la jornada» (RF-136): cobros `ARBITRAJE` y `CANCHA` a cada equipo con la tarifa de la temporada y la categoría, sin cobro de cancha al dueño de la cancha (DEC-33), omisión auditada sin tarifa o con tarifa en cero, periodo configurable (`dias-para-pagar`), idempotencia por `ux_cobros_partido` y auditoría `GENERAR_COBRO` y `GENERAR_COBROS_JORNADA`. |
+| 5.17 | 17 de noviembre de 2026 | B-06.1: §6.4 con la renovación y la transferencia entre temporadas (`POST /registros-jugador/renovaciones` y `/transferencias`): `{ personaId, equipoId }`, registro nuevo `PENDIENTE_VALIDACION` enlazado por `registro_anterior_id`, `422 RF-015`/`RF-016` si el registro anterior no existe o no corresponde al tipo de movimiento, `409 RF-111` si la temporada no permite el cambio de club, `409 VAL-026`/`RN-039` dentro de la temporada, documentos aprobados heredados solo en la renovación del mismo club y auditoría `RENOVAR_REGISTRO`/`TRANSFERIR_REGISTRO`; §3.2 con `RF-015` y `RF-016` en `422` y `RF-111` en `409` (DEC-146). |
+| 5.18 | 17 de noviembre de 2026 | B-07.1: §6.4 con el historial de un registro (`GET /registros-jugador/{id}/historial`): arreglo sin paginar del más antiguo al más reciente con `estadoAnterior`, `estadoNuevo`, `motivo`, `cambiadoPor { id, nombre }` y `cambiadoEn`; `registros.registro:CONSULTAR` sobre el club del registro (otro club, `404`, VAL-024; `PROPIO` queda para H-24), `Cache-Control: no-store`, solo lectura y sin auditar (RF-018, RNF-015). |
+| 5.19 | 17 de noviembre de 2026 | B-06.2: §6.4 con `GET /registros-jugador/movimientos/opcion?personaId=&equipoId=` (DEC-153): `{ tipo, permitido, temporadaAnterior, motivo }` para que el asistente de alta (F-18) ofrezca la renovación o la transferencia, o la muestre deshabilitada si la temporada no permite el cambio de club (RF-111), sin datos del club de origen; solo lectura y sin auditoría. |
+| 5.20 | 17 de noviembre de 2026 | §6.4 «Alta de un registro», paso 11: `POST /registros-jugador` responde `409 RF-111` si el registro anterior más reciente de la persona es de otro club y la temporada no permite el cambio de club, como la transferencia; no obliga a usar el movimiento (DEC-154). |
 
 ## Índice
 
@@ -106,7 +132,8 @@ Versión 4.4 · 8 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../re
 | Equipo | Baja | `POST /equipos/{id}/baja` | `{ "motivo" }` | `ACTIVO → BAJA` | `organizacion.equipo:EDITAR` | RF-009, RN-005 |
 | Cuenta | Activar / desactivar | `PATCH /usuarios/{id}` | `{ "activo", "motivo"? }` | `activo` ↔ `inactivo` | `seguridad.usuario:EDITAR` | RF-094 |
 | Afiliación | Aprobar / rechazar | `POST /afiliaciones/{id}/resolucion` | `{ "decision": "APROBADA"\|"RECHAZADA", "observaciones" }` | `SOLICITADA → …` | `organizacion.afiliacion:APROBAR` | RF-101 |
-| Registro de jugador | Validar / rechazar | `POST /registros-jugador/{id}/validacion` | `{ "decision": "ACTIVO"\|"RECHAZADO", "observaciones" }` | `PENDIENTE_VALIDACION → …` | `registros.registro:VALIDAR` | RF-109 |
+| Operación de equipo | Autorizar / rechazar | `POST /operaciones-equipo/{id}/resolucion` | `{ "decision": "AUTORIZADA"\|"RECHAZADA", "observaciones" }` | `SOLICITADA → …` | `organizacion.venta:APROBAR` | RF-103, RF-104, RN-040 |
+| Registro de jugador | Validar / rechazar | `POST /registros-jugador/{id}/validacion` | `{ "decision": "ACTIVO"\|"RECHAZADO", "observaciones"? }` (obligatorias solo al rechazar, §6.4) | `PENDIENTE_VALIDACION → …` | `registros.registro:VALIDAR` | RF-109, VAL-001 |
 | Registro de jugador | Baja | `POST /registros-jugador/{id}/baja` | `{ "motivo" }` | `ACTIVO → BAJA` | `registros.registro:EDITAR` | RF-014 |
 | Árbitro | Validar / rechazar | `POST /arbitros/{id}/validacion` | `{ "decision": "VALIDADO"\|"RECHAZADO", "observaciones" }` | `PROPUESTO → …` | `arbitraje.arbitro:VALIDAR` | RF-113 |
 | Jornada | Enviar a aprobación | `POST /jornadas/{id}/envio` | `{}` | `BORRADOR → REVISION` | `programacion.jornada:ENVIAR` | RF-090, RF-121 |
@@ -164,7 +191,7 @@ propiedades de extensión: `codigo` (siempre) y `errores` (cuando hay campos se�
 | `400` | JSON mal formado, tipos incorrectos, campos obligatorios ausentes o formato inválido (CURP, correo) | `VALIDACION` |
 | `401` | Sin token, token vencido o inválido | `NO_AUTENTICADO` |
 | `403` | El usuario no tiene el permiso (denegación por defecto) | `VAL-015` |
-| `403` | Separación de funciones de la persona: aprobar la cédula que capturó, cambiar permisos de su propio rol, cambiar sus propias asignaciones o el estado de su cuenta, corregir un resultado sin resolución | `VAL-021`, `VAL-022`, `VAL-010` |
+| `403` | Separación de funciones de la persona: aprobar la cédula que capturó, cambiar permisos de su propio rol, cambiar sus propias asignaciones o el estado de su cuenta, registrarse como tutor desde su propia cuenta (DEC-79), corregir un resultado sin resolución | `VAL-021`, `VAL-022`, `VAL-010` |
 | `404` | El recurso no existe **o** está fuera del ámbito del usuario (no se revela cuál de los dos) | `NO_ENCONTRADO` (VAL-024) |
 | `405` | El recurso existe pero no admite ese método (la respuesta incluye la cabecera `Allow`) | `METODO_NO_PERMITIDO` |
 | `406`, `415` | La petición no envía o no acepta JSON (`Content-Type`, `Accept`) | `FORMATO_NO_SOPORTADO` |
@@ -206,9 +233,9 @@ que el mismo código responda siempre con el mismo estado. `error_negocio` arma 
 | HTTP | Códigos en `HINT` | Qué significan |
 | --- | --- | --- |
 | `400` | `RN-021` | Falta el motivo obligatorio |
-| `403` | `VAL-021`, `VAL-022` | La persona no puede hacer esa acción aunque tenga el permiso |
-| `409` | `VAL-003`, `VAL-005`, `VAL-017`, `VAL-026`, `VAL-028`; `RF-001`, `RF-017`, `RF-039`, `RF-046`, `RF-048`, `RF-062`, `RF-090`, `RF-100`, `RF-113`, `RF-121`, `RF-122`, `RF-123`, `RF-124`, `RF-127`; `RN-024`, `RN-039`; `RNF-015`, `RNF-018` | Transición o cambio no permitido por el estado actual, o choque con otros datos |
-| `422` | `VAL-018`, `VAL-019`, `VAL-020`, `VAL-025`; `RF-013`, `RF-019`, `RF-020`, `RF-025`, `RF-033`; `RF-139` (pago que no cubre el monto) | El contenido de la petición incumple una regla |
+| `403` | `VAL-015` (la liga valida documentos y registros); `VAL-021`, `VAL-022` | La persona no puede hacer esa acción aunque tenga el permiso |
+| `409` | `VAL-003`, `VAL-005`, `VAL-017`, `VAL-026`, `VAL-028`; `RF-001`, `RF-017`, `RF-039`, `RF-046`, `RF-048`, `RF-062`, `RF-090`, `RF-100`, `RF-109`, `RF-111`, `RF-113`, `RF-121`, `RF-122`, `RF-123`, `RF-124`, `RF-127`; `RN-024`, `RN-039`; `RNF-015`, `RNF-018` | Transición o cambio no permitido por el estado actual, o choque con otros datos |
+| `422` | `VAL-001` (activar un registro sin todos sus documentos aprobados); `VAL-018`, `VAL-019`, `VAL-020`, `VAL-025`; `RF-013`, `RF-015`, `RF-016`, `RF-019`, `RF-020`, `RF-025`, `RF-033`; `RF-119` (horario de club o comodato incompatible con la cancha, o traslapado); `RF-139` (pago que no cubre el monto) | El contenido de la petición incumple una regla |
 
 Algunos códigos cubren más de un caso en la base (`RF-121` y `RF-123` también rechazan una
 devolución sin observaciones, y `RF-123` a quien no es el árbitro central). El servicio detecta esos
@@ -314,12 +341,22 @@ implementa hasta que su historia entre a un Sprint (AGENTS.md §3). Los permisos
 | `GET /roles` · `GET /roles/{id}` · `GET /permisos` | Roles, permisos y pares incompatibles | `seguridad.rol:CONSULTAR` | RF-095 | N |
 | `PATCH /roles/{id}/permisos` | Cambiar permisos de un rol: `200` si se aplica, `202` si queda pendiente | `seguridad.rol:EDITAR` | RF-095, VAL-022, VAL-023 | N |
 | `GET /solicitudes-cambio-permisos` · `POST …/{id}/resolucion` | Pares incompatibles por aprobar | `seguridad.permisos:APROBAR_INCOMPATIBLE` | RF-096 | N |
-| `GET /avisos-privacidad/vigente` | Aviso de privacidad vigente | sesión | RF-097 | N |
-| `POST /personas/{id}/consentimientos` | Registrar consentimiento del titular o del tutor | `seguridad.consentimiento:REGISTRAR` | RF-097, VAL-025 | N |
+| `GET /avisos-privacidad/vigente?tipo=` | Aviso de privacidad vigente de la liga | sesión | RF-097 | N |
+| `POST /personas/{id}/consentimientos` | Registrar consentimiento del titular o del tutor | `seguridad.consentimiento:REGISTRAR` en cualquier ámbito | RF-097, VAL-025 | N |
 | `GET /solicitudes-arco` · `POST /solicitudes-arco` · `PATCH …/{id}` | Solicitudes ARCO | `seguridad.arco:GESTIONAR` | RF-098 | B |
 | `GET /auditoria?perfilId=&modulo=&accion=&desde=&hasta=` | Consultar auditoría. `tamano` por defecto 50. `orden`: `ocurridoEn` | `auditoria.registro:CONSULTAR` | RF-134 | N |
 | `GET /auditoria/opciones-filtro` | Perfiles, módulos y acciones presentes en la auditoría de la liga, para llenar los filtros; sin paginación | `auditoria.registro:CONSULTAR` | RF-134 | N |
 
+- **Solicitudes ARCO (B-01).** `GET /solicitudes-arco?estado=&tipo=&personaId=` ordena por
+  `recibidaEn` descendente (`tamano` por defecto 20). `POST` recibe `personaId`, `tipo`
+  (`ACCESO`, `RECTIFICACION`, `CANCELACION`, `OPOSICION`) y `descripcion`; responde `201` sin
+  `Location` con la solicitud `RECIBIDA`. `PATCH …/{id}` recibe `estado` y, al cerrar, `respuesta`.
+  **[PROPUESTA]** Transiciones: `RECIBIDA → EN_ATENCION`; `RECIBIDA` o `EN_ATENCION` →
+  `ATENDIDA` o `RECHAZADA` (finales, con `respuesta` obligatoria; guardan `atendidaPor` y
+  `atendidaEn`). Otra transición responde `422 RF-098`. Registrar se autoriza sobre la persona
+  titular; cambiar el estado exige ámbito `LIGA` (política RLS `arco_editar`). Un ámbito `CLUB` ve una
+  página vacía. Una cancelación se atiende como bloqueo, nunca como borrado (DEC-67). Se audita
+  `REGISTRAR_SOLICITUD_ARCO` y `CAMBIAR_ESTADO_SOLICITUD_ARCO` sin la descripción ni la respuesta.
 - **Ámbito de la auditoría [PROPUESTA].** La tabla no tiene club ni persona: solo el ámbito `LIGA` ve
   filas. Con el permiso en ámbito `CLUB` o `PROPIO` la respuesta es `200` con página vacía y
   `totalElementos = 0` (y listas vacías en las opciones), coherente con la política RLS `auditoria_leer`.
@@ -351,6 +388,46 @@ implementa hasta que su historia entre a un Sprint (AGENTS.md §3). Los permisos
   "detalle": { "tipo": "BLOQUEO" }
 }
 ```
+
+**Aviso de privacidad vigente (H-09.1, RF-097, DEC-74, DEC-80).** `GET /avisos-privacidad/vigente?tipo=`
+acepta `INTEGRAL` o `SIMPLIFICADO` (por defecto `SIMPLIFICADO`; otro valor, `400 VALIDACION`) y
+devuelve, de la liga configurada (`siglim.liga-id`), la versión de ese tipo con el mayor
+`vigenteDesde` que no sea posterior a hoy en `America/Mexico_City` (ante un empate, la creada al
+último **[PROPUESTA]**). Basta con tener sesión. Si no hay aviso vigente, `404 NO_ENCONTRADO`. Lleva
+`Cache-Control: no-store` y no se audita.
+
+```json
+{
+  "id": "…", "tipo": "SIMPLIFICADO", "version": "v1", "contenido": "AVISO DE PRIVACIDAD … NO OFICIAL …",
+  "finalidades": ["REGISTRO_DEPORTIVO", "DIFUSION"], "vigenteDesde": "2026-11-11", "esDemo": true
+}
+```
+
+`esDemo` es `true` en el aviso v1 de demostración que carga la migración `20261111130000`: la
+interfaz lo rotula «No oficial» (DEC-74).
+
+**Consentimiento (H-09.1, RF-097, VAL-025, DEC-76, DEC-81).** `POST /personas/{id}/consentimientos`
+recibe `{ "avisoId", "finalidades": [ … ], "otorgadoPorId"? }` y responde `201` con
+`{ "id", "personaId", "otorgadoPorId", "avisoId", "finalidades", "otorgadoEn" }`, sin `Location`
+(todavía no existe un `GET` del recurso) y con `Cache-Control: no-store`. Exige
+`seguridad.consentimiento:REGISTRAR` en **cualquier ámbito** (`autorizacion.alcance`), porque la
+persona puede no estar todavía en el club. Orden de errores:
+
+1. Sin el permiso: `403 VAL-015`.
+2. Sin `avisoId`, sin finalidades o con una finalidad vacía: `400 VALIDACION`. Las finalidades se
+   recortan y las repetidas se quitan **[PROPUESTA]**.
+3. La persona no existe: `404 NO_ENCONTRADO` (se comprueba con `es_menor`, que no depende de RLS,
+   DEC-78).
+4. El aviso no existe: `422 REFERENCIA_INVALIDA`.
+5. El aviso no es el vigente de su tipo en la liga: `422 RF-097`.
+6. Alguna finalidad no está en el aviso: `422 RF-097`.
+7. **Menor:** `otorgadoPorId` es obligatorio y debe ser su tutor vigente (`es_tutor_vigente`, aunque
+   la tutela la haya registrado otro club); si no, `422 VAL-025`. **Adulto:** `otorgadoPorId` se omite
+   o es la misma persona; si es otra, `422 RF-097`. Se guarda `otorgado_por_id = persona_id` (DEC-76).
+
+`registrado_por` es el perfil de la sesión. Se audita en `M-01` como `REGISTRAR_CONSENTIMIENTO`
+(entidad `consentimientos`) con `avisoId` y `finalidades` en el detalle, sin datos personales.
+Revocar un consentimiento no forma parte de H-09.1.
 
 **Usuarios, invitación y asignaciones (H-03.1, RF-094).** Los permisos son
 `seguridad.usuario:CONSULTAR` para `GET /usuarios` y `GET /usuarios/{id}`,
@@ -626,8 +703,13 @@ temporada está activa (el mensaje la nombra), `409 RF-100`, `409 RF-004` o `409
 extensión `requisitos` para los que falten, y `409 RF-001` si la temporada no está en configuración.
 `POST /temporadas/{id}/cierre` lleva `{ "motivo" }` (mínimo 10 caracteres), pasa
 `ACTIVA → CERRADA`, fija el motivo para el historial y la auditoría (RN-021, RF-093); sin motivo
-responde `400 RN-021` y si no está activa, `409 RF-001`. Ambas acciones se auditan como
-`ACTIVAR_TEMPORADA` y `CERRAR_TEMPORADA`.
+responde `400 RN-021` y si no está activa, `409 RF-001`. En la misma transacción aplica las
+operaciones de equipo `AUTORIZADA` de la temporada (B-05.2): pasan a `APLICADA` con `aplicadaEn`, la
+venta mueve el equipo a su club destino conservando el historial de propietarios y la conservación
+de plaza solo se marca aplicada (RF-103, RF-104, RN-040); las `SOLICITADA` no se aplican. Cada
+aplicación se audita como `APLICAR_OPERACION_EQUIPO` en `M-03` y el evento `CERRAR_TEMPORADA` guarda
+`operacionesAplicadas` en su detalle. Ambas acciones se auditan como `ACTIVAR_TEMPORADA` y
+`CERRAR_TEMPORADA`.
 
 **Permisos y ámbito de categorías y grupos (H-05.1).** Todos los `GET` de categorías, categorías de
 la temporada y grupos exigen `temporadas.temporada:CONSULTAR`; los `POST` y `PATCH`,
@@ -741,7 +823,10 @@ liga; la liga sale de la configuración del backend. El `POST` valida en el mism
 reglas de negocio (`409`). No hay `PATCH` ni `DELETE`.
 
 `POST /temporadas/{id}/parametros` lleva el juego **completo** de valores: nada se hereda de la
-versión anterior y todos los campos son obligatorios salvo `esDemo` y `categorias`.
+versión anterior y todos los campos son obligatorios salvo `equiposPorArbitro`,
+`fechasFaseRegular`, `fechasFinalesUnidadDeportiva`, `esDemo` y `categorias`. `equiposPorArbitro`
+omitido conserva el de la versión vigente y, en la primera versión, vale 4 **[DEMO]** (RF-114); los
+dos de localía se heredan igual y, en la primera versión, valen sin definir y 10 **[DEMO]** (RF-120).
 
 ```json
 {
@@ -752,6 +837,8 @@ versión anterior y todos los campos son obligatorios salvo `esDemo` y `categori
   "duracionJuegoMin": 90, "bloqueCanchaMin": 120,
   "clasificadosLiguilla": 8, "formatoLiguilla": "PARTIDO_UNICO", "empateLiguillaPorPenales": true,
   "equiposAscienden": 2, "equiposDescienden": 2, "permiteCambioClub": true,
+  "equiposPorArbitro": 4,
+  "fechasFaseRegular": 18, "fechasFinalesUnidadDeportiva": 10,
   "esDemo": true,
   "categorias": [ { "categoriaId": "…", "duracionJuegoMin": 70, "bloqueCanchaMin": 90 } ],
   "motivo": "Valores de demostración para la temporada"
@@ -769,6 +856,9 @@ versión anterior y todos los campos son obligatorios salvo `esDemo` y `categori
 | `formatoLiguilla` | `PARTIDO_UNICO` o `IDA_Y_VUELTA` |
 | `empateLiguillaPorPenales`, `permiteCambioClub` | Booleanos |
 | `equiposAscienden`, `equiposDescienden` | Enteros de 0 a 32 **[PROPUESTA]** (DEC-29) |
+| `equiposPorArbitro` | Entero de 1 a 100; opcional. Omitido conserva el de la versión vigente y, en la primera versión, vale 4 **[DEMO]**. Equipos activos por cada árbitro validado que el club debe presentar (RF-114, DEC-17, DEC-72) |
+| `fechasFaseRegular` | Entero de 1 a 99 **[PROPUESTA]**; opcional. Total de fechas (jornadas) de la fase regular. Omitido conserva el de la versión vigente; en la primera versión queda sin definir y la regla de las últimas fechas no se evalúa (RN-049, B-15.1) |
+| `fechasFinalesUnidadDeportiva` | Entero de 0 a 99 **[PROPUESTA]**; opcional. Últimas fechas de la fase regular en que se advierte una cancha fuera de la unidad deportiva; 0 desactiva la regla. Omitido conserva el de la versión vigente y, en la primera versión, vale 10 **[DEMO]** (RF-120, VAL-027, DEC-34) |
 | `esDemo` | Opcional; omitido vale `true` |
 | `categorias` | Opcional. Duración y bloque propios de una categoría **asignada a esta temporada**, sin repetir categoría y con bloque ≥ duración. Una categoría omitida usa los valores de la temporada |
 | `motivo` | De 10 a 500 caracteres sin espacios en los extremos (RN-021); se guarda en la versión y en la auditoría |
@@ -785,19 +875,23 @@ la misma forma que `GET /temporadas/{id}/parametros/{version}`:
   "duracionJuegoMin": 90, "bloqueCanchaMin": 120, "clasificadosLiguilla": 8,
   "formatoLiguilla": "PARTIDO_UNICO", "empateLiguillaPorPenales": true,
   "equiposAscienden": 2, "equiposDescienden": 2, "permiteCambioClub": true,
+  "equiposPorArbitro": 4,
+  "fechasFaseRegular": 18, "fechasFinalesUnidadDeportiva": 10,
   "categorias": [ { "categoria": { "id": "…", "nombre": "Veteranos" }, "duracionJuegoMin": 70, "bloqueCanchaMin": 90 } ],
   "esDemo": true,
   "camposDemo": ["puntosVictoria", "puntosEmpate", "puntosDerrota", "criteriosDesempate",
                  "golesDefaultGanador", "golesDefaultPerdedor", "plazoValidacionCedulaHoras", "bloqueCanchaMin",
                  "clasificadosLiguilla", "formatoLiguilla", "empateLiguillaPorPenales",
-                 "equiposAscienden", "equiposDescienden"],
+                 "equiposAscienden", "equiposDescienden", "equiposPorArbitro",
+                 "fechasFinalesUnidadDeportiva"],
   "motivo": "Ajuste de la asamblea de la Liga",
   "creadoPor": { "id": "…", "nombre": "Ana López" },
   "creadoEn": "2026-11-05T10:00:00-06:00"
 }
 ```
 
-`categorias` va por el orden del catálogo y `creadoPor` se omite si la versión no lo tiene.
+`categorias` va por el orden del catálogo y `creadoPor` y `fechasFaseRegular` se omiten si la versión
+no los tiene.
 
 - **`esDemo` y `camposDemo`.** `esDemo` vale para la versión completa: es `true` mientras la Liga no
   confirme los valores como oficiales (PEN-021). Con `esDemo: true`, `camposDemo` lista los campos
@@ -853,16 +947,17 @@ la misma forma que `GET /temporadas/{id}/parametros/{version}`:
 | --- | --- | --- | --- | --- |
 | `GET /clubes` · `GET /clubes/{id}` · `POST /clubes` | Clubes. Sin `PATCH`: el nombre solo cambia con `POST /clubes/{id}/cambio-nombre` | `organizacion.club:CONSULTAR` en los `GET`; `organizacion.club:EDITAR` en `POST` | RF-008 | N |
 | `POST /clubes/{id}/cambio-nombre` | Cierra el club y crea uno nuevo | `organizacion.club:EDITAR` con ámbito de liga | RF-105 | B |
-| `GET /afiliaciones?temporadaId=&estado=` · `POST /afiliaciones` · `PATCH /afiliaciones/{id}` | Tarjetón por temporada (folio lo asigna el sistema) | `organizacion.afiliacion:CAPTURAR` | RF-101 | N |
+| `GET /afiliaciones?temporadaId=&estado=` · `GET /afiliaciones/{id}` · `POST /afiliaciones` · `PATCH /afiliaciones/{id}` | Tarjetón por temporada (folio lo asigna el sistema) | `organizacion.afiliacion:CAPTURAR`; los `GET` también con `organizacion.afiliacion:APROBAR` | RF-101 | N |
+| `GET /afiliaciones/contexto` | Temporadas, categorías y grupos para capturar o revisar el tarjetón | `organizacion.afiliacion:CAPTURAR` o `organizacion.afiliacion:APROBAR` | RF-101 | N |
 | `POST /afiliaciones/{id}/resolucion` | Aprobar o rechazar | `organizacion.afiliacion:APROBAR` | RF-101 | N |
 | `GET /clubes/{id}/directiva` | Cargos e historial | `organizacion.club:CONSULTAR` con ámbito del club | RF-102 | N |
 | `POST /clubes/{id}/directiva` | Registrar un cambio pendiente | `organizacion.directiva:EDITAR` con ámbito del club | RF-102 | N |
 | `POST /cargos-directiva/{id}/autorizacion` | Autorizar un cambio | `organizacion.directiva:APROBAR` con ámbito del club | RF-102 | N |
 | `GET /equipos?temporadaId=&grupoId=&clubId=&estado=` · `GET /equipos/{id}` · `POST` · `PATCH /equipos/{id}` · `POST /equipos/{id}/baja` | Equipos | `organizacion.equipo:CONSULTAR` en los `GET`; `organizacion.equipo:EDITAR` en `POST`, `PATCH` y la baja | RF-009 | N |
-| `POST /operaciones-equipo` · `POST …/{id}/resolucion` | Venta y conservación de plaza | `organizacion.venta:*` | RF-103, RF-104 | B |
-| `GET /personas?curp=` · `POST /personas` · `PATCH /personas/{id}` | Identidad única por CURP; `POST` con una CURP existente responde `409` con el `id` para reutilizarla | `organizacion.persona:*` | RF-010, RF-011 | N |
+| `GET /operaciones-equipo?temporadaId=&estado=` · `GET /operaciones-equipo/{id}` · `GET /operaciones-equipo/contexto` · `POST /operaciones-equipo` · `POST …/{id}/resolucion` | Venta y conservación de plaza | `organizacion.venta:*` | RF-103, RF-104 | B |
+| `GET /personas?curp=` · `POST /personas` · `PATCH /personas/{id}` | Identidad única por CURP; `POST` con una CURP existente responde `409 RF-010` con el `personaId` para reutilizarla | `organizacion.persona:CONSULTAR` en el `GET` y `organizacion.persona:EDITAR` en `POST` y `PATCH`, en cualquier ámbito; corregir la identidad exige `EDITAR` en toda la liga (DEC-77) | RF-010, RF-011 | N |
 | `GET /personas/{id}/historial` | Clubes y equipos por temporada | `organizacion.persona:CONSULTAR` | RF-012 | N |
-| `POST /personas/{id}/tutelas` | Vincular menor y tutor | `organizacion.persona:EDITAR` | RF-106 | N |
+| `POST /personas/{id}/tutelas` | Vincular menor y tutor | `organizacion.persona:EDITAR` en cualquier ámbito | RF-106 | N |
 
 **Ámbito.** Clubes y equipos se autorizan con el ámbito del club: la directiva de un club solo ve y
 opera el suyo, y un club o equipo ajeno responde `404` igual que uno inexistente (VAL-024). Los
@@ -914,6 +1009,55 @@ historial se quedan en el club anterior. Se audita en `M-03` `CERRAR_CLUB` sobre
 trasladada, en `M-01`, `REVOCAR_ASIGNACION` (motivo «Cambio de nombre del club») y `ASIGNAR_ROL`, con
 el mismo detalle que en §6.1. Si cualquier paso falla, no queda nada de lo anterior.
 
+**Afiliación del club (H-08.1, RF-101, CU-018, UI-023, DEC-09).** `GET /afiliaciones?temporadaId=&estado=`
+responde la envoltura de paginación (§4) ordenada por fecha de inicio de la temporada descendente y,
+dentro de ella, por nombre del club. Un `temporadaId` fuera del ámbito no es un error: la página sale
+vacía, y un `estado` sin coincidencias también. El listado y su `totalElementos` filtran por el club
+con la unión del alcance de `organizacion.afiliacion:CAPTURAR` (Secretaría y Directiva) y de
+`organizacion.afiliacion:APROBAR` (Presidencia), porque el Presidente revisa tarjetones aunque no los
+capture. `GET /afiliaciones/{id}`
+responde el mismo detalle; un tarjetón de otro club responde `404` igual que uno inexistente
+(VAL-024). El detalle lleva `id`, `folio`, `club`, `temporada` (con su `estado`), `coloresUniformes`,
+`estado`, `categorias`, `capturadaPor`, `capturadaEn` y, solo si ya se resolvió, `resueltaPor`,
+`resueltaEn` y `observaciones`. El `id` del perfil siempre se incluye; su `nombreMostrado` se omite si
+las políticas RLS de `perfiles` no permiten verlo al usuario de la sesión.
+
+**Contexto de afiliación (H-08.2).** `GET /afiliaciones/contexto` responde
+`{ "temporadas": [{ "id", "nombre", "estado", "fechaInicio", "categorias": [{ "id", "nombre",
+"grupos": [{ "id", "nombre", "equipos" }] }] }] }` con las temporadas de la liga de la más reciente
+a la más antigua. Es la vía de la pantalla F-16 para que la Directiva capture sin depender de
+`temporadas.temporada:CONSULTAR` (M-02): el endpoint se autoriza con cualquiera de los dos permisos
+de afiliación y solo devuelve datos de contexto del tarjetón. Las temporadas y categorías son de la
+liga, no de un club; el ámbito no las filtra, el permiso sí. Es de solo lectura y no se audita.
+
+`POST /afiliaciones` lleva `{ "clubId", "temporadaId", "coloresUniformes", "categoriaIds" }` y
+responde `201` con `Location`. El estado inicial es `SOLICITADA` y el perfil que captura sale de la
+sesión; el cuerpo no los envía. El folio lo asigna el sistema como `AF-<año de inicio de la
+temporada>-<consecutivo de cuatro dígitos>` **[PROPUESTA]** (el ejemplo `AF-2025-0137` de F-16), único
+por temporada: la temporada se bloquea con `FOR UPDATE` antes de contar, así que dos altas
+simultáneas no repiten consecutivo. El club debe existir, ser de la liga y estar `ACTIVO`
+(`409 RN-041` si está cerrado); la temporada debe ser de la liga (`422 REFERENCIA_INVALIDA`) y no
+estar `CERRADA` (`409 RF-003`); se exige al menos una categoría y los colores; todas las categorías
+deben participar en la temporada (`422 REFERENCIA_INVALIDA` con la extensión `categoriasInvalidas`).
+Un club ya afiliado en esa temporada responde `409 DUPLICADO` con el folio, el estado, y las
+extensiones `afiliacionId` y `folio`.
+
+`PATCH /afiliaciones/{id}` edita `coloresUniformes` o `categoriaIds`; lo ausente conserva su valor y
+sin cambios responde el tarjetón sin auditar. Solo se edita en `SOLICITADA`: un tarjetón resuelto
+responde `409 RF-101`, uno de un club cerrado, `409 RN-041`, y uno de una temporada cerrada,
+`409 RF-003`. Las categorías nuevas se validan igual que en el alta y se reemplazan en la misma
+transacción.
+
+`POST /afiliaciones/{id}/resolucion` lleva `{ "decision": "APROBADA"|"RECHAZADA", "observaciones" }`
+y exige `organizacion.afiliacion:APROBAR` con ámbito del club. Pasar a `APROBADA` o `RECHAZADA` es
+terminal: resolver otra vez responde `409 RF-101` y hacerlo con el club cerrado, `409 RN-041`. El
+rechazo exige observaciones de 10 a 500 caracteres (`400 RF-101` si faltan, `400 VALIDACION` si
+sobran) y las guarda como motivo; la aprobación las admite como nota. En ambos
+casos se guardan `resueltaPor` (perfil de la sesión) y `resueltaEn` (reloj del servidor). Las
+operaciones se auditan en `M-03` sobre `afiliaciones` como `REGISTRAR_AFILIACION`,
+`EDITAR_AFILIACION`, `APROBAR_AFILIACION` y `RECHAZAR_AFILIACION`, con folio y estados, sin datos
+personales.
+
 **Directiva del club (H-22.1, RF-102, DEC-03).** `GET /clubes/{id}/directiva` devuelve un arreglo con
 los cargos actuales, pendientes y anteriores del club, ordenados por cargo, pendientes primero y
 fecha `desde` descendente. Cada elemento contiene `id`, `clubId`, `personaId`, `nombrePersona`,
@@ -934,15 +1078,76 @@ del cargo anterior; volver a autorizar un cambio ya autorizado o una vigencia qu
 responde `409 VAL-003`. Ambas operaciones se auditan en `M-03` como `REGISTRAR_CARGO_DIRECTIVA` y
 `AUTORIZAR_CARGO_DIRECTIVA`, sin nombres ni otros datos personales en la auditoría.
 
-**Persona por CURP (H-22.2, RF-010, RF-011).** `GET /personas?curp=` responde
-`{ "id", "curp", "nombre", "apellidoPaterno", "apellidoMaterno" }`; `apellidoMaterno` se omite si no
-existe. Es la consulta mínima que necesita F-15 para enviar el `personaId` de un cambio de directiva
-y confirmar el nombre antes de registrarlo. La CURP se normaliza a mayúsculas y debe cumplir el
+**Persona por CURP (H-22.2, H-09.3, RF-010, RF-011, DEC-104).** `GET /personas?curp=` responde
+`{ "id", "curp", "nombre", "apellidoPaterno", "apellidoMaterno", "esMenor" }`; `apellidoMaterno` se
+omite si no existe. Es la consulta mínima que necesita F-15 para enviar el `personaId` de un cambio de
+directiva y confirmar el nombre antes de registrarlo. `esMenor` (boolean) se calcula con
+`es_menor(id, fecha)` y la fecha de hoy en `America/Mexico_City`, la misma con la que el alta de un
+registro decide VAL-025 (DEC-89): con él, el asistente de alta (F-18) sabe si pide tutor y quién otorga
+el consentimiento, también para una persona de otro club. No se expone la fecha de nacimiento. La CURP se normaliza a mayúsculas y debe cumplir el
 formato de 18 caracteres de `ck_personas_curp` (`400 VALIDACION` si no); una CURP sin persona
 responde `404 NO_ENCONTRADO` (VAL-024). Exige `organizacion.persona:CONSULTAR` en **cualquier
 ámbito** (se comprueba con `autorizacion.alcance`): la identidad es global y no pertenece a un club,
-pero la consulta exige la CURP exacta y no permite listar personas. La respuesta lleva
-`Cache-Control: no-store` porque incluye datos personales (RNF-012).
+pero la consulta exige la CURP exacta y no permite listar personas. Desde H-09.1 la consulta usa la
+función `persona_por_curp` (`SECURITY DEFINER`, DEC-78), así que encuentra también a las personas que
+RLS no muestra al club (por ejemplo, quien jugó en otro club); devuelve solo estos campos. La
+respuesta lleva `Cache-Control: no-store` porque incluye datos personales (RNF-012).
+
+**Alta de una persona (H-09.1, RF-010, DEC-62, DEC-84).** `POST /personas` recibe
+`{ "curp", "nombre", "apellidoPaterno", "apellidoMaterno"?, "fechaNacimiento", "correo"?, "telefono"? }`
+y responde `201` con `Location: /api/v1/personas/{id}`, `Cache-Control: no-store` y el detalle
+`{ "id", "curp", "nombre", "apellidoPaterno", "apellidoMaterno", "fechaNacimiento", "correo", "telefono" }`
+(los opcionales vacíos se omiten). Exige `organizacion.persona:EDITAR` en cualquier ámbito. Orden:
+
+1. Sin el permiso: `403 VAL-015`.
+2. Datos: CURP con el formato de `ck_personas_curp`, nombre y apellido paterno obligatorios (hasta 100
+   caracteres), fecha de nacimiento obligatoria y no futura en `America/Mexico_City`, correo con el
+   formato de `ck_personas_correo` y teléfono de hasta 20 caracteres **[PROPUESTA]**; si no,
+   `400 VALIDACION`. Los textos se recortan y un opcional vacío se guarda como `NULL`.
+3. La CURP ya existe en cualquier club (`persona_por_curp`, aunque RLS no la muestre): `409 RF-010`
+   con la extensión `personaId` y un `detail` que pide reutilizarla. Si una carrera inserta la misma
+   CURP antes, el `INSERT … ON CONFLICT (curp) DO NOTHING` no inserta y se responde igual.
+
+`creado_por` es el perfil de la sesión. Se audita en `M-03` como `REGISTRAR_PERSONA` (entidad
+`personas`) sin detalle.
+
+**Edición de una persona (H-09.1, RF-010, RF-011, DEC-77, DEC-83).** `PATCH /personas/{id}` recibe
+un cuerpo parcial con los mismos campos del alta: un campo ausente o `null` conserva su valor y una
+cadena vacía en `apellidoMaterno`, `correo` o `telefono` borra el dato **[PROPUESTA]**. Responde `200`
+con el detalle y `Cache-Control: no-store`. Orden:
+
+1. Sin `organizacion.persona:EDITAR` en ningún ámbito: `403 VAL-015`.
+2. Cuerpo sin campos: `400 VALIDACION`.
+3. La persona no existe o RLS no la deja ver al usuario: `404 NO_ENCONTRADO`.
+4. Correo y teléfono se editan con el permiso en cualquier ámbito. Cambiar CURP, nombre, apellidos o
+   fecha de nacimiento exige el permiso con ámbito de **toda la liga**; si no, `403 VAL-015` con un
+   mensaje que explica que esos datos los corrige el Secretario de la liga. Un campo de identidad
+   igual al actual no cuenta como cambio **[PROPUESTA]**.
+5. Datos con las reglas del alta: `400 VALIDACION`.
+6. Una CURP nueva que ya tiene otra persona: `409 DUPLICADO`.
+
+Sin cambios reales se responde la persona sin escribir ni auditar. Si hay cambios, se actualiza
+`actualizado_en` y se audita en `M-03` como `EDITAR_PERSONA` con `{ "campos": [ … ] }`: solo los
+**nombres** de los campos cambiados, nunca sus valores.
+
+**Tutela (H-09.1, RF-106, DEC-75, DEC-79, DEC-82).** `POST /personas/{id}/tutelas` vincula al menor
+`{id}` con `{ "tutorId", "parentesco" }` y responde `201` con
+`{ "id", "menorId", "tutorId", "parentesco", "vigente", "creadoEn" }`, sin `Location` (todavía no existe
+un `GET` del recurso). Exige `organizacion.persona:EDITAR` en cualquier ámbito. La cuenta del tutor no
+se exige: se crea después con la invitación de H-03 (DEC-75). Orden:
+
+1. Sin el permiso: `403 VAL-015`.
+2. Sin `tutorId`, o `parentesco` vacío o de más de 40 caracteres tras recortarlo: `400 VALIDACION`.
+3. El menor no existe: `404 NO_ENCONTRADO`.
+4. El tutor es la persona de la cuenta que hace la petición (`persona_usuario()`): `403 VAL-022`
+   (separación de funciones, DEC-79).
+5. La persona no es menor de edad: `422 RF-106`.
+6. El tutor no existe: `422 REFERENCIA_INVALIDA`.
+7. El tutor es menor de edad: `422 RF-106`.
+8. Ya hay una tutela vigente entre ambos (`ux_tutelas_vigente`): `409 DUPLICADO`.
+
+`creado_por` es el perfil de la sesión. Se audita en `M-03` como `REGISTRAR_TUTELA` (entidad
+`tutelas`) con `menorId` y `tutorId` en el detalle, sin parentesco ni otros datos personales.
 
 **Equipo.** `GET /equipos?temporadaId=&grupoId=&clubId=&estado=&pagina=&tamano=` responde la envoltura
 de paginación ordenada por el orden de la categoría, el nombre del grupo y el nombre del equipo.
@@ -982,30 +1187,846 @@ Cada equipo trae referencias anidadas (§9.1):
 - Se audita en el módulo `M-03` como `REGISTRAR_EQUIPO`, `EDITAR_EQUIPO` (con los `campos`
   cambiados) y `DAR_BAJA_EQUIPO` (con el motivo); el detalle lleva solo identificadores y estados.
 
+**Venta de equipo y conservación de plaza (B-05.1, RF-103, RF-104, RN-040, DEC-14).**
+`POST /operaciones-equipo` lleva `{ "tipo": "VENTA"|"CONSERVACION_PLAZA", "equipoId",
+"clubDestinoId"?, "observaciones"? }` y deja la operación en `SOLICITADA` con el perfil que la
+registra. `POST /operaciones-equipo/{id}/resolucion` lleva `{ "decision":
+"AUTORIZADA"|"RECHAZADA", "observaciones"? }` y solo lo usa el Presidente
+(`organizacion.venta:APROBAR`). Registrar exige `organizacion.venta:SOLICITAR` sobre el club actual
+del equipo. Un equipo o una operación de otro club responde `404` igual que uno inexistente
+(VAL-024).
+
+- **Consulta (B-05.3).** `GET /operaciones-equipo?temporadaId=&estado=&pagina=&tamano=` es la
+  bandeja de B-09, de la solicitud más reciente a la más antigua; usa el alcance unificado de
+  `SOLICITAR` y `APROBAR` en el `WHERE` y en el `COUNT`, así que la Directiva ve las operaciones de
+  su club y el Presidente las de la liga. Un estado o una temporada fuera del alcance dan una página
+  vacía, no un error. `GET /operaciones-equipo/{id}` responde la operación y, si es de otro club,
+  `404` igual que una inexistente (VAL-024). `GET /operaciones-equipo/contexto` entrega los clubes
+  `ACTIVO` de la liga para elegir el destino de una venta; es un catálogo de identificador y nombre,
+  sin datos personales, que la Directiva necesita completo aunque su ámbito de consulta de clubes
+  solo alcance el propio.
+- **VENTA** exige `clubDestinoId` y que sea distinto del club actual del equipo; ausente o repetido,
+  `400 VALIDACION`. **CONSERVACION_PLAZA** es una operación independiente de la venta (RF-104) y no
+  lleva club destino; si lo lleva, `400 VALIDACION`. Las dos pueden convivir para el mismo equipo y
+  no se bloquean entre sí.
+- **Una vigente por tipo (DEC-132).** Un equipo no puede tener dos operaciones del mismo tipo en
+  `SOLICITADA` o `AUTORIZADA`: otra venta responde `409 RF-103` y otra conservación de plaza
+  `409 RF-104`. Las `RECHAZADA` y `APLICADA` no cuentan. El equipo se lee con su candado, así que
+  dos solicitudes simultáneas se serializan.
+- Orden de errores al registrar: sin `tipo` o `equipoId`, `400 VALIDACION`; equipo inexistente o
+  fuera de ámbito, `404`; sin permiso, `403 VAL-015`; temporada `CERRADA`, `409 RF-003`; equipo
+  `BAJA`, `409 RF-009`; reglas del tipo (venta sin club destino o con el de origen, conservación con
+  club destino), `400 VALIDACION`; club destino inexistente, `422 REFERENCIA_INVALIDA`; club destino
+  `CERRADO`, `409 RN-041`; observaciones de más de 500 caracteres, `400 VALIDACION`; operación
+  vigente del mismo tipo, `409 RF-103` o `RF-104`.
+- Resolver: operación inexistente o de otro club, `404`; sin permiso, `403 VAL-015`; ya resuelta,
+  `409 RF-103` (venta) o `RF-104` (conservación); sin `decision` u observaciones de más de 500
+  caracteres, `400 VALIDACION`; al autorizar, temporada `CERRADA`, `409 RF-003`, y club destino de
+  la venta `CERRADO`, `409 RN-041` (lo que pudo cambiar desde la solicitud); al rechazar sin
+  observaciones de 10 a 500 caracteres, `400 RN-021`. La autorización admite una nota opcional que
+  reemplaza las observaciones; sin nota se conservan las de la solicitud. Solo `SOLICITADA` se resuelve: una
+  operación `AUTORIZADA` pasa a `APLICADA` al cerrar la temporada (H-04.1), que es cuando el equipo
+  cambia de club; hasta entonces conserva a su propietario.
+- Respuesta `201` con `Location: /api/v1/operaciones-equipo/{id}` y `200` con la operación
+  resuelta. Campos: `id`, `tipo`, `estado`, `equipo`, `clubOrigen`, `clubDestino` solo en venta,
+  `temporada`, `solicitadaPor`, `solicitadaEn`, `autorizadaPor`, `autorizadaEn`, `aplicadaEn` y
+  `observaciones`.
+- Se audita en `M-03` sobre `operaciones_equipo`: `SOLICITAR_OPERACION_EQUIPO` con tipo, equipo,
+  clubes, estado y, si las lleva, las observaciones de la solicitud (quedan aunque el dictamen las
+  reemplace en la fila); `AUTORIZAR_OPERACION_EQUIPO` y `RECHAZAR_OPERACION_EQUIPO` con el estado anterior
+  y el nuevo, y el rechazo con las observaciones como motivo. La fila nunca se borra: es el
+  historial de propietarios (RN-040).
+
 ### 6.4 M-04 Registros y elegibilidad
 
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
-| `GET /registros-jugador?temporadaId=&equipoId=&estado=` | Registros de su ámbito | `registros.registro:CONSULTAR` | RF-017 | N |
-| `POST /registros-jugador` | Alta: `{ personaId, equipoId }`; queda `PENDIENTE_VALIDACION`. `409 VAL-017` dice club y equipo donde ya está registrada la CURP | `registros.registro:EDITAR` | RF-013, RF-107 | N |
-| `GET /registros-jugador/{id}/requisitos` | Documentos que exige su categoría y cuáles faltan | `registros.registro:CONSULTAR` | RF-108, VAL-001 | N |
-| `POST /registros-jugador/{id}/validacion` · `/baja` | Validar, rechazar, dar de baja | ver §2.1 | RF-109, RF-014 | N |
-| `GET /registros-jugador/{id}/historial` | Cambios de estado con usuario y motivo | `registros.registro:CONSULTAR` | RF-018 | B |
+| `GET /registros-jugador?estado=&temporadaId=&clubId=&equipoId=&orden=&pagina=&tamano=` | Registros de su ámbito, paginados (§4). `estado` admite varios valores separados por coma; `orden`: `creadoEn,asc` (por defecto), `creadoEn,desc` o `nombre,asc`. Filas con la CURP enmascarada; detalle abajo | `registros.registro:CONSULTAR` (ámbito en el `WHERE` y en el `COUNT`) | RF-017 | N |
+| `GET /registros-jugador/{id}` | Detalle con `esMenor`, tutores vigentes del menor y la CURP completa solo con `organizacion.persona:CONSULTAR` sobre el club; detalle abajo | `registros.registro:CONSULTAR` (club o persona del registro) | RF-017 | N |
+| `POST /registros-jugador` | Alta: `{ personaId, equipoId }`; queda `PENDIENTE_VALIDACION`. `409 VAL-017` dice club y equipo donde ya está registrada la CURP; detalle abajo | `registros.registro:EDITAR` (club del equipo) | RF-013, RF-107, VAL-025 | N |
+| `GET /registros-jugador/{id}/requisitos` | Documentos que exige su categoría y cuáles faltan; detalle abajo | `registros.registro:CONSULTAR` (club o persona del registro) | RF-108, VAL-001 | N |
+| `POST /registros-jugador/{id}/validacion` | Validar o rechazar; detalle abajo | `registros.registro:VALIDAR` (club del equipo) | RF-109 | N |
+| `POST /registros-jugador/{id}/baja` | Dar de baja un registro `ACTIVO` con motivo; detalle abajo | `registros.registro:EDITAR` (club del equipo) | RF-014 | N |
+| `GET /registros-jugador/{id}/historial` | Cambios de estado con usuario y motivo, del más antiguo al más reciente; detalle abajo | `registros.registro:CONSULTAR` (club del registro) | RF-018 | B |
 | `GET /registros-jugador/{id}/elegibilidad?equipoId=` | `{ elegible, causas: [ { codigo, mensaje } ] }` | `registros.registro:CONSULTAR` | RF-019, RF-020, RF-110 | N |
-| `POST /registros-jugador/renovaciones` · `/transferencias` | Renovación y cambio de club entre temporadas | `registros.registro:EDITAR` | RF-015, RF-016 | B |
-| Documentos | Ver §7 | `registros.documento:*` | RF-108, RF-109 | N |
-| `GET /mi-informacion` | Registro, documentos, elegibilidad, partidos y sanciones del jugador o de los menores que tutela | ámbito `PROPIO` | RF-144 | N |
+| `GET /registros-jugador/movimientos/opcion?personaId=&equipoId=` | Movimiento entre temporadas que el asistente de alta puede ofrecer: `{ tipo, permitido, temporadaAnterior, motivo }`; detalle abajo | `registros.registro:EDITAR` (club del equipo de destino) | RF-015, RF-016, RF-111 | B |
+| `POST /registros-jugador/renovaciones` · `/transferencias` | Renovación en el mismo club (RF-015) o cambio de club entre temporadas (RF-016): `{ personaId, equipoId }`; queda `PENDIENTE_VALIDACION` y enlaza el registro anterior; detalle abajo | `registros.registro:EDITAR` (club del equipo de destino) | RF-015, RF-016, RF-111 | B |
+| Documentos | Carga, reemplazo, enlace y validación de cada documento; detalle abajo y en §7 | `registros.documento:*` | RF-108, RF-109 | N |
+| `GET /mi-informacion` | `{ titulares: [ { personaId, nombre, esPropia, esMenor } ] }`: la persona de la cuenta y los menores bajo su tutela vigente; detalle abajo | `registros.registro:CONSULTAR` (cualquier ámbito) | RF-144 | N |
+| `GET /mi-informacion/{personaId}` | Registros, documentos, elegibilidad, partidos y sanciones de esa persona; solo si es la de la cuenta o un menor bajo su tutela vigente (`es_titular`); detalle abajo | `registros.registro:CONSULTAR` (cualquier ámbito) + `es_titular` | RF-144, RF-019, RF-020 | N |
+
+#### Alta de un registro (H-09.2, RF-013, RF-107, RF-111, VAL-017, VAL-025, DEC-85 a DEC-90, DEC-154)
+
+`POST /registros-jugador` recibe `{ "personaId", "equipoId" }` y registra a la persona en el equipo;
+la temporada es la del grupo del equipo. Exige `registros.registro:EDITAR` sobre el **club del
+equipo** (`ObjetivoAutorizacion.deClubes`); hoy solo la Directiva de club lo tiene, con ámbito
+`CLUB`. Los obligatorios los valida el servicio después del permiso, así que el cuerpo no lleva
+`@Valid`. Orden de errores:
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. Falta `personaId` o `equipoId`: `400 VALIDACION`.
+3. El equipo no existe en la liga, o es de un club fuera del ámbito del usuario: `404 NO_ENCONTRADO`,
+   sin distinguir los dos casos (VAL-024).
+4. La temporada del equipo está `CERRADA`: `409 RF-003` (se aceptan `CONFIGURACION` y `ACTIVA`).
+5. El equipo está en `BAJA`: `422 RF-013`.
+6. El club no tiene afiliación `APROBADA` en la temporada: `409 RF-101`, con un `detail` que pide
+   tramitar el tarjetón o esperar su aprobación. No se cruza la categoría con el tarjetón.
+7. La persona no existe: `422 REFERENCIA_INVALIDA`. Se comprueba con `es_menor`, que ve a personas
+   que RLS no muestra al club (identidad global, DEC-78).
+8. La persona ya tiene un registro `PENDIENTE_VALIDACION`, `ACTIVO` o `SUSPENDIDO` en la temporada,
+   en cualquier club: `409 VAL-017`. El `detail` nombra el club y el equipo (o dice «tu club» o «este
+   equipo») y el problema lleva las extensiones `club` y `equipo` con sus **nombres**:
+
+   ```json
+   {
+     "status": 409,
+     "codigo": "VAL-017",
+     "detail": "Esta persona ya está registrada en esta temporada en el club «Club Águilas», equipo «Águilas». Un jugador solo puede estar en un equipo por temporada.",
+     "club": "Club Águilas",
+     "equipo": "Águilas"
+   }
+   ```
+
+   Nunca se exponen ids, categoría ni estado de ese registro (un `SUSPENDIDO` revelaría una sanción).
+9. Sin registro activo, pero con uno en `BAJA` en **otro club** de la temporada: `409 VAL-026`, sin
+   nombrar el club.
+10. Con uno en `BAJA` en **otro equipo del mismo club**: `409 RN-039` (dentro de una temporada no hay
+    cambio de equipo, RF-016). Registrarse de nuevo en el mismo equipo sí se permite. Los registros
+    `RECHAZADO` no cuentan en los pasos 8 a 10.
+11. El registro anterior más reciente de la persona (`registro_anterior`) es de **otro club** y la
+    versión vigente de parámetros de la temporada no permite el cambio de club: `409 RF-111`, con el
+    mismo mensaje de la transferencia y sin nombrar al otro club (DEC-154). El alta no obliga a usar
+    la renovación o la transferencia (pendiente, DEC-146) y no enlaza el registro anterior.
+12. La persona es menor en la fecha de alta: sin tutela vigente, `422 VAL-025` con
+    `"requisito": "TUTOR"`; con tutor pero sin consentimiento no revocado otorgado por un tutor
+    vigente, `422 VAL-025` con `"requisito": "CONSENTIMIENTO"`. Es la misma condición que
+    `tg_registros_validar` al activar. No se exige aviso vigente ni una finalidad concreta
+    **[PROPUESTA]**; el INE del tutor es un documento y se exige al validar (H-10.2), no aquí. A los
+    adultos no se les exige consentimiento (DEC-76).
+
+La fecha de alta (`alta_en`) la calcula el servicio en `America/Mexico_City` y se envía en el
+`INSERT`; con ella se decide si la persona es menor. Los registros de otros clubes y los requisitos
+del menor se leen con `registros_en_temporada` y `requisitos_menor` (`SECURITY DEFINER`, solo
+`siglim_app`). El `INSERT … ON CONFLICT … DO NOTHING` sobre `ux_registros_activo` resuelve una
+carrera sin abortar la transacción: si otra petición registró antes a la persona, se responde el
+mismo `409 VAL-017` con los nombres. Si aun así llega un `23505` de ese índice, se traduce como
+`VAL-017` por su comentario (§3.2).
+
+Responde `201` con `Location: /api/v1/registros-jugador/{id}` (DEC-109) y con
+`Cache-Control: no-store`, con referencias anidadas (§9.1) y sin CURP (§9.2):
+
+```json
+{
+  "id": "…",
+  "persona": { "id": "…", "nombreCompleto": "Ana López Ruiz" },
+  "equipo": { "id": "…", "nombre": "Halcones" },
+  "club": { "id": "…", "nombre": "Club Halcones" },
+  "categoria": { "id": "…", "nombre": "Libre" },
+  "temporada": { "id": "…", "nombre": "Temporada 2026", "estado": "ACTIVA" },
+  "estado": "PENDIENTE_VALIDACION",
+  "altaEn": "2026-11-11",
+  "creadoEn": "2026-11-11T12:00:00-06:00",
+  "validadoPor": null,
+  "validadoEn": null,
+  "observaciones": null,
+  "bajaEn": null,
+  "motivoBaja": null
+}
+```
+
+`validadoPor`, `validadoEn` y `observaciones` se llenan al validar el registro (H-10.2, abajo);
+`bajaEn` y `motivoBaja`, al darlo de baja (H-23.1, abajo).
+`creado_por` es el perfil de la sesión; el historial lo escribe `tg_registros_historial` con el
+motivo «Alta del registro». Se audita en `M-04` como `REGISTRAR_REGISTRO_JUGADOR` (entidad
+`registros_jugador`) con `{ "personaId", "equipoId", "temporadaId", "estado": "PENDIENTE_VALIDACION" }`,
+sin datos personales.
+
+#### Consulta de registros (H-10.5, RF-017, DEC-109, DEC-110)
+
+Los dos endpoints exigen `registros.registro:CONSULTAR` y responden `200` con
+`Cache-Control: no-store`. Hoy lo tienen el Secretario y la Comisión Disciplinaria (ámbito `LIGA`),
+la Directiva de club (`CLUB`) y el jugador o su tutor (`PROPIO`). Las consultas no se auditan. Los
+usan la bandeja de validación y los documentos del registro (H-10.3) y la plantilla del club
+(H-09.4).
+
+**Listado.** `GET /registros-jugador` filtra por ámbito en el SQL con `autorizacion.alcance` y la
+**misma condición en el `WHERE` y en el `COUNT`**, así que `totalElementos` cuenta solo las filas
+visibles (§4, ADR-0007):
+
+```sql
+(:todaLaLiga OR e.club_id = ANY(:clubes) OR (:propio AND es_titular(r.persona_id)))
+```
+
+| Parámetro | Valores |
+| --- | --- |
+| `estado` | Uno o varios de `PENDIENTE_VALIDACION`, `ACTIVO`, `SUSPENDIDO`, `BAJA`, `RECHAZADO`, separados por coma. Sin él, todos. |
+| `temporadaId`, `clubId`, `equipoId` | Opcionales. Uno fuera del ámbito del usuario devuelve una página vacía, no `403` ni `404`. |
+| `orden` | `creadoEn,asc` (por defecto), `creadoEn,desc` o `nombre,asc` (apellido paterno, apellido materno y nombre). Siempre desempata por `id`. |
+| `pagina`, `tamano` | `pagina` desde 0; `tamano` 20 por defecto, de 1 a 100. |
+
+Orden de errores: sin el permiso en ningún ámbito, `403 VAL-015`; un `estado` u `orden`
+desconocido o un `tamano` o `pagina` fuera de rango, `400 VALIDACION` (lo valida el servicio
+después del permiso); un id que no es UUID, `400 VALIDACION` antes del servicio.
+
+Cada fila lleva la CURP **enmascarada** (§9.2, DEC-110) y `esMenor` calculado en la fecha de alta
+(`es_menor(persona, alta_en)`, DEC-89 y DEC-92); no lleva CURP completa, fecha de nacimiento,
+contacto, datos de validación ni avance de documentos (ese avance es
+`GET /registros-jugador/{id}/requisitos`):
+
+```json
+{
+  "contenido": [
+    {
+      "id": "…",
+      "persona": { "id": "…", "nombreCompleto": "Ana López Ruiz", "curpEnmascarada": "LORA******MMN***05" },
+      "equipo": { "id": "…", "nombre": "Halcones" },
+      "club": { "id": "…", "nombre": "Club Halcones" },
+      "categoria": { "id": "…", "nombre": "Libre" },
+      "temporada": { "id": "…", "nombre": "Temporada 2026", "estado": "ACTIVA" },
+      "estado": "PENDIENTE_VALIDACION",
+      "esMenor": false,
+      "altaEn": "2026-11-11",
+      "creadoEn": "2026-11-11T12:00:00-06:00"
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 1,
+  "totalPaginas": 1
+}
+```
+
+**Detalle.** `GET /registros-jugador/{id}`. Orden de errores, igual que los requisitos:
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. El registro no existe en la liga: `404 NO_ENCONTRADO`.
+3. El registro es de un club fuera del ámbito y de una persona de la que el usuario no es titular
+   (`ObjetivoAutorizacion.deClubesYPersonas`): `404 NO_ENCONTRADO`, igual que uno inexistente
+   (VAL-024).
+
+Responde los campos del alta (`validadoPor`, `validadoEn`, `observaciones`, `bajaEn` y `motivoBaja`
+incluidos) más `esMenor` y `tutores`; `persona` lleva siempre `curpEnmascarada` y `curp` **completa
+solo si la sesión tiene `organizacion.persona:CONSULTAR` sobre el club del registro** (hoy el
+Secretario y la Directiva de
+ese club); si no (la Comisión, el jugador o su tutor), `curp` es `null` (DEC-110). El backend lo
+pregunta con `autorizacion.permite(...)`, que no lanza el `403` ni el `404`. `tutores` son las
+tutelas vigentes del menor por fecha de creación, solo con nombre y parentesco (sin CURP ni
+contacto); es una lista vacía si la persona no era menor en la fecha de alta. Un tutor que la sesión
+no puede ver por RLS no aparece.
+
+```json
+{
+  "id": "…",
+  "persona": {
+    "id": "…",
+    "nombreCompleto": "Luis López Ruiz",
+    "curpEnmascarada": "LORL******HMN***08",
+    "curp": "LORL150101HMNPZS08"
+  },
+  "equipo": { "id": "…", "nombre": "Halcones Infantil" },
+  "club": { "id": "…", "nombre": "Club Halcones" },
+  "categoria": { "id": "…", "nombre": "Infantil" },
+  "temporada": { "id": "…", "nombre": "Temporada 2026", "estado": "ACTIVA" },
+  "estado": "PENDIENTE_VALIDACION",
+  "esMenor": true,
+  "altaEn": "2026-11-11",
+  "creadoEn": "2026-11-11T12:00:00-06:00",
+  "validadoPor": null,
+  "validadoEn": null,
+  "observaciones": null,
+  "bajaEn": null,
+  "motivoBaja": null,
+  "tutores": [ { "nombreCompleto": "María Ruiz Pérez", "parentesco": "Madre" } ]
+}
+```
+
+#### Documentos de un registro (H-10.1, RF-108, RF-109, DEC-91 a DEC-96)
+
+Los documentos de un registro de jugador se cargan como `multipart/form-data` y se guardan en S3 en
+la carpeta `registros` (§7, ADR-0013). Todas las respuestas llevan `Cache-Control: no-store`.
+
+| Método y ruta | Cuerpo | Éxito | Permiso y objetivo |
+| --- | --- | --- | --- |
+| `POST /registros-jugador/{id}/documentos` | `archivo` + `tipoDocumentoId` | `201` sin `Location`, documento | `registros.documento:CREAR`, club del equipo |
+| `POST /documentos/{id}/reemplazo` | `archivo` | `201` sin `Location`, documento nuevo | `registros.documento:CREAR`, club del equipo |
+| `GET /registros-jugador/{id}/requisitos` | — | `200` requisitos | `registros.registro:CONSULTAR`, club o persona del registro |
+| `GET /documentos/{id}/enlace` | — | `200 { url, expiraEn }` | `registros.documento:CONSULTAR`, club o persona del registro |
+| `POST /documentos/{id}/validacion` | JSON `{ decision, observaciones? }` | `200` documento | `registros.documento:VALIDAR`, club del equipo |
+
+Hoy carga y reemplaza la Directiva de club (ámbito `CLUB`) y valida el Secretario (ámbito `LIGA`).
+Los requisitos y el enlace se autorizan con el club **y la persona** del registro
+(`ObjetivoAutorizacion.deClubesYPersonas`), así que el jugador o su tutor (ámbito `PROPIO`) también
+llegan. Las rutas `/documentos/{id}/…` solo atienden documentos de un registro: uno de pago,
+afiliación, expediente o persona responde `404` hasta que su historia lo implemente. No hay
+`Location` porque no existe `GET /documentos/{id}`.
+
+**Orden de errores común (DEC-91):**
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. Faltan datos o tienen otro formato: `400 VALIDACION`. Los obligatorios los valida el servicio
+   después del permiso (el controlador recibe el archivo como opcional); un `tipoDocumentoId` que no
+   es número, o una `decision` que no es del enum, no se pueden leer y responden `400 VALIDACION`
+   antes del servicio.
+3. Registro o documento inexistente en la liga, o fuera de ámbito: `404 NO_ENCONTRADO`, sin
+   distinguirlos (VAL-024).
+4. Las reglas de cada endpoint (abajo).
+5. Archivo vacío (`400 VALIDACION`), mayor que 5 MB (`413 ARCHIVO_DEMASIADO_GRANDE`) o con una firma
+   que no es JPEG, PNG, WebP ni PDF (`415 TIPO_ARCHIVO_NO_PERMITIDO`). Un archivo mayor que
+   `spring.servlet.multipart.max-file-size` lo corta Spring antes del controlador, así que ese `413`
+   llega antes que el `403` o el `404`.
+
+Se guarda el MIME detectado por la firma; el nombre del archivo y su `Content-Type` declarado se
+ignoran y no se guardan ni se registran.
+
+**Carga.** Reglas, en orden: temporada `CERRADA` → `409 RF-003`; registro que no está
+`PENDIENTE_VALIDACION` → `409 RF-017`; `tipoDocumentoId` inexistente → `422 REFERENCIA_INVALIDA`; tipo
+que el registro no exige (otra categoría, `INE_TUTOR` de un adulto, `TARJETON_FIRMADO`…) →
+`422 RF-108`, con un `detail` que lo explica; cupo lleno → `409 DUPLICADO`, con un `detail` que pide
+reemplazar uno. Los requisitos son las filas de `requisitos_documento` de la liga para el `tipo` de
+la categoría del equipo; las de `solo_menores` se exigen si la persona era menor en la fecha de alta
+(`es_menor(persona, alta_en)`). El INE del tutor es un documento del registro. Un tipo admite
+`cantidad` documentos **vigentes** (sin `reemplazadoPor`) de cualquier estado: un rechazado ocupa su
+lugar hasta que se reemplaza.
+
+**Reemplazo (DEC-93).** Mismas reglas de temporada y registro; solo sobre un documento vigente
+`PENDIENTE` o `RECHAZADO` (`APROBADO` o ya reemplazado → `409 RF-109`). El nuevo queda `PENDIENTE` con
+el mismo tipo y registro; el anterior conserva su estado y su fila. Toda escritura bloquea primero el
+registro (`FOR UPDATE`) y los `UPDATE` de documentos son condicionales: si otra petición lo
+reemplazó, aprobó o rechazó antes, `409 RF-109`.
+
+**Validación de un documento (DEC-96).** `{ "decision": "APROBADO" | "RECHAZADO", "observaciones" }`.
+Sin `decision` → `400 VALIDACION`; observaciones de más de 500 caracteres → `400 VALIDACION`; rechazo
+sin observaciones de al menos 10 caracteres (sin contar los espacios de los extremos) → `400 RF-109`.
+Después del `404`: quien valida es quien cargó el documento → `403 VAL-022` **[PROPUESTA]**
+(separación de funciones, como DEC-79); temporada `CERRADA` → `409 RF-003`; registro no
+`PENDIENTE_VALIDACION` → `409 RF-017`; documento reemplazado o que ya no está `PENDIENTE` →
+`409 RF-109`. Guarda `estadoValidacion`, `validadoPor`, `validadoEn` y `observaciones`; **no** cambia
+el estado del registro (eso es `POST /registros-jugador/{id}/validacion`, H-10.2, con VAL-001).
+
+Documento (nunca `s3Bucket`, `s3Clave`, `url` ni `sha256`):
+
+```json
+{
+  "id": "…",
+  "registroId": "…",
+  "tipoDocumento": { "id": 5, "codigo": "FOTOGRAFIA", "nombre": "Fotografía" },
+  "tipoMime": "image/jpeg",
+  "tamanoBytes": 183204,
+  "estadoValidacion": "PENDIENTE",
+  "observaciones": null,
+  "validadoPor": null,
+  "validadoEn": null,
+  "reemplazaA": null,
+  "cargadoEn": "2026-11-12T12:00:00-06:00"
+}
+```
+
+`validadoPor` es `{ "id", "nombre" }` con el nombre mostrado del perfil (`null` si el usuario no
+puede ver ese perfil); `reemplazaA`, el documento al que sustituye.
+
+**Requisitos (DEC-92, DEC-96).** Solo `403` y `404`. Responde:
+
+```json
+{
+  "registroId": "…",
+  "estadoRegistro": "PENDIENTE_VALIDACION",
+  "categoria": { "id": "…", "nombre": "Infantil", "tipo": "INFANTIL" },
+  "esMenor": true,
+  "requisitos": [
+    {
+      "tipoDocumento": { "id": 5, "codigo": "FOTOGRAFIA", "nombre": "Fotografía" },
+      "cantidad": 2, "soloMenores": false, "esDemo": true,
+      "cargados": 1, "aprobados": 0, "faltan": 1,
+      "documentos": [ { "…documento vigente…": "" } ]
+    }
+  ],
+  "completo": false,
+  "listoParaValidar": false
+}
+```
+
+`cargados` cuenta los vigentes no rechazados, `aprobados` los vigentes `APROBADO` y
+`faltan = max(0, cantidad - cargados)`; `documentos` son los vigentes de cualquier estado, por fecha
+de carga, para que la Directiva vea las observaciones de un rechazo. `completo` significa todos los
+requisitos cargados y `listoParaValidar`, todos aprobados. `esDemo` marca un valor de demostración
+que la interfaz rotula «no oficial». Los requisitos van en el orden de la semilla
+(`tipo_documento_id`).
+
+**Enlace (DEC-95).** Solo `403`, `404` y `503 SERVICIO_NO_DISPONIBLE` si no se puede firmar. Un
+documento reemplazado también se consulta (es historial). La URL prefirmada vence a los 60 s y nunca
+se guarda, se audita ni va a la bitácora.
+
+**Auditoría (DEC-95).** En `M-04`, entidad `documentos`, en la misma transacción:
+`CARGAR_DOCUMENTO` `{ registroId, tipoDocumento, tipoMime, tamanoBytes }`, `REEMPLAZAR_DOCUMENTO`
+(lo mismo más `documentoAnteriorId`), `VALIDAR_DOCUMENTO` `{ registroId, tipoDocumento, decision }`
+con las observaciones como motivo, y `CONSULTAR_DOCUMENTO` `{ registroId, tipoDocumento }` al generar
+el enlace. `tipoDocumento` es el código. Nunca la URL, el bucket, la clave, el SHA-256, el nombre del
+archivo ni datos personales.
+
+#### Validación de un registro (H-10.2, RF-109, VAL-001, DEC-97 a DEC-102)
+
+`POST /registros-jugador/{id}/validacion` recibe `{ "decision": "ACTIVO" | "RECHAZADO",
+"observaciones"? }` y exige `registros.registro:VALIDAR` sobre el **club del equipo** del registro
+(`ObjetivoAutorizacion.deClubes`); hoy solo el Secretario lo tiene, con ámbito `LIGA`. Nunca se
+comparan roles. Los obligatorios los valida el servicio después del permiso, así que el cuerpo no
+lleva `@Valid`. Quien aprueba los documentos y quien valida el registro pueden ser la misma persona.
+Orden de errores:
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. Falta `decision`: `400 VALIDACION`. Un valor que no es del enum no se puede leer y responde
+   `400 VALIDACION` antes del servicio.
+3. Observaciones de más de 500 caracteres: `400 VALIDACION`.
+4. Rechazo sin observaciones de al menos 10 caracteres (sin contar los espacios de los extremos):
+   `400 RF-109`. Al activar, las observaciones son opcionales.
+5. El registro no existe en la liga, o es de un club fuera del ámbito del usuario:
+   `404 NO_ENCONTRADO`, sin distinguir los dos casos (VAL-024).
+6. Se bloquea el registro (`SELECT … FOR UPDATE`, el mismo bloqueo de la validación de documentos).
+7. Quien valida es quien dio de alta el registro (`creado_por`): `403 VAL-022` **[PROPUESTA]**
+   (separación de funciones, como DEC-79 y DEC-91). Solo ocurre con alguien que tenga los dos roles;
+   un `creado_por` nulo no lo activa.
+8. Temporada `CERRADA`: `409 RF-003` (al activar y al rechazar). Registro que no está
+   `PENDIENTE_VALIDACION`: `409 RF-017`, también si ya se validó o rechazó (acción repetida, §2).
+9. Solo al activar, en este orden:
+   1. Equipo en `BAJA`: `422 RF-013`, el mismo código del alta. La baja de un equipo no da de baja a
+      sus registros, y el registro sí se puede rechazar.
+   2. VAL-001: cada requisito aplicable (los mismos de `GET /registros-jugador/{id}/requisitos`)
+      necesita, entre sus documentos vigentes, al menos `cantidad` en `APROBADO`; un documento
+      cargado pero `PENDIENTE` cuenta como faltante. Si no se cumple, `422 VAL-001`: el `detail`
+      nombra los documentos que faltan, sin códigos, y la extensión `faltantes` lleva, en el orden de
+      los requisitos, `cargados` (vigentes no rechazados) y `aprobados` (vigentes `APROBADO`). El INE
+      del tutor es un documento del registro: su falta es `VAL-001`, no `VAL-025`. Si la categoría no
+      tiene requisitos configurados, VAL-001 se cumple.
+
+      ```json
+      {
+        "status": 422,
+        "codigo": "VAL-001",
+        "detail": "El registro no se puede activar: faltan documentos aprobados de «Identificación», «Fotografía». Aprueba los documentos pendientes o pide al club que cargue los que faltan.",
+        "faltantes": [
+          { "tipoDocumento": { "id": 2, "codigo": "IDENTIFICACION", "nombre": "Identificación" },
+            "cantidad": 1, "cargados": 0, "aprobados": 0 },
+          { "tipoDocumento": { "id": 5, "codigo": "FOTOGRAFIA", "nombre": "Fotografía" },
+            "cantidad": 2, "cargados": 1, "aprobados": 0 }
+        ]
+      }
+      ```
+
+   3. La persona era menor en `alta_en` (`es_menor(persona, alta_en)`; quien cumplió 18 después del
+      alta sigue contando como menor): sin tutela vigente, `422 VAL-025` con
+      `"requisito": "TUTOR"`; con tutor pero sin consentimiento no revocado de un tutor vigente,
+      `422 VAL-025` con `"requisito": "CONSENTIMIENTO"`. Es la misma condición del alta.
+10. Otra petición validó el registro entre tanto (el `UPDATE … AND estado = 'PENDIENTE_VALIDACION'`
+    no devolvió fila): `409 RF-017`.
+
+Rechazar no exige VAL-001 ni VAL-025: se puede rechazar con documentos pendientes. La afiliación del
+club no se vuelve a revisar (`APROBADA` es final y el alta ya la exigió). `RECHAZADO` es terminal y no
+cuenta para la unicidad: el club puede dar de alta otro registro de la persona con
+`POST /registros-jugador` y cargar documentos nuevos; los del rechazado quedan como historial. Un
+documento con problemas se rechaza **como documento** y se reemplaza; el registro se rechaza por la
+identidad (persona equivocada, CURP que no corresponde).
+
+Responde `200` con `Cache-Control: no-store` y el registro, con los mismos campos del alta y la
+validación llena:
+
+```json
+{
+  "id": "…",
+  "estado": "ACTIVO",
+  "…": "…",
+  "validadoPor": { "id": "…", "nombre": "Secretario" },
+  "validadoEn": "2026-11-12T10:30:00-06:00",
+  "observaciones": null
+}
+```
+
+`validadoPor` es `{ "id", "nombre" }` con el nombre mostrado del perfil de la sesión; `observaciones`
+es `null` si no hubo. El servicio fija el motivo antes del `UPDATE` (RN-021): las observaciones o, si
+se activa sin ellas, «Registro validado por la liga»; `tg_registros_historial` lo guarda en el
+historial. Se audita en `M-04` como `VALIDAR_REGISTRO_JUGADOR` (entidad `registros_jugador`) con
+`{ "personaId", "equipoId", "temporadaId", "estadoAnterior": "PENDIENTE_VALIDACION", "estado" }` y las
+observaciones como motivo del evento (`null` si se activa sin ellas; en ese caso `AuditoriaService`
+guarda el motivo fijado en la transacción, «Registro validado por la liga»), sin datos personales.
+
+`tg_registros_validar` repite las reglas como última garantía (DEC-101): solo un usuario de liga
+cambia un registro de `PENDIENTE_VALIDACION` a `ACTIVO` o `RECHAZADO`, o su `validado_por` o
+`validado_en` (`VAL-015`), y al activar exige los documentos aprobados (`VAL-001`) antes de
+`VAL-025`.
+
+#### Baja de un registro (H-23.1, RF-014, RN-021, DEC-118 a DEC-124)
+
+`POST /registros-jugador/{id}/baja` recibe `{ "motivo" }` y pasa un registro `ACTIVO` a `BAJA`
+conservando su historial (RF-014, RN-005). Exige `registros.registro:EDITAR` sobre el **club del
+equipo** del registro (`ObjetivoAutorizacion.deClubes`); hoy solo la Directiva de club lo tiene,
+con ámbito `CLUB`. Nunca se comparan roles y no hay separación de funciones: quien dio de alta el
+registro puede darlo de baja. Que el Secretario también pueda (RF-014) queda **[PROPUESTA]**:
+darle `EDITAR` le daría también el alta, así que, si hace falta, será un permiso propio con su
+migración en otra historia (DEC-119). El motivo lo valida el servicio después del permiso, así que
+el cuerpo no lleva `@Valid`. Orden de errores:
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. Sin motivo, o con menos de 10 caracteres sin contar los espacios de los extremos: `400 RN-021`
+   («Escribe un motivo de al menos 10 caracteres para dar de baja el registro.»). Con más de 500:
+   `400 VALIDACION`.
+3. El registro no existe en la liga, o es de un club fuera del ámbito del usuario:
+   `404 NO_ENCONTRADO`, sin distinguir los dos casos (VAL-024).
+4. Se bloquea el registro (`SELECT … FOR UPDATE`, el mismo bloqueo de la validación).
+5. Temporada `CERRADA`: `409 RF-003` («La temporada del registro está cerrada: sus registros ya no
+   cambian.»). Se aceptan `CONFIGURACION` y `ACTIVA`.
+6. Registro que no está `ACTIVO`: `409 RF-017`, con un `detail` según su estado (DEC-118); una
+   segunda baja es una acción repetida (§2):
+
+   | Estado | `detail` |
+   | --- | --- |
+   | `PENDIENTE_VALIDACION` | El registro aún no está validado: si no procede, pide a la liga que lo rechace. |
+   | `SUSPENDIDO` | El registro tiene una sanción vigente: no se puede dar de baja mientras esté suspendido. |
+   | `BAJA` | El registro ya está dado de baja. |
+   | `RECHAZADO` | El registro fue rechazado: no está activo. |
+
+7. Otra petición cambió el estado entre tanto (el `UPDATE … AND estado = 'ACTIVO'` no devolvió
+   fila): `409 RF-017` («Otra persona cambió el estado de este registro al mismo tiempo. Actualiza la
+   página para ver su estado.»).
+
+Un equipo en `BAJA` no impide la baja del registro (DEC-120). `SUSPENDIDO → BAJA`, que el trigger sí
+acepta, queda para la sanción de tipo baja de M-09 (DEC-118).
+
+`baja_en` es la fecha de hoy en `America/Mexico_City`, calculada con el `Clock` del servicio
+(`current_date` de la base es UTC); `ck_registros_baja` la exige con el estado `BAJA`. El motivo,
+recortado, se fija antes del `UPDATE` (RN-021) y **solo va al historial**: `tg_registros_historial`
+lo guarda con el usuario de la sesión. No hay columna de motivo de baja, y `observaciones`,
+`validado_por` y `validado_en` no cambian (DEC-121).
+
+Responde `200` con `Cache-Control: no-store` y el registro, con los mismos campos del alta:
+
+```json
+{
+  "id": "…",
+  "estado": "BAJA",
+  "…": "…",
+  "validadoPor": { "id": "…", "nombre": "Secretario" },
+  "validadoEn": "2026-11-12T10:30:00-06:00",
+  "observaciones": "Documentos revisados en ventanilla",
+  "bajaEn": "2026-11-14",
+  "motivoBaja": "El jugador se mudó de ciudad"
+}
+```
+
+`bajaEn` y `motivoBaja` son `null` salvo en `BAJA`; `motivoBaja` es el motivo del último cambio a
+`BAJA` del historial (DEC-124). Se audita en `M-04` como `DAR_BAJA_REGISTRO_JUGADOR` (entidad
+`registros_jugador`) con `{ "personaId", "equipoId", "temporadaId", "estadoAnterior": "ACTIVO",
+"estado": "BAJA", "bajaEn" }` y el motivo como motivo del evento, sin datos personales (DEC-123).
+
+#### Historial de un registro (B-07.1, RF-018)
+
+`GET /registros-jugador/{id}/historial` devuelve los cambios de estado del registro que escribe
+`tg_registros_historial`: el alta y cada cambio de estado (validación, rechazo, baja…), con su
+motivo, quién lo hizo y cuándo. Es de **solo lectura** (RNF-015): la ruta no admite `POST`, `PATCH`
+ni `DELETE` (`405`) y la consulta no se audita.
+
+Exige `registros.registro:CONSULTAR` sobre el **club del registro**
+(`ObjetivoAutorizacion.deClubes`): una cuenta con ámbito `LIGA` ve el de cualquier registro de la
+liga y una de ámbito `CLUB`, solo los de su club. La consulta del propio jugador o de su tutor
+(ámbito `PROPIO`) no se incluye: es de H-24. Orden de errores:
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. El registro no existe en la liga, o es de un club fuera del ámbito del usuario:
+   `404 NO_ENCONTRADO`, sin distinguir los dos casos (VAL-024).
+
+Responde `200` con `Cache-Control: no-store` y un **arreglo sin paginar** (un registro tiene pocos
+cambios), del más antiguo al más reciente (`cambiado_en` y, a igual fecha, el orden de inserción):
+
+```json
+[
+  {
+    "estadoAnterior": null,
+    "estadoNuevo": "PENDIENTE_VALIDACION",
+    "motivo": "Alta del registro",
+    "cambiadoPor": { "id": "…", "nombre": "Directiva Halcones" },
+    "cambiadoEn": "2026-11-11T12:00:00-06:00"
+  },
+  {
+    "estadoAnterior": "PENDIENTE_VALIDACION",
+    "estadoNuevo": "ACTIVO",
+    "motivo": "Documentos revisados en ventanilla",
+    "cambiadoPor": { "id": "…", "nombre": "Secretario" },
+    "cambiadoEn": "2026-11-12T10:30:00-06:00"
+  }
+]
+```
+
+`estadoAnterior` es `null` en el alta. `cambiadoEn` va en `America/Mexico_City`. `cambiadoPor` es
+`{ "id", "nombre" }` con el nombre mostrado del perfil; como en `validadoPor`, el nombre es `null`
+si la sesión no puede ver ese perfil (RLS `perfiles_leer`: hoy una cuenta de club no ve los perfiles
+de la liga), y todo el campo es `null` si el historial no guardó usuario.
+
+#### Consulta propia (H-24.1, RF-144, DEC-139 a DEC-145)
+
+Información del jugador o del menor para su tutor (M-04.6, pantalla F-35). Son dos rutas: la lista
+de personas que la cuenta puede consultar y el detalle de una de ellas. Las implementa
+`MiInformacionService`; ninguna se audita, porque no cambian nada.
+
+**Autorización y orden de errores (DEC-140).** Las dos exigen `registros.registro:CONSULTAR` en
+**cualquier** ámbito (`autorizacion.alcance`); el detalle exige además que `siglim.es_titular(personaId)`
+sea verdadero: la persona es la de la cuenta (`perfiles.persona_id`) o un menor con tutela vigente
+cuyo tutor es esa persona. Esto vale también para cuentas con ámbito `LIGA` o `CLUB`: es «mi»
+información, no una consulta administrativa (esas usan `/registros-jugador`).
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. `personaId` mal formado: `400 VALIDACION` (antes del servicio, como el resto de la API).
+3. Persona que no es la de la cuenta ni un menor bajo su tutela vigente, o que no existe:
+   `404 NO_ENCONTRADO`, sin distinguir los casos (VAL-024).
+
+**`GET /mi-informacion` (DEC-139).** Primero la persona de la cuenta (`persona_usuario()`), si
+existe, y después los menores con tutela vigente (`tutelas.tutor_id` = esa persona), por nombre
+completo. Una cuenta sin persona vinculada responde `200` con la lista vacía. `esMenor` se calcula
+con la fecha de hoy en `America/Mexico_City`.
+
+```json
+{
+  "titulares": [
+    { "personaId": "…", "nombre": "María López Ruiz", "esPropia": true, "esMenor": false },
+    { "personaId": "…", "nombre": "Ana López Ruiz", "esPropia": false, "esMenor": true }
+  ]
+}
+```
+
+**`GET /mi-informacion/{personaId}` (DEC-141).** Responde `200` con `Cache-Control: no-store`:
+
+- `persona`: `id`, `nombreCompleto`, `curpEnmascarada` (§9.2; nunca la CURP completa) y `esMenor` (hoy).
+- `registros`: los de temporadas que no estén `CERRADA`, del más reciente al más antiguo, cada uno con
+  `temporada`, `club`, `equipo`, `categoria`, `estado`, `altaEn`, `bajaEn`, `motivoBaja` (DEC-124),
+  `observaciones` (del rechazo o la validación) y:
+  - `elegibilidad`: `{ elegible, causas: [ { codigo, mensaje } ] }` con `ReglaElegibilidad` (DEC-142):
+    `RF-019` si el registro no está `ACTIVO` (mensaje según el estado) y `RF-020` por cada sanción
+    `VIGENTE` de tipo `SUSPENSION_PARTIDOS` o `BAJA`, con el artículo y la vigencia.
+    **[PROPUESTA]** `MULTA`, `PERDIDA_PUNTOS` y `PERDIDA_PARTIDO` no impiden jugar.
+  - `documentos`: los mismos requisitos y avance que `GET /registros-jugador/{id}/requisitos`
+    (`RequisitosDocumentos`, con la edad en la fecha de alta): `requisitos[]` con `tipoDocumento`,
+    `cantidad`, `soloMenores`, `esDemo`, `cargados`, `aprobados`, `faltan` y `documentos[]` (los vigentes:
+    `id`, `tipo`, `estadoValidacion`, `observaciones`, `cargadoEn`), más `completo` y `listoParaValidar`.
+    **Nunca** la URL, el bucket, la clave, el SHA-256, el MIME ni el nombre del archivo (RNF-018).
+  - `proximosPartidos` y `partidosJugados` **[PROPUESTA]** (DEC-144): partidos del equipo del registro,
+    como local o visitante (mientras no haya alineaciones). Próximos: jornada `PUBLICADO` y partido que
+    no esté `FINALIZADO` ni `CANCELADO`, por `inicio` ascendente, hasta 5. Jugados: con resultado
+    oficial vigente, por `inicio` descendente, hasta 10. Cada partido lleva `id`, `jornada` (número),
+    `inicio`, `cancha` (nombre), `local` y `visitante` (`id`, `nombre`), `esLocal`, `estado` y
+    `resultado` (`golesLocal`, `golesVisitante`, `penalesLocal`, `penalesVisitante`) o `null`.
+- `sanciones` (de la persona, no por registro): las de sujeto `JUGADOR` en estado `VIGENTE` más las de
+  temporadas no cerradas, de la más reciente a la más antigua, con `id`, `tipo`, `estado`, `partidos`,
+  `partidosCumplidos`, `vigenteDesde`, `vigenteHasta`, `articulo` (`numero`, `descripcion`) y `folio` del
+  expediente.
+
+```json
+{
+  "persona": { "id": "…", "nombreCompleto": "Ana López Ruiz", "curpEnmascarada": "LORA******MMN***05", "esMenor": true },
+  "registros": [
+    {
+      "id": "…",
+      "temporada": { "id": "…", "nombre": "Temporada 2026", "estado": "ACTIVA" },
+      "club": { "id": "…", "nombre": "Club Halcones" },
+      "equipo": { "id": "…", "nombre": "Halcones" },
+      "categoria": { "id": "…", "nombre": "Infantil" },
+      "estado": "ACTIVO",
+      "altaEn": "2026-11-03",
+      "bajaEn": null,
+      "motivoBaja": null,
+      "observaciones": "Documentos revisados en ventanilla",
+      "elegibilidad": {
+        "elegible": false,
+        "causas": [
+          { "codigo": "RF-020", "mensaje": "Suspensión de 3 partidos por el artículo 12 («Conducta antideportiva»): faltan 2 partidos." }
+        ]
+      },
+      "documentos": {
+        "requisitos": [
+          {
+            "tipoDocumento": { "id": 5, "codigo": "FOTOGRAFIA", "nombre": "Fotografía" },
+            "cantidad": 2, "soloMenores": false, "esDemo": true, "cargados": 2, "aprobados": 2, "faltan": 0,
+            "documentos": [
+              { "id": "…", "tipo": { "id": 5, "codigo": "FOTOGRAFIA", "nombre": "Fotografía" },
+                "estadoValidacion": "APROBADO", "observaciones": null, "cargadoEn": "2026-11-03T10:15:00-06:00" }
+            ]
+          }
+        ],
+        "completo": true,
+        "listoParaValidar": true
+      },
+      "proximosPartidos": [
+        { "id": "…", "jornada": 4, "inicio": "2026-11-22T10:00:00-06:00", "cancha": "Unidad Deportiva 1",
+          "local": { "id": "…", "nombre": "Halcones" }, "visitante": { "id": "…", "nombre": "Lobos" },
+          "esLocal": true, "estado": "PROGRAMADO", "resultado": null }
+      ],
+      "partidosJugados": [
+        { "id": "…", "jornada": 3, "inicio": "2026-11-15T10:00:00-06:00", "cancha": "Unidad Deportiva 2",
+          "local": { "id": "…", "nombre": "Pumas" }, "visitante": { "id": "…", "nombre": "Halcones" },
+          "esLocal": false, "estado": "FINALIZADO",
+          "resultado": { "golesLocal": 1, "golesVisitante": 2, "penalesLocal": null, "penalesVisitante": null } }
+      ]
+    }
+  ],
+  "sanciones": [
+    { "id": "…", "tipo": "SUSPENSION_PARTIDOS", "estado": "VIGENTE", "partidos": 3, "partidosCumplidos": 1,
+      "vigenteDesde": "2026-11-16", "vigenteHasta": null,
+      "articulo": { "numero": "12", "descripcion": "Conducta antideportiva" }, "folio": "EXP-2026-0007" }
+  ]
+}
+```
+
+**Dependencias (DEC-143, ADR-0006).** `registros` (nivel 4) no importa `partidos` ni `disciplina`:
+define `ConsultaPartidosPropios` y `ConsultaSancionesPropias` con sus records (`PartidoPropio`,
+`SancionPropia`), y las implementan `partidos.PartidosPropiosJdbc` y `disciplina.SancionesPropiasJdbc`
+con SQL de solo lectura dentro de la transacción del servicio (contexto de usuario y RLS, ADR-0014).
+Vincular la cuenta con su persona (`perfiles.persona_id`) y los consentimientos quedan fuera (DEC-145).
+
+#### Renovación y transferencia entre temporadas (B-06.1, RF-015, RF-016, RF-111, VAL-026, DEC-146)
+
+`POST /registros-jugador/renovaciones` y `POST /registros-jugador/transferencias` reciben
+`{ "personaId", "equipoId" }`; la temporada es la del grupo del equipo de destino y el registro
+anterior lo deduce el servicio (`siglim.registro_anterior`): el registro no rechazado más reciente de
+la persona en una temporada anterior de la liga. Ambos exigen `registros.registro:EDITAR` sobre el
+**club del equipo de destino** y responden `201` con `Location: /api/v1/registros-jugador/{id}`,
+`Cache-Control: no-store` y el mismo registro del alta; queda `PENDIENTE_VALIDACION` con
+`registro_anterior_id`, que no va en la respuesta pero queda en la base para la trazabilidad.
+
+- **Renovación.** El registro anterior debe ser del mismo club; se conserva al jugador y los documentos aprobados y
+  no reemplazados de sus registros anteriores no rechazados del mismo club cuentan para VAL-001, sin copiarlos en
+  S3 (DEC-146).
+- **Transferencia.** El registro anterior debe ser de otro club y la versión vigente de parámetros
+  de la temporada destino debe permitir el cambio (`permite_cambio_club`, RF-111); si no, `409
+  RF-111`. Sin versión de parámetros rige el valor por omisión de la tabla (`true`). No hereda los
+  documentos del club de origen: el club destino carga los del registro nuevo. Nunca hay cambio de
+  club dentro de una temporada (VAL-026, DEC-13): el registro anterior debe ser de una temporada
+  anterior.
+
+Orden de errores (el del alta más los de DEC-146):
+
+1. Sin el permiso en ningún ámbito: `403 VAL-015`.
+2. Falta `personaId` o `equipoId`: `400 VALIDACION`.
+3. El equipo no existe en la liga o es de un club fuera de ámbito: `404` (VAL-024).
+4. Temporada `CERRADA`: `409 RF-003`; equipo `BAJA`: `422 RF-013`; club sin afiliación `APROBADA`:
+   `409 RF-101`.
+5. Persona inexistente: `422 REFERENCIA_INVALIDA`.
+6. Registro activo en la temporada destino: `409 VAL-017` (con `club` y `equipo`); una baja en otro
+   club de la misma temporada: `409 VAL-026`; en otro equipo del mismo club: `409 RN-039`.
+7. No hay registro anterior en una temporada previa: `422 RF-015` en la renovación y `422 RF-016` en
+   la transferencia.
+8. El registro anterior no corresponde al movimiento: otro club en una renovación, `422 RF-015`; el
+   mismo club en una transferencia, `422 RF-016`.
+9. Transferencia a una temporada cuya versión vigente de parámetros no permite el cambio de club:
+   `409 RF-111`, con un mensaje que explica la configuración de la Liga.
+10. Menor sin tutor vigente o sin consentimiento: `422 VAL-025` con `requisito` `TUTOR` o
+    `CONSENTIMIENTO`.
+
+El motivo del historial es «Renovación desde la temporada «…»» o «Transferencia desde el club «…» de
+la temporada «…»». Se audita en `M-04` sobre `registros_jugador` como `RENOVAR_REGISTRO` o
+`TRANSFERIR_REGISTRO`, con `{ "personaId", "equipoId", "temporadaId", "registroAnteriorId",
+"clubAnteriorId", "equipoAnteriorId", "temporadaAnteriorId", "estado" }`, sin datos personales.
+
+**Opción para el asistente de alta (B-06.2, DEC-153).** `GET /registros-jugador/movimientos/opcion?personaId=&equipoId=`
+responde `200` con `Cache-Control: no-store` y
+`{ "tipo": "RENOVACION" | "TRANSFERENCIA" | null, "permitido", "temporadaAnterior", "motivo" }`, con
+las mismas reglas que los `POST` (que vuelven a validar al enviar). Es de solo lectura y no se audita.
+
+1. Sin `registros.registro:EDITAR` en ningún ámbito: `403 VAL-015`.
+2. Falta `personaId` o `equipoId`: `400 VALIDACION`.
+3. El equipo no existe en la liga o es de un club fuera de ámbito: `404` (VAL-024).
+4. La persona ya tiene un registro no `RECHAZADO` en la temporada del equipo, o no tiene registro
+   anterior: `tipo` nulo (`permitido` falso y lo demás nulo); el asistente sigue con el alta normal.
+5. Registro anterior del mismo club: `RENOVACION`, `permitido` verdadero.
+6. De otro club: `TRANSFERENCIA`, con `permitido` igual a `permite_cambio_club` vigente de la
+   temporada destino; si es falso, `motivo` explica la configuración de la Liga (el mismo texto del
+   `409 RF-111`).
+
+`temporadaAnterior` es solo el nombre de la temporada del registro anterior: nunca se responden el
+club, el equipo, el estado ni los ids de ese registro (DEC-88, DEC-90).
 
 ### 6.5 M-05 Árbitros y designaciones
 
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
-| `GET /arbitros?estado=&clubId=` · `POST /arbitros` | Árbitros presentados por el club | `arbitraje.arbitro:PROPONER` | RF-112, RF-021 | N |
+| `GET /arbitros?estado=&clubId=` · `POST /arbitros` | Árbitros presentados por el club | `GET`: `arbitraje.arbitro:CONSULTAR` · `POST`: `arbitraje.arbitro:PROPONER` | RF-112, RF-021 | N |
 | `POST /arbitros/{id}/validacion` | Validar o rechazar | `arbitraje.arbitro:VALIDAR` | RF-113 | N |
 | `GET /clubes/{id}/cuota-arbitros` | Árbitros presentados frente a los requeridos | `arbitraje.arbitro:CONSULTAR` | RF-114 | B |
-| `GET /arbitros/{id}/disponibilidad` · `PUT` | Disponibilidad | `arbitraje.disponibilidad:EDITAR` | RF-022 | B |
+| `GET /arbitros/{id}/disponibilidad?desde=&hasta=` · `POST` · `DELETE …/{disponibilidadId}` | Disponibilidad por fecha y horario; el `POST` responde `201` sin `Location` y el `DELETE`, `204` | `arbitraje.disponibilidad:EDITAR` | RF-022 | B |
 | `GET /designaciones?jornadaId=&arbitroId=` · `POST /partidos/{id}/designaciones` | Designar; `422 VAL-019` si el árbitro es de un club del partido | `arbitraje.designacion:*` | RF-023, RF-115 | N |
 | `GET /mis-designaciones` | Partidos asignados al árbitro | ámbito `PROPIO` | RF-123 | N |
+
+**Árbitros del club (H-11.1, RF-021, RF-112, RF-113, DEC-17).** `GET /arbitros?estado=&clubId=&pagina=&tamano=`
+responde la envoltura de paginación; cada elemento trae `persona` con `{ id, nombreCompleto }` (sin
+CURP ni datos de contacto, convenciones §9.2), `club`, `estado`, `propuestoPor`, `propuestoEn` y, si
+ya se resolvió, `validadoPor`, `validadoEn` y `observaciones`. Exige
+`arbitraje.arbitro:CONSULTAR` y filtra por el ámbito en el `WHERE` y en el `COUNT`: la Directiva de
+club solo ve los árbitros de su club y la Comisión (ámbito `LIGA`) los ve todos. Un `clubId` ajeno
+en el filtro devuelve una página vacía, no un `403`.
+
+`POST /arbitros` lleva `{ "personaId", "clubId" }`, requiere `arbitraje.arbitro:PROPONER` con ámbito
+del club y responde `201` con `Location` y el árbitro en estado `PROPUESTO`; el perfil que lo
+presenta sale de la sesión. Un club de otra liga o inexistente responde `404` (VAL-024). Como la
+identidad es única (RF-010, DEC-10), si la persona ya está en el catálogo responde `409 DUPLICADO`
+nombrando solo el club que ya la presenta (extensión `club`), sin su estado ni identificadores
+(DEC-88). Una persona inexistente responde `422 REFERENCIA_INVALIDA`. El alta usa
+`INSERT … ON CONFLICT (persona_id) DO NOTHING RETURNING id`: si dos directivas presentan a la misma
+persona a la vez, la segunda no aborta la transacción y recibe el mismo `409` (DEC-90).
+
+`POST /arbitros/{id}/validacion` lleva `{ "decision": "VALIDADO"|"RECHAZADO", "observaciones" }` y
+exige `arbitraje.arbitro:VALIDAR`. Solo se aplica a un árbitro `PROPUESTO`; cualquier otro estado
+responde `409 RF-113`. El rechazo exige observaciones de 10 a 500 caracteres (`400 RF-113` si
+faltan); la validación las admite como nota. Se guardan el perfil y la fecha del dictamen y se
+auditan como `PROPONER_ARBITRO`, `VALIDAR_ARBITRO` y `RECHAZAR_ARBITRO` en `M-05` sobre `arbitros`,
+sin nombres ni CURP. Solo los `VALIDADO` pueden designarse: el trigger de `designaciones` responde
+`RF-113` para cualquier otro estado.
+
+**Disponibilidad arbitral (B-09.1, RF-022).** `GET /api/v1/arbitros/{id}/disponibilidad` responde
+`200` con la lista de periodos del árbitro, ordenada por inicio. `desde` y `hasta` son opcionales: si
+se envían, **ambos** son obligatorios y se devuelven los periodos que se traslapan con ese rango
+(`400 VALIDACION` si falta uno o el orden es incorrecto); sin ellos se devuelven todos. Cada
+elemento lleva `{ "id", "arbitroId", "periodo": { "desde", "hasta" }, "disponible", "creadoEn" }`,
+con las fechas en `America/Mexico_City` y el intervalo `[desde, hasta)`, igual que el `tstzrange` de
+la tabla.
+
+`POST /api/v1/arbitros/{id}/disponibilidad` lleva
+`{ "periodo": { "desde", "hasta" }, "disponible": true|false }`. `disponible` es opcional y vale
+`true` por omisión; con `false` el árbitro declara que no puede ser designado en ese periodo.
+Responde `201` con el registro y **sin** `Location` (no hay `GET` por identificador). El inicio debe
+ser anterior al fin (`400 VALIDACION`; la restricción `ck_disponibilidad_arbitral` no admite un
+periodo vacío). Solo se registra para un árbitro en estado `VALIDADO`: cualquier otro responde
+`409 RF-022` sin guardar. Los periodos ya creados se pueden consultar y retirar aunque el estado del
+árbitro cambie, para que la Comisión limpie el calendario sin tocar el catálogo.
+
+`DELETE /api/v1/arbitros/{id}/disponibilidad/{disponibilidadId}` responde `204` sin cuerpo y borra
+la fila: la disponibilidad no es historial deportivo y el diccionario no la marca como histórica. Si
+la regla del equipo cambiara, se sustituiría por una desactivación. Un periodo que no pertenece al
+árbitro, o un árbitro de otra liga, responde `404` (VAL-024).
+
+Los tres endpoints exigen `arbitraje.disponibilidad:EDITAR` sobre la **persona del árbitro**: la
+Comisión de Arbitraje (ámbito `LIGA`) opera con cualquiera y el árbitro (ámbito `PROPIO`) solo con la
+suya; un ámbito de club no la alcanza y responde `404` (VAL-024, ADR-0007). El alta y el borrado se
+auditan en `M-05` sobre `disponibilidad_arbitral` como `REGISTRAR_DISPONIBILIDAD_ARBITRAL` y
+`ELIMINAR_DISPONIBILIDAD_ARBITRAL`, con `{ "arbitroId", "desde", "hasta", "disponible" }` y sin
+nombres, CURP ni datos de contacto. La usará H-14 (Sprint 4) para filtrar designaciones.
+
+**Cuota de árbitros del club (B-08.1, RF-114, RN-042, DEC-17, DEC-72).**
+`GET /clubes/{id}/cuota-arbitros?temporadaId=` exige `arbitraje.arbitro:CONSULTAR` sobre el club
+(ADR-0007) y responde `200` con:
+
+```json
+{
+  "club": { "id": "…", "nombre": "Club Halcones" },
+  "temporada": { "id": "…", "nombre": "Apertura 2030" },
+  "equiposActivos": 5,
+  "equiposPorArbitro": 4,
+  "cuotaArbitros": { "requeridos": 2, "validados": 1, "cumple": false }
+}
+```
+
+`temporadaId` es opcional; sin él se usa la temporada `ACTIVA` de la liga y, si no hay, responde
+`409 RF-114`. `equiposActivos` cuenta solo los equipos `ACTIVO` del club en los grupos de esa
+temporada. `equiposPorArbitro` es el valor de la versión vigente de `parametros_temporada` (el
+parámetro **[DEMO]** de DEC-17; la interfaz lo rotula «no oficial»): nunca es una constante del
+código. Sin ninguna versión de parámetros, responde `409 RF-100`. `requeridos` es
+`ceil(equiposActivos / equiposPorArbitro)`, `validados` cuenta solo los árbitros `VALIDADO` del club
+y `cumple` indica si `validados >= requeridos`. Los árbitros `PROPUESTO`, `RECHAZADO` y `BAJA` no
+cubren la cuota. Un club fuera del ámbito o inexistente y una temporada inexistente o de otra liga
+responden `404` idéntico (VAL-024). Es una consulta calculada: no se guarda ni se audita.
 
 ### 6.6 M-06 Canchas y recursos
 
@@ -1015,8 +2036,8 @@ Cada equipo trae referencias anidadas (§9.1):
 | `GET /sedes` · `POST /sedes` · `PATCH /sedes/{id}` | Sedes que agrupan canchas. El `GET` responde la lista completa sin paginar, por `nombre` | `canchas.cancha:CONSULTAR` en el `GET` (cualquier ámbito), `canchas.cancha:EDITAR` en `POST` y `PATCH` | RF-028 | B |
 | `GET /canchas/{id}/disponibilidad?desde=&hasta=` · `POST` | Disponibilidad, bloqueos y mantenimiento con motivo. El `POST` responde `{ disponibilidad, partidosAfectados }` | `canchas.cancha:CONSULTAR` en el `GET`, `canchas.cancha:EDITAR` en el `POST` | RF-029, RF-030, RF-031 | N · B |
 | `GET /canchas/{id}/ocupacion?desde=&hasta=` | Disponibilidad, bloqueos, mantenimiento y partidos no cancelados del rango (calendario semanal y apoyo a la programación) | `canchas.cancha:CONSULTAR` | RF-032, RF-039 | N |
-| `GET /canchas/{id}/horarios-club` · `PUT` | Horarios por categoría y comodato | `canchas.cancha:EDITAR` | RF-119 | B |
-| `GET /solicitudes-cancha` · `POST` · `POST …/{id}/resolucion` · `GET …/{id}/oficio` | Formatos 1 y 2 y su carta | `canchas.solicitud:*`, `canchas.oficio:GENERAR` | RF-116 a RF-118 | B |
+| `GET /canchas/{id}/horarios-club?temporadaId=` · `PUT` | Horarios por categoría de la cancha de club y comodato de la cancha de la liga, por temporada (§6.6.1) | `canchas.cancha:CONSULTAR` en el `GET`, `canchas.cancha:EDITAR` en el `PUT` | RF-119 | B |
+| `GET /solicitudes-cancha?tipo=&estado=` · `GET …/contexto` · `POST` · `POST …/{id}/resolucion` · `GET …/{id}/oficio` | Formatos 1 y 2 y su carta (§6.6.2) | `CREAR`, `APROBAR` o `GENERAR` en los `GET` de la bandeja y el contexto; `canchas.solicitud:CREAR` en el `POST`; `canchas.solicitud:APROBAR` en la resolución; `canchas.oficio:GENERAR` en el oficio | RF-116 a RF-118 | B |
 
 - **Sede de una cancha (RF-028, [PROPUESTA]).** `POST /canchas` acepta `sedeId` opcional. En el
   `PATCH`, sin `sedeId` ni `quitarSede` la sede se conserva; `sedeId` asigna esa sede y
@@ -1028,7 +2049,7 @@ Cada equipo trae referencias anidadas (§9.1):
   sin la dirección en el detalle.
 - `desde` y `hasta` son obligatorios en las consultas de disponibilidad y ocupación, con un rango de
   31 días como máximo **[PROPUESTA]**. Sin ellos, o con un rango mayor, `400 VALIDACION`.
-- **Bloqueo y mantenimiento sobre partidos (PEN-007, [PROPUESTA]).** Un `BLOQUEO` o un
+- **Bloqueo y mantenimiento sobre partidos (PEN-007, resuelto por DEC-64).** Un `BLOQUEO` o un
   `MANTENIMIENTO` que se traslapa con partidos `PROGRAMADO` o `REPROGRAMADO` responde `409`,
   `codigo: "RF-030"`, `"aceptable": true` y `"partidosAfectados": […]`, sin guardar. Reenviado con
   `"confirmarPartidosAfectados": true`, se guarda (`201`). Los partidos **no se modifican**: se
@@ -1048,19 +2069,175 @@ Cada equipo trae referencias anidadas (§9.1):
   `BLOQUEAR_CANCHA` y `REGISTRAR_MANTENIMIENTO`. El evento lleva el `motivo` y en el detalle
   `canchaId`, `tipo`, `desde`, `hasta`, `partidosAfectados` y `partidosAfectadosIds`.
 
+#### 6.6.1 Horarios de club y comodato (B-13.1, RF-119, DEC-33)
+
+`GET /api/v1/canchas/{id}/horarios-club?temporadaId={uuid}` responde `200` con la lista de horarios
+de la cancha en esa temporada, vacía si no tiene, ordenada por `diaSemana`, `horaInicio` y orden de la
+categoría. `temporadaId` es obligatorio: sin él, `400 VALIDACION`. Una temporada cerrada se consulta
+igual.
+
+```json
+[
+  {
+    "id": "…",
+    "canchaId": "…",
+    "temporadaId": "…",
+    "categoria": { "id": "…", "nombre": "Libre" },
+    "club": { "id": "…", "nombre": "Halcones" },
+    "diaSemana": 6,
+    "horaInicio": "10:00:00",
+    "horaFin": "12:00:00",
+    "esComodato": false
+  }
+]
+```
+
+`PUT /api/v1/canchas/{id}/horarios-club` reemplaza de forma **atómica** los horarios de la cancha en
+**una** temporada y responde `200` con la lista resultante, igual que el `GET`. Los horarios de otras
+temporadas no se tocan; `"horarios": []` borra los de esa temporada.
+
+```json
+{
+  "temporadaId": "…",
+  "horarios": [
+    { "categoriaId": "…", "diaSemana": 6, "horaInicio": "10:00", "horaFin": "12:00", "clubId": "…" }
+  ]
+}
+```
+
+- `diaSemana` va de 1 (lunes) a 7 (domingo). Las horas se responden como `HH:mm:ss` y se aceptan como
+  `HH:mm` o `HH:mm:ss`; el intervalo es semiabierto (`horaFin` exclusiva).
+- `clubId` es opcional en una cancha de club (se toma su propietario) y obligatorio en una de la liga.
+- **Ámbito.** Una cancha `CLUB` se autoriza en el ámbito de su club; una `LIGA` o `EXTERNO`, en el de
+  la liga, como el resto de §6.6.
+
+Errores del `PUT`, en este orden (todo se valida en una transacción, con la cancha bloqueada):
+
+| Orden | Caso | Respuesta |
+| --- | --- | --- |
+| 1 | Cancha inexistente o de otra liga | `404 NO_ENCONTRADO` |
+| 2 | Sin `canchas.cancha:EDITAR` en el ámbito de la cancha | `403 VAL-015` |
+| 3 | Cuerpo mal formado, `temporadaId` u `horarios` ausentes, campo obligatorio ausente, `diaSemana` fuera de 1–7 o `horaInicio` ≥ `horaFin` | `400 VALIDACION` con `errores` (`horarios[i].campo`) |
+| 4 | Temporada que no existe en la liga | `422 REFERENCIA_INVALIDA` |
+| 5 | Temporada `CERRADA`: «La temporada «X» está cerrada: sus horarios son de solo lectura.» | `409 RF-003` |
+| 6 | Categoría no asignada a la temporada (`categoriasInvalidas`) o club que no es de la liga (`clubesInvalidos`) | `422 REFERENCIA_INVALIDA` |
+| 7 | Tipo de cancha (DEC-33): `EXTERNO` no admite horarios; en `CLUB` el club es su propietario y `esComodato` es `false` (un `clubId` distinto se rechaza); en `LIGA` cada horario es comodato (`esComodato` es `true`) y `clubId` es obligatorio | `422 RF-119` |
+| 8 | Dos horarios de la cancha del mismo día se traslapan, sin importar la categoría (10:00–12:00 y 12:00–14:00 no chocan) | `422 RF-119` |
+
+El `GET` responde `404` y `403` igual (con `canchas.cancha:CONSULTAR`) y `422 REFERENCIA_INVALIDA` si
+la temporada no es de la liga.
+
+**Auditoría.** El `PUT` registra en `M-06` la acción `REGISTRAR_HORARIOS_CANCHA` sobre la cancha
+(`entidad = canchas`, `entidadId` = la cancha), sin motivo, con el detalle
+`{ "canchaId", "temporadaId", "horarios": <número de horarios guardados> }`. Se registra también al
+vaciar la lista.
+
+#### 6.6.2 Trámites de cancha: Formatos 1 y 2 (B-14, RF-116 a RF-118, DEC-35)
+
+- **Alta.** `POST /solicitudes-cancha` lleva `tipo` (`PRESTAMO`, `COMODATO` u `OFERTA`), el
+  solicitante y el bloque del formato: `prestamo` (Formato 1) u `oferta` (Formato 2), con los campos
+  de la plantilla del cliente (R8); el otro bloque no se admite (`400 VALIDACION`). El préstamo y el
+  comodato los pide un club (`clubId`); la oferta, un club o un oferente externo
+  (`solicitanteExterno`), nunca los dos (`400 VALIDACION`). Un club inexistente o cerrado, o un
+  `canchaId` que no es de la liga, responden `422 REFERENCIA_INVALIDA`; la hora de término no
+  posterior al inicio, `400 VALIDACION`. Responde `201` con `Location`.
+- **Permiso y ámbito.** El alta exige `canchas.solicitud:CREAR` sobre el club; la oferta de un
+  externo, sobre la liga (la captura el Secretario). Un club o un trámite fuera del ámbito responde
+  `404` (VAL-024).
+- **Número de oficio (RF-118, DEC-135, [PROPUESTA]).** Lo asigna el sistema al capturar:
+  `OF-<año>-<consecutivo de cuatro dígitos>` por liga y año de la zona de negocio (el ejemplo
+  `OF-2025-0089` de B-07). Un candado consultivo de la transacción evita repetir el consecutivo y
+  `UNIQUE (liga_id, numero_oficio)` es la última garantía.
+- **Estados.** El Formato 1 nace `PENDIENTE` y el Formato 2 `PENDIENTE_NEGOCIACION`.
+  `POST …/{id}/resolucion` lleva `{ "decision", "observaciones" }`: `APROBADA` o `NO_APROBADA` en el
+  Formato 1, `ACEPTADA` o `RECHAZADA` en el Formato 2 (otra decisión, `400 VALIDACION`). La decisión
+  desfavorable exige observaciones de 10 a 500 caracteres (`400 RN-021`) y las guarda como motivo.
+  Los estados finales no cambian: dictaminar otra vez responde `409 RF-117` (Formato 1) o
+  `409 RF-116` (Formato 2). Aceptar una oferta o aprobar un comodato **no** da de alta la cancha ni
+  sus horarios (DEC-138): la cancha se registra con RF-027 y los horarios con RF-119 (§6.6.1).
+- **Bandeja.** `GET /solicitudes-cancha` admite `tipo` repetido (la pestaña del Formato 1 manda
+  `tipo=PRESTAMO&tipo=COMODATO`), `estado`, `pagina` y `tamano`, por captura descendente. Como el
+  catálogo no tiene permiso de consulta propio, basta cualquiera de los tres permisos (DEC-136, **[PROPUESTA]**);
+  el alcance se une en el `WHERE` y en el `COUNT`, y las ofertas de externos solo las ve un ámbito de
+  liga. `GET …/contexto` responde `{ clubes, canchas, capturaExternos }`: los clubes `ACTIVO` del
+  alcance de `CREAR`, las canchas activas y si la sesión captura ofertas de externos; sin `CREAR`, las
+  listas van vacías.
+- **Carta (DEC-137, [PROPUESTA]).** `GET …/{id}/oficio` exige `canchas.oficio:GENERAR` (en la matriz
+  inicial, solo el Secretario; la Directiva no imprime la carta de su solicitud salvo que la matriz le
+  otorgue el permiso con ámbito de club) y responde los datos de la carta (`numeroOficio`, `asunto`, `liga`,
+  `fechaEmision`, `solicitante`, el bloque del formato y el estado con su dictamen). La interfaz la
+  compone con la plantilla del formato y la guarda en PDF con el diálogo de impresión del navegador.
+- **Auditoría.** `REGISTRAR_SOLICITUD_CANCHA` y `RESOLVER_SOLICITUD_CANCHA` en `M-06`, con
+  identificadores, tipo, número de oficio y estados; nunca nombres, teléfonos ni correos del formato.
+
 ### 6.7 M-07 Programación manual
 
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
 | `GET /jornadas?grupoId=&estadoPublicacion=` · `POST /jornadas` | Jornadas del grupo | `programacion.jornada:EDITAR` | RF-033 | N |
 | `GET /jornadas/{id}` | Jornada con partidos, conflictos y advertencias | `programacion.jornada:CONSULTAR` | RF-033 | N |
-| `POST /jornadas/{id}/partidos` · `PATCH /partidos/{id}` | Registrar o ajustar partido (equipos, cancha, inicio); solo con la jornada en `BORRADOR`; ajuste con `motivo` | `programacion.jornada:EDITAR` | RF-033, RF-036, RF-040 | N |
+| `POST /jornadas/{id}/partidos` · `PATCH /partidos/{id}` | Registrar o ajustar partido (equipos, cancha, inicio); solo con la jornada en `BORRADOR`; ajuste con `motivo`; `motivoAceptacion` para aceptar una advertencia de localía | `programacion.jornada:EDITAR` | RF-033, RF-036, RF-040, RF-120 | N · B |
 | `POST /jornadas/{id}/verificacion` | Revisa todos los partidos sin guardar: `{ conflictos: [ { partidoId, codigo, mensaje } ], advertencias: [...] }` | `programacion.jornada:EDITAR` | RF-039, RF-120 | N · B |
 | `POST /jornadas/{id}/envio` · `/resolucion` | Aprobación y publicación | ver §2.1 | RF-121, RF-090 | N |
 
 La verificación y el guardado usan las mismas reglas: VAL-003 (equipo duplicado en el bloque),
 VAL-004 (cancha ocupada), VAL-005 (cancha bloqueada o fuera de disponibilidad), VAL-006 (equipo con
 baja o sanción). Cada conflicto nombra los partidos, la cancha y el horario que chocan.
+
+**Advertencias de localía (B-15.1, B-15.2, RF-120, VAL-027).** No son conflictos duros: se aceptan con
+motivo (§3.1) y no impiden enviar la jornada a aprobación. Se evalúan dos reglas con los datos de la
+base, nunca con valores fijos en el código:
+
+- **Cancha del local (DEC-33, DEC-34).** El club del equipo local tiene cancha si es propietario de
+  una cancha activa (`propietario = 'CLUB'`) o si tiene horarios en `horarios_cancha_club` (oferta o
+  comodato) para la temporada del grupo y la categoría del local. Si la tiene y el partido se
+  programa en otra (incluida la del rival), se advierte nombrando las canchas.
+- **Últimas fechas en la unidad deportiva (RN-049).** En una jornada de la fase regular con
+  `numero > fechasFaseRegular − fechasFinalesUnidadDeportiva` (parámetros vigentes, §6.2), una
+  cancha con `ubicacion = 'EXTERNA'` se advierte; el mensaje rotula el número de fechas como valor de
+  demostración, no oficial. Sin `fechasFaseRegular` definido, en una fase final o con
+  `fechasFinalesUnidadDeportiva = 0`, la regla no se evalúa.
+
+El alta y el ajuste validan la localía después de los conflictos duros. Si hay advertencias y la
+petición no trae `motivoAceptacion` de al menos 10 caracteres (como RN-021), responden
+`409 VAL-027` con la primera explicación y las extensiones `aceptable: true` y
+`advertencias: [ { partidoId, codigo, mensaje } ]` (`partidoId` nulo en un alta). Con motivo, el
+partido se guarda con `motivoLocalia` y se audita `ACEPTAR_LOCALIA` en `M-07` sobre `partidos`, con el
+motivo y `{ jornadaId, reglas: ["CANCHA_DEL_LOCAL" | "UNIDAD_DEPORTIVA"] }`. Un ajuste sin
+`motivoAceptacion` conserva el `motivoLocalia` guardado si la advertencia sigue **[PROPUESTA]**; si el
+partido ya respeta la localía, `motivoLocalia` se borra. Un `PATCH` que solo trae `motivoAceptacion`
+registra la aceptación sin cambiar equipos, cancha ni inicio (B-15.2): si el partido ya respeta la
+localía no escribe; si la advertencia sigue, guarda el motivo y audita `ACEPTAR_LOCALIA`. La
+verificación devuelve las advertencias de todos los partidos no cancelados en
+`advertencias` con `codigo: "VAL-027"`; si el partido ya tiene motivo, el mensaje lo indica.
+
+**Aprobación y publicación (H-13.1).** El detalle y las respuestas de las dos acciones traen, además,
+`enviadaPor`, `enviadaEn`, `aprobadaPor`, `aprobadaEn`, `publicadaEn` y `observaciones` (los vacíos
+se omiten). El trigger `tg_jornadas_publicacion` valida la misma máquina de estados y registra cada
+paso en `historial_publicacion` con quien lo hizo y su motivo.
+
+- `POST /jornadas/{id}/envio` no lleva cuerpo y exige `programacion.jornada:ENVIAR`. Orden de
+  errores: permiso (`403`) → jornada de la liga (`404`) → en `BORRADOR` (`409 RF-090`) → al menos un
+  partido no cancelado (`409 RF-121`, **[PROPUESTA]**) → sin conflictos duros (`409 RF-039`, con la
+  extensión `conflictos: [ { partidoId, codigo, mensaje } ]` igual que la verificación). Fija
+  `enviadaPor` con el perfil de la sesión y `enviadaEn`, y responde `200` con la jornada en
+  `REVISION` y sus partidos.
+- `POST /jornadas/{id}/resolucion` lleva `{ "decision": "PUBLICADO"|"BORRADOR", "observaciones"? }` y
+  exige `programacion.jornada:APROBAR`. Orden: permiso (`403`) → `404` → en `REVISION`
+  (`409 RF-090`) → `decision` presente (`400`) → separación de funciones (`403 RF-121`) →
+  observaciones de la devolución (`400 RF-121`). **Quien programa no aprueba:** se rechaza si quien
+  dictamina creó o envió la jornada, o si alguna de sus asignaciones le da también
+  `programacion.jornada:EDITAR` (par incompatible del Apéndice E); `ck_jornadas_aprobacion` es la
+  última garantía.
+  - `PUBLICADO` fija `aprobadaPor` y `aprobadaEn`; el trigger fija `publicadaEn` y los partidos
+    aparecen en `v_publica_programacion`. Las observaciones son opcionales y, si llegan, son el motivo
+    del historial.
+  - `BORRADOR` exige observaciones de al menos 10 caracteres, las guarda y las usa como motivo del
+    historial; la jornada vuelve a admitir altas y ajustes.
+- Auditoría en `M-07` sobre `jornadas`: `ENVIAR_JORNADA_A_APROBACION` (`{ estadoAnterior, estado,
+  partidos }`), `APROBAR_JORNADA` y `DEVOLVER_JORNADA` (`{ estadoAnterior, estado }`, con las
+  observaciones como motivo). Al publicarse, la jornada emite `JornadaPublicada` y `tesoreria` genera
+  sus cobros en la misma transacción (B-30, RF-136; ver §6.13 «Cobros automáticos»).
 
 ### 6.8 M-08 Partidos, cédula y resultados
 
@@ -1153,8 +2330,17 @@ estado responde `409 RF-090`. `POST /comunicados/{id}/envio` no lleva cuerpo y p
 
 En ambos casos, si el comunicado no está en `REVISION` la acción responde `409 RF-090`. Las altas,
 ediciones y transiciones se auditan como `REDACTAR_COMUNICADO`, `EDITAR_COMUNICADO`,
-`ENVIAR_COMUNICADO_A_REVISION`, `APROBAR_COMUNICADO` y `DEVOLVER_COMUNICADO`. La lista combinada de
-`GET /publicaciones/pendientes` se completará cuando exista la consulta de jornadas de M-07.
+`ENVIAR_COMUNICADO_A_REVISION`, `APROBAR_COMUNICADO` y `DEVOLVER_COMUNICADO`.
+
+**Pendientes (H-13.1).** `GET /publicaciones/pendientes?pagina=&tamano=` responde la envoltura de
+paginación (§4) con las jornadas y los comunicados en `REVISION`, del envío más antiguo al más
+reciente. Cada fila trae `tipo` (`JORNADA`|`COMUNICADO`), `id`, `titulo` («Jornada 3» o el título
+del comunicado), `contexto` (temporada · categoría · grupo, solo en jornadas), `partidos` (no
+cancelados, solo en jornadas), `enviadoPor: { id, nombre }` y `enviadoEn` (en el comunicado, su último
+paso a `REVISION` del historial). Las jornadas se incluyen con `programacion.jornada:APROBAR` y los
+comunicados con `publicacion.comunicado:APROBAR`, ambos con ámbito de liga; con uno solo, la bandeja
+trae solo ese tipo. Sin ninguno responde `403 VAL-015`; con alguno sin ámbito de liga, `404`
+(VAL-024). La consulta no se audita.
 
 ### 6.12 M-12 Reportes (B)
 
@@ -1170,7 +2356,7 @@ los módulos; los endpoints `/reportes` y la exportación son B.
 
 | Método y ruta | Propósito | Permiso | RF | E |
 | --- | --- | --- | --- | --- |
-| `GET /tarifas?temporadaId=` · `POST` · `PATCH` | Tarifas por temporada y categoría | `tesoreria.tarifa:EDITAR` | RF-135 | B |
+| `GET /tarifas/contexto` · `GET /tarifas?temporadaId=` · `POST /tarifas` · `PATCH /tarifas/{id}` | Tarifas por temporada y categoría | `tesoreria.tarifa:EDITAR` | RF-135 | B |
 | `GET /cobros?clubId=&equipoId=&estado=` · `POST /cobros` | Cobros (manuales en N; los automáticos los genera la publicación de la jornada, B) | `tesoreria.cobro:*` | RF-137, RF-136 | N · B |
 | `GET /adeudos?clubId=` | Suma de cobros pendientes y vencidos por club y equipo | `tesoreria.cobro:CONSULTAR` | RF-140 | N |
 | `POST /cobros/{id}/intentos-pago` · `POST /intentos-pago/{id}/confirmacion` | Pago en línea simulado | `tesoreria.pago:PAGAR` | RF-138, ADR-0012 | N |
@@ -1184,6 +2370,44 @@ Ningún endpoint pone un cobro en `VENCIDO`: lo hace la tarea programada de venc
 RF-141, ADR-0009) como el perfil Sistema, para los cobros `PENDIENTE` con `fecha_limite` anterior al
 día de hoy en `America/Mexico_City` **[PROPUESTA, DEC-60]**, con la acción de auditoría
 `VENCER_COBRO`. Desde ahí el cobro solo admite el pago externo (`POST /cobros/{id}/pagos`).
+
+#### Tarifas (B-29.1, RF-135)
+
+Las tarifas reales están pendientes (PEN-042): todo monto capturado es **[DEMO]** y cada tarifa
+lleva `esDemo: true` para que la interfaz la rotule «No oficial». Los tres endpoints exigen
+`tesoreria.tarifa:EDITAR` en ámbito de liga (la matriz no tiene un permiso de consulta propio).
+
+`GET /tarifas?temporadaId=` devuelve la lista **sin paginar** de la temporada (a lo sumo dos tarifas
+por categoría), ordenada por el orden del catálogo de categorías y después por concepto. Cada tarifa
+se representa con `id`, `temporada` y `categoria` anidados (`{ id, nombre }`), `concepto`
+(`ARBITRAJE` o `CANCHA`), `monto` (`BigDecimal`, dos decimales) y `esDemo`. Sin `temporadaId`
+responde `400 VALIDACION`; una temporada que no es de la liga, `404`.
+
+`GET /tarifas/contexto` alimenta la pestaña «Tarifas» de F-33 (B-29.2): devuelve
+`{ "temporadas": [{ "id", "nombre", "estado", "categorias": [{ "id", "nombre" }] }] }` con las
+temporadas de la liga de la más reciente a la más antigua y, en cada una, las categorías asignadas en
+el orden del catálogo (una temporada sin categorías trae la lista vacía). Se autoriza con
+`tesoreria.tarifa:EDITAR` y no con `temporadas.temporada:CONSULTAR`, que el Tesorero no tiene en la
+matriz inicial; solo lleva identificadores, nombres y estado.
+
+`POST /tarifas` responde `201` con `Location` y la tarifa. El cuerpo es:
+
+```json
+{ "temporadaId": "…", "categoriaId": "…", "concepto": "ARBITRAJE", "monto": 350.00 }
+```
+
+`PATCH /tarifas/{id}` solo cambia el monto (`{ "monto": 420.50 }`) y responde `200` con la tarifa;
+la temporada, la categoría y el concepto identifican la tarifa y no se editan. Un monto igual al
+vigente no cambia nada ni se audita.
+
+- `monto` es obligatorio, mayor o igual a cero, con hasta diez dígitos enteros y dos decimales
+  (`numeric(12,2)`); un negativo o un tercer decimal responden `400 VALIDACION`.
+- `409 DUPLICADO` si ya existe la tarifa de ese concepto para la categoría en la temporada (la
+  restricción `UNIQUE` es la última garantía); `422 REFERENCIA_INVALIDA` si la temporada no existe o
+  la categoría no está asignada a ella (`categorias_temporada`); `409 RF-003` si la temporada está
+  `CERRADA`: sus tarifas son de solo lectura. `PATCH` de una tarifa inexistente responde `404`.
+- Auditoría: `REGISTRAR_TARIFA` y `EDITAR_TARIFA` en `M-13`, entidad `tarifas`, con temporada,
+  categoría, concepto, monto (y `montoAnterior` en la edición) y `esDemo`.
 
 #### Cobros (H-29.1, RF-137, RF-140)
 
@@ -1224,14 +2448,37 @@ cobro. El cuerpo es:
   `400`, como `10.123`).
 - `periodoInicio` es opcional (se usa el día de negocio en `America/Mexico_City`); `fechaLimite` es
   obligatoria y no puede ser anterior al inicio.
-- No se aceptan `tipo`, `estado`, `partidoId` ni `sancionId`: los cobros automáticos son RF-136 y
-  RF-133 (backlog) y sus flujos los generan.
+- No se aceptan `tipo`, `estado`, `partidoId` ni `sancionId`: los cobros automáticos los generan
+  sus flujos (RF-136 al publicar la jornada, B-30; RF-133 por multa, backlog).
 - Errores: `404` si el club no existe o está fuera del ámbito (VAL-024); `403 VAL-015` sin
   `tesoreria.cobro:CREAR`; `422 REFERENCIA_INVALIDA` si el equipo no existe o es de otro club (el
   mensaje no revela el nombre del equipo, que puede estar fuera del ámbito); `400 VALIDACION` si el
   concepto, el monto o las fechas no cumplen.
 - Auditoría: `REGISTRAR_COBRO` en `M-13`, entidad `cobros`, con club, equipo, tipo, monto, periodo,
   fecha límite y estado; el detalle no lleva concepto ni datos personales.
+
+#### Cobros automáticos al publicar la jornada (B-30, RF-136)
+
+No hay endpoint: los genera `POST /jornadas/{id}/resolucion` con `decision: PUBLICADO` (§6.7). La
+jornada emite `JornadaPublicada` y el oyente síncrono de `tesoreria` corre en la misma transacción
+(ADR-0006): si falla, la publicación se revierte. La respuesta del dictamen no cambia.
+
+- Por cada partido de la jornada que no esté `CANCELADO`, a **cada** equipo: un cobro `ARBITRAJE` y
+  uno `CANCHA` cargados a su club, con `partidoId`, `equipoId` y el monto de la tarifa de la temporada
+  y la categoría (§ «Tarifas»). **[PROPUESTA]** Cada equipo paga la tarifa completa.
+- **Sin cobro de cancha** al equipo cuyo club es dueño de la cancha (`propietario = CLUB`, DEC-33);
+  en una cancha de la liga o de un tercero pagan los dos.
+- **[PROPUESTA]** Sin tarifa del concepto, o con tarifa en cero, ese cobro se omite y la omisión queda
+  en la auditoría; la publicación no se bloquea.
+- **[PROPUESTA]** Periodo: desde el día de la publicación hasta el día del partido (o hoy, si ya pasó)
+  más `siglim.tesoreria.cobros-automaticos.dias-para-pagar` días (7 por defecto), en
+  `America/Mexico_City`. Después, la tarea de vencimiento lo vence (RF-141).
+- Concepto que ve el club: `Arbitraje · Jornada 3 · Halcones vs Toros` (hasta 200 caracteres).
+- Idempotente: `ux_cobros_partido` impide un segundo cobro del mismo partido, equipo y tipo.
+- Auditoría en `M-13`: `GENERAR_COBRO` por cobro (entidad `cobros`, con jornada, partido, club,
+  equipo, tipo, monto, periodo y estado) y `GENERAR_COBROS_JORNADA` sobre la jornada con
+  `{ partidos, cobrosGenerados, omitidos }`; sin concepto ni datos personales. `creadoPor` es el
+  Presidente que publicó.
 
 #### Adeudos (H-29.1, RF-140)
 
@@ -1416,17 +2663,23 @@ evidencias (RF-059). Decisión completa en ADR-0013.
 
 | Método y ruta | Propósito | Permiso |
 | --- | --- | --- |
-| `POST /registros-jugador/{id}/documentos` · `/personas/{id}/documentos` · `/afiliaciones/{id}/documentos` | Cargar (`multipart/form-data`: `archivo` + `tipoDocumentoId`) | `registros.documento:CREAR` |
-| `GET /registros-jugador/{id}/documentos` | Metadatos: tipo, tamaño, estado de validación, quién y cuándo | `registros.documento:CONSULTAR` |
+| `POST /registros-jugador/{id}/documentos` | Cargar (`multipart/form-data`: `archivo` + `tipoDocumentoId`); `201` sin `Location` (H-10.1, §6.4) | `registros.documento:CREAR` |
+| `POST /personas/{id}/documentos` · `/afiliaciones/{id}/documentos` | Cargar documentos de una persona (renovación, RF-015) o de una afiliación (B) | `registros.documento:CREAR` |
+| `GET /registros-jugador/{id}/documentos` | Historial con los reemplazados; sigue fuera porque H-10.3 no lo usa: los vigentes vienen en `GET /registros-jugador/{id}/requisitos` (DEC-96, DEC-112) | `registros.documento:CONSULTAR` |
 | `GET /documentos/{id}/enlace` | URL prefirmada de lectura | `registros.documento:CONSULTAR` |
 | `POST /documentos/{id}/validacion` | `{ "decision": "APROBADO"\|"RECHAZADO", "observaciones" }` | `registros.documento:VALIDAR` |
-| `POST /documentos/{id}/reemplazo` | Carga una versión nueva; la anterior queda con `reemplazadoPorId` | `registros.documento:CREAR` |
+| `POST /documentos/{id}/reemplazo` | Carga un documento nuevo (`multipart/form-data`: `archivo`) en lugar de uno vigente `PENDIENTE` o `RECHAZADO`; el anterior conserva su estado y queda reemplazado. `201` sin `Location` | `registros.documento:CREAR` |
 
 - Tipos aceptados por **firma binaria**: JPEG, PNG, WebP y PDF. Tamaño máximo 5 MB **[PROPUESTA]**.
 - `GET /documentos/{id}/enlace` responde `{ "url": "https://…", "expiraEn": "…" }` con vigencia de
   60 s **[PROPUESTA]**. La respuesta lleva `Cache-Control: no-store`; la interfaz abre la URL de
   inmediato y nunca la guarda.
-- Las respuestas **nunca** incluyen `s3Bucket`, `s3Clave` ni la `url` guardada en la base.
+- Las respuestas **nunca** incluyen `s3Bucket`, `s3Clave`, `sha256` ni la `url` guardada en la base.
+- El reemplazo solo procede sobre un documento vigente `PENDIENTE` o `RECHAZADO` (`409 RF-109` si
+  está `APROBADO` o ya fue reemplazado); no hay número de versión ni se borra nada en S3. Responde
+  `201` sin `Location` porque no existe `GET /documentos/{id}`.
+- `POST /personas/{id}/documentos` (carpeta `tutores`) queda para la renovación (entrega B): en
+  H-10.1 el INE del tutor es un documento del registro (DEC-92).
 
 ## 8. Portal público (`/api/v1/publico`)
 
@@ -1476,7 +2729,11 @@ solo esos botones (ERS §3.1.1).
 ### 9.2 Datos personales
 
 - La CURP solo se devuelve completa a quien tiene `organizacion.persona:CONSULTAR` en el ámbito de
-  la persona; en listados se enmascara (`GAPA******HMN***05`) **[PROPUESTA]**.
+  la persona; en listados se enmascara (`GAPA******HMN***05`) **[PROPUESTA]**: se conservan los
+  caracteres 1–4, 11–13 y 17–18 y se cambian 5–10 y 14–16 por `*`; un valor de otra longitud conserva
+  sus 4 primeros caracteres. DEC-110 lo aplica en M-04: `GET /registros-jugador` solo lleva
+  `curpEnmascarada` y `GET /registros-jugador/{id}` lleva `curp` completa solo con
+  `organizacion.persona:CONSULTAR` sobre el club del registro.
 - Fecha de nacimiento, teléfono y correo solo en el detalle de la persona, nunca en listados.
 
 ### 9.3 Textos de los enums
@@ -1499,9 +2756,7 @@ El frontend mantiene un diccionario único `enum → texto` (por ejemplo, `PENDI
 
 | Tema | Referencia |
 | --- | --- |
-| Textos definitivos de los mensajes de error | PEN-016 |
 | Duración y renovación de la sesión, política de contraseñas, intentos | PEN-030 |
-| Proveedor de correo para RF-143 | PEN-034, DEC-46 |
 | Quitar una categoría de la temporada y borrar un grupo en configuración: `siglim_app` no tiene `DELETE` sobre `categorias_temporada` ni `grupos`, así que requiere una migración y una decisión del equipo | H-05.1 (D7) |
 | Confirmar como oficiales solo una parte de los parámetros: `es_demo` es una sola columna por versión, así que marcarlos campo por campo requiere una migración | H-05.2 (D2), PEN-021 |
 | Valores **[PROPUESTA]** de este documento: longitud mínima del motivo, límites de tamaño, vigencia de la URL prefirmada, caché del portal, intervalo de consulta de avisos, enmascarado de CURP | Validar con el equipo y el profesor |

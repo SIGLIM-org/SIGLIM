@@ -32,6 +32,10 @@ menor autoridad: ver los conflictos C-01 a C-08 en
 
 > `docs/requisitos/ERS.md` es la **Rev. 0.4.1** (integra el registro de decisiones DEC-01 a DEC-46).
 > Si un requisito es ambiguo, pregunta en lugar de suponer.
+> Las decisiones **DEC-47 en adelante** viven en
+> [`docs/requisitos/decisiones/registro-de-decisiones.md`](docs/requisitos/decisiones/registro-de-decisiones.md):
+> precisan el ERS y mandan sobre él hasta su siguiente revisión. Antes de implementar, busca ahí las
+> DEC del módulo.
 > Las carpetas `historico/` (en `docs/requisitos/`, `docs/requisitos/bpmn/`, `docs/arquitectura/` y `docs/base-de-datos/`) contienen versiones **reemplazadas**,
 > y `docs/requisitos/fuentes/` el levantamiento original: nunca los uses para implementar.
 
@@ -56,9 +60,11 @@ menor autoridad: ver los conflictos C-01 a C-08 en
    históricos, varias ligas en operación, CI/CD y contenedores.
 2. **Marca `[PENDIENTE]` → no se implementa.** Detente e informa qué decisión falta (cita el
    `PEN-xxx` o `Q-xx` del ERS, Apéndices A y C).
-3. **Valores `[DEMO]`** (puntos, desempates, bloque de cancha, plazo de cédula, marcador por default,
-   liguilla, ascensos, catálogo de artículos): se implementan como **configuración**, nunca fijos en
-   el código, y se rotulan «no oficial» en la interfaz.
+3. **Valores `[DEMO]`** (puntos, desempates, duración de juego y bloque de cancha, plazo de cédula,
+   marcador por default, liguilla, ascensos, catálogo de artículos, tarifas, plazo de recurso y aviso
+   de privacidad; DEC-65, DEC-66, DEC-71, DEC-74): se implementan como **configuración**, nunca fijos
+   en el código, y se rotulan «no oficial» en la interfaz. Cuando llegue el reglamento, se cambia la
+   configuración, no el código (DEC-72).
 4. **No inventes reglas de negocio** (RN-006, RN-035). Si una regla no está escrita, usa un valor
    configurable, márcalo `[PROPUESTA]` en un comentario y menciónalo en tu respuesta.
 5. **Permisos:** nunca decidas por el nombre del rol; usa el permiso `modulo.recurso:ACCION` más el
@@ -138,6 +144,13 @@ Los triggers validan las transiciones y lanzan errores con el código del ERS en
   garantía.
 - **El portal solo muestra lo `PUBLICADO`** y nunca datos personales (RF-056, VAL-014, RNF-012).
 - **Denegación por defecto:** sin permiso explícito, la acción se rechaza (VAL-015, RNF-003).
+- **Identidad única y global por CURP** (RF-010, DEC-10). La Directiva de club solo edita correo y
+  teléfono de una persona; CURP, nombre, apellidos y fecha de nacimiento los corrige el Secretario de
+  la liga (DEC-77).
+- **Un menor necesita tutor vigente y consentimiento**, no la cuenta del tutor (VAL-025, DEC-75). El
+  consentimiento lo otorga el titular adulto o, si es menor, su tutor vigente (DEC-76).
+- **Ningún dato personal se borra:** una solicitud ARCO de cancelación se resuelve como bloqueo
+  (DEC-67).
 
 ## 8. Convenciones de código
 

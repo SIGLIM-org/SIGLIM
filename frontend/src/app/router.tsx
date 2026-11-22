@@ -16,10 +16,15 @@ import { PaginaNoEncontrada } from '@/pages/PaginaNoEncontrada'
 
 /**
  * Marcador de cada módulo de `/app` en un fragmento aparte. Las secciones con pantalla propia
- * (Inicio y Tesorería) se registran más abajo; el resto sigue usando `EnConstruccion` hasta que su
+ * (Inicio, Mi información y Tesorería) se registran más abajo; el resto sigue usando `EnConstruccion` hasta que su
  * historia lo sustituya.
  */
-const RUTAS_CON_PANTALLA_PROPIA = new Set(['/app', '/app/tesoreria'])
+const RUTAS_CON_PANTALLA_PROPIA = new Set([
+  '/app',
+  '/app/tesoreria',
+  '/app/mi-informacion',
+  '/app/programacion/arbitros',
+])
 
 const paginasApp: RouteObject[] = seccionesApp
   .filter(({ ruta }) => !RUTAS_CON_PANTALLA_PROPIA.has(ruta))
@@ -119,7 +124,29 @@ export const rutas: RouteObject[] = [
                 },
                 HydrateFallback: CargandoPagina,
               },
+              {
+                path: '/app/mi-informacion',
+                lazy: async () => {
+                  const { PantallaMiInformacion } = await import(
+                    '@/features/registros/mi-informacion/PantallaMiInformacion'
+                  )
+
+                  return { Component: PantallaMiInformacion }
+                },
+                HydrateFallback: CargandoPagina,
+              },
               ...paginasApp,
+              {
+                path: '/app/organizacion/operaciones-equipo',
+                lazy: async () => {
+                  const { PantallaOperacionesEquipo } = await import(
+                    '@/features/organizacion/operaciones/PantallaOperacionesEquipo'
+                  )
+
+                  return { Component: PantallaOperacionesEquipo }
+                },
+                HydrateFallback: CargandoPagina,
+              },
               {
                 path: '/app/organizacion/clubes/:clubId?',
                 lazy: async () => {
@@ -132,6 +159,61 @@ export const rutas: RouteObject[] = [
                 HydrateFallback: CargandoPagina,
               },
               {
+                path: '/app/organizacion/afiliaciones/:afiliacionId?',
+                lazy: async () => {
+                  const { PantallaAfiliaciones } = await import(
+                    '@/features/organizacion/afiliaciones/PantallaAfiliaciones'
+                  )
+
+                  return { Component: PantallaAfiliaciones }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
+                path: '/app/organizacion/jugadores',
+                lazy: async () => {
+                  const { PantallaPlantilla } = await import(
+                    '@/features/registros/plantilla/PantallaPlantilla'
+                  )
+
+                  return { Component: PantallaPlantilla }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
+                path: '/app/organizacion/jugadores/alta',
+                lazy: async () => {
+                  const { PantallaAltaJugador } = await import(
+                    '@/features/registros/PantallaAltaJugador'
+                  )
+
+                  return { Component: PantallaAltaJugador }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
+                path: '/app/organizacion/jugadores/:registroId/documentos',
+                lazy: async () => {
+                  const { PantallaDocumentosRegistro } = await import(
+                    '@/features/registros/documentos/PantallaDocumentosRegistro'
+                  )
+
+                  return { Component: PantallaDocumentosRegistro }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
+                path: '/app/organizacion/registros/:registroId?',
+                lazy: async () => {
+                  const { PantallaValidacionRegistros } = await import(
+                    '@/features/registros/validacion/PantallaValidacionRegistros'
+                  )
+
+                  return { Component: PantallaValidacionRegistros }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
                 path: '/app/programacion/canchas/:canchaId?',
                 lazy: async () => {
                   const { PantallaCanchas } = await import(
@@ -139,6 +221,50 @@ export const rutas: RouteObject[] = [
                   )
 
                   return { Component: PantallaCanchas }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
+                path: '/app/programacion/tramites-cancha',
+                lazy: async () => {
+                  const { PantallaTramitesCancha } = await import(
+                    '@/features/canchas/tramites/PantallaTramitesCancha'
+                  )
+
+                  return { Component: PantallaTramitesCancha }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
+                path: '/app/programacion/arbitros',
+                lazy: async () => {
+                  const { PantallaArbitros } = await import(
+                    '@/features/arbitraje/PantallaArbitros'
+                  )
+
+                  return { Component: PantallaArbitros }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
+                path: '/app/programacion/jornadas',
+                lazy: async () => {
+                  const { PantallaProgramacion } = await import(
+                    '@/features/programacion/PantallaProgramacion'
+                  )
+
+                  return { Component: PantallaProgramacion }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
+                path: '/app/programacion/jornadas/:jornadaId/revision',
+                lazy: async () => {
+                  const { PantallaRevisionJornada } = await import(
+                    '@/features/programacion/PantallaRevisionJornada'
+                  )
+
+                  return { Component: PantallaRevisionJornada }
                 },
                 HydrateFallback: CargandoPagina,
               },

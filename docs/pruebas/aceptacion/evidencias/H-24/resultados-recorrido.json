@@ -1,0 +1,77 @@
+{
+  "fallos": 0,
+  "ca1": {},
+  "ca2": {},
+  "ca3": {},
+  "api": {
+    "tutora-ana": {
+      "estado": 200,
+      "cacheControl": "no-store",
+      "cuerpo": "{\"persona\":{\"id\":\"aaaaaaaa-1111-4111-8111-000000000002\",\"nombreCompleto\":\"Ana López Ruiz\",\"curpEnmascarada\":\"LORA******MMN***09\",\"esMenor\":true},\"registros\":[{\"id\":\"80000000-0000-4000-8000-000000000020\",\"temporada\":{\"id\":\"70000000-0000-4000-8000-000000000001\",\"nombre\":\"Temporada 2026-2027\",\"estado\":\"ACTIVA\"},\"club\":{\"id\":\"c0000000-0000-4000-8000-000000000001\",\"nombre\":\"Deportivo Halcones de Morelia\"},\"equipo\":{\"id\":\"70000000-0000-4000-8000-000000000010\",\"nombre\":\"Halcones Infantil\"},\"categoria\":{\"id\":\"70000000-0000-4000-8000-000000000002\",\"nombre\":\"Infantil\"},\"estado\":\"ACTIVO\",\"altaEn\":\"2026-09-01\",\"bajaEn\":null,\"motivoBaja\":null,\"observaciones\":\"Documentos revisados en ventanilla.\",\"elegibilidad\":{\"elegible\":false,\"causas\":[{\"codigo\":\"RF-020\",\"mensaje\":\"Suspensión de 3 partidos por el artículo 12 («Juego brusco»): faltan 2 partidos, vigente hasta el 20/12/2026.\"}]},\"documentos\":{\"requisitos\":[{\"tipoDocumento\":{\"id\":1,\"codigo\":\"CONSTANCIA_ESTUDIOS\",\"nombre\":\"Constancia de estudios\"},\"cantidad\":1,\"soloMenores\":false,\"esDemo\":false,\"cargados\":1,\"aprobados\":1,\"faltan\":0,\"documentos\":[{\"id\":\"1672372f-4eb6-4e51-ad62-db389d72ce16\",\"tipo\":{\"id\":1,\"codigo\":\"CONSTANCIA_ESTUDIOS\",\"nombre\":\"Constancia de estudios\"},\"estadoValidacion\":\"APROBADO\",\"observaciones\":null,\"cargadoEn\":\"2026-09-02T10:00:00-06:00\"}]},{\"tipoDocumento\":{\"id\":2,\"codigo\":\"IDENTIFICACION\",\"nombre\":\"Identificación\"},\"cantidad\":1,\"soloMenores\":false,\"esDemo\":false,\"cargados\":1,\"aprobados\":1,\"faltan\":0,\"documentos\":[{\"id\":\"a99125a5-defb-45dd-85fc-bc9f0b05353a\",\"tipo\":{\"id\":2,\"codigo\":\"IDENTIFICACION\",\"nombre\":\"Identificación\"},\"estadoValidacion\":\"APROBADO\",\"observaciones\":null,\"cargadoEn\":\"2026-09-02T10:00:00-06:00\"}]},{\"tipoDocumento\":{\"id\":5,\"codigo\":\"FOTOGRAFIA\",\"nombre\":\"Fotografía\"},\"cantidad\":2,\"soloMenores\":false,\"esDemo\":true,\"cargados\":2,\"aprobados\":2,\"faltan\":0,\"documentos\":[{\"id\":\"7683d115-11cb-46d2-b751-387420bf96e8\",\"tipo\":{\"id\":5,\"codigo\":\"FOTOGRAFIA\",\"nombre\":\"Fotografía\"},\"estadoValidacion\":\"APROBADO\",\"observaciones\":null,\"cargadoEn\":\"2026-09-02T10:01:00-06:00\"},{\"id\":\"0c76a647-4e3a-4362-9552-162b7492e711\",\"tipo\":{\"id\":5,\"codigo\":\"FOTOGRAFIA\",\"nombre\":\"Fotografía\"},\"estadoValidacion\":\"APROBADO\",\"observaciones\":null,\"cargadoEn\":\"2026-09-02T10:02:00-06:00\"}]},{\"tipoDocumento\":{\"id\":6,\"codigo\":\"INE_TUTOR\",\"nombre\":\"Credencial INE del tutor\"},\"cantidad\":1,\"soloMenores\":true,\"esDemo\":false,\"cargados\":1,\"aprobados\":1,\"faltan\":0,\"documentos\":[{\"id\":\"b036cbe8-b008-46d5-994a-dcbd2414b25e\",\"tipo\":{\"id\":6,\"codigo\":\"INE_TUTOR\",\"nombre\":\"Credencial INE del tutor\"},\"estadoValidacion\":\"APROBADO\",\"observaciones\":null,\"cargadoEn\":\"2026-09-02T10:00:00-06:00\"}]}],\"completo\":true,\"listoParaValidar\":true},\"proximosPartidos\":[{\"id\":\"70000000-0000-4000-8000-000000000041\",\"jornada\":2,\"inicio\":\"2026-11-22T10:00:00-06:00\",\"cancha\":\"Unidad Deportiva 1\",\"local\":{\"id\":\"70000000-0000-4000-8000-000000000010\",\"nombre\":\"Halcones Infantil\"},\"visitante\":{\"id\":\"70000000-0000-4000-8000-000000000011\",\"nombre\":\"Lobos Infantil\"},\"esLocal\":true,\"estado\":\"PROGRAMADO\",\"resultado\":null},{\"id\":\"70000000-0000-4000-8000-000000000042\",\"jornada\":2,\"inicio\":\"2026-11-29T12:00:00-06:00\",\"cancha\":\"Unidad Deportiva 1\",\"local\":{\"id\":\"70000000-0000-4000-8000-000000000012\",\"nombre\":\"Pumas Infantil\"},\"visitante\":{\"id\":\"70000000-0000-4000-8000-000000000010\",\"nombre\":\"Halcones Infantil\"},\"esLocal\":false,\"estado\":\"PROGRAMADO\",\"resultado\":null}],\"partidosJugados\":[]}],\"sanciones\":[{\"id\":\"90000000-0000-4000-8000-000000000052\",\"tipo\":\"SUSPENSION_PARTIDOS\",\"estado\":\"VIGENTE\",\"partidos\":3,\"partidosCumplidos\":1,\"vigenteDesde\":\"2026-11-10\",\"vigenteHasta\":\"2026-12-20\",\"articulo\":{\"numero\":\"12\",\"descripcion\":\"Juego brusco\"},\"folio\":\"EXP-2026-014\"}]}"
+    },
+    "otro-ana": {
+      "estado": 404,
+      "cacheControl": "no-cache, no-store, max-age=0, must-revalidate",
+      "cuerpo": "{\"detail\":\"El recurso no existe o no tienes acceso a él.\",\"instance\":\"/api/v1/mi-informacion/aaaaaaaa-1111-4111-8111-000000000002\",\"status\":404,\"title\":\"Recurso no encontrado\",\"type\":\"https://siglim.mx/errores/no-encontrado\",\"codigo\":\"NO_ENCONTRADO\"}"
+    },
+    "secretario-ana": {
+      "estado": 404,
+      "cacheControl": "no-cache, no-store, max-age=0, must-revalidate",
+      "cuerpo": "{\"detail\":\"El recurso no existe o no tienes acceso a él.\",\"instance\":\"/api/v1/mi-informacion/aaaaaaaa-1111-4111-8111-000000000002\",\"status\":404,\"title\":\"Recurso no encontrado\",\"type\":\"https://siglim.mx/errores/no-encontrado\",\"codigo\":\"NO_ENCONTRADO\"}"
+    },
+    "tesorero-ana": {
+      "estado": 403,
+      "cacheControl": "no-cache, no-store, max-age=0, must-revalidate",
+      "cuerpo": "{\"detail\":\"Tu cuenta no tiene el permiso necesario para esta operación.\",\"instance\":\"/api/v1/mi-informacion/aaaaaaaa-1111-4111-8111-000000000002\",\"status\":403,\"title\":\"Acción no permitida\",\"type\":\"https://siglim.mx/errores/val-015\",\"codigo\":\"VAL-015\"}"
+    },
+    "sin-token": {
+      "estado": 401,
+      "cacheControl": "no-cache, no-store, max-age=0, must-revalidate",
+      "cuerpo": "{\"type\":\"https://siglim.mx/errores/no-autenticado\",\"title\":\"No autenticado\",\"status\":401,\"detail\":\"Inicia sesión para continuar.\",\"instance\":\"/api/v1/mi-informacion/aaaaaaaa-1111-4111-8111-000000000002\",\"codigo\":\"NO_AUTENTICADO\"}"
+    }
+  },
+  "ca1.opciones": {
+    "ok": true,
+    "detalle": "María López Ruiz (tú) | Ana López Ruiz (menor) | Luis López Ruiz (menor)"
+  },
+  "ca1.ana": {
+    "ok": true,
+    "detalle": "http://localhost:5174/app/mi-informacion?persona=aaaaaaaa-1111-4111-8111-000000000002"
+  },
+  "ca1.luis": {
+    "ok": true,
+    "detalle": "http://localhost:5174/app/mi-informacion?persona=aaaaaaaa-1111-4111-8111-000000000003 · 3 de 4 completos x1 · Falta 1 x1"
+  },
+  "ca2.suspension": {
+    "ok": true,
+    "detalle": "Suspensión de 3 partidos por el artículo 12 («Juego brusco»): faltan 2 partidos, vigente hasta el 20/12/2026."
+  },
+  "ca2.detalle": {
+    "ok": true,
+    "detalle": "estado 200"
+  },
+  "ca3.propia": {
+    "ok": true,
+    "detalle": "sin selector: solo su propia persona"
+  },
+  "ca3.ajena": {
+    "ok": true,
+    "detalle": "la pantalla no muestra a la menor"
+  },
+  "ca3.api-otro": {
+    "ok": true,
+    "detalle": "estado 404"
+  },
+  "ca3.api-liga": {
+    "ok": true,
+    "detalle": "estado 404"
+  },
+  "ca3.api-sin-permiso": {
+    "ok": true,
+    "detalle": "estado 403"
+  },
+  "ca3.api-sin-sesion": {
+    "ok": true,
+    "detalle": "estado 401"
+  }
+}

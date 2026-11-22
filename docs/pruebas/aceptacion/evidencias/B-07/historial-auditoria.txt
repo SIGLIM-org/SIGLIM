@@ -1,0 +1,22 @@
+Prueba de aceptación B-07.3 · historial y auditoría en la base local (hora de Morelia)
+
+registro_estado_historial al terminar
+     jugador      |       anterior       |     estado_nuevo     |                    motivo                    |         cambiado_por         |   cuando    
+------------------+----------------------+----------------------+----------------------------------------------+------------------------------+-------------
+ Héctor Historial | —                    | PENDIENTE_VALIDACION | Alta del registro                            | Directiva Halcones de prueba | 19/11 20:42
+ Héctor Historial | PENDIENTE_VALIDACION | ACTIVO               | Documentos revisados en ventanilla           | Secretario de prueba         | 19/11 20:43
+ Héctor Historial | ACTIVO               | BAJA                 | El jugador se muda a otra ciudad por trabajo | Directiva Halcones de prueba | 19/11 20:44
+ Iván Importado   | —                    | PENDIENTE_VALIDACION | Alta del registro                            | (sin usuario)                | 19/11 20:40
+ Omar Otroclub    | —                    | PENDIENTE_VALIDACION | Alta del registro                            | Secretario de prueba         | 19/11 20:40
+ Omar Otroclub    | PENDIENTE_VALIDACION | ACTIVO               | Documentos revisados en ventanilla           | Secretario de prueba         | 19/11 20:40
+(6 rows)
+
+Auditoría (las consultas del historial no agregan eventos: 4 antes y 4 después)
+   hora   |            perfil            | modulo |           accion           
+----------+------------------------------+--------+----------------------------
+ 20:42:36 | Directiva Halcones de prueba | M-01   | REGISTRAR_CONSENTIMIENTO
+ 20:42:36 | Directiva Halcones de prueba | M-04   | REGISTRAR_REGISTRO_JUGADOR
+ 20:43:16 | Secretario de prueba         | M-04   | VALIDAR_REGISTRO_JUGADOR
+ 20:44:00 | Directiva Halcones de prueba | M-04   | DAR_BAJA_REGISTRO_JUGADOR
+(4 rows)
+

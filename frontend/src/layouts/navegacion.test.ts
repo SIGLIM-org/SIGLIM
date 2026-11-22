@@ -1,31 +1,116 @@
 import { describe, expect, it } from 'vitest'
-import { seccionDeRuta, seccionesApp, seccionesPermitidas } from '@/layouts/navegacion'
+import type { Ambito } from '@/features/seguridad/tipos'
+import {
+  PERMISOS_CONSULTA_PROPIA,
+  seccionDeRuta,
+  seccionesApp,
+  seccionesPermitidas,
+} from '@/layouts/navegacion'
 
 describe('subsecciones', () => {
   it('H-07.2: Programación ofrece Canchas con su permiso y la ruta queda en la sección', () => {
     const programacion = seccionesApp.find(({ nombre }) => nombre === 'Programación')
 
-    expect(programacion?.subsecciones).toEqual([
+    expect(programacion?.subsecciones).toContainEqual(
       expect.objectContaining({
         nombre: 'Canchas',
         ruta: '/app/programacion/canchas',
         permiso: 'canchas.cancha:CONSULTAR',
       }),
-    ])
+    )
     expect(seccionDeRuta('/app/programacion/canchas/c1')?.nombre).toBe('Programación')
+  })
+
+  it('H-12.4: Programación ofrece Jornadas con su permiso y la ruta queda en la sección', () => {
+    const programacion = seccionesApp.find(({ nombre }) => nombre === 'Programación')
+
+    expect(programacion?.subsecciones).toContainEqual(
+      expect.objectContaining({
+        nombre: 'Jornadas',
+        ruta: '/app/programacion/jornadas',
+        permiso: 'programacion.jornada:CONSULTAR',
+      }),
+    )
+    expect(seccionDeRuta('/app/programacion/jornadas')?.nombre).toBe('Programación')
+  })
+
+  it('H-11.2: Programación ofrece Árbitros con su permiso y la ruta queda en la sección', () => {
+    const programacion = seccionesApp.find(({ nombre }) => nombre === 'Programación')
+
+    expect(programacion?.subsecciones).toContainEqual(
+      expect.objectContaining({
+        nombre: 'Árbitros',
+        ruta: '/app/programacion/arbitros',
+        permiso: 'arbitraje.arbitro:CONSULTAR',
+      }),
+    )
+    expect(seccionDeRuta('/app/programacion/arbitros')?.nombre).toBe('Programación')
   })
 
   it('H-06.2: Organización ofrece Clubes con su permiso y la ruta queda en la sección', () => {
     const organizacion = seccionesApp.find(({ nombre }) => nombre === 'Organización')
 
-    expect(organizacion?.subsecciones).toEqual([
+    expect(organizacion?.subsecciones).toContainEqual(
       expect.objectContaining({
         nombre: 'Clubes',
         ruta: '/app/organizacion/clubes',
         permiso: 'organizacion.club:CONSULTAR',
       }),
-    ])
+    )
     expect(seccionDeRuta('/app/organizacion/clubes/c1')?.nombre).toBe('Organización')
+  })
+
+  it('H-08.2: Organización ofrece Afiliaciones con sus dos permisos', () => {
+    const organizacion = seccionesApp.find(({ nombre }) => nombre === 'Organización')
+
+    expect(organizacion?.subsecciones).toContainEqual(
+      expect.objectContaining({
+        nombre: 'Afiliaciones',
+        ruta: '/app/organizacion/afiliaciones',
+        permiso: [
+          'organizacion.afiliacion:CAPTURAR',
+          'organizacion.afiliacion:APROBAR',
+        ],
+      }),
+    )
+    expect(seccionDeRuta('/app/organizacion/afiliaciones/af-1')?.nombre).toBe('Organización')
+  })
+
+  it('H-09.4 · DEC-116: Organización ofrece Jugadores con los tres permisos (requiereTodos)', () => {
+    const organizacion = seccionesApp.find(({ nombre }) => nombre === 'Organización')
+
+    expect(organizacion?.subsecciones).toContainEqual(
+      expect.objectContaining({
+        nombre: 'Jugadores',
+        ruta: '/app/organizacion/jugadores',
+        permiso: [
+          'registros.registro:CONSULTAR',
+          'organizacion.equipo:CONSULTAR',
+          'organizacion.club:CONSULTAR',
+        ],
+        requiereTodos: true,
+      }),
+    )
+    expect(seccionDeRuta('/app/organizacion/jugadores')?.nombre).toBe('Organización')
+    expect(seccionDeRuta('/app/organizacion/jugadores/alta')?.nombre).toBe('Organización')
+    // El alta ya no va en el menú: se abre desde la plantilla (DEC-116).
+    expect(organizacion?.subsecciones?.some(({ ruta }) => ruta.endsWith('/alta'))).toBe(false)
+  })
+
+  it('H-10.3 · DEC-111: Organización ofrece Validación de registros con VALIDAR y las rutas quedan en la sección', () => {
+    const organizacion = seccionesApp.find(({ nombre }) => nombre === 'Organización')
+
+    expect(organizacion?.subsecciones).toContainEqual(
+      expect.objectContaining({
+        nombre: 'Validación de registros',
+        ruta: '/app/organizacion/registros',
+        permiso: 'registros.registro:VALIDAR',
+      }),
+    )
+    expect(seccionDeRuta('/app/organizacion/registros/reg-1')?.nombre).toBe('Organización')
+    expect(seccionDeRuta('/app/organizacion/jugadores/reg-1/documentos')?.nombre).toBe('Organización')
+    // La página de documentos no va en el menú (DEC-111).
+    expect(organizacion?.subsecciones?.some(({ ruta }) => ruta.includes('/documentos'))).toBe(false)
   })
 
   it('H-21.2: Administración ofrece Auditoría con su permiso y la ruta queda en la sección', () => {
@@ -82,7 +167,11 @@ describe('subsecciones', () => {
   })
 })
 
-const permiso = (codigo: string, modulo: string) => ({ codigo, modulo })
+const permiso = (codigo: string, modulo: string, ambito: Ambito = 'LIGA') => ({
+  codigo,
+  modulo,
+  ambito,
+})
 
 describe('seccionesPermitidas', () => {
   it('H-01.3: el Capturista solo ve Inicio y Partidos', () => {
@@ -143,6 +232,40 @@ describe('seccionesPermitidas', () => {
     ])
 
     expect(secciones.map((seccion) => seccion.nombre)).toEqual(['Inicio'])
+  })
+
+  it('H-24.2 · DEC-147: el jugador o tutor con sus 4 permisos PROPIO ve solo Inicio y Mi información', () => {
+    const modulos: Record<string, string> = {
+      registros: 'M-04',
+      partidos: 'M-08',
+      disciplina: 'M-09',
+    }
+    const secciones = seccionesPermitidas(
+      PERMISOS_CONSULTA_PROPIA.map((codigo) =>
+        permiso(codigo, modulos[codigo.split('.')[0]], 'PROPIO'),
+      ),
+    )
+
+    expect(secciones.map((seccion) => seccion.nombre)).toEqual(['Inicio', 'Mi información'])
+  })
+
+  it('H-24.2 · DEC-147: el administrador con registros.registro:CONSULTAR en LIGA no ve Mi información', () => {
+    const secciones = seccionesPermitidas([permiso('registros.registro:CONSULTAR', 'M-04')])
+
+    expect(secciones.map((seccion) => seccion.nombre)).toEqual(['Inicio', 'Organización'])
+  })
+
+  it('H-24.2 · DEC-147: el Árbitro PROPIO conserva Partidos por la cédula y no ve Mi información', () => {
+    const secciones = seccionesPermitidas([
+      permiso('partidos.partido:CONSULTAR', 'M-08', 'PROPIO'),
+      permiso('partidos.cedula:APROBAR', 'M-08', 'PROPIO'),
+    ])
+
+    expect(secciones.map((seccion) => seccion.nombre)).toEqual(['Inicio', 'Partidos'])
+  })
+
+  it('H-24.2 · DEC-147: la ruta de Mi información queda en su sección', () => {
+    expect(seccionDeRuta('/app/mi-informacion')?.nombre).toBe('Mi información')
   })
 
   it('H-01.3: Inicio siempre está y un módulo desconocido no agrega secciones', () => {

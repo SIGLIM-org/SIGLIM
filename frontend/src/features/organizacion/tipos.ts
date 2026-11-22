@@ -81,6 +81,29 @@ export type Persona = {
   nombre: string
   apellidoPaterno: string
   apellidoMaterno?: string
+  /**
+   * Solo en `GET /personas?curp=`: si es menor hoy en `America/Mexico_City` (DEC-104). No viene en
+   * el alta ni en el detalle; F-15 no lo usa.
+   */
+  esMenor?: boolean
+}
+
+/** Detalle que devuelve el alta de una persona (H-09.1); incluye la fecha para reutilizarla. */
+export type PersonaDetalle = Persona & {
+  fechaNacimiento: string
+  correo?: string
+  telefono?: string
+}
+
+/** `POST /personas` (H-09.1, DEC-62): la identidad es única por CURP. */
+export type CrearPersonaPeticion = {
+  curp: string
+  nombre: string
+  apellidoPaterno: string
+  apellidoMaterno?: string
+  fechaNacimiento: string
+  correo?: string
+  telefono?: string
 }
 
 export type FiltrosClubes = {
@@ -90,8 +113,14 @@ export type FiltrosClubes = {
   tamano: number
 }
 
+/**
+ * Sin `clubId`, el backend devuelve los equipos del ámbito de la sesión (ADR-0007): el asistente de
+ * alta de jugador los pide así (DEC-108).
+ */
 export type FiltrosEquipos = {
-  clubId: string
+  clubId?: string
+  /** Equipos de un grupo concreto; lo usa la programación de jornadas (F-22). */
+  grupoId?: string
   estado?: EstadoEquipo
 }
 

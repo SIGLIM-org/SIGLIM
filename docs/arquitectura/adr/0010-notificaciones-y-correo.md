@@ -57,3 +57,11 @@ backend se reinicia justo después de confirmar la operación.
 - Hace falta un dominio propio verificado en el proveedor (PEN-037).
 - Las preferencias de aviso por usuario no forman parte del ERS; si la Liga las pide, se agregan
   como requisito nuevo.
+
+## Actualización (11-nov-2026, DEC-68)
+
+Proveedor elegido (resuelve PEN-034): **Brevo SMTP en plan gratuito, sin dominio propio**, para
+Supabase Auth (invitaciones y restablecimiento de contraseña) y para el despachador de la bandeja de
+salida de esta ADR. Las credenciales van solo en `backend/.env` y en el panel de Supabase, nunca en
+archivos versionados. Riesgo aceptado: sin dominio propio no se configuran SPF, DKIM ni DMARC (punto
+5 de la decisión; PEN-037), así que algunos correos pueden llegar a spam.

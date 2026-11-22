@@ -23,17 +23,17 @@ public final class TablaCodigosHttp {
             // 400: falta el motivo obligatorio.
             entradas(HttpStatus.BAD_REQUEST, "RN-021"),
             // 403: la persona no puede hacer esa acción aunque tenga el permiso.
-            entradas(HttpStatus.FORBIDDEN, "VAL-021", "VAL-022"),
+            entradas(HttpStatus.FORBIDDEN, "VAL-015", "VAL-021", "VAL-022"),
             // 409: transición o cambio no permitido por el estado actual, o choque con otros datos.
             entradas(HttpStatus.CONFLICT,
                     "VAL-003", "VAL-005", "VAL-017", "VAL-026", "VAL-028",
                     "RF-001", "RF-017", "RF-039", "RF-046", "RF-048", "RF-062", "RF-090", "RF-100",
-                    "RF-113", "RF-121", "RF-122", "RF-123", "RF-124", "RF-127",
+                    "RF-109", "RF-111", "RF-113", "RF-121", "RF-122", "RF-123", "RF-124", "RF-127",
                     "RN-024", "RN-039", "RNF-015", "RNF-018"),
             // 422: el contenido de la petición incumple una regla.
             entradas(HttpStatus.UNPROCESSABLE_CONTENT,
-                    "VAL-018", "VAL-019", "VAL-020", "VAL-025",
-                    "RF-013", "RF-019", "RF-020", "RF-025", "RF-033", "RF-139"))
+                    "VAL-001", "VAL-018", "VAL-019", "VAL-020", "VAL-025",
+                    "RF-013", "RF-015", "RF-016", "RF-019", "RF-020", "RF-025", "RF-033", "RF-119", "RF-139"))
             .flatMap(s -> s)
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 

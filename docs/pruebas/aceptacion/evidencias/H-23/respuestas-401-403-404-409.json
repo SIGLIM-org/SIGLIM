@@ -1,0 +1,98 @@
+[
+  {
+    "caso": "Sin token",
+    "peticion": "POST /api/v1/registros-jugador/80000000-0000-4000-8000-000000000002/baja",
+    "cuerpoEnviado": {
+      "motivo": "El jugador cambió de residencia."
+    },
+    "estado": 401,
+    "respuesta": {
+      "type": "https://siglim.mx/errores/no-autenticado",
+      "title": "No autenticado",
+      "status": 401,
+      "detail": "Inicia sesión para continuar.",
+      "instance": "/api/v1/registros-jugador/80000000-0000-4000-8000-000000000002/baja",
+      "codigo": "NO_AUTENTICADO"
+    }
+  },
+  {
+    "caso": "Secretario (sin registros.registro:EDITAR en ámbito de club)",
+    "peticion": "POST /api/v1/registros-jugador/80000000-0000-4000-8000-000000000002/baja",
+    "cuerpoEnviado": {
+      "motivo": "El jugador cambió de residencia."
+    },
+    "estado": 403,
+    "respuesta": {
+      "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+      "instance": "/api/v1/registros-jugador/80000000-0000-4000-8000-000000000002/baja",
+      "status": 403,
+      "title": "Acción no permitida",
+      "type": "https://siglim.mx/errores/val-015",
+      "codigo": "VAL-015"
+    }
+  },
+  {
+    "caso": "Directiva de otro club (Águilas) sobre un registro de Halcones",
+    "peticion": "POST /api/v1/registros-jugador/80000000-0000-4000-8000-000000000002/baja",
+    "cuerpoEnviado": {
+      "motivo": "El jugador cambió de residencia."
+    },
+    "estado": 404,
+    "respuesta": {
+      "detail": "El recurso no existe o no tienes acceso a él.",
+      "instance": "/api/v1/registros-jugador/80000000-0000-4000-8000-000000000002/baja",
+      "status": 404,
+      "title": "Recurso no encontrado",
+      "type": "https://siglim.mx/errores/no-encontrado",
+      "codigo": "NO_ENCONTRADO"
+    }
+  },
+  {
+    "caso": "Registro inexistente",
+    "peticion": "POST /api/v1/registros-jugador/00000000-0000-4000-8000-0000000000ff/baja",
+    "cuerpoEnviado": {
+      "motivo": "El jugador cambió de residencia."
+    },
+    "estado": 404,
+    "respuesta": {
+      "detail": "El recurso no existe o no tienes acceso a él.",
+      "instance": "/api/v1/registros-jugador/00000000-0000-4000-8000-0000000000ff/baja",
+      "status": 404,
+      "title": "Recurso no encontrado",
+      "type": "https://siglim.mx/errores/no-encontrado",
+      "codigo": "NO_ENCONTRADO"
+    }
+  },
+  {
+    "caso": "Segunda baja del registro de Carlos (ya en BAJA)",
+    "peticion": "POST /api/v1/registros-jugador/80000000-0000-4000-8000-000000000001/baja",
+    "cuerpoEnviado": {
+      "motivo": "El jugador cambió de residencia."
+    },
+    "estado": 409,
+    "respuesta": {
+      "detail": "El registro ya está dado de baja.",
+      "instance": "/api/v1/registros-jugador/80000000-0000-4000-8000-000000000001/baja",
+      "status": 409,
+      "title": "Conflicto con el estado actual",
+      "type": "https://siglim.mx/errores/rf-017",
+      "codigo": "RF-017"
+    }
+  },
+  {
+    "caso": "Registro PENDIENTE_VALIDACION (Andrés)",
+    "peticion": "POST /api/v1/registros-jugador/80000000-0000-4000-8000-000000000003/baja",
+    "cuerpoEnviado": {
+      "motivo": "El jugador cambió de residencia."
+    },
+    "estado": 409,
+    "respuesta": {
+      "detail": "El registro aún no está validado: si no procede, pide a la liga que lo rechace.",
+      "instance": "/api/v1/registros-jugador/80000000-0000-4000-8000-000000000003/baja",
+      "status": 409,
+      "title": "Conflicto con el estado actual",
+      "type": "https://siglim.mx/errores/rf-017",
+      "codigo": "RF-017"
+    }
+  }
+]

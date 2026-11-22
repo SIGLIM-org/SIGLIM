@@ -7,6 +7,10 @@ type Props = {
   onCambiar: (marcada: boolean) => void
   /** Rotula el campo «No oficial» mientras el valor sea [DEMO] (D4). */
   noOficial?: boolean
+  /** Se anuncia como interruptor (`role="switch"`): activa o desactiva una regla (RF-111). */
+  interruptor?: boolean
+  /** Texto de ayuda bajo la casilla, asociado con `aria-describedby`. */
+  ayuda?: string
   error?: string
 }
 
@@ -17,9 +21,13 @@ export function CasillaParametro({
   marcada,
   onCambiar,
   noOficial = false,
+  interruptor = false,
+  ayuda,
   error,
 }: Props) {
   const idError = error ? `${id}-error` : undefined
+  const idAyuda = ayuda ? `${id}-ayuda` : undefined
+  const descripcion = [idAyuda, idError].filter(Boolean).join(' ') || undefined
 
   return (
     <div className="flex min-w-0 flex-col gap-1">
@@ -28,9 +36,10 @@ export function CasillaParametro({
           <input
             id={id}
             type="checkbox"
+            role={interruptor ? 'switch' : undefined}
             checked={marcada}
             aria-invalid={error ? true : undefined}
-            aria-describedby={idError}
+            aria-describedby={descripcion}
             onChange={(evento) => onCambiar(evento.target.checked)}
             className="size-[18px] shrink-0 accent-primary"
           />
@@ -38,6 +47,11 @@ export function CasillaParametro({
         </label>
         {noOficial && <InsigniaNoOficial />}
       </div>
+      {ayuda && (
+        <p id={idAyuda} className="text-body-sm text-text-muted">
+          {ayuda}
+        </p>
+      )}
       {error && (
         <p id={idError} role="alert" className="text-body-sm text-error-strong">
           {error}

@@ -48,6 +48,9 @@ final class ParametrosPrueba {
         Integer equiposAscienden = 2;
         Integer equiposDescienden = 2;
         Boolean permiteCambioClub = true;
+        Integer equiposPorArbitro = 4;
+        Integer fechasFaseRegular;
+        Integer fechasFinalesUnidadDeportiva;
         Boolean esDemo;
         List<CategoriaRequest> categorias;
         String motivo = MOTIVO;
@@ -86,11 +89,24 @@ final class ParametrosPrueba {
             return this;
         }
 
+        /** Omite {@code equiposPorArbitro} para probar la herencia de la versión vigente (RF-114). */
+        Juego sinEquiposPorArbitro() {
+            equiposPorArbitro = null;
+            return this;
+        }
+
         Juego categoria(UUID categoriaId, Integer duracion, Integer bloque) {
             if (categorias == null) {
                 categorias = new ArrayList<>();
             }
             categorias.add(new CategoriaRequest(categoriaId, duracion, bloque));
+            return this;
+        }
+
+        /** Total de fechas de la fase regular y últimas fechas de VAL-027 (RF-120, RN-049). */
+        Juego localia(Integer total, Integer finales) {
+            fechasFaseRegular = total;
+            fechasFinalesUnidadDeportiva = finales;
             return this;
         }
 
@@ -104,8 +120,9 @@ final class ParametrosPrueba {
                     criteriosDesempate == null ? null : List.copyOf(criteriosDesempate), golesDefaultGanador,
                     golesDefaultPerdedor, plazoValidacionCedulaHoras, duracionJuegoMin, bloqueCanchaMin,
                     clasificadosLiguilla, formatoLiguilla, empateLiguillaPorPenales, equiposAscienden,
-                    equiposDescienden, permiteCambioClub, esDemo, categorias == null ? null : List.copyOf(categorias),
-                    motivo);
+                    equiposDescienden, permiteCambioClub, equiposPorArbitro, fechasFaseRegular,
+                    fechasFinalesUnidadDeportiva, esDemo,
+                    categorias == null ? null : List.copyOf(categorias), motivo);
         }
     }
 }

@@ -3,13 +3,16 @@ import type {
   Adeudos,
   ClubResumen,
   Cobro,
+  ContextoTarifas,
   CrearCobroPeticion,
   EquipoResumen,
   FiltrosCobros,
+  GuardarTarifaPeticion,
   IntentoPago,
   Pago,
   RegistrarPagoPeticion,
   ResultadoPagoSimulado,
+  Tarifa,
 } from '@/features/tesoreria/tipos'
 import { rangoDeCobros } from '@/features/tesoreria/fechas'
 import { api } from '@/lib/api/cliente'
@@ -21,6 +24,8 @@ export const clavesTesoreria = {
   adeudos: (clubId?: string) => ['tesoreria', 'adeudos', clubId ?? 'todos'] as const,
   clubes: ['tesoreria', 'clubes'] as const,
   equipos: (clubId: string) => ['tesoreria', 'equipos', clubId] as const,
+  contextoTarifas: ['tesoreria', 'tarifas', 'contexto'] as const,
+  tarifas: (temporadaId: string) => ['tesoreria', 'tarifas', temporadaId] as const,
 }
 
 /** Convierte los filtros en la cadena de consulta de `GET /cobros` (convenciones §6.13). */
@@ -194,6 +199,47 @@ export function useConfirmarPagoSimulado() {
       ),
     onSuccess: () => {
       void clienteConsultas.invalidateQueries({ queryKey: clavesTesoreria.todas })
+    },
+  })
+}
+
+/**
+ * Temporadas de la liga con sus categorías para la pestaña «Tarifas» (B-29.2). Solo se pide con
+ * `tesoreria.tarifa:EDITAR`, el permiso que la autoriza.
+ */
+export function useContextoTarifas(habilitado: boolean) {
+  return useQuery({
+    queryKey: clavesTesoreria.contextoTarifas,
+    queryFn: () => api.get<ContextoTarifas>('tarifas/contexto'),
+    enabled: habilitado,
+  })
+}
+
+/** Tarifas de una temporada (RF-135). */
+export function useTarifas(temporadaId: string) {
+  return useQuery({
+    queryKey: clavesTesoreria.tarifas(temporadaId),
+    queryFn: () =>
+      api.get<Tarifa[]>(`tarifas?temporadaId=${encodeURIComponent(temporadaId)}`),
+    enabled: temporadaId.length > 0,
+  })
+}
+
+/**
+ * Guarda la tarifa de un concepto (RF-135): `POST /tarifas` si aún no existe y
+ * `PATCH /tarifas/{id}` si ya existe, porque la combinación temporada, categoría y concepto es
+ * única. Al terminar refresca las tarifas de la temporada.
+ */
+export function useGuardarTarifa() {
+  const clienteConsultas = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ tarifaId, temporadaId, categoriaId, concepto, monto }: GuardarTarifaPeticion) =>
+      tarifaId
+        ? api.patch<Tarifa>(`tarifas/${encodeURIComponent(tarifaId)}`, { monto })
+        : api.post<Tarifa>('tarifas', { temporadaId, categoriaId, concepto, monto }),
+    onSettled: (_tarifa, _error, { temporadaId }) => {
+      void clienteConsultas.invalidateQueries({ queryKey: clavesTesoreria.tarifas(temporadaId) })
     },
   })
 }

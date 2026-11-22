@@ -1,0 +1,20 @@
+Prueba de aceptación B-15.3 · verificación automática sobre develop en bdc1cfc (18-nov-2026)
+
+## Backend: ./mvnw verify (Java 25, Testcontainers para las pruebas *IT)
+Tests run: 47, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.959 s -- in mx.tecnm.morelia.siglim.programacion.JornadaServiceTest
+Tests run: 56, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.097 s -- in mx.tecnm.morelia.siglim.programacion.ProgramacionControllerTest
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.136 s -- in mx.tecnm.morelia.siglim.programacion.ValidadorLocaliaTest
+Tests run: 23, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.339 s -- in mx.tecnm.morelia.siglim.temporadas.ParametrosControllerTest
+Tests run: 38, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.260 s -- in mx.tecnm.morelia.siglim.temporadas.ParametrosServiceTest
+Tests run: 30, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.075 s -- in mx.tecnm.morelia.siglim.programacion.ProgramacionIT
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.436 s -- in mx.tecnm.morelia.siglim.temporadas.ParametrosIT
+Tests run: 2113, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 333, Failures: 0, Errors: 0, Skipped: 1
+BUILD SUCCESS
+
+## Frontend
+npm run lint: sin errores (oxlint)
+npx vitest run src/features/programacion: 2 archivos, 28 pruebas, 0 fallos
+npx vitest run --maxWorkers=2: Test Files  90 passed (90) · Tests  839 passed (839)
+npm test (paralelismo por omisión): con la máquina cargada fallaron pruebas por tiempo de espera (5 s) en archivos de distintos módulos; con 2 workers pasan todas.
+npm run build: correcto

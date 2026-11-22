@@ -2,19 +2,27 @@ package mx.tecnm.morelia.siglim.canchas;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
 import mx.tecnm.morelia.siglim.auditoria.EventoAuditoria;
 import mx.tecnm.morelia.siglim.canchas.CanchaRepository.DatosCancha;
+import mx.tecnm.morelia.siglim.canchas.HorarioCanchaClubRepository.NuevoHorario;
+import mx.tecnm.morelia.siglim.canchas.HorarioCanchaClubRepository.TemporadaHorarios;
 import mx.tecnm.morelia.siglim.canchas.OcupacionDto.BloqueOcupacionDto;
 import mx.tecnm.morelia.siglim.canchas.OcupacionDto.CanchaResumenDto;
+import mx.tecnm.morelia.siglim.canchas.ReemplazarHorariosClubRequest.HorarioRequest;
 import mx.tecnm.morelia.siglim.compartido.api.Pagina;
 import mx.tecnm.morelia.siglim.compartido.config.SiglimPropiedades;
 import mx.tecnm.morelia.siglim.compartido.contexto.MotivoOperacion;
@@ -25,6 +33,7 @@ import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion.AlcanceAutorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
+import mx.tecnm.morelia.siglim.temporadas.EstadoTemporada;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,10 +57,13 @@ import org.springframework.transaction.annotation.Transactional;
  *       {@code sedeId} la asigna y {@code quitarSede} la quita; los dos juntos son {@code 400} (D2).
  *       Una sede inexistente o de otra liga se rechaza antes de escribir con
  *       {@code 422 REFERENCIA_INVALIDA}; en el filtro del listado no es error y sale vacío (D4).</li>
+ *   <li><b>Horarios de club y comodato (RF-119, DEC-33).</b> El {@code PUT} reemplaza el juego
+ *       completo de una temporada con la cancha bloqueada; una temporada cerrada es de solo lectura
+ *       ({@code 409 RF-003}).</li>
  * </ul>
  *
- * <p>Refs: H-07.1, B-11.1, B-12.1, RF-027, RF-028, RF-029, RF-030, RF-031, RN-014, RN-021, VAL-005,
- * PEN-007, ADR-0007, ADR-0011
+ * <p>Refs: H-07.1, B-11.1, B-12.1, B-13.1, RF-003, RF-027, RF-028, RF-029, RF-030, RF-031, RF-119, RN-014,
+ * RN-021, VAL-005, DEC-33, PEN-007, ADR-0007, ADR-0011
  */
 @Service
 public class CanchaService {
@@ -63,6 +75,9 @@ public class CanchaService {
     private static final String ENTIDAD_DISPONIBILIDAD = "disponibilidad_canchas";
     private static final String RF_DISPONIBILIDAD = "RF-029";
     private static final String RF_BLOQUEO = "RF-030";
+    private static final String RF_HORARIOS = "RF-119";
+    private static final String[] DIAS = {"lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"};
+    private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm");
 
     /** [PROPUESTA] Convenciones de API §5, D11. */
     private static final int MINIMO_MOTIVO = 10;
@@ -72,6 +87,7 @@ public class CanchaService {
     private final CanchaRepository canchas;
     private final SedeRepository sedes;
     private final DisponibilidadCanchaRepository disponibilidades;
+    private final HorarioCanchaClubRepository horarios;
     private final ConsultaPartidosEnCancha partidos;
     private final Autorizacion autorizacion;
     private final AuditoriaService auditoria;
@@ -80,11 +96,12 @@ public class CanchaService {
     private final UUID ligaId;
 
     CanchaService(CanchaRepository canchas, SedeRepository sedes, DisponibilidadCanchaRepository disponibilidades,
-            ConsultaPartidosEnCancha partidos, Autorizacion autorizacion, AuditoriaService auditoria,
-            MotivoOperacion motivoOperacion, Clock reloj, SiglimPropiedades propiedades) {
+            HorarioCanchaClubRepository horarios, ConsultaPartidosEnCancha partidos, Autorizacion autorizacion,
+            AuditoriaService auditoria, MotivoOperacion motivoOperacion, Clock reloj, SiglimPropiedades propiedades) {
         this.canchas = canchas;
         this.sedes = sedes;
         this.disponibilidades = disponibilidades;
+        this.horarios = horarios;
         this.partidos = partidos;
         this.autorizacion = autorizacion;
         this.auditoria = auditoria;
@@ -262,6 +279,65 @@ public class CanchaService {
         return new OcupacionDto(new CanchaResumenDto(cancha.id(), cancha.nombre()), cancha.activa(), rango, bloques);
     }
 
+    /**
+     * Horarios por categoría de la cancha en una temporada (RF-119, DEC-33), por día, hora de inicio y
+     * orden de la categoría. Una temporada cerrada se consulta igual.
+     *
+     * <p>Orden: cancha ({@code 404}) → permiso ({@code 403}) → temporada de la liga
+     * ({@code 422 REFERENCIA_INVALIDA}).
+     */
+    @Transactional(readOnly = true)
+    public List<HorarioCanchaClubDto> listarHorariosClub(UUID canchaId, UUID temporadaId) {
+        CanchaDto cancha = buscar(canchaId);
+        autorizacion.exigir(CONSULTAR, objetivo(cancha));
+        if (temporadaId == null) {
+            throw invalida("Indica la temporada.");
+        }
+        horarios.buscarTemporada(ligaId, temporadaId).orElseThrow(CanchaService::temporadaInvalida);
+        return horarios.listar(canchaId, temporadaId);
+    }
+
+    /**
+     * Reemplaza de forma atómica los horarios de la cancha en una temporada (RF-119, DEC-33); los de
+     * otras temporadas no se tocan y una lista vacía borra los de esa temporada.
+     *
+     * <p>Orden, con la cancha bloqueada: cancha ({@code 404}) → permiso ({@code 403}) → cuerpo
+     * ({@code 400 VALIDACION} con {@code errores}) → temporada de la liga
+     * ({@code 422 REFERENCIA_INVALIDA}) → temporada no cerrada ({@code 409 RF-003}) → categorías de la
+     * temporada y clubes de la liga ({@code 422 REFERENCIA_INVALIDA}) → tipo de cancha
+     * ({@code 422 RF-119}) → sin traslapes en el mismo día ({@code 422 RF-119}).
+     *
+     * <p>Tipo de cancha (DEC-33): una {@code EXTERNO} no admite horarios; en una {@code CLUB} el club
+     * es su propietario y no hay comodato; en una {@code LIGA} cada horario es comodato del club
+     * indicado, que es obligatorio.
+     */
+    @Transactional
+    public List<HorarioCanchaClubDto> reemplazarHorariosClub(UUID canchaId, ReemplazarHorariosClubRequest peticion) {
+        CanchaDto cancha = buscarConCandado(canchaId);
+        autorizacion.exigir(EDITAR, objetivo(cancha));
+        List<HorarioRequest> pedidos = validarCuerpoHorarios(peticion);
+
+        TemporadaHorarios temporada = horarios.bloquearTemporada(ligaId, peticion.temporadaId())
+                .orElseThrow(CanchaService::temporadaInvalida);
+        if (temporada.estado() == EstadoTemporada.CERRADA) {
+            throw ReglaNegocioException.conflicto("RF-003",
+                    "La temporada «" + temporada.nombre() + "» está cerrada: sus horarios son de solo lectura.");
+        }
+        validarReferenciasHorarios(temporada, pedidos);
+        List<NuevoHorario> nuevos = aplicarTipoDeCancha(cancha, pedidos);
+        validarSinTraslapes(nuevos);
+
+        horarios.eliminar(canchaId, temporada.id());
+        nuevos.forEach(horario -> horarios.insertar(canchaId, temporada.id(), horario));
+
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("canchaId", canchaId.toString());
+        detalle.put("temporadaId", temporada.id().toString());
+        detalle.put("horarios", nuevos.size());
+        auditar("REGISTRAR_HORARIOS_CANCHA", ENTIDAD_CANCHA, canchaId, null, detalle);
+        return horarios.listar(canchaId, temporada.id());
+    }
+
     // ── Reglas ─────────────────────────────────────────────────────────────────────────────────
 
     private CanchaDto buscar(UUID id) {
@@ -360,6 +436,158 @@ public class CanchaService {
             throw ReglaNegocioException.noProcesable(ErroresTecnicos.REFERENCIA_INVALIDA,
                     "La sede indicada no existe. Actualiza la página y elige otra.");
         }
+    }
+
+    // ── Horarios de club y comodato (RF-119, DEC-33) ───────────────────────────────────────────
+
+    private static ReglaNegocioException temporadaInvalida() {
+        return ReglaNegocioException.noProcesable(ErroresTecnicos.REFERENCIA_INVALIDA,
+                "La temporada indicada no existe. Actualiza la página y elige otra.");
+    }
+
+    /** Campos obligatorios, día de 1 a 7 e inicio anterior al fin; todos los errores juntos. */
+    private static List<HorarioRequest> validarCuerpoHorarios(ReemplazarHorariosClubRequest peticion) {
+        if (peticion == null) {
+            throw invalida("Envía la temporada y la lista de horarios.");
+        }
+        List<Map<String, String>> errores = new ArrayList<>();
+        if (peticion.temporadaId() == null) {
+            errores.add(errorCampo("temporadaId", "Indica la temporada."));
+        }
+        if (peticion.horarios() == null) {
+            errores.add(errorCampo("horarios", "Envía la lista de horarios; vacía borra los de la temporada."));
+        } else {
+            for (int i = 0; i < peticion.horarios().size(); i++) {
+                validarHorario("horarios[" + i + "]", peticion.horarios().get(i), errores);
+            }
+        }
+        if (!errores.isEmpty()) {
+            throw invalida(errores.getFirst().get("mensaje")).con("errores", List.copyOf(errores));
+        }
+        return peticion.horarios();
+    }
+
+    private static void validarHorario(String campo, HorarioRequest horario, List<Map<String, String>> errores) {
+        if (horario == null) {
+            errores.add(errorCampo(campo, "Cada horario debe indicar categoría, día, hora de inicio y hora de fin."));
+            return;
+        }
+        if (horario.categoriaId() == null) {
+            errores.add(errorCampo(campo + ".categoriaId", "Indica la categoría del horario."));
+        }
+        if (horario.diaSemana() == null) {
+            errores.add(errorCampo(campo + ".diaSemana", "Indica el día de la semana del horario."));
+        } else if (horario.diaSemana() < 1 || horario.diaSemana() > 7) {
+            errores.add(errorCampo(campo + ".diaSemana", "El día de la semana va de 1 (lunes) a 7 (domingo)."));
+        }
+        if (horario.horaInicio() == null) {
+            errores.add(errorCampo(campo + ".horaInicio", "Indica la hora de inicio del horario."));
+        }
+        if (horario.horaFin() == null) {
+            errores.add(errorCampo(campo + ".horaFin", "Indica la hora de fin del horario."));
+        }
+        if (horario.horaInicio() != null && horario.horaFin() != null
+                && !horario.horaInicio().isBefore(horario.horaFin())) {
+            errores.add(errorCampo(campo + ".horaFin", "La hora de inicio debe ser anterior a la hora de fin."));
+        }
+    }
+
+    private static Map<String, String> errorCampo(String campo, String mensaje) {
+        return Map.of("campo", campo, "mensaje", mensaje);
+    }
+
+    /** Categorías asignadas a la temporada y clubes de esta liga ({@code 422 REFERENCIA_INVALIDA}). */
+    private void validarReferenciasHorarios(TemporadaHorarios temporada, List<HorarioRequest> pedidos) {
+        if (pedidos.isEmpty()) {
+            return;
+        }
+        Set<UUID> asignadas = horarios.categoriasDeTemporada(temporada.id());
+        List<String> categoriasInvalidas = pedidos.stream()
+                .map(HorarioRequest::categoriaId)
+                .filter(id -> !asignadas.contains(id))
+                .distinct()
+                .map(UUID::toString)
+                .toList();
+        if (!categoriasInvalidas.isEmpty()) {
+            throw ReglaNegocioException.noProcesable(ErroresTecnicos.REFERENCIA_INVALIDA,
+                    "Solo se registran horarios de categorías asignadas a la temporada «" + temporada.nombre()
+                            + "»; revisa las categorías indicadas.")
+                    .con("categoriasInvalidas", categoriasInvalidas);
+        }
+        Set<UUID> clubesPedidos = pedidos.stream()
+                .map(HorarioRequest::clubId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<UUID> deLaLiga = horarios.clubesDeLiga(ligaId, clubesPedidos);
+        List<String> clubesInvalidos = clubesPedidos.stream()
+                .filter(id -> !deLaLiga.contains(id))
+                .map(UUID::toString)
+                .toList();
+        if (!clubesInvalidos.isEmpty()) {
+            throw ReglaNegocioException.noProcesable(ErroresTecnicos.REFERENCIA_INVALIDA,
+                    "El club indicado no existe en la liga. Actualiza la página y elige otro.")
+                    .con("clubesInvalidos", clubesInvalidos);
+        }
+    }
+
+    /**
+     * Fija el club y el comodato según el propietario de la cancha (DEC-33, {@code 422 RF-119}):
+     * {@code EXTERNO} no admite horarios; {@code CLUB} usa su propietario sin comodato; {@code LIGA}
+     * exige el club, que la tiene en comodato.
+     */
+    private static List<NuevoHorario> aplicarTipoDeCancha(CanchaDto cancha, List<HorarioRequest> pedidos) {
+        return switch (cancha.propietario()) {
+            case EXTERNO -> throw ReglaNegocioException.noProcesable(RF_HORARIOS,
+                    "Una cancha externa no admite horarios de club: solo una cancha de club o una de la liga "
+                            + "en comodato.");
+            case CLUB -> {
+                UUID propietario = clubId(cancha);
+                boolean otroClub = pedidos.stream()
+                        .anyMatch(horario -> horario.clubId() != null && !horario.clubId().equals(propietario));
+                if (otroClub) {
+                    throw ReglaNegocioException.noProcesable(RF_HORARIOS,
+                            "Los horarios de una cancha de club son de su propio club; no se indica otro club.");
+                }
+                yield pedidos.stream().map(horario -> nuevoHorario(horario, propietario, false)).toList();
+            }
+            case LIGA -> {
+                if (pedidos.stream().anyMatch(horario -> horario.clubId() == null)) {
+                    throw ReglaNegocioException.noProcesable(RF_HORARIOS,
+                            "Una cancha de la liga solo tiene horarios en comodato: indica el club de cada horario.");
+                }
+                yield pedidos.stream().map(horario -> nuevoHorario(horario, horario.clubId(), true)).toList();
+            }
+        };
+    }
+
+    private static NuevoHorario nuevoHorario(HorarioRequest horario, UUID clubId, boolean esComodato) {
+        return new NuevoHorario(horario.categoriaId(), clubId, horario.diaSemana(), horario.horaInicio(),
+                horario.horaFin(), esComodato);
+    }
+
+    /**
+     * En la misma temporada y el mismo día, dos horarios de la cancha no se traslapan aunque sean de
+     * categorías distintas. Los intervalos son semiabiertos: 10:00–12:00 y 12:00–14:00 no chocan.
+     */
+    private static void validarSinTraslapes(List<NuevoHorario> nuevos) {
+        List<NuevoHorario> ordenados = nuevos.stream()
+                .sorted(Comparator.comparingInt(NuevoHorario::diaSemana).thenComparing(NuevoHorario::horaInicio))
+                .toList();
+        for (int i = 1; i < ordenados.size(); i++) {
+            NuevoHorario anterior = ordenados.get(i - 1);
+            NuevoHorario actual = ordenados.get(i);
+            if (anterior.diaSemana() == actual.diaSemana() && actual.horaInicio().isBefore(anterior.horaFin())) {
+                throw ReglaNegocioException.noProcesable(RF_HORARIOS,
+                        "Los horarios del " + DIAS[actual.diaSemana() - 1] + " de " + hora(anterior.horaInicio())
+                                + " a " + hora(anterior.horaFin()) + " y de " + hora(actual.horaInicio()) + " a "
+                                + hora(actual.horaFin()) + " se traslapan; la cancha no puede tener dos horarios a "
+                                + "la vez.");
+            }
+        }
+    }
+
+    private static String hora(LocalTime hora) {
+        return hora.format(HORA);
     }
 
     private void validarNombreLibre(String nombre, UUID excepto) {

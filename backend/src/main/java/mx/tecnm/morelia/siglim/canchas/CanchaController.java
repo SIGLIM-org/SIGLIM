@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -23,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Canchas, disponibilidad y ocupación (convenciones de API §6.6). Sin reglas de negocio: las fechas
  * {@code desde} y {@code hasta} son opcionales aquí para que el servicio explique la falta.
  *
- * <p>Refs: H-07.1, RF-027, RF-029, RF-030
+ * <p>Refs: H-07.1, B-13.1, RF-027, RF-029, RF-030, RF-119
  */
 @RestController
 @RequestMapping("/api/v1/canchas")
@@ -82,5 +83,21 @@ class CanchaController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime hasta) {
         return servicio.consultarOcupacion(id, desde, hasta);
+    }
+
+    /** Horarios por categoría de la cancha en una temporada (RF-119, convenciones de API §6.6.1). */
+    @GetMapping("/{id}/horarios-club")
+    List<HorarioCanchaClubDto> listarHorariosClub(@PathVariable UUID id, @RequestParam UUID temporadaId) {
+        return servicio.listarHorariosClub(id, temporadaId);
+    }
+
+    /**
+     * Reemplaza los horarios de la cancha en una temporada (RF-119). Sin {@code @Valid}: el servicio
+     * valida el cuerpo después de la cancha y el permiso (§6.6.1).
+     */
+    @PutMapping("/{id}/horarios-club")
+    List<HorarioCanchaClubDto> reemplazarHorariosClub(@PathVariable UUID id,
+            @RequestBody ReemplazarHorariosClubRequest peticion) {
+        return servicio.reemplazarHorariosClub(id, peticion);
     }
 }

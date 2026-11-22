@@ -169,10 +169,27 @@ COMMIT;
 
 BEGIN;
 SET LOCAL ROLE siglim_app;
+-- VAL-001 (DEC-101): la Directiva A carga los documentos que exige «Segunda» (LIBRE) y el Secretario
+-- los aprueba antes de activar el registro de Juan.
+SELECT prueba.como('30000000-0000-4000-8000-000000000005');   -- Directiva A
+INSERT INTO siglim.documentos (id, tipo_documento_id, registro_id, s3_bucket, s3_clave, url, tipo_mime, tamano_bytes,
+                               sha256, cargado_por)
+SELECT x.id::uuid, (SELECT id FROM siglim.tipos_documento WHERE codigo = x.tipo),
+       '80000000-0000-4000-8000-000000000001', 'siglim-documentos-prueba', 'liga/registros/' || x.id || '.jpg',
+       'https://siglim-documentos-prueba.s3.us-east-2.amazonaws.com/liga/registros/' || x.id || '.jpg',
+       'image/jpeg', 1024, repeat('a', 64), '30000000-0000-4000-8000-000000000005'
+  FROM (VALUES ('d1000000-0000-4000-8000-000000000001', 'IDENTIFICACION'),
+               ('d1000000-0000-4000-8000-000000000002', 'FOTOGRAFIA'),
+               ('d1000000-0000-4000-8000-000000000003', 'FOTOGRAFIA')) AS x (id, tipo);
 SELECT prueba.como('30000000-0000-4000-8000-000000000007', 'Documentos completos');   -- Secretario valida
+UPDATE siglim.documentos
+   SET estado_validacion = 'APROBADO', validado_por = '30000000-0000-4000-8000-000000000007', validado_en = now()
+ WHERE registro_id = '80000000-0000-4000-8000-000000000001';
 UPDATE siglim.registros_jugador SET estado = 'ACTIVO', validado_por = '30000000-0000-4000-8000-000000000007', validado_en = now()
 WHERE id = '80000000-0000-4000-8000-000000000001';
-SELECT prueba.espera_error($$UPDATE siglim.registros_jugador SET estado = 'ACTIVO' WHERE id = '80000000-0000-4000-8000-000000000002'$$, 'VAL-025');
+-- Mario (menor) no tiene documentos: VAL-001 va antes que VAL-025 (DEC-101). VAL-025 en el trigger se
+-- prueba con sus documentos aprobados en prueba_validacion_registro.sql.
+SELECT prueba.espera_error($$UPDATE siglim.registros_jugador SET estado = 'ACTIVO' WHERE id = '80000000-0000-4000-8000-000000000002'$$, 'VAL-001');
 SELECT prueba.verifica((SELECT count(*) FROM siglim.registro_estado_historial WHERE registro_id = '80000000-0000-4000-8000-000000000001') = 2, 'RF-018: historial del registro (alta y validación)');
 COMMIT;
 

@@ -1,10 +1,15 @@
 import type { ReactNode } from 'react'
 import { useSesionActual } from '@/features/seguridad/ProveedorSesionActual'
-import { tieneAlgunPermiso } from '@/features/seguridad/permisos'
+import { tieneAlgunPermiso, tieneTodosLosPermisos } from '@/features/seguridad/permisos'
 
 type Props = {
-  /** Código `modulo.recurso:ACCION` o varios; basta con uno de ellos. */
+  /** Código `modulo.recurso:ACCION` o varios; por omisión basta con uno de ellos. */
   permiso: string | readonly string[]
+  /**
+   * Con `true` se exigen todos los permisos de `permiso`, no solo uno (DEC-116). Por omisión es
+   * `false`: basta con uno.
+   */
+  todos?: boolean
   children: ReactNode
   /** Qué mostrar en su lugar. Por omisión no se muestra nada. */
   alternativa?: ReactNode
@@ -18,13 +23,17 @@ type Props = {
  */
 export function ConPermiso({
   permiso,
+  todos = false,
   children,
   alternativa = null,
 }: Props) {
   const { yo } = useSesionActual()
   const codigos = typeof permiso === 'string' ? [permiso] : permiso
+  const permitido = todos
+    ? tieneTodosLosPermisos(yo.permisos, codigos)
+    : tieneAlgunPermiso(yo.permisos, codigos)
 
-  return tieneAlgunPermiso(yo.permisos, codigos) ? (
+  return permitido ? (
     <>{children}</>
   ) : (
     <>{alternativa}</>

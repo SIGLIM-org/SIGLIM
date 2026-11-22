@@ -4,9 +4,17 @@
  * <p>Clubes, afiliación por temporada, directiva, equipos, venta de equipo y plaza, personas y
  * tutores.
  *
- * <p>Implementado hasta ahora (H-06.1, B-04, H-22):
+ * <p>Implementado hasta ahora (H-06.1, H-08.1, B-04, H-22):
  *
  * <ul>
+ *   <li><b>Afiliación (RF-101).</b> {@code AfiliacionController},
+ *       {@link mx.tecnm.morelia.siglim.organizacion.AfiliacionService} y
+ *       {@code AfiliacionRepository}: tarjetón del club por temporada con folio, categorías,
+ *       edición mientras está {@code SOLICITADA} y resolución del Presidente con observaciones.
+ *       El folio lo asigna el sistema y la temporada se bloquea para que el consecutivo no se
+ *       repita. Las operaciones se autorizan con ámbito del club y se auditan en {@code M-03}.
+ *       {@code GET /afiliaciones/contexto} entrega temporadas, categorías y grupos con los mismos
+ *       permisos de afiliación, para que la Directiva no dependa de M-02 (DEC-09, CU-018, UI-023).</li>
  *   <li><b>Clubes (RF-008, RF-105).</b> {@code ClubController},
  *       {@link mx.tecnm.morelia.siglim.organizacion.ClubService} y {@code ClubRepository}: listado,
  *       detalle, alta y cambio de nombre. Sin edición: el cambio de nombre crea un club nuevo y cierra
@@ -24,6 +32,12 @@
  *       autorización que termina la vigencia anterior. {@link mx.tecnm.morelia.siglim.organizacion.PersonaController}
  *       y {@link mx.tecnm.morelia.siglim.organizacion.PersonaService} consultan la identidad por CURP
  *       para que F-15 envíe el {@code personaId} (RF-010, RF-011).</li>
+ *   <li><b>Personas y tutela (H-09.1).</b> {@link mx.tecnm.morelia.siglim.organizacion.PersonaService}
+ *       registra y edita personas y vincula menores con su tutor. La identidad es global: la CURP se
+ *       busca con la función {@code persona_por_curp} aunque RLS no muestre a la persona, y el permiso
+ *       se comprueba en cualquier ámbito; corregir la identidad exige el ámbito de toda la liga
+ *       (RF-010, RF-106, DEC-77, DEC-78, DEC-82 a DEC-84). El consentimiento es de M-01
+ *       ({@code seguridad.ConsentimientoService}).</li>
  * </ul>
  *
  * <p>Todas las operaciones se autorizan con el ámbito del club (ADR-0007).

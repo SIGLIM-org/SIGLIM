@@ -1,0 +1,38 @@
+{
+  "estado": 200,
+  "cuerpo": {
+    "id": "80000000-0000-4000-8000-000000000001",
+    "persona": {
+      "id": "21000000-0000-4000-8000-000000000001",
+      "nombreCompleto": "Carlos Ramírez Ortiz"
+    },
+    "equipo": {
+      "id": "60000000-0000-4000-8000-000000000001",
+      "nombre": "Halcones"
+    },
+    "club": {
+      "id": "c0000000-0000-4000-8000-000000000001",
+      "nombre": "Deportivo Halcones"
+    },
+    "categoria": {
+      "id": "40000000-0000-4000-8000-000000000001",
+      "nombre": "Libre"
+    },
+    "temporada": {
+      "id": "50000000-0000-4000-8000-000000000001",
+      "nombre": "Temporada 2026-2027",
+      "estado": "ACTIVA"
+    },
+    "estado": "BAJA",
+    "altaEn": "2026-11-15",
+    "creadoEn": "2026-11-15T13:09:33.901122-06:00",
+    "validadoPor": {
+      "id": "30000000-0000-4000-8000-000000000004",
+      "nombre": null
+    },
+    "validadoEn": "2026-11-15T13:09:33.932072-06:00",
+    "observaciones": "Documentos revisados en ventanilla.",
+    "bajaEn": "2026-11-15",
+    "motivoBaja": "El jugador cambió de residencia a otra ciudad."
+  }
+}

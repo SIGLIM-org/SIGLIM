@@ -3,12 +3,14 @@ import {
   CalendarDays,
   Gavel,
   Goal,
+  IdCard,
   LayoutDashboard,
   Settings,
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
 import { puedeVerModulo } from '@/features/seguridad/permisos'
+import type { Permiso } from '@/features/seguridad/tipos'
 
 export type EnlacePortal = {
   nombre: string
@@ -18,8 +20,10 @@ export type EnlacePortal = {
 export type SubseccionApp = {
   nombre: string
   ruta: string
-  /** Permiso o permisos que hacen visible el enlace; basta con uno. */
+  /** Permiso o permisos que hacen visible el enlace; basta con uno salvo con `requiereTodos`. */
   permiso: string | readonly string[]
+  /** Exige todos los permisos de `permiso` en lugar de uno (DEC-116). */
+  requiereTodos?: boolean
   descripcion: string
 }
 
@@ -29,6 +33,31 @@ export type SeccionApp = EnlacePortal & {
   modulos: readonly string[]
   /** Pantallas a las que se entra desde la página de la sección; no van en el menú lateral. */
   subsecciones?: readonly SubseccionApp[]
+  /**
+   * Sección personal; en el menú solo aparece si la sesión tiene este permiso en ámbito PROPIO
+   * (DEC-147). Sustituye la regla por módulos solo en el menú: `RutaConPermiso` sigue usando
+   * `modulos`.
+   */
+  permisoPropio?: string
+}
+
+/** Datos de un permiso de `GET /api/v1/yo` que necesita el menú. */
+export type PermisoMenu = Pick<Permiso, 'codigo' | 'modulo' | 'ambito'>
+
+/**
+ * Permisos de consulta propia del jugador o tutor (DEC-147). En ámbito PROPIO no abren secciones
+ * administrativas: con ellos solo se ve «Mi información». En LIGA o CLUB cuentan como siempre.
+ */
+export const PERMISOS_CONSULTA_PROPIA: readonly string[] = [
+  'registros.registro:CONSULTAR',
+  'registros.documento:CONSULTAR',
+  'partidos.partido:CONSULTAR',
+  'disciplina.expediente:CONSULTAR',
+]
+
+/** ¿La sesión tiene este permiso en ámbito PROPIO? (DEC-147). */
+export function tienePermisoPropio(permisos: readonly PermisoMenu[], codigo: string): boolean {
+  return permisos.some((permiso) => permiso.codigo === codigo && permiso.ambito === 'PROPIO')
 }
 
 /** Navegación del portal público según F-01. */
@@ -46,9 +75,20 @@ export const enlacesPortal: EnlacePortal[] = [
  *
  * M-14 (notificaciones) no tiene sección: los avisos se consultan desde la
  * campana (F-09, RF-142), no desde el menú lateral.
+ *
+ * «Mi información» es la sección personal del jugador o tutor (F-35, DEC-147): se muestra con
+ * `permisoPropio` en ámbito PROPIO y no por módulo, y los `PERMISOS_CONSULTA_PROPIA` en ámbito
+ * PROPIO no abren las demás secciones.
  */
 export const seccionesApp: SeccionApp[] = [
   { nombre: 'Inicio', ruta: '/app', icono: LayoutDashboard, modulos: [] },
+  {
+    nombre: 'Mi información',
+    ruta: '/app/mi-informacion',
+    icono: IdCard,
+    modulos: ['M-04'],
+    permisoPropio: 'registros.registro:CONSULTAR',
+  },
   {
     nombre: 'Organización',
     ruta: '/app/organizacion',
@@ -61,6 +101,46 @@ export const seccionesApp: SeccionApp[] = [
         permiso: 'organizacion.club:CONSULTAR',
         descripcion: 'Clubes de la liga y sus equipos.',
       },
+      {
+        nombre: 'Afiliaciones',
+        ruta: '/app/organizacion/afiliaciones',
+        permiso: [
+          'organizacion.afiliacion:CAPTURAR',
+          'organizacion.afiliacion:APROBAR',
+        ],
+        descripcion: 'Tarjetón del club por temporada.',
+      },
+      {
+        // B-09: la Directiva registra y la Presidencia dictamina; basta uno de los dos permisos.
+        nombre: 'Ventas y plazas',
+        ruta: '/app/organizacion/operaciones-equipo',
+        permiso: [
+          'organizacion.venta:SOLICITAR',
+          'organizacion.venta:APROBAR',
+        ],
+        descripcion: 'Venta de un equipo y conservación de su plaza.',
+      },
+      {
+        // Plantilla F-17 (DEC-108, DEC-116): exige consultar registros, equipos y clubes a la vez, así
+        // que la Comisión y el jugador o tutor, que solo consultan registros, no la ven. El alta ya no
+        // va en el menú: se abre desde «Registrar jugador» de la plantilla, con EDITAR.
+        nombre: 'Jugadores',
+        ruta: '/app/organizacion/jugadores',
+        permiso: [
+          'registros.registro:CONSULTAR',
+          'organizacion.equipo:CONSULTAR',
+          'organizacion.club:CONSULTAR',
+        ],
+        requiereTodos: true,
+        descripcion: 'Plantilla de cada equipo con el estado y la elegibilidad de sus jugadores.',
+      },
+      {
+        // Bandeja de la liga (DEC-111): con VALIDAR; la Comisión consulta registros, pero no valida.
+        nombre: 'Validación de registros',
+        ruta: '/app/organizacion/registros',
+        permiso: 'registros.registro:VALIDAR',
+        descripcion: 'Revisión de documentos y activación de jugadores.',
+      },
     ],
   },
   {
@@ -70,10 +150,34 @@ export const seccionesApp: SeccionApp[] = [
     modulos: ['M-05', 'M-06', 'M-07', 'M-10'],
     subsecciones: [
       {
+        nombre: 'Jornadas',
+        ruta: '/app/programacion/jornadas',
+        permiso: 'programacion.jornada:CONSULTAR',
+        descripcion: 'Programación manual y validación de conflictos.',
+      },
+      {
         nombre: 'Canchas',
         ruta: '/app/programacion/canchas',
         permiso: 'canchas.cancha:CONSULTAR',
         descripcion: 'Catálogo, disponibilidad y bloqueos.',
+      },
+      {
+        // B-07: captura la Directiva o el Secretario, dictamina la Presidencia y el Secretario genera
+        // el oficio; basta uno de los tres permisos (DEC-136, [PROPUESTA]).
+        nombre: 'Trámites de cancha',
+        ruta: '/app/programacion/tramites-cancha',
+        permiso: [
+          'canchas.solicitud:CREAR',
+          'canchas.solicitud:APROBAR',
+          'canchas.oficio:GENERAR',
+        ],
+        descripcion: 'Préstamo, comodato y oferta de canchas con número de oficio.',
+      },
+      {
+        nombre: 'Árbitros',
+        ruta: '/app/programacion/arbitros',
+        permiso: 'arbitraje.arbitro:CONSULTAR',
+        descripcion: 'Árbitros presentados por los clubes y su validación.',
       },
     ],
   },
@@ -143,13 +247,19 @@ export const seccionesApp: SeccionApp[] = [
 
 /**
  * Secciones que puede ver el usuario según los permisos de `GET /api/v1/yo`.
- * Inicio siempre está presente (H-01.3).
+ * Inicio siempre está presente (H-01.3). Una sección con `permisoPropio` exige ese permiso en
+ * ámbito PROPIO; para las demás no cuentan los `PERMISOS_CONSULTA_PROPIA` en ámbito PROPIO, así que
+ * el jugador o tutor ve solo Inicio y Mi información (DEC-147).
  */
-export function seccionesPermitidas(
-  permisos: readonly { codigo: string; modulo: string }[],
-): SeccionApp[] {
+export function seccionesPermitidas(permisos: readonly PermisoMenu[]): SeccionApp[] {
+  const administrativos = permisos.filter(
+    ({ codigo, ambito }) => !(ambito === 'PROPIO' && PERMISOS_CONSULTA_PROPIA.includes(codigo)),
+  )
+
   return seccionesApp.filter((seccion) =>
-    puedeVerModulo(permisos, seccion.modulos),
+    seccion.permisoPropio
+      ? tienePermisoPropio(permisos, seccion.permisoPropio)
+      : puedeVerModulo(administrativos, seccion.modulos),
   )
 }
 

@@ -245,3 +245,13 @@ de vigencia, y al autorizarlo el cargo anterior termina el día previo al inicio
 su historial. La verificación V1 (ámbito CLUB) también pasó.
 
 Con esto, **H-22.3 queda terminada** y la historia H-22 puede cerrarse una vez que el PR se apruebe.
+
+> **Actualización 2026-11-10 (DEF-07).** Esta corrida usó una base local efímera. La migración
+> `20261108100000_cargo_directiva_pendiente` no está aplicada en el proyecto compartido, así que la
+> repetición de H-22 contra el compartido queda pendiente hasta reconectar la integración de GitHub;
+> ver [DEF-07](DEF-07-migraciones-compartido.md).
+>
+> **Actualización 2026-11-10, 23:15 (cierre de DEF-07).** La migración ya está aplicada en el
+> compartido y el comportamiento del índice `ux_cargos_vigentes` se comprobó ahí: un cambio pendiente
+> convive con el cargo vigente y un segundo cargo vigente autorizado se rechaza
+> ([DEF-07 §8](DEF-07-migraciones-compartido.md#8-cierre-10-de-noviembre-de-2026)).

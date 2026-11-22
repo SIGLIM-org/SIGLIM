@@ -6,7 +6,8 @@ import java.util.UUID;
 /**
  * Cuerpo de {@code POST /api/v1/temporadas/{id}/parametros}: el juego <b>completo</b> de una
  * versión nueva de parámetros deportivos (RF-006, RF-100). Nada se hereda de la versión anterior
- * (D3): todos los campos son obligatorios salvo {@code esDemo} y {@code categorias}.
+ * (D3): todos los campos son obligatorios salvo {@code equiposPorArbitro}, los dos de localía,
+ * {@code esDemo} y {@code categorias}.
  *
  * <p>Los tipos son envolventes para distinguir «ausente» de cero. Las reglas (obligatorios, rangos,
  * orden de criterios, motivo) las valida {@link ParametrosService} después del permiso, para
@@ -14,6 +15,13 @@ import java.util.UUID;
  *
  * <p>Refs: H-05.2, RF-006, RF-050, RF-100, RN-021
  *
+ * @param equiposPorArbitro equipos activos por cada árbitro validado (RF-114); si se omite,
+ *                          conserva el de la versión vigente y la primera versión usa 4 [DEMO]
+ * @param fechasFaseRegular total de fechas de la fase regular (RN-049); si se omite, conserva el de
+ *                          la versión vigente y la primera versión lo deja sin definir
+ * @param fechasFinalesUnidadDeportiva últimas fechas en que se advierte una cancha externa
+ *                          (VAL-027); si se omite, conserva el de la versión vigente y la primera
+ *                          versión usa 10 [DEMO]
  * @param esDemo     si los valores son de demostración y se rotulan «no oficial»; ausente =
  *                   {@code true} (D2)
  * @param categorias duración de juego y bloque de cancha de las categorías que no usan los de la
@@ -36,6 +44,9 @@ public record RegistrarParametrosRequest(
         Integer equiposAscienden,
         Integer equiposDescienden,
         Boolean permiteCambioClub,
+        Integer equiposPorArbitro,
+        Integer fechasFaseRegular,
+        Integer fechasFinalesUnidadDeportiva,
         Boolean esDemo,
         List<CategoriaRequest> categorias,
         String motivo) {

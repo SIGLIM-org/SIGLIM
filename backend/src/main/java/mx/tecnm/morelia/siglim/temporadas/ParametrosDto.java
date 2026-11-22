@@ -13,6 +13,10 @@ import mx.tecnm.morelia.siglim.temporadas.CategoriaDto.ReferenciaDto;
  * <p>Refs: H-05.2, RF-006, RF-050, RF-100, DEC-25 a DEC-29
  *
  * @param plazoValidacionCedulaHoras plazo del árbitro para validar la cédula, en horas
+ * @param fechasFaseRegular          total de fechas de la fase regular; se omite si no se definió
+ *                                   (RN-049, B-15.1)
+ * @param fechasFinalesUnidadDeportiva últimas fechas en que se advierte una cancha externa, 10 [DEMO]
+ *                                   (RF-120, VAL-027)
  * @param categorias                 filas propias por categoría, por el orden del catálogo
  * @param esDemo                     si los valores son de demostración: la Liga aún no los confirmó
  *                                   como oficiales (PEN-021)
@@ -40,6 +44,9 @@ public record ParametrosDto(
         int equiposAscienden,
         int equiposDescienden,
         boolean permiteCambioClub,
+        int equiposPorArbitro,
+        Integer fechasFaseRegular,
+        int fechasFinalesUnidadDeportiva,
         List<ParametrosCategoriaDto> categorias,
         boolean esDemo,
         List<String> camposDemo,

@@ -1,0 +1,22 @@
+Prueba de aceptación B-07.3 · verificación automática sobre develop en 04e9949 (19-nov-2026)
+
+## Backend: ./mvnw verify (Java 25, Testcontainers para las pruebas *IT)
+Tests run: 66, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.registros.RegistroJugadorControllerTest
+Tests run: 81, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.registros.RegistroJugadorServiceTest
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.registros.BajaRegistroIT
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0 -- in mx.tecnm.morelia.siglim.registros.HistorialRegistroIT
+Tests run: 2113, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 333, Failures: 0, Errors: 0, Skipped: 1
+BUILD SUCCESS
+Omitida: AlmacenamientoDocumentosAwsIT (sin credenciales de AWS)
+
+## Frontend
+npm run lint: sin errores (oxlint)
+npx vitest run --maxWorkers=2: Test Files  90 passed (90) · Tests  839 passed (839)
+Pruebas del historial en src/features/registros/plantilla:
+  ✓ src/features/registros/plantilla/ModalHistorialRegistro.test.tsx > ModalHistorialRegistro (F-17, B-07.2) > RF-018: muestra alta → validación → baja en orden, con estado, fecha, quién y motivo
+  ✓ src/features/registros/plantilla/ModalHistorialRegistro.test.tsx > ModalHistorialRegistro (F-17, B-07.2) > muestra el estado vacío si el historial no tiene cambios
+  ✓ src/features/registros/plantilla/ModalHistorialRegistro.test.tsx > ModalHistorialRegistro (F-17, B-07.2) > VAL-024: un 404 muestra el error de consulta sin reintentar
+  ✓ src/features/registros/plantilla/ModalHistorialRegistro.test.tsx > ModalHistorialRegistro (F-17, B-07.2) > se cierra con «Cerrar» y con el botón de la esquina
+  ✓ src/features/registros/plantilla/PantallaPlantilla.test.tsx > PantallaPlantilla (F-17, H-09.4) > B-07.2 · RF-018: «Ver historial» de la fila abre el historial de ese registro y se cierra
+npm run build: correcto

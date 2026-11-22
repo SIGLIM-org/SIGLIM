@@ -1,0 +1,500 @@
+{
+  "peticiones": [
+    {
+      "metodo": "GET",
+      "url": "http://localhost:5173/api/v1/canchas/b1300000-0000-4000-8000-000000000031/horarios-club?temporadaId=b1300000-0000-4000-8000-000000000001",
+      "estado": 200,
+      "cuerpoEnviado": null,
+      "cuerpoRespuesta": []
+    },
+    {
+      "metodo": "PUT",
+      "url": "http://localhost:5173/api/v1/canchas/b1300000-0000-4000-8000-000000000031/horarios-club",
+      "estado": 200,
+      "cuerpoEnviado": {
+        "temporadaId": "b1300000-0000-4000-8000-000000000001",
+        "horarios": [
+          {
+            "categoriaId": "b1300000-0000-4000-8000-000000000011",
+            "diaSemana": 6,
+            "horaInicio": "10:00",
+            "horaFin": "12:00",
+            "clubId": "b1300000-0000-4000-8000-000000000021"
+          },
+          {
+            "categoriaId": "b1300000-0000-4000-8000-000000000012",
+            "diaSemana": 6,
+            "horaInicio": "12:00",
+            "horaFin": "14:00",
+            "clubId": "b1300000-0000-4000-8000-000000000022"
+          }
+        ]
+      },
+      "cuerpoRespuesta": [
+        {
+          "id": "21d43bc3-7b3d-4a20-ae4c-6c385737f186",
+          "canchaId": "b1300000-0000-4000-8000-000000000031",
+          "temporadaId": "b1300000-0000-4000-8000-000000000001",
+          "categoria": {
+            "id": "b1300000-0000-4000-8000-000000000011",
+            "nombre": "Primera División"
+          },
+          "club": {
+            "id": "b1300000-0000-4000-8000-000000000021",
+            "nombre": "Halcones B-13"
+          },
+          "diaSemana": 6,
+          "horaInicio": "10:00:00",
+          "horaFin": "12:00:00",
+          "esComodato": true
+        },
+        {
+          "id": "e44530aa-faa4-4d40-90c0-4ff593143a0e",
+          "canchaId": "b1300000-0000-4000-8000-000000000031",
+          "temporadaId": "b1300000-0000-4000-8000-000000000001",
+          "categoria": {
+            "id": "b1300000-0000-4000-8000-000000000012",
+            "nombre": "Segunda División"
+          },
+          "club": {
+            "id": "b1300000-0000-4000-8000-000000000022",
+            "nombre": "Toros B-13"
+          },
+          "diaSemana": 6,
+          "horaInicio": "12:00:00",
+          "horaFin": "14:00:00",
+          "esComodato": true
+        }
+      ]
+    },
+    {
+      "metodo": "GET",
+      "url": "http://localhost:5173/api/v1/canchas/b1300000-0000-4000-8000-000000000032/horarios-club?temporadaId=b1300000-0000-4000-8000-000000000001",
+      "estado": 200,
+      "cuerpoEnviado": null,
+      "cuerpoRespuesta": []
+    },
+    {
+      "metodo": "PUT",
+      "url": "http://localhost:5173/api/v1/canchas/b1300000-0000-4000-8000-000000000032/horarios-club",
+      "estado": 200,
+      "cuerpoEnviado": {
+        "temporadaId": "b1300000-0000-4000-8000-000000000001",
+        "horarios": [
+          {
+            "categoriaId": "b1300000-0000-4000-8000-000000000011",
+            "diaSemana": 6,
+            "horaInicio": "09:00",
+            "horaFin": "11:00"
+          }
+        ]
+      },
+      "cuerpoRespuesta": [
+        {
+          "id": "76864c47-7528-4f35-a938-9656310c08a4",
+          "canchaId": "b1300000-0000-4000-8000-000000000032",
+          "temporadaId": "b1300000-0000-4000-8000-000000000001",
+          "categoria": {
+            "id": "b1300000-0000-4000-8000-000000000011",
+            "nombre": "Primera División"
+          },
+          "club": {
+            "id": "b1300000-0000-4000-8000-000000000021",
+            "nombre": "Halcones B-13"
+          },
+          "diaSemana": 6,
+          "horaInicio": "09:00:00",
+          "horaFin": "11:00:00",
+          "esComodato": false
+        }
+      ]
+    },
+    {
+      "metodo": "GET",
+      "url": "http://localhost:5173/api/v1/canchas/b1300000-0000-4000-8000-000000000031/horarios-club?temporadaId=b1300000-0000-4000-8000-000000000001",
+      "estado": 200,
+      "cuerpoEnviado": null,
+      "cuerpoRespuesta": [
+        {
+          "id": "21d43bc3-7b3d-4a20-ae4c-6c385737f186",
+          "canchaId": "b1300000-0000-4000-8000-000000000031",
+          "temporadaId": "b1300000-0000-4000-8000-000000000001",
+          "categoria": {
+            "id": "b1300000-0000-4000-8000-000000000011",
+            "nombre": "Primera División"
+          },
+          "club": {
+            "id": "b1300000-0000-4000-8000-000000000021",
+            "nombre": "Halcones B-13"
+          },
+          "diaSemana": 6,
+          "horaInicio": "10:00:00",
+          "horaFin": "12:00:00",
+          "esComodato": true
+        },
+        {
+          "id": "e44530aa-faa4-4d40-90c0-4ff593143a0e",
+          "canchaId": "b1300000-0000-4000-8000-000000000031",
+          "temporadaId": "b1300000-0000-4000-8000-000000000001",
+          "categoria": {
+            "id": "b1300000-0000-4000-8000-000000000012",
+            "nombre": "Segunda División"
+          },
+          "club": {
+            "id": "b1300000-0000-4000-8000-000000000022",
+            "nombre": "Toros B-13"
+          },
+          "diaSemana": 6,
+          "horaInicio": "12:00:00",
+          "horaFin": "14:00:00",
+          "esComodato": true
+        }
+      ]
+    },
+    {
+      "metodo": "GET",
+      "url": "http://localhost:5173/api/v1/canchas/b1300000-0000-4000-8000-000000000031/horarios-club?temporadaId=b1300000-0000-4000-8000-000000000002",
+      "estado": 200,
+      "cuerpoEnviado": null,
+      "cuerpoRespuesta": [
+        {
+          "id": "84e2edd2-b32a-41fc-923c-d484e0cfe756",
+          "canchaId": "b1300000-0000-4000-8000-000000000031",
+          "temporadaId": "b1300000-0000-4000-8000-000000000002",
+          "categoria": {
+            "id": "b1300000-0000-4000-8000-000000000011",
+            "nombre": "Primera División"
+          },
+          "club": {
+            "id": "b1300000-0000-4000-8000-000000000021",
+            "nombre": "Halcones B-13"
+          },
+          "diaSemana": 5,
+          "horaInicio": "08:00:00",
+          "horaFin": "10:00:00",
+          "esComodato": true
+        }
+      ]
+    },
+    {
+      "metodo": "GET",
+      "url": "http://localhost:5173/api/v1/canchas/b1300000-0000-4000-8000-000000000031/horarios-club?temporadaId=b1300000-0000-4000-8000-000000000001",
+      "estado": 200,
+      "cuerpoEnviado": null,
+      "cuerpoRespuesta": [
+        {
+          "id": "21d43bc3-7b3d-4a20-ae4c-6c385737f186",
+          "canchaId": "b1300000-0000-4000-8000-000000000031",
+          "temporadaId": "b1300000-0000-4000-8000-000000000001",
+          "categoria": {
+            "id": "b1300000-0000-4000-8000-000000000011",
+            "nombre": "Primera División"
+          },
+          "club": {
+            "id": "b1300000-0000-4000-8000-000000000021",
+            "nombre": "Halcones B-13"
+          },
+          "diaSemana": 6,
+          "horaInicio": "10:00:00",
+          "horaFin": "12:00:00",
+          "esComodato": true
+        },
+        {
+          "id": "e44530aa-faa4-4d40-90c0-4ff593143a0e",
+          "canchaId": "b1300000-0000-4000-8000-000000000031",
+          "temporadaId": "b1300000-0000-4000-8000-000000000001",
+          "categoria": {
+            "id": "b1300000-0000-4000-8000-000000000012",
+            "nombre": "Segunda División"
+          },
+          "club": {
+            "id": "b1300000-0000-4000-8000-000000000022",
+            "nombre": "Toros B-13"
+          },
+          "diaSemana": 6,
+          "horaInicio": "12:00:00",
+          "horaFin": "14:00:00",
+          "esComodato": true
+        }
+      ]
+    },
+    {
+      "metodo": "PUT",
+      "url": "http://localhost:5173/api/v1/canchas/b1300000-0000-4000-8000-000000000031/horarios-club",
+      "estado": 200,
+      "cuerpoEnviado": {
+        "temporadaId": "b1300000-0000-4000-8000-000000000001",
+        "horarios": [
+          {
+            "categoriaId": "b1300000-0000-4000-8000-000000000011",
+            "diaSemana": 6,
+            "horaInicio": "10:00",
+            "horaFin": "12:00",
+            "clubId": "b1300000-0000-4000-8000-000000000021"
+          }
+        ]
+      },
+      "cuerpoRespuesta": [
+        {
+          "id": "c02affdb-281b-4615-b8ac-a5de8bb83d7b",
+          "canchaId": "b1300000-0000-4000-8000-000000000031",
+          "temporadaId": "b1300000-0000-4000-8000-000000000001",
+          "categoria": {
+            "id": "b1300000-0000-4000-8000-000000000011",
+            "nombre": "Primera División"
+          },
+          "club": {
+            "id": "b1300000-0000-4000-8000-000000000021",
+            "nombre": "Halcones B-13"
+          },
+          "diaSemana": 6,
+          "horaInicio": "10:00:00",
+          "horaFin": "12:00:00",
+          "esComodato": true
+        }
+      ]
+    }
+  ],
+  "respuestas": [
+    {
+      "ca": "CA-1a",
+      "get": {
+        "estado": 200,
+        "cuerpo": [
+          {
+            "id": "21d43bc3-7b3d-4a20-ae4c-6c385737f186",
+            "canchaId": "b1300000-0000-4000-8000-000000000031",
+            "temporadaId": "b1300000-0000-4000-8000-000000000001",
+            "categoria": {
+              "id": "b1300000-0000-4000-8000-000000000011",
+              "nombre": "Primera División"
+            },
+            "club": {
+              "id": "b1300000-0000-4000-8000-000000000021",
+              "nombre": "Halcones B-13"
+            },
+            "diaSemana": 6,
+            "horaInicio": "10:00:00",
+            "horaFin": "12:00:00",
+            "esComodato": true
+          },
+          {
+            "id": "e44530aa-faa4-4d40-90c0-4ff593143a0e",
+            "canchaId": "b1300000-0000-4000-8000-000000000031",
+            "temporadaId": "b1300000-0000-4000-8000-000000000001",
+            "categoria": {
+              "id": "b1300000-0000-4000-8000-000000000012",
+              "nombre": "Segunda División"
+            },
+            "club": {
+              "id": "b1300000-0000-4000-8000-000000000022",
+              "nombre": "Toros B-13"
+            },
+            "diaSemana": 6,
+            "horaInicio": "12:00:00",
+            "horaFin": "14:00:00",
+            "esComodato": true
+          }
+        ]
+      }
+    },
+    {
+      "ca": "CA-1b",
+      "get": {
+        "estado": 200,
+        "cuerpo": [
+          {
+            "id": "76864c47-7528-4f35-a938-9656310c08a4",
+            "canchaId": "b1300000-0000-4000-8000-000000000032",
+            "temporadaId": "b1300000-0000-4000-8000-000000000001",
+            "categoria": {
+              "id": "b1300000-0000-4000-8000-000000000011",
+              "nombre": "Primera División"
+            },
+            "club": {
+              "id": "b1300000-0000-4000-8000-000000000021",
+              "nombre": "Halcones B-13"
+            },
+            "diaSemana": 6,
+            "horaInicio": "09:00:00",
+            "horaFin": "11:00:00",
+            "esComodato": false
+          }
+        ]
+      }
+    },
+    {
+      "ca": "CA-2",
+      "putsDelNavegador": 0,
+      "putDirecto": {
+        "estado": 422,
+        "cuerpo": {
+          "detail": "Los horarios del sábado de 10:00 a 12:00 y de 11:00 a 13:00 se traslapan; la cancha no puede tener dos horarios a la vez.",
+          "instance": "/api/v1/canchas/b1300000-0000-4000-8000-000000000031/horarios-club",
+          "status": 422,
+          "title": "No se puede procesar",
+          "type": "https://siglim.mx/errores/rf-119",
+          "codigo": "RF-119"
+        }
+      },
+      "get": {
+        "estado": 200,
+        "cuerpo": [
+          {
+            "id": "21d43bc3-7b3d-4a20-ae4c-6c385737f186",
+            "canchaId": "b1300000-0000-4000-8000-000000000031",
+            "temporadaId": "b1300000-0000-4000-8000-000000000001",
+            "categoria": {
+              "id": "b1300000-0000-4000-8000-000000000011",
+              "nombre": "Primera División"
+            },
+            "club": {
+              "id": "b1300000-0000-4000-8000-000000000021",
+              "nombre": "Halcones B-13"
+            },
+            "diaSemana": 6,
+            "horaInicio": "10:00:00",
+            "horaFin": "12:00:00",
+            "esComodato": true
+          },
+          {
+            "id": "e44530aa-faa4-4d40-90c0-4ff593143a0e",
+            "canchaId": "b1300000-0000-4000-8000-000000000031",
+            "temporadaId": "b1300000-0000-4000-8000-000000000001",
+            "categoria": {
+              "id": "b1300000-0000-4000-8000-000000000012",
+              "nombre": "Segunda División"
+            },
+            "club": {
+              "id": "b1300000-0000-4000-8000-000000000022",
+              "nombre": "Toros B-13"
+            },
+            "diaSemana": 6,
+            "horaInicio": "12:00:00",
+            "horaFin": "14:00:00",
+            "esComodato": true
+          }
+        ]
+      }
+    },
+    {
+      "ca": "CA-3",
+      "putsDelNavegador": 0,
+      "putDirecto": {
+        "estado": 422,
+        "cuerpo": {
+          "detail": "Una cancha de la liga solo tiene horarios en comodato: indica el club de cada horario.",
+          "instance": "/api/v1/canchas/b1300000-0000-4000-8000-000000000031/horarios-club",
+          "status": 422,
+          "title": "No se puede procesar",
+          "type": "https://siglim.mx/errores/rf-119",
+          "codigo": "RF-119"
+        }
+      },
+      "get": {
+        "estado": 200,
+        "cuerpo": [
+          {
+            "id": "21d43bc3-7b3d-4a20-ae4c-6c385737f186",
+            "canchaId": "b1300000-0000-4000-8000-000000000031",
+            "temporadaId": "b1300000-0000-4000-8000-000000000001",
+            "categoria": {
+              "id": "b1300000-0000-4000-8000-000000000011",
+              "nombre": "Primera División"
+            },
+            "club": {
+              "id": "b1300000-0000-4000-8000-000000000021",
+              "nombre": "Halcones B-13"
+            },
+            "diaSemana": 6,
+            "horaInicio": "10:00:00",
+            "horaFin": "12:00:00",
+            "esComodato": true
+          },
+          {
+            "id": "e44530aa-faa4-4d40-90c0-4ff593143a0e",
+            "canchaId": "b1300000-0000-4000-8000-000000000031",
+            "temporadaId": "b1300000-0000-4000-8000-000000000001",
+            "categoria": {
+              "id": "b1300000-0000-4000-8000-000000000012",
+              "nombre": "Segunda División"
+            },
+            "club": {
+              "id": "b1300000-0000-4000-8000-000000000022",
+              "nombre": "Toros B-13"
+            },
+            "diaSemana": 6,
+            "horaInicio": "12:00:00",
+            "horaFin": "14:00:00",
+            "esComodato": true
+          }
+        ]
+      }
+    },
+    {
+      "ca": "CA-4 cerrada",
+      "put": {
+        "estado": 409,
+        "cuerpo": {
+          "detail": "La temporada «Temporada 2025-2026» está cerrada: sus horarios son de solo lectura.",
+          "instance": "/api/v1/canchas/b1300000-0000-4000-8000-000000000031/horarios-club",
+          "status": 409,
+          "title": "Conflicto con el estado actual",
+          "type": "https://siglim.mx/errores/rf-003",
+          "codigo": "RF-003"
+        }
+      }
+    },
+    {
+      "ca": "CA-4 activa",
+      "activa": {
+        "estado": 200,
+        "cuerpo": [
+          {
+            "id": "c02affdb-281b-4615-b8ac-a5de8bb83d7b",
+            "canchaId": "b1300000-0000-4000-8000-000000000031",
+            "temporadaId": "b1300000-0000-4000-8000-000000000001",
+            "categoria": {
+              "id": "b1300000-0000-4000-8000-000000000011",
+              "nombre": "Primera División"
+            },
+            "club": {
+              "id": "b1300000-0000-4000-8000-000000000021",
+              "nombre": "Halcones B-13"
+            },
+            "diaSemana": 6,
+            "horaInicio": "10:00:00",
+            "horaFin": "12:00:00",
+            "esComodato": true
+          }
+        ]
+      },
+      "cerrada": {
+        "estado": 200,
+        "cuerpo": [
+          {
+            "id": "84e2edd2-b32a-41fc-923c-d484e0cfe756",
+            "canchaId": "b1300000-0000-4000-8000-000000000031",
+            "temporadaId": "b1300000-0000-4000-8000-000000000002",
+            "categoria": {
+              "id": "b1300000-0000-4000-8000-000000000011",
+              "nombre": "Primera División"
+            },
+            "club": {
+              "id": "b1300000-0000-4000-8000-000000000021",
+              "nombre": "Halcones B-13"
+            },
+            "diaSemana": 5,
+            "horaInicio": "08:00:00",
+            "horaFin": "10:00:00",
+            "esComodato": true
+          }
+        ]
+      }
+    },
+    {
+      "ca": "V1 externa",
+      "haySeccion": false
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+Prueba de aceptación B-01.2 · base de datos y auditoría en la base local (hora de Morelia)
+
+## CA-5 · La cancelación atendida no borra datos (DEC-67)
+Persona de la solicitud de cancelación después de atenderla:
+        curp        |     nombre     |       correo        |  telefono  |    tipo     |  estado  
+--------------------+----------------+---------------------+------------+-------------+----------
+ XEXC950103HMNXXX03 | Carlos Cancela | carlos@ejemplo.test | 4430000103 | CANCELACION | ATENDIDA
+(1 row)
+
+Personas en la base: 3 (las 3 sembradas)
+
+El rol de la aplicación (siglim_app) no puede borrar solicitudes ARCO:
+ERROR:  permission denied for table solicitudes_arco
+Privilegios sobre siglim.solicitudes_arco: siglim_app: INSERT, SELECT, UPDATE
+Políticas RLS:
+  arco_crear (INSERT): true
+  arco_editar (UPDATE): siglim.es_usuario_liga()
+  arco_leer (SELECT): (siglim.es_usuario_liga() OR siglim.es_titular(persona_id))
+
+## CA-6 · Auditoría (M-01) sin descripción ni respuesta
+   hora   |         perfil          | modulo |            accion             |                                               detalle                                                
+----------+-------------------------+--------+-------------------------------+------------------------------------------------------------------------------------------------------
+ 13:28:50 | Administrador de prueba | M-01   | REGISTRAR_SOLICITUD_ARCO      | {"tipo": "ACCESO"}
+ 13:28:51 | Administrador de prueba | M-01   | REGISTRAR_SOLICITUD_ARCO      | {"tipo": "RECTIFICACION"}
+ 13:28:52 | Administrador de prueba | M-01   | REGISTRAR_SOLICITUD_ARCO      | {"tipo": "CANCELACION"}
+ 13:28:53 | Administrador de prueba | M-01   | REGISTRAR_SOLICITUD_ARCO      | {"tipo": "OPOSICION"}
+ 13:29:15 | Administrador de prueba | M-01   | CAMBIAR_ESTADO_SOLICITUD_ARCO | {"estadoNuevo": "EN_ATENCION", "estadoAnterior": "RECIBIDA"}
+ 13:29:17 | Administrador de prueba | M-01   | CAMBIAR_ESTADO_SOLICITUD_ARCO | {"estadoNuevo": "ATENDIDA", "estadoAnterior": "EN_ATENCION"}
+ 13:29:19 | Administrador de prueba | M-01   | CAMBIAR_ESTADO_SOLICITUD_ARCO | {"estadoNuevo": "RECHAZADA", "estadoAnterior": "RECIBIDA"}
+ 13:29:21 | Administrador de prueba | M-01   | CAMBIAR_ESTADO_SOLICITUD_ARCO | {"estadoNuevo": "EN_ATENCION", "estadoAnterior": "RECIBIDA"}
+ 13:29:22 | Administrador de prueba | M-01   | CAMBIAR_ESTADO_SOLICITUD_ARCO | {"estadoNuevo": "ATENDIDA", "estadoAnterior": "EN_ATENCION"}
+ 13:30:12 | Administrador de prueba | M-01   | CAMBIAR_PERMISOS_ROL          | {"rol": "DIRECTIVA_CLUB", "permisosQuitados": [], "permisosAgregados": ["seguridad.arco:GESTIONAR"]}
+ 13:30:13 | Administrador de prueba | M-01   | CAMBIAR_PERMISOS_ROL          | {"rol": "JUGADOR_TUTOR", "permisosQuitados": [], "permisosAgregados": ["seguridad.arco:GESTIONAR"]}
+ 13:30:25 | Tomás Titular (jugador) | M-01   | REGISTRAR_SOLICITUD_ARCO      | {"tipo": "ACCESO"}
+(12 rows)
+
+Textos de descripciones o respuestas presentes en auditoria (motivo o detalle): 0
+Correos, teléfonos o CURP en auditoria.detalle: 0
+
+Solicitudes ARCO al terminar
+     tipo      |  estado   |    titular     |      atendida_por       |  recibida   
+---------------+-----------+----------------+-------------------------+-------------
+ ACCESO        | ATENDIDA  | Tomás Titular  | Administrador de prueba | 21/11 13:28
+ RECTIFICACION | RECHAZADA | Rosa Rectifica | Administrador de prueba | 21/11 13:28
+ CANCELACION   | ATENDIDA  | Carlos Cancela | Administrador de prueba | 21/11 13:28
+ OPOSICION     | RECIBIDA  | Tomás Titular  | —                       | 21/11 13:28
+ ACCESO        | RECIBIDA  | Tomás Titular  | —                       | 21/11 13:30
+ RECTIFICACION | RECIBIDA  | Rosa Rectifica | —                       | 21/11 13:31
+(6 rows)
+

@@ -2,6 +2,9 @@ package mx.tecnm.morelia.siglim.compartido.almacenamiento;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,11 +25,16 @@ import org.springframework.context.annotation.Primary;
  * devuelve un {@link ArchivoAlmacenado} que cumple los CHECK de {@code siglim.documentos} (URL
  * {@code https://}, SHA-256 real de 64 hexadecimales, MIME permitido). Guarda los objetos en memoria
  * para que la prueba compruebe qué se subió.
+ *
+ * <p>Los enlaces de lectura son URL falsas con la forma de una prefirmada y vencen a los
+ * {@link #VIGENCIA_ENLACE} según su {@link Clock} (H-10.1); solo se firman objetos del bucket de prueba.
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class AlmacenamientoEnMemoriaPrueba {
 
     public static final String BUCKET = "siglim-documentos-prueba";
+    /** La misma vigencia que {@code siglim.almacenamiento.vigencia-enlace} (ADR-0013 punto 6). */
+    public static final Duration VIGENCIA_ENLACE = Duration.ofSeconds(60);
 
     @Bean
     @Primary
@@ -38,6 +46,16 @@ public class AlmacenamientoEnMemoriaPrueba {
     public static final class AlmacenamientoEnMemoria implements AlmacenamientoDocumentos {
 
         private final Map<String, byte[]> objetos = new ConcurrentHashMap<>();
+        private final Clock reloj;
+
+        public AlmacenamientoEnMemoria() {
+            this(Clock.systemUTC());
+        }
+
+        /** Con un reloj fijo, {@code expiraEn} de los enlaces es predecible. */
+        public AlmacenamientoEnMemoria(Clock reloj) {
+            this.reloj = reloj;
+        }
 
         @Override
         public ArchivoAlmacenado guardar(ClaveDocumento clave, byte[] contenido) {
@@ -55,7 +73,12 @@ public class AlmacenamientoEnMemoriaPrueba {
 
         @Override
         public EnlaceTemporal generarEnlaceLectura(String s3Bucket, String s3Clave) {
-            throw new UnsupportedOperationException("El doble de S3 no genera enlaces prefirmados");
+            if (!BUCKET.equals(s3Bucket)) {
+                throw new IllegalArgumentException("El documento no está en el bucket configurado: " + s3Bucket);
+            }
+            return new EnlaceTemporal("https://" + BUCKET + ".s3.us-east-2.amazonaws.com/" + s3Clave
+                    + "?X-Amz-Expires=" + VIGENCIA_ENLACE.toSeconds() + "&X-Amz-Signature=firma-de-prueba",
+                    OffsetDateTime.now(reloj).plus(VIGENCIA_ENLACE));
         }
 
         /** Objetos subidos durante las pruebas, por clave. */

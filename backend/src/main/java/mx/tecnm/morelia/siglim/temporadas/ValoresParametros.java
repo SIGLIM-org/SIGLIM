@@ -10,6 +10,9 @@ import java.util.UUID;
  *
  * <p>Refs: H-05.2, RF-006, RF-100
  *
+ * @param fechasFaseRegular            total de fechas de la fase regular; {@code null} si no se
+ *                                     definió (RN-049)
+ * @param fechasFinalesUnidadDeportiva últimas fechas sin canchas externas, 10 [DEMO] (VAL-027)
  * @param categorias filas propias por categoría; vacía si todas usan los valores de la temporada
  */
 record ValoresParametros(
@@ -28,6 +31,9 @@ record ValoresParametros(
         int equiposAscienden,
         int equiposDescienden,
         boolean permiteCambioClub,
+        int equiposPorArbitro,
+        Integer fechasFaseRegular,
+        int fechasFinalesUnidadDeportiva,
         boolean esDemo,
         List<ValorCategoria> categorias) {
 
@@ -41,7 +47,26 @@ record ValoresParametros(
         return new ValoresParametros(puntosVictoria, puntosEmpate, puntosDerrota, criteriosDesempate,
                 golesDefaultGanador, golesDefaultPerdedor, plazoValidacionCedulaHoras, duracionJuegoMin,
                 bloqueCanchaMin, clasificadosLiguilla, formatoLiguilla, empateLiguillaPorPenales, equiposAscienden,
-                equiposDescienden, permiteCambioClub, esDemo, otras);
+                equiposDescienden, permiteCambioClub, equiposPorArbitro, fechasFaseRegular,
+                fechasFinalesUnidadDeportiva, esDemo, otras);
+    }
+
+    /** Los mismos valores con otro divisor de la cuota de árbitros (RF-114). */
+    ValoresParametros conEquiposPorArbitro(int otro) {
+        return new ValoresParametros(puntosVictoria, puntosEmpate, puntosDerrota, criteriosDesempate,
+                golesDefaultGanador, golesDefaultPerdedor, plazoValidacionCedulaHoras, duracionJuegoMin,
+                bloqueCanchaMin, clasificadosLiguilla, formatoLiguilla, empateLiguillaPorPenales, equiposAscienden,
+                equiposDescienden, permiteCambioClub, otro, fechasFaseRegular, fechasFinalesUnidadDeportiva, esDemo,
+                categorias);
+    }
+
+    /** Los mismos valores con otros parámetros de localía (RF-120, RN-049). */
+    ValoresParametros conLocalia(Integer otrasFechasFaseRegular, int otrasFechasFinales) {
+        return new ValoresParametros(puntosVictoria, puntosEmpate, puntosDerrota, criteriosDesempate,
+                golesDefaultGanador, golesDefaultPerdedor, plazoValidacionCedulaHoras, duracionJuegoMin,
+                bloqueCanchaMin, clasificadosLiguilla, formatoLiguilla, empateLiguillaPorPenales, equiposAscienden,
+                equiposDescienden, permiteCambioClub, equiposPorArbitro, otrasFechasFaseRegular, otrasFechasFinales,
+                esDemo, categorias);
     }
 
     /** Duración de juego y bloque de cancha de una categoría (D7). */

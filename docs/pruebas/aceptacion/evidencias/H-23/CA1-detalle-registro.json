@@ -1,0 +1,9 @@
+{
+  "peticion": "GET /api/v1/registros-jugador/80000000-0000-4000-8000-000000000001",
+  "estado": "BAJA",
+  "bajaEn": "2026-11-15",
+  "motivoBaja": "El jugador cambió de residencia a otra ciudad.",
+  "observaciones": "Documentos revisados en ventanilla.",
+  "altaEn": "2026-11-15",
+  "validadoEn": "2026-11-15T13:09:33.932072-06:00"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "c2f5c46f-4866-487f-a3ae-7c6c1e78d437",
+  "folio": "AF-2026-0001",
+  "club": {
+    "id": "c1111111-1111-4111-8111-111111111111",
+    "nombre": "Deportivo Halcones de Morelia"
+  },
+  "temporada": {
+    "id": "66666666-6666-4666-8666-666666666666",
+    "nombre": "Temporada 2026-27 · aceptación H-08",
+    "estado": "ACTIVA"
+  },
+  "coloresUniformes": "Titular: verde y blanco. Alternativo: azul marino.",
+  "estado": "SOLICITADA",
+  "categorias": [
+    {
+      "id": "77777777-7777-4777-8777-777777777777",
+      "nombre": "Libre"
+    }
+  ],
+  "capturadaPor": {
+    "id": "11111111-1111-4111-8111-aaaaaaaaaaaa",
+    "nombreMostrado": "Directiva Halcones"
+  },
+  "capturadaEn": "2026-11-12T18:13:43.83858-06:00"
+}

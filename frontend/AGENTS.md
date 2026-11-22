@@ -40,11 +40,15 @@ src/
   componente ni `supabase.from(...)`.
 - **Errores:** captura `ApiError` y muestra `error.problema.detail` al usuario (ya viene en español
   y explica la causa). Decide el tratamiento por `error.problema.codigo` (`VAL-004`, `VAL-015`…),
-  nunca por el texto; marca los campos de `errores`. Ver convenciones de API §3. Una **consulta**
+  nunca por el texto (DEC-63); marca los campos de `errores`. Ver convenciones de API §3. Los textos
+  propios del frontend siguen la misma regla: dicen qué pasó y qué hacer, sin códigos internos ni
+  datos de otros clubes o personas. Una **consulta**
   con error se muestra con `ErrorConsulta` (403/404) y no se reintenta en 4xx
   (`reintentarConsulta`); una **mutación** muestra `detail` en el formulario o el modal.
 - **Rutas:** el portal público cuelga de `/` (`PublicLayout`); la aplicación interna de `/app`
   (`RutaProtegida` + `InternalLayout`). Registra rutas nuevas solo en `src/app/router.tsx`.
+- **Navegación (DEC-69):** el menú actual es definitivo. Cada pantalla nueva se agrega bajo su
+  módulo y solo se muestra con su permiso de consulta (`modulo.recurso:CONSULTAR`).
 - **Permisos:** el backend decide (VAL-015). El frontend oculta lo que el usuario no puede hacer
   con los permisos de `GET /api/v1/yo` y las `accionesPermitidas` de cada recurso, pero nunca es la
   única barrera. Usa `ConPermiso` (`@/features/seguridad/ConPermiso`) para ocultar acciones y

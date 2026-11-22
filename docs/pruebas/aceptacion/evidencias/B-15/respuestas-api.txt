@@ -1,0 +1,142 @@
+Prueba de aceptación B-15.3 · respuestas de la API local (18-nov-2026)
+Base local efímera; cuentas ficticias identificadas por su rol. Los tokens no se registran.
+
+### Contraste RN-049: cancha externa en la jornada 2 (no es de las últimas 10 de 18) — sin advertencia
+> POST /api/v1/jornadas/b1580000-0000-4000-8000-000000000002/partidos  (cuenta: Programador de prueba)
+> {"equipoLocalId":"b1560005-0000-4000-8000-000000000001","equipoVisitanteId":"b1560006-0000-4000-8000-000000000001","canchaId":"b1570000-0000-4000-8000-000000000004","inicio":"2026-11-21T16:00:00-06:00"}
+< HTTP 201
+{
+  "id": "fc1b3edc-159b-4962-8066-2c3167ac8fcf",
+  "jornadaId": "b1580000-0000-4000-8000-000000000002",
+  "equipoLocal": {
+    "id": "b1560005-0000-4000-8000-000000000001",
+    "nombre": "Leones"
+  },
+  "equipoVisitante": {
+    "id": "b1560006-0000-4000-8000-000000000001",
+    "nombre": "Tigres"
+  },
+  "cancha": {
+    "id": "b1570000-0000-4000-8000-000000000004",
+    "nombre": "Deportivo Las Flores"
+  },
+  "inicio": "2026-11-21T16:00:00-06:00",
+  "finBloque": "2026-11-21T18:00:00-06:00",
+  "estado": "PROGRAMADO",
+  "creadoEn": "2026-11-18T22:13:00.340609-06:00",
+  "actualizadoEn": "2026-11-18T22:13:00.340609-06:00"
+}
+
+### Conflicto duro: Toros ya juega a las 10:00; un motivo de localía no lo vuelve aceptable
+> POST /api/v1/jornadas/b1580000-0000-4000-8000-000000000002/partidos  (cuenta: Programador de prueba)
+> {"equipoLocalId":"b1560002-0000-4000-8000-000000000001","equipoVisitanteId":"b1560004-0000-4000-8000-000000000001","canchaId":"b1570000-0000-4000-8000-000000000002","inicio":"2026-11-21T10:00:00-06:00","motivoAceptacion":"Intento aceptar un conflicto duro con motivo"}
+< HTTP 409
+{
+  "detail": "El equipo «Toros» ya tiene el partido «Halcones vs. Toros» del 21/11/2026 10:00 a 21/11/2026 12:00 en la cancha «Morelos 1».",
+  "instance": "/api/v1/jornadas/b1580000-0000-4000-8000-000000000002/partidos",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/val-003",
+  "codigo": "VAL-003"
+}
+
+### Sin permiso programacion.jornada:EDITAR (Tesorero)
+> POST /api/v1/jornadas/b1580000-0000-4000-8000-000000000002/partidos  (cuenta: Tesorero de prueba)
+> {"equipoLocalId":"b1560001-0000-4000-8000-000000000001","equipoVisitanteId":"b1560003-0000-4000-8000-000000000001","canchaId":"b1570000-0000-4000-8000-000000000003","inicio":"2026-11-22T10:00:00-06:00","motivoAceptacion":"Motivo de localia de prueba"}
+< HTTP 403
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/jornadas/b1580000-0000-4000-8000-000000000002/partidos",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}
+
+### Alta sin motivo con advertencia: 409 VAL-027 aceptable, con la lista de advertencias
+> POST /api/v1/jornadas/b1580000-0000-4000-8000-000000000002/partidos  (cuenta: Programador de prueba)
+> {"equipoLocalId":"b1560001-0000-4000-8000-000000000001","equipoVisitanteId":"b1560006-0000-4000-8000-000000000001","canchaId":"b1570000-0000-4000-8000-000000000002","inicio":"2026-11-22T08:00:00-06:00"}
+< HTTP 409
+{
+  "detail": "El equipo local «Halcones» tiene cancha («Campo Halcones») y el partido se programó en «Morelos 2»: por la regla de localía el local juega en su cancha (DEC-34). Para aceptarlo escribe un motivo de localía de al menos 10 caracteres.",
+  "instance": "/api/v1/jornadas/b1580000-0000-4000-8000-000000000002/partidos",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/val-027",
+  "codigo": "VAL-027",
+  "aceptable": true,
+  "advertencias": [
+    {
+      "partidoId": null,
+      "codigo": "VAL-027",
+      "mensaje": "El equipo local «Halcones» tiene cancha («Campo Halcones») y el partido se programó en «Morelos 2»: por la regla de localía el local juega en su cancha (DEC-34)."
+    }
+  ]
+}
+
+### Motivo de menos de 10 caracteres: sigue el 409 VAL-027
+> POST /api/v1/jornadas/b1580000-0000-4000-8000-000000000002/partidos  (cuenta: Programador de prueba)
+> {"equipoLocalId":"b1560001-0000-4000-8000-000000000001","equipoVisitanteId":"b1560006-0000-4000-8000-000000000001","canchaId":"b1570000-0000-4000-8000-000000000002","inicio":"2026-11-22T08:00:00-06:00","motivoAceptacion":"Corto"}
+< HTTP 409
+{
+  "detail": "El equipo local «Halcones» tiene cancha («Campo Halcones») y el partido se programó en «Morelos 2»: por la regla de localía el local juega en su cancha (DEC-34). Para aceptarlo escribe un motivo de localía de al menos 10 caracteres.",
+  "instance": "/api/v1/jornadas/b1580000-0000-4000-8000-000000000002/partidos",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/val-027",
+  "codigo": "VAL-027",
+  "aceptable": true,
+  "advertencias": [
+    {
+      "partidoId": null,
+      "codigo": "VAL-027",
+      "mensaje": "El equipo local «Halcones» tiene cancha («Campo Halcones») y el partido se programó en «Morelos 2»: por la regla de localía el local juega en su cancha (DEC-34)."
+    }
+  ]
+}
+
+### PATCH solo con motivoAceptacion sobre un partido que ya respeta la localia: no escribe
+> PATCH /api/v1/partidos/9ce3ffa7-5b3e-4a97-a219-13e9ef570070  (cuenta: Programador de prueba)
+> {"motivoAceptacion":"Motivo que no deberia guardarse"}
+< HTTP 200
+{
+  "id": "9ce3ffa7-5b3e-4a97-a219-13e9ef570070",
+  "jornadaId": "b1580000-0000-4000-8000-000000000002",
+  "equipoLocal": {
+    "id": "b1560003-0000-4000-8000-000000000001",
+    "nombre": "Águilas"
+  },
+  "equipoVisitante": {
+    "id": "b1560004-0000-4000-8000-000000000001",
+    "nombre": "Pumas"
+  },
+  "cancha": {
+    "id": "b1570000-0000-4000-8000-000000000002",
+    "nombre": "Morelos 2"
+  },
+  "inicio": "2026-11-21T14:00:00-06:00",
+  "finBloque": "2026-11-21T16:00:00-06:00",
+  "estado": "PROGRAMADO",
+  "creadoEn": "2026-11-18T22:11:36.227642-06:00",
+  "actualizadoEn": "2026-11-18T22:14:23.122002-06:00"
+}
+
+### Verificacion de la jornada 2: advertencias aparte de los conflictos
+> POST /api/v1/jornadas/b1580000-0000-4000-8000-000000000002/verificacion  (cuenta: Programador de prueba)
+< HTTP 200
+{
+  "conflictos": [],
+  "advertencias": [
+    {
+      "partidoId": "379a6dcf-aa22-4d0b-be15-061d3039489f",
+      "codigo": "VAL-027",
+      "mensaje": "El equipo local «Halcones» tiene cancha («Campo Halcones») y el partido se programó en «Morelos 1»: por la regla de localía el local juega en su cancha (DEC-34). Aceptada con el motivo de localía registrado."
+    },
+    {
+      "partidoId": "fc1b3edc-159b-4962-8066-2c3167ac8fcf",
+      "codigo": "VAL-027",
+      "mensaje": "El equipo local «Leones» tiene cancha («Campo Leones») y el partido se programó en «Deportivo Las Flores»: por la regla de localía el local juega en su cancha (DEC-34). Aceptada con el motivo de localía registrado."
+    }
+  ]
+}
+
