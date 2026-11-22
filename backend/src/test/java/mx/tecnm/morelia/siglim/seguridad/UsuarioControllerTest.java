@@ -55,13 +55,19 @@ class UsuarioControllerTest {
     private static final AsignacionDto ASIGNACION_DTO = new AsignacionDto(ASIGNACION,
             new RolDto(ROL, "DIRECTIVA_CLUB", "Directiva de club"), "CLUB",
             new ClubDto(CLUB, "Club Halcones"), true, CREADO_EN, null);
-    private static final UsuarioDto USUARIO = new UsuarioDto(ID, "Ana López", "ana@ejemplo.mx", true,
+    private static final UUID PERSONA = UUID.fromString("77777777-7777-4777-8777-777777777777");
+    private static final UUID OTRO_PERFIL = UUID.fromString("88888888-8888-4888-8888-888888888888");
+    private static final UsuarioDto USUARIO = new UsuarioDto(ID, "Ana López", "ana@ejemplo.mx", null, true,
             CREADO_EN, List.of(ASIGNACION_DTO));
 
     private static final String CUERPO_INVITAR = """
             {"nombreMostrado":"Ana López","correo":"ana@ejemplo.mx",
              "asignaciones":[{"rolId":"%s","ambito":"CLUB","clubId":"%s"}]}
             """.formatted(ROL, CLUB);
+    private static final String CUERPO_INVITAR_CON_CURP = """
+            {"nombreMostrado":"Tutor Pérez","correo":"tutor@ejemplo.mx",
+             "asignaciones":[{"rolId":"%s"}],"curp":"PEAA850303HMNRRN05"}
+            """.formatted(ROL);
     private static final String CUERPO_ASIGNAR = """
             {"rolId":"%s","ambito":"CLUB","clubId":"%s"}
             """.formatted(ROL, CLUB);
@@ -126,6 +132,97 @@ class UsuarioControllerTest {
         assertThat(peticion.getValue().correo()).isEqualTo("ana@ejemplo.mx");
         assertThat(peticion.getValue().asignaciones()).singleElement()
                 .satisfies(asignacion -> assertThat(asignacion.clubId()).isEqualTo(CLUB));
+        assertThat(peticion.getValue().curp()).isNull();
+        assertThat(resultado).bodyJson().hasPath("$.personaId");
+        assertThat(resultado).bodyJson().extractingPath("$.personaId").isNull();
+    }
+
+    // ── Vínculo con la persona por CURP (DEF-10.1) ─────────────────────────────────────────────
+
+    @Test
+    @DisplayName("DEF-10.1: POST con CURP responde 201 con el personaId vinculado")
+    void invitarConCurp() {
+        given(servicio.invitar(any(CrearUsuarioRequest.class))).willReturn(new UsuarioDto(ID, "Tutor Pérez",
+                "tutor@ejemplo.mx", PERSONA, true, CREADO_EN, List.of(ASIGNACION_DTO)));
+
+        MvcTestResult resultado = post(BASE, CUERPO_INVITAR_CON_CURP);
+
+        assertThat(resultado).hasStatus(HttpStatus.CREATED).hasHeader(HttpHeaders.LOCATION, BASE + "/" + ID);
+        assertThat(resultado).bodyJson().extractingPath("$.personaId").isEqualTo(PERSONA.toString());
+        ArgumentCaptor<CrearUsuarioRequest> peticion = ArgumentCaptor.forClass(CrearUsuarioRequest.class);
+        Mockito.verify(servicio).invitar(peticion.capture());
+        assertThat(peticion.getValue().curp()).isEqualTo("PEAA850303HMNRRN05");
+    }
+
+    @Test
+    @DisplayName("DEF-10.1: una CURP de más de 18 caracteres responde 400 y no llega al servicio")
+    void invitarConCurpLarga() {
+        MvcTestResult resultado = post(BASE, CUERPO_INVITAR_CON_CURP.replace("PEAA850303HMNRRN05",
+                "PEAA850303HMNRRN05X"));
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.VALIDACION);
+        Mockito.verifyNoInteractions(servicio);
+    }
+
+    @Test
+    @DisplayName("DEF-10.1: el formato de CURP que rechaza el servicio responde 400 VALIDACION con campo")
+    void invitarConCurpMalFormada() {
+        given(servicio.invitar(any(CrearUsuarioRequest.class))).willThrow(ReglaNegocioException.invalida(
+                ErroresTecnicos.VALIDACION, "La CURP debe tener 18 caracteres y el formato oficial.")
+                .con("campo", "curp"));
+
+        MvcTestResult resultado = post(BASE, CUERPO_INVITAR_CON_CURP);
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.VALIDACION);
+        assertThat(resultado).bodyJson().extractingPath("$.campo").isEqualTo("curp");
+    }
+
+    @Test
+    @DisplayName("VAL-015: POST con CURP sin el permiso responde 403")
+    void invitarConCurpSinPermiso() {
+        given(servicio.invitar(any(CrearUsuarioRequest.class))).willThrow(Autorizacion.sinPermiso());
+
+        MvcTestResult resultado = post(BASE, CUERPO_INVITAR_CON_CURP);
+
+        assertThat(resultado).hasStatus(HttpStatus.FORBIDDEN)
+                .hasContentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo("VAL-015");
+    }
+
+    @Test
+    @DisplayName("DEF-10.1: una persona con cuenta responde 409 DUPLICADO con campo y perfilId")
+    void invitarConCurpDePersonaConCuenta() {
+        given(servicio.invitar(any(CrearUsuarioRequest.class))).willThrow(ReglaNegocioException.conflicto(
+                ErroresTecnicos.DUPLICADO, "La persona con esa CURP ya tiene una cuenta en SIGLIM.")
+                .con("campo", "curp").con("perfilId", OTRO_PERFIL));
+
+        MvcTestResult resultado = post(BASE, CUERPO_INVITAR_CON_CURP);
+
+        assertThat(resultado).hasStatus(HttpStatus.CONFLICT);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.DUPLICADO);
+        assertThat(resultado).bodyJson().extractingPath("$.campo").isEqualTo("curp");
+        assertThat(resultado).bodyJson().extractingPath("$.perfilId").isEqualTo(OTRO_PERFIL.toString());
+    }
+
+    @Test
+    @DisplayName("DEF-10.1: CURP sin persona (REFERENCIA_INVALIDA) o de un menor (RF-106) responde 422")
+    void invitarConCurpNoProcesable() {
+        given(servicio.invitar(any(CrearUsuarioRequest.class)))
+                .willThrow(ReglaNegocioException.noProcesable(ErroresTecnicos.REFERENCIA_INVALIDA,
+                        "No hay una persona registrada con esa CURP.").con("campo", "curp"))
+                .willThrow(ReglaNegocioException.noProcesable("RF-106",
+                        "Un menor de edad no tiene cuenta propia.").con("campo", "curp"));
+
+        MvcTestResult sinPersona = post(BASE, CUERPO_INVITAR_CON_CURP);
+        MvcTestResult menor = post(BASE, CUERPO_INVITAR_CON_CURP);
+
+        assertThat(sinPersona).hasStatus(HttpStatus.UNPROCESSABLE_CONTENT);
+        assertThat(sinPersona).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.REFERENCIA_INVALIDA);
+        assertThat(sinPersona).bodyJson().extractingPath("$.campo").isEqualTo("curp");
+        assertThat(menor).hasStatus(HttpStatus.UNPROCESSABLE_CONTENT);
+        assertThat(menor).bodyJson().extractingPath("$.codigo").isEqualTo("RF-106");
     }
 
     @Test

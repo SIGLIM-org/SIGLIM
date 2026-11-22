@@ -71,6 +71,7 @@ Versión 5.21 · 22 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.20 | 17 de noviembre de 2026 | §6.4 «Alta de un registro», paso 11: `POST /registros-jugador` responde `409 RF-111` si el registro anterior más reciente de la persona es de otro club y la temporada no permite el cambio de club, como la transferencia; no obliga a usar el movimiento (DEC-154). |
 | 5.21 | 22 de noviembre de 2026 | H-16.1: §6.8 con la captura de la cédula: `GET` y `POST /partidos/{id}/cedula` (abrir solo con el partido `EN_CURSO`, una vez, `201` con `Location`), `PUT /cedulas/{id}/alineaciones` (reemplazo completo, `422 VAL-002` con un error por jugador: `RF-019`, `RF-020`, `VAL-018`, `RF-025`, `REFERENCIA_INVALIDA`) y `PUT /cedulas/{id}/marcador` (no presentación con el marcador por default de la versión vigente de los parámetros, penales solo con empate); permisos `partidos.cedula:CONSULTAR` y `:CAPTURAR` con ámbito `LIGA`; auditoría `ABRIR_CEDULA`, `CAPTURAR_ALINEACION` y `CAPTURAR_MARCADOR` (DEC-155 a DEC-157). |
 
+
 ## Índice
 
 1. [Reglas generales](#1-reglas-generales)
@@ -440,8 +441,9 @@ selector de rol de F-12.
 
 `GET /usuarios` responde la envoltura de paginación (§4) y admite `q` (nombre o correo), `rolId`,
 `ambito` (`LIGA`, `CLUB` o `PROPIO`), `clubId`, `activo`, `pagina` y `tamano`; el orden es fijo por
-nombre. Cada fila trae `id`, `nombreMostrado`, `correo`, `activo`, `creadoEn` y `asignaciones`
-(solo las activas, para los chips de rol):
+nombre. Cada fila trae `id`, `nombreMostrado`, `correo`, `personaId`, `activo`, `creadoEn` y
+`asignaciones` (solo las activas, para los chips de rol). `personaId` es la persona vinculada a la
+cuenta (`perfiles.persona_id`) y siempre viene, en `null` si la cuenta no tiene persona (DEC-155):
 
 ```json
 {
@@ -450,6 +452,7 @@ nombre. Cada fila trae `id`, `nombreMostrado`, `correo`, `activo`, `creadoEn` y 
       "id": "…",
       "nombreMostrado": "Ana López",
       "correo": "ana@ejemplo.mx",
+      "personaId": null,
       "activo": true,
       "creadoEn": "2026-10-25T12:30:00-06:00",
       "asignaciones": [
@@ -478,19 +481,40 @@ personales (RNF-012). Con el permiso en ámbito de club, el listado responde `20
 `totalElementos = 0`; las demás rutas responden `404` como un recurso fuera de ámbito (VAL-024).
 
 `POST /usuarios` invita:
-`{ "nombreMostrado", "correo", "asignaciones": [ { "rolId", "ambito"?, "clubId"? } ] }`. El ámbito
-es opcional y, si se omite, se usa `roles.ambito_predeterminado`; con `CLUB` el `clubId` es
-obligatorio y el club debe ser de la liga. Responde `201` con `Location` y el detalle. Errores:
-`400 VALIDACION` si falta un rol, el ámbito `CLUB` no lleva club (o al revés), el rol no es asignable
-(`asignable = false`), el club no existe o la asignación está repetida; `409 DUPLICADO` si el correo
-ya tiene perfil o ya tiene cuenta en Supabase Auth (`error_code` `email_exists` o
-`user_already_exists`); `503 SERVICIO_NO_DISPONIBLE` si Supabase Auth no responde o rechaza la
+`{ "nombreMostrado", "correo", "asignaciones": [ { "rolId", "ambito"?, "clubId"? } ], "curp"? }`. El
+ámbito es opcional y, si se omite, se usa `roles.ambito_predeterminado`; con `CLUB` el `clubId` es
+obligatorio y el club debe ser de la liga. `curp` (hasta 18 caracteres; se recorta y se pasa a
+mayúsculas) es opcional y vincula la cuenta con la persona ya registrada con esa CURP
+(`perfiles.persona_id`), que necesitan `persona_usuario()` y `es_titular()` en el ámbito `PROPIO`
+(H-24). Vale con cualquier rol y no es obligatoria con ninguno, tampoco con `JUGADOR_TUTOR`; sin
+ella, la invitación no cambia (DEC-155). Responde `201` con `Location` y el detalle, con `personaId`.
+Errores, en este orden y **todos antes de llamar a Supabase Auth**, que es quien envía el correo
+(DEC-156):
+
+1. `403 VAL-015` sin `seguridad.usuario:CREAR` en ámbito de liga.
+2. `400 VALIDACION` si falta el nombre o el correo, falta un rol, el ámbito `CLUB` no lleva club (o
+   al revés), el rol no es asignable (`asignable = false`), el club no existe, la asignación está
+   repetida o la CURP no tiene el formato de `ck_personas_curp` (extensión `campo: "curp"`).
+3. `409 DUPLICADO` con `campo: "correo"` si el correo ya tiene perfil.
+4. Solo con `curp`: `422 REFERENCIA_INVALIDA` si no hay una persona con esa CURP
+   (`persona_por_curp`, aunque RLS no la muestre); `422 RF-106` si la persona es menor de edad hoy
+   en `America/Mexico_City` (DEC-89), porque un menor no tiene cuenta propia y se invita a su tutor
+   con la CURP del tutor (DEC-11); `409 DUPLICADO` con `campo: "curp"` y `perfilId` si la persona
+   ya tiene un perfil, activo o no. Los tres llevan `campo: "curp"` y ningún mensaje repite la CURP.
+
+Después, `409 DUPLICADO` si el correo ya tiene cuenta en Supabase Auth (`error_code` `email_exists`
+o `user_already_exists`); `503 SERVICIO_NO_DISPONIBLE` si Supabase Auth no responde o rechaza la
 invitación por cualquier otra causa (por ejemplo, el correo integrado de Supabase solo envía a
-miembros del equipo del proyecto). El backend llama a la API de administración de Supabase Auth
+miembros del equipo del proyecto). Si otra invitación vinculó a la misma persona entre la
+validación y el alta, el `INSERT … ON CONFLICT DO NOTHING` no inserta y la respuesta es
+`409 DUPLICADO` con `campo: "curp"`, con la cuenta de Auth eliminada como cualquier otra
+compensación (DEC-157). El backend llama a la API de administración de Supabase Auth
 (ADR-0003 punto 5) y, si la transacción falla después de crear la cuenta, la elimina como
 compensación para no dejarla sin perfil. El enlace del correo vuelve a
 `<SIGLIM_FRONTEND_ORIGEN>/restablecer-contrasena`, donde el invitado fija su contraseña. Se audita `INVITAR_USUARIO` sobre
-`perfiles` con los roles, ámbitos y clubes, sin nombre ni correo.
+`perfiles` con los roles, ámbitos y clubes y, solo cuando hay vínculo, el `personaId`; nunca la CURP,
+el nombre ni el correo (RNF-012, DEC-158). Vincular o desvincular una cuenta ya existente, tomar el
+nombre de la persona y filtrar la lista por persona quedan fuera (DEC-159).
 
 `PATCH /usuarios/{id}` lleva `{ "activo": true|false, "motivo"? }`. Al desactivar, el motivo es
 obligatorio (mínimo 10 caracteres, **[PROPUESTA]**) y el cambio se audita como `DESACTIVAR_CUENTA`;

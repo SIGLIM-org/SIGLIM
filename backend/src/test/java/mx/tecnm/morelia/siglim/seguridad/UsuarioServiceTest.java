@@ -3,6 +3,8 @@ package mx.tecnm.morelia.siglim.seguridad;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.anyBoolean;
@@ -12,7 +14,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
@@ -55,6 +59,10 @@ class UsuarioServiceTest {
     private static final UUID ROL_SISTEMA = UUID.fromString("33333333-3333-4333-8333-333333333333");
     private static final UUID CLUB = UUID.fromString("44444444-4444-4444-8444-444444444444");
     private static final UUID ASIGNACION = UUID.fromString("55555555-5555-4555-8555-555555555555");
+    private static final UUID PERSONA = UUID.fromString("77777777-7777-4777-8777-777777777777");
+    private static final UUID OTRO_PERFIL = UUID.fromString("88888888-8888-4888-8888-888888888888");
+    private static final UUID ROL_JUGADOR = UUID.fromString("99999999-9999-4999-8999-999999999999");
+    private static final String CURP = "PEAA850303HMNRRN05";
     private static final UUID OTRA_ASIGNACION = UUID.fromString("66666666-6666-4666-8666-666666666666");
     private static final Instant AHORA = Instant.parse("2030-03-01T12:00:00Z");
     private static final OffsetDateTime CREADO_EN = OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC);
@@ -87,7 +95,11 @@ class UsuarioServiceTest {
     // ── Datos de prueba ──────────────────────────────────────────────────────────────────────
 
     private static FilaPerfil perfil(boolean activo) {
-        return new FilaPerfil(PERFIL, "Ana López", "ana@ejemplo.mx", activo, CREADO_EN);
+        return perfil(activo, null);
+    }
+
+    private static FilaPerfil perfil(boolean activo, UUID personaId) {
+        return new FilaPerfil(PERFIL, "Ana López", "ana@ejemplo.mx", personaId, activo, CREADO_EN);
     }
 
     private static FilaAsignacion asignacion(boolean activa, OffsetDateTime revocadaEn) {
@@ -174,16 +186,16 @@ class UsuarioServiceTest {
         given(roles.buscar(LIGA, ROL_CLUB)).willReturn(Optional.of(rolClub()));
         given(usuarios.existeClub(LIGA, CLUB)).willReturn(true);
         given(invitador.invitar("ana@ejemplo.mx")).willReturn(AUTH);
-        given(usuarios.insertarPerfil(AUTH, "Ana López", "ana@ejemplo.mx")).willReturn(PERFIL);
+        given(usuarios.insertarPerfil(AUTH, "Ana López", "ana@ejemplo.mx", null)).willReturn(Optional.of(PERFIL));
         given(usuarios.insertarAsignacion(PERFIL, ROL_CLUB, LIGA, "CLUB", CLUB, ADMIN)).willReturn(ASIGNACION);
         given(usuarios.buscarPerfil(PERFIL)).willReturn(Optional.of(perfil(true)));
         given(usuarios.listarAsignaciones(PERFIL, false)).willReturn(List.of(asignacion(true, null)));
 
         UsuarioDto creado = servicio.invitar(new CrearUsuarioRequest("  Ana López  ", " ANA@Ejemplo.mx ",
-                List.of(new AsignacionRequest(ROL_CLUB, Ambito.CLUB, CLUB))));
+                List.of(new AsignacionRequest(ROL_CLUB, Ambito.CLUB, CLUB)), null));
 
         verify(autorizacion).exigir(CREAR, ObjetivoAutorizacion.deLiga());
-        verify(usuarios).insertarPerfil(AUTH, "Ana López", "ana@ejemplo.mx");
+        verify(usuarios).insertarPerfil(AUTH, "Ana López", "ana@ejemplo.mx", null);
         verify(usuarios).insertarAsignacion(PERFIL, ROL_CLUB, LIGA, "CLUB", CLUB, ADMIN);
         assertThat(creado.id()).isEqualTo(PERFIL);
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
@@ -191,6 +203,8 @@ class UsuarioServiceTest {
         assertThat(evento.getValue().accion()).isEqualTo("INVITAR_USUARIO");
         assertThat(evento.getValue().entidad()).isEqualTo("perfiles");
         assertThat(evento.getValue().detalle().toString()).contains("DIRECTIVA_CLUB", "CLUB");
+        assertThat(evento.getValue().detalle()).doesNotContainKey("personaId");
+        assertThat(creado.personaId()).isNull();
     }
 
     @Test
@@ -200,13 +214,13 @@ class UsuarioServiceTest {
         given(roles.buscar(LIGA, ROL_CLUB)).willReturn(Optional.of(rolClub()));
         given(usuarios.existeClub(LIGA, CLUB)).willReturn(true);
         given(invitador.invitar("ana@ejemplo.mx")).willReturn(AUTH);
-        given(usuarios.insertarPerfil(AUTH, "Ana", "ana@ejemplo.mx")).willReturn(PERFIL);
+        given(usuarios.insertarPerfil(AUTH, "Ana", "ana@ejemplo.mx", null)).willReturn(Optional.of(PERFIL));
         given(usuarios.insertarAsignacion(PERFIL, ROL_CLUB, LIGA, "CLUB", CLUB, ADMIN)).willReturn(ASIGNACION);
         given(usuarios.buscarPerfil(PERFIL)).willReturn(Optional.of(perfil(true)));
         given(usuarios.listarAsignaciones(PERFIL, false)).willReturn(List.of(asignacion(true, null)));
 
         servicio.invitar(new CrearUsuarioRequest("Ana", "ana@ejemplo.mx",
-                List.of(new AsignacionRequest(ROL_CLUB, null, CLUB))));
+                List.of(new AsignacionRequest(ROL_CLUB, null, CLUB)), null));
 
         verify(usuarios).insertarAsignacion(PERFIL, ROL_CLUB, LIGA, "CLUB", CLUB, ADMIN);
     }
@@ -219,13 +233,13 @@ class UsuarioServiceTest {
         given(usuarios.existeClub(LIGA, CLUB)).willReturn(true);
 
         assertThatThrownBy(() -> servicio.invitar(new CrearUsuarioRequest("Ana", "ana@ejemplo.mx",
-                List.of(new AsignacionRequest(ROL_CLUB, Ambito.CLUB, null)))))
+                List.of(new AsignacionRequest(ROL_CLUB, Ambito.CLUB, null)), null)))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
                     assertThat(error.estado()).isEqualTo(HttpStatus.BAD_REQUEST);
                     assertThat(error.codigo()).isEqualTo(ErroresTecnicos.VALIDACION);
                 });
         verifyNoInteractions(invitador);
-        verify(usuarios, never()).insertarPerfil(any(), any(), any());
+        verify(usuarios, never()).insertarPerfil(any(), any(), any(), any());
     }
 
     @Test
@@ -236,7 +250,7 @@ class UsuarioServiceTest {
         given(usuarios.existeCorreo("ana@ejemplo.mx")).willReturn(true);
 
         assertThatThrownBy(() -> servicio.invitar(new CrearUsuarioRequest("Ana", "ana@ejemplo.mx",
-                List.of(new AsignacionRequest(ROL_CLUB, Ambito.CLUB, CLUB)))))
+                List.of(new AsignacionRequest(ROL_CLUB, Ambito.CLUB, CLUB)), null)))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
                     assertThat(error.estado()).isEqualTo(HttpStatus.CONFLICT);
                     assertThat(error.codigo()).isEqualTo(ErroresTecnicos.DUPLICADO);
@@ -252,7 +266,7 @@ class UsuarioServiceTest {
                 .willReturn(Optional.of(rol(ROL_SISTEMA, "SISTEMA", "Sistema", "LIGA", false)));
 
         assertThatThrownBy(() -> servicio.invitar(new CrearUsuarioRequest("Ana", "ana@ejemplo.mx",
-                List.of(new AsignacionRequest(ROL_SISTEMA, Ambito.LIGA, null)))))
+                List.of(new AsignacionRequest(ROL_SISTEMA, Ambito.LIGA, null)), null)))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error ->
                         assertThat(error.codigo()).isEqualTo(ErroresTecnicos.VALIDACION));
         verifyNoInteractions(invitador);
@@ -265,15 +279,181 @@ class UsuarioServiceTest {
         given(roles.buscar(LIGA, ROL_CLUB)).willReturn(Optional.of(rolClub()));
         given(usuarios.existeClub(LIGA, CLUB)).willReturn(true);
         given(invitador.invitar("ana@ejemplo.mx")).willReturn(AUTH);
-        given(usuarios.insertarPerfil(AUTH, "Ana", "ana@ejemplo.mx"))
+        given(usuarios.insertarPerfil(AUTH, "Ana", "ana@ejemplo.mx", null))
                 .willThrow(new IllegalStateException("fallo de la base"));
 
         assertThatThrownBy(() -> servicio.invitar(new CrearUsuarioRequest("Ana", "ana@ejemplo.mx",
-                List.of(new AsignacionRequest(ROL_CLUB, Ambito.CLUB, CLUB)))))
+                List.of(new AsignacionRequest(ROL_CLUB, Ambito.CLUB, CLUB)), null)))
                 .isInstanceOf(IllegalStateException.class);
 
         verify(invitador).eliminar(AUTH);
         verifyNoInteractions(auditoria);
+    }
+
+    // ── Vínculo con la persona por CURP (DEF-10.1, DEC-155 a DEC-158) ─────────────────────────
+
+    private static FilaRol rolJugador() {
+        return rol(ROL_JUGADOR, "JUGADOR_TUTOR", "Jugador o tutor", "PROPIO", true);
+    }
+
+    private static CrearUsuarioRequest invitacionConCurp(String curp) {
+        return new CrearUsuarioRequest("Tutor Pérez", "tutor@ejemplo.mx",
+                List.of(new AsignacionRequest(ROL_JUGADOR, null, null)), curp);
+    }
+
+    /** Correo libre, rol válido y persona adulta sin cuenta: el caso feliz hasta antes de Auth. */
+    private void personaAdultaSinCuenta() {
+        given(roles.buscar(LIGA, ROL_JUGADOR)).willReturn(Optional.of(rolJugador()));
+        given(usuarios.existeCorreo("tutor@ejemplo.mx")).willReturn(false);
+        given(usuarios.personaPorCurp(CURP)).willReturn(Optional.of(PERSONA));
+        given(usuarios.esMenor(any(), any())).willReturn(Optional.of(false));
+        given(usuarios.perfilDePersona(PERSONA)).willReturn(Optional.empty());
+    }
+
+    private static void assertRegla(Throwable error, HttpStatus estado, String codigo) {
+        assertThat(error).isInstanceOfSatisfying(ReglaNegocioException.class, regla -> {
+            assertThat(regla.estado()).isEqualTo(estado);
+            assertThat(regla.codigo()).isEqualTo(codigo);
+            assertThat(regla.propiedades()).containsEntry("campo", "curp");
+            assertThat(regla.getMessage()).doesNotContain(CURP);
+        });
+    }
+
+    /** Ninguna validación previa llama a Supabase Auth ni escribe (DEC-156). */
+    private void verificarQueNoInvita() {
+        verifyNoInteractions(invitador, auditoria);
+        verify(usuarios, never()).insertarPerfil(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("DEF-10.1: con CURP, recorta y vincula el perfil a la persona, y audita solo su personaId")
+    void invitarConCurpVinculaLaPersona() {
+        personaAdultaSinCuenta();
+        given(invitador.invitar("tutor@ejemplo.mx")).willReturn(AUTH);
+        given(usuarios.insertarPerfil(AUTH, "Tutor Pérez", "tutor@ejemplo.mx", PERSONA))
+                .willReturn(Optional.of(PERFIL));
+        given(usuarios.buscarPerfil(PERFIL)).willReturn(Optional.of(perfil(true, PERSONA)));
+        given(usuarios.listarAsignaciones(PERFIL, false)).willReturn(List.of());
+
+        UsuarioDto creado = servicio.invitar(invitacionConCurp("  " + CURP.toLowerCase() + " "));
+
+        assertThat(creado.personaId()).isEqualTo(PERSONA);
+        verify(usuarios).personaPorCurp(CURP);
+        ArgumentCaptor<LocalDate> fecha = ArgumentCaptor.forClass(LocalDate.class);
+        verify(usuarios).esMenor(eq(PERSONA), fecha.capture());
+        assertThat(fecha.getValue()).isEqualTo(LocalDate.now(ZoneId.of("America/Mexico_City")));
+        verify(usuarios).insertarPerfil(AUTH, "Tutor Pérez", "tutor@ejemplo.mx", PERSONA);
+        verify(usuarios).insertarAsignacion(PERFIL, ROL_JUGADOR, LIGA, "PROPIO", null, ADMIN);
+        ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
+        verify(auditoria).registrar(evento.capture());
+        assertThat(evento.getValue().accion()).isEqualTo("INVITAR_USUARIO");
+        assertThat(evento.getValue().detalle()).containsEntry("personaId", PERSONA.toString());
+        assertThat(evento.getValue().detalle().toString())
+                .doesNotContain(CURP, "Tutor Pérez", "tutor@ejemplo.mx");
+    }
+
+    @Test
+    @DisplayName("DEF-10.1: una CURP con mal formato responde 400 VALIDACION y no invita")
+    void invitarConCurpMalFormada() {
+        given(roles.buscar(LIGA, ROL_JUGADOR)).willReturn(Optional.of(rolJugador()));
+
+        assertThatThrownBy(() -> servicio.invitar(invitacionConCurp("PEAA850303HMNRRN0")))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(error.codigo()).isEqualTo(ErroresTecnicos.VALIDACION);
+                    assertThat(error.propiedades()).containsEntry("campo", "curp");
+                });
+        verify(usuarios, never()).existeCorreo(anyString());
+        verify(usuarios, never()).personaPorCurp(anyString());
+        verificarQueNoInvita();
+    }
+
+    @Test
+    @DisplayName("DEC-156: el correo duplicado se revisa antes que la CURP y lleva campo correo")
+    void correoDuplicadoAntesQueLaCurp() {
+        given(roles.buscar(LIGA, ROL_JUGADOR)).willReturn(Optional.of(rolJugador()));
+        given(usuarios.existeCorreo("tutor@ejemplo.mx")).willReturn(true);
+
+        assertThatThrownBy(() -> servicio.invitar(invitacionConCurp(CURP)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.estado()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(error.codigo()).isEqualTo(ErroresTecnicos.DUPLICADO);
+                    assertThat(error.propiedades()).containsEntry("campo", "correo");
+                });
+        verify(usuarios, never()).personaPorCurp(anyString());
+        verificarQueNoInvita();
+    }
+
+    @Test
+    @DisplayName("DEF-10.1: una CURP sin persona responde 422 REFERENCIA_INVALIDA sin repetir la CURP")
+    void invitarConCurpSinPersona() {
+        personaAdultaSinCuenta();
+        given(usuarios.personaPorCurp(CURP)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.invitar(invitacionConCurp(CURP)))
+                .satisfies(error -> assertRegla(error, HttpStatus.UNPROCESSABLE_CONTENT,
+                        ErroresTecnicos.REFERENCIA_INVALIDA));
+        verificarQueNoInvita();
+    }
+
+    @Test
+    @DisplayName("RF-106 · DEC-11: la CURP de un menor responde 422 RF-106 y pide invitar al tutor")
+    void invitarConCurpDeMenor() {
+        personaAdultaSinCuenta();
+        given(usuarios.esMenor(any(), any())).willReturn(Optional.of(true));
+
+        assertThatThrownBy(() -> servicio.invitar(invitacionConCurp(CURP)))
+                .satisfies(error -> assertRegla(error, HttpStatus.UNPROCESSABLE_CONTENT, "RF-106"))
+                .hasMessageContaining("tutor");
+        verify(usuarios, never()).perfilDePersona(any());
+        verificarQueNoInvita();
+    }
+
+    @Test
+    @DisplayName("DEF-10.1: una persona que ya tiene cuenta responde 409 DUPLICADO con el perfilId")
+    void invitarConCurpDePersonaConCuenta() {
+        personaAdultaSinCuenta();
+        given(usuarios.perfilDePersona(PERSONA)).willReturn(Optional.of(OTRO_PERFIL));
+
+        assertThatThrownBy(() -> servicio.invitar(invitacionConCurp(CURP)))
+                .satisfies(error -> {
+                    assertRegla(error, HttpStatus.CONFLICT, ErroresTecnicos.DUPLICADO);
+                    assertThat(((ReglaNegocioException) error).propiedades())
+                            .containsEntry("perfilId", OTRO_PERFIL);
+                });
+        verificarQueNoInvita();
+    }
+
+    @Test
+    @DisplayName("DEC-157: si una carrera vincula antes a la persona, responde 409 y elimina la cuenta de Auth")
+    void invitarConCurpEnCarrera() {
+        personaAdultaSinCuenta();
+        given(invitador.invitar("tutor@ejemplo.mx")).willReturn(AUTH);
+        given(usuarios.insertarPerfil(AUTH, "Tutor Pérez", "tutor@ejemplo.mx", PERSONA))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.invitar(invitacionConCurp(CURP)))
+                .satisfies(error -> assertRegla(error, HttpStatus.CONFLICT, ErroresTecnicos.DUPLICADO));
+        verify(invitador).eliminar(AUTH);
+        verify(usuarios, never()).insertarAsignacion(any(), any(), any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("DEC-155: una CURP en blanco se trata como ausente y no busca persona")
+    void invitarConCurpEnBlanco() {
+        given(roles.buscar(LIGA, ROL_JUGADOR)).willReturn(Optional.of(rolJugador()));
+        given(usuarios.existeCorreo("tutor@ejemplo.mx")).willReturn(false);
+        given(invitador.invitar("tutor@ejemplo.mx")).willReturn(AUTH);
+        given(usuarios.insertarPerfil(AUTH, "Tutor Pérez", "tutor@ejemplo.mx", null))
+                .willReturn(Optional.of(PERFIL));
+        given(usuarios.buscarPerfil(PERFIL)).willReturn(Optional.of(perfil(true)));
+        given(usuarios.listarAsignaciones(PERFIL, false)).willReturn(List.of());
+
+        servicio.invitar(invitacionConCurp("   "));
+
+        verify(usuarios, never()).personaPorCurp(anyString());
+        verify(usuarios).insertarPerfil(AUTH, "Tutor Pérez", "tutor@ejemplo.mx", null);
     }
 
     // ── Activación y desactivación ────────────────────────────────────────────────────────────

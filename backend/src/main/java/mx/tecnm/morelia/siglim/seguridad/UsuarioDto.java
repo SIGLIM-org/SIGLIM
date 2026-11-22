@@ -12,13 +12,18 @@ import java.util.UUID;
  * devuelve también las revocadas, con su fecha, para mostrar la vigencia. El correo es un dato
  * personal: las respuestas llevan {@code Cache-Control: no-store} (RNF-012, convenciones §5).
  *
- * <p>Refs: H-03.1, RF-094, RN-054
+ * <p>Refs: H-03.1, DEF-10.1, RF-094, RN-054, DEC-155
+ *
+ * @param personaId persona vinculada a la cuenta ({@code perfiles.persona_id}); {@code null} si la
+ *                  cuenta no tiene persona. Se serializa siempre, también en {@code null}
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record UsuarioDto(
         UUID id,
         String nombreMostrado,
         String correo,
+        @JsonInclude(JsonInclude.Include.ALWAYS)
+        UUID personaId,
         boolean activo,
         OffsetDateTime creadoEn,
         List<AsignacionDto> asignaciones) {
