@@ -1,13 +1,17 @@
 package mx.tecnm.morelia.siglim.seguridad;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
 import mx.tecnm.morelia.siglim.auditoria.EventoAuditoria;
@@ -40,6 +44,12 @@ import org.springframework.transaction.annotation.Transactional;
  *       envía el correo, y después se crea el perfil y sus asignaciones en la misma transacción. Si
  *       la base rechaza el alta, se elimina la cuenta de Auth como compensación de mejor esfuerzo
  *       para no dejarla huérfana.</li>
+ *   <li><b>Vínculo con la persona (DEF-10.1, DEC-155 a DEC-158).</b> Con {@code curp}, el perfil
+ *       nace con {@code persona_id}, que necesitan {@code persona_usuario()} y {@code es_titular()}
+ *       en el ámbito {@code PROPIO}. Todas las validaciones (formato, persona existente, adulta y
+ *       sin cuenta) van antes de llamar a Supabase Auth, que es quien envía el correo; una carrera
+ *       sobre la misma persona la detecta el {@code ON CONFLICT} y se compensa como cualquier otro
+ *       fallo. La CURP vale con cualquier rol y no se exige con ninguno.</li>
  *   <li><b>Ámbito del rol.</b> Si la petición no indica ámbito, se usa el predeterminado del rol
  *       ({@code roles.ambito_predeterminado}). Con {@code CLUB} el club es obligatorio y debe ser de
  *       la liga; con los demás ámbitos se omite (RN-054).</li>
@@ -58,8 +68,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       Consultar el detalle propio sigue permitido.</li>
  * </ul>
  *
- * <p>Refs: H-03, H-03.1, DEF-04, RF-094, RF-093, RN-005, RN-054, RNF-012, VAL-022, ADR-0003,
- * ADR-0007
+ * <p>Refs: H-03, H-03.1, DEF-04, DEF-10.1, RF-094, RF-093, RF-106, RN-005, RN-054, RNF-012,
+ * VAL-022, ADR-0003, ADR-0007, DEC-11, DEC-89, DEC-155 a DEC-158
  */
 @Service
 public class UsuarioService {
@@ -73,6 +83,15 @@ public class UsuarioService {
     private static final int LONGITUD_MINIMA_MOTIVO = 10;
     private static final String MENSAJE_ASIGNACIONES_PROPIAS = "No puedes cambiar las asignaciones de"
             + " rol de tu propia cuenta. Otra cuenta con permiso para gestionar usuarios debe hacerlo.";
+    /** Zona de la Liga para decidir la minoría de edad (DEC-89). */
+    private static final ZoneId ZONA_DE_NEGOCIO = ZoneId.of("America/Mexico_City");
+    /** Mismo formato que {@code ck_personas_curp} y {@code PersonaService} (DEC-10). */
+    private static final Pattern FORMATO_CURP =
+            Pattern.compile("^[A-Z][AEIOUX][A-Z]{2}[0-9]{6}[HMX][A-Z]{5}[0-9A-Z][0-9]$");
+    private static final String MENSAJE_SIN_PERSONA = "No hay una persona registrada con esa CURP."
+            + " Regístrala primero y después invita su cuenta.";
+    private static final String MENSAJE_CURP_CON_CUENTA = "La persona con esa CURP ya tiene una cuenta"
+            + " en SIGLIM. Búscala en la lista de usuarios en lugar de invitarla de nuevo.";
     private static final String MENSAJE_ESTADO_PROPIO = "No puedes activar ni desactivar tu propia"
             + " cuenta. Otra cuenta con permiso para gestionar usuarios debe hacerlo.";
 
@@ -128,10 +147,17 @@ public class UsuarioService {
 
     /**
      * Invita una cuenta en Supabase Auth y crea su perfil con las asignaciones indicadas
-     * (RF-094; ADR-0003 punto 5).
+     * (RF-094; ADR-0003 punto 5). Con {@code curp}, vincula el perfil con esa persona (DEF-10.1).
+     *
+     * <p>Orden (DEC-156): {@code 403 VAL-015} → {@code 400 VALIDACION} (nombre, correo,
+     * asignaciones y formato de la CURP) → {@code 409 DUPLICADO} del correo → con CURP:
+     * {@code 422 REFERENCIA_INVALIDA} sin persona, {@code 422 RF-106} si es menor y
+     * {@code 409 DUPLICADO} si ya tiene cuenta. Todo antes de llamar a Supabase Auth.
      *
      * @throws ReglaNegocioException 400 {@code VALIDACION} si los datos o las asignaciones no son
-     *                               coherentes; 409 {@code DUPLICADO} si el correo ya tiene cuenta
+     *                               coherentes; 409 {@code DUPLICADO} si el correo o la persona ya
+     *                               tienen cuenta; 422 {@code REFERENCIA_INVALIDA} o {@code RF-106}
+     *                               si la CURP no corresponde a una persona adulta registrada
      */
     @Transactional
     public UsuarioDto invitar(CrearUsuarioRequest peticion) {
@@ -139,17 +165,22 @@ public class UsuarioService {
         String nombre = nombreValido(peticion.nombreMostrado());
         String correo = correoValido(peticion.correo());
         List<AsignacionValidada> asignaciones = validarAsignaciones(peticion.asignaciones());
+        String curp = curpValida(peticion.curp());
         if (usuarios.existeCorreo(correo)) {
             throw ReglaNegocioException.conflicto(ErroresTecnicos.DUPLICADO,
-                    "Ya existe una cuenta con el correo «" + correo + "».");
+                    "Ya existe una cuenta con el correo «" + correo + "».").con("campo", "correo");
         }
+        UUID personaId = curp == null ? null : personaVinculable(curp);
 
         UUID usuarioAuthId = invitador.invitar(correo);
         try {
-            UUID perfilId = usuarios.insertarPerfil(usuarioAuthId, nombre, correo);
+            UUID perfilId = usuarios.insertarPerfil(usuarioAuthId, nombre, correo, personaId)
+                    // Otra invitación vinculó a la persona en paralelo (DEC-157).
+                    .orElseThrow(() -> ReglaNegocioException.conflicto(ErroresTecnicos.DUPLICADO,
+                            MENSAJE_CURP_CON_CUENTA).con("campo", "curp"));
             insertarAsignaciones(perfilId, asignaciones);
             auditoria.registrar(new EventoAuditoria(ligaId, MODULO, "INVITAR_USUARIO", ENTIDAD,
-                    perfilId.toString(), null, detalleAsignaciones(asignaciones)));
+                    perfilId.toString(), null, detalleInvitacion(asignaciones, personaId)));
             return detalle(perfilId);
         } catch (RuntimeException error) {
             // La transacción se revierte; la cuenta de Auth ya existe y no debe quedar huérfana.
@@ -331,6 +362,47 @@ public class UsuarioService {
         return validas;
     }
 
+    /**
+     * Persona a la que se vincula la cuenta (DEC-156): debe existir, ser adulta hoy en la zona de la
+     * Liga (un menor no tiene cuenta propia, DEC-11) y no tener ya un perfil. Los mensajes no repiten
+     * la CURP (RNF-012).
+     */
+    private UUID personaVinculable(String curp) {
+        UUID personaId = usuarios.personaPorCurp(curp)
+                .orElseThrow(UsuarioService::sinPersona);
+        boolean menor = usuarios.esMenor(personaId, LocalDate.now(ZONA_DE_NEGOCIO))
+                .orElseThrow(UsuarioService::sinPersona);
+        if (menor) {
+            throw ReglaNegocioException.noProcesable("RF-106", "Un menor de edad no tiene cuenta propia."
+                    + " Invita a su tutor con la CURP del tutor.").con("campo", "curp");
+        }
+        Optional<UUID> perfilExistente = usuarios.perfilDePersona(personaId);
+        if (perfilExistente.isPresent()) {
+            throw ReglaNegocioException.conflicto(ErroresTecnicos.DUPLICADO, MENSAJE_CURP_CON_CUENTA)
+                    .con("campo", "curp")
+                    .con("perfilId", perfilExistente.get());
+        }
+        return personaId;
+    }
+
+    private static ReglaNegocioException sinPersona() {
+        return ReglaNegocioException.noProcesable(ErroresTecnicos.REFERENCIA_INVALIDA, MENSAJE_SIN_PERSONA)
+                .con("campo", "curp");
+    }
+
+    /** CURP opcional: {@code null} si no viene; recortada, en mayúsculas y con el formato oficial. */
+    private static String curpValida(String curp) {
+        if (curp == null || curp.isBlank()) {
+            return null;
+        }
+        String limpia = curp.strip().toUpperCase(Locale.ROOT);
+        if (!FORMATO_CURP.matcher(limpia).matches()) {
+            throw ReglaNegocioException.invalida(ErroresTecnicos.VALIDACION,
+                    "La CURP debe tener 18 caracteres y el formato oficial.").con("campo", "curp");
+        }
+        return limpia;
+    }
+
     private static String nombreValido(String nombre) {
         String texto = nombre == null ? "" : nombre.strip();
         if (texto.isEmpty()) {
@@ -378,16 +450,26 @@ public class UsuarioService {
         return detalle;
     }
 
-    private static Map<String, Object> detalleAsignaciones(List<AsignacionValidada> asignaciones) {
-        return Map.of("asignaciones", asignaciones.stream()
+    /**
+     * Detalle de {@code INVITAR_USUARIO}: las asignaciones y, solo si hay vínculo, el
+     * {@code personaId}; nunca CURP, nombre ni correo (RNF-012, DEC-158).
+     */
+    private static Map<String, Object> detalleInvitacion(List<AsignacionValidada> asignaciones,
+            UUID personaId) {
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("asignaciones", asignaciones.stream()
                 .map(asignacion -> detalleAsignacion(asignacion.rolCodigo(), asignacion.ambito(),
                         asignacion.clubId()))
                 .toList());
+        if (personaId != null) {
+            detalle.put("personaId", personaId.toString());
+        }
+        return detalle;
     }
 
     private static UsuarioDto aDto(FilaPerfil perfil, List<FilaAsignacion> asignaciones) {
-        return new UsuarioDto(perfil.id(), perfil.nombreMostrado(), perfil.correo(), perfil.activo(),
-                perfil.creadoEn(), asignaciones.stream().map(UsuarioService::aAsignacion).toList());
+        return new UsuarioDto(perfil.id(), perfil.nombreMostrado(), perfil.correo(), perfil.personaId(),
+                perfil.activo(), perfil.creadoEn(), asignaciones.stream().map(UsuarioService::aAsignacion).toList());
     }
 
     private static AsignacionDto aAsignacion(FilaAsignacion fila) {
