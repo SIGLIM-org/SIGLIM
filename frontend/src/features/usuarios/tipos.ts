@@ -5,6 +5,9 @@ import type { Pagina } from '@/lib/api/tipos'
 /** Ámbitos de una asignación de rol (ADR-0007). */
 export type Ambito = 'LIGA' | 'CLUB' | 'PROPIO'
 
+/** Código del rol «Jugador o tutor»: el único con el que F-12 pide la CURP (DEC-167). */
+export const CODIGO_ROL_JUGADOR_TUTOR = 'JUGADOR_TUTOR'
+
 export type RolAsignado = {
   id: string
   codigo: string
@@ -34,6 +37,8 @@ export type Usuario = {
   correo?: string
   activo: boolean
   creadoEn: string
+  /** Persona vinculada (DEC-155); `null` sin vínculo. Nunca se muestra el valor (DEC-169). */
+  personaId: string | null
   asignaciones: AsignacionUsuario[]
 }
 
@@ -75,6 +80,8 @@ export type AsignacionPeticion = {
 export type CrearUsuarioPeticion = {
   nombreMostrado: string
   correo: string
+  /** CURP de la persona que se vincula a la cuenta (DEC-155); F-12 solo la envía con `JUGADOR_TUTOR`. */
+  curp?: string
   asignaciones: AsignacionPeticion[]
 }
 

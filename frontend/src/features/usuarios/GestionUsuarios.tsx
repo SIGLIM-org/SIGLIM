@@ -76,6 +76,13 @@ export function GestionUsuarios() {
     setMensaje(`Invitación enviada a ${usuario.correo ?? usuario.nombreMostrado}.`)
   }
 
+  /** Desde un 409 de la invitación: abre la cuenta que ya tiene esa persona (DEF-10.2, DEC-168). */
+  const abrirCuentaExistente = (perfilId: string) => {
+    setInvitando(false)
+    setMensaje(null)
+    setSeleccionado(perfilId)
+  }
+
   const abrirPanel = (usuario: Usuario) => {
     setMensaje(null)
     setSeleccionado(usuario.id)
@@ -221,6 +228,7 @@ export function GestionUsuarios() {
           clubes={clubes.data ?? []}
           onCerrar={() => setInvitando(false)}
           onInvitado={alInvitar}
+          onAbrirCuenta={abrirCuentaExistente}
         />
       )}
 
