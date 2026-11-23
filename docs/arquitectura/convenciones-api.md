@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.20 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.22 · 22 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -70,6 +70,7 @@ Versión 5.20 · 17 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.19 | 17 de noviembre de 2026 | B-06.2: §6.4 con `GET /registros-jugador/movimientos/opcion?personaId=&equipoId=` (DEC-153): `{ tipo, permitido, temporadaAnterior, motivo }` para que el asistente de alta (F-18) ofrezca la renovación o la transferencia, o la muestre deshabilitada si la temporada no permite el cambio de club (RF-111), sin datos del club de origen; solo lectura y sin auditoría. |
 | 5.20 | 17 de noviembre de 2026 | §6.4 «Alta de un registro», paso 11: `POST /registros-jugador` responde `409 RF-111` si el registro anterior más reciente de la persona es de otro club y la temporada no permite el cambio de club, como la transferencia; no obliga a usar el movimiento (DEC-154). |
 | 5.21 | 22 de noviembre de 2026 | DEF-10.1 (SCRUM-450): §6.1 con `curp` opcional en `POST /usuarios`, que vincula el perfil con la persona (`perfiles.persona_id`); el orden de errores (`400 VALIDACION` del formato, `409 DUPLICADO` con `campo`, `422 REFERENCIA_INVALIDA`, `422 RF-106` y `409 DUPLICADO` con `perfilId`), todos antes de llamar a Supabase Auth; `personaId` en la lista y el detalle; y `personaId` en el detalle de `INVITAR_USUARIO` (DEC-155 a DEC-159). |
+| 5.22 | 22 de noviembre de 2026 | H-15.1: §6.8 «Consulta y transiciones del partido» con el listado paginado `GET /partidos?jornadaId=&estado=&desde=&hasta=`, el detalle con jornada, árbitros, cédula, resultado vigente, historial y `accionesPermitidas`, el historial y `POST /partidos/{id}/transiciones` (motivo `400 RN-021`, transición prohibida `409 RF-046` con `estadoActual` y `accionesPermitidas`, jornada sin publicar `409 RF-090`, reprogramación con `inicio` futuro y conflictos `409 VAL-003` a `VAL-006`); visibilidad por ámbito (DEC-160 a DEC-162). |
 
 ## Índice
 
@@ -2284,6 +2285,68 @@ paso en `historial_publicacion` con quien lo hizo y su motivo.
 
 No existe un endpoint para escribir un resultado oficial: lo crea la aprobación de la cédula o una
 resolución disciplinaria (RF-048, VAL-010).
+
+#### Consulta y transiciones del partido (H-15.1, RF-043, RF-045, RF-046, DEC-160 a DEC-162)
+
+**Visibilidad (DEC-161).** Listado, detalle e historial exigen `partidos.partido:CONSULTAR` y usan
+su ámbito en el `WHERE` y en el `COUNT`: `LIGA` ve todos los partidos de la liga; `CLUB`, los de los
+equipos de sus clubes; `PROPIO`, los del equipo donde la persona de la sesión o un menor bajo su
+tutela tiene un registro no rechazado y los que arbitra con designación vigente. Club y propio solo
+ven jornadas `PUBLICADO` **[PROPUESTA]**. Un partido fuera de alcance responde `404 NO_ENCONTRADO`.
+Las tres respuestas llevan `Cache-Control: no-store`.
+
+`GET /partidos?jornadaId=&estado=&desde=&hasta=&pagina=0&tamano=20` devuelve la envoltura de
+paginación (§4) por `inicio` ascendente; `desde` se incluye y `hasta` no; `tamano` de 1 a 100 y
+`hasta` posterior a `desde`, o `400 VALIDACION`. Cada fila es
+`{ id, jornadaId, jornadaNumero, equipoLocal, equipoVisitante, cancha, inicio, finBloque, estado, accionesPermitidas }`.
+
+`GET /partidos/{id}` agrega `jornada { id, numero, estadoPublicacion }`, `temporada`, `categoria`,
+`grupo`, `arbitros [ { id, nombre, funcion } ]` (designaciones vigentes, el central primero; `nombre`
+`null` si la sesión no puede ver a la persona), `cedula { id, estado }` o `null`,
+`resultado { golesLocal, golesVisitante, penalesLocal, penalesVisitante, porDefault, version }`
+(la versión vigente) o `null` y `historial`. `GET /partidos/{id}/historial` devuelve solo el
+historial: un arreglo sin paginar, del más antiguo al más reciente, con
+`{ estadoAnterior, estadoNuevo, motivo, cambiadoPor { id, nombre }, cambiadoEn }`, como el
+historial de un registro (§6.4).
+
+**`accionesPermitidas` (DEC-162).** Subconjunto de `SUSPENDER`, `REPROGRAMAR` y `CANCELAR` según el
+estado: `PROGRAMADO` y `SUSPENDIDO` → `["REPROGRAMAR", "CANCELAR"]`; `EN_CURSO` → `["SUSPENDER"]`;
+`REPROGRAMADO`, `FINALIZADO` y `CANCELADO` → `[]`. Va vacía si la sesión no tiene
+`partidos.partido:CAMBIAR_ESTADO` o si la jornada no está `PUBLICADO`. La interfaz muestra solo esos
+botones.
+
+**`POST /partidos/{id}/transiciones`** con
+`{ "estadoNuevo": "SUSPENDIDO" | "REPROGRAMADO" | "CANCELADO", "motivo", "inicio"?, "canchaId"? }`.
+Responde `200` con el detalle ya actualizado. Orden de errores:
+
+1. Sin `partidos.partido:CAMBIAR_ESTADO`: `403 VAL-015`.
+2. Sin `estadoNuevo`; `inicio` o `canchaId` sin reprogramar; reprogramar sin `inicio` o con un
+   `inicio` que no es futuro: `400 VALIDACION`. Motivo con menos de 10 o más de 500 caracteres:
+   `400 RN-021`.
+3. El partido no es de la liga: `404 NO_ENCONTRADO`.
+4. El estado no admite la transición (incluye `EN_CURSO` y `FINALIZADO`, que son automáticas, RF-127):
+   `409 RF-046` con `estadoActual` y `accionesPermitidas`.
+5. La jornada está en `BORRADOR` o `REVISION`: `409 RF-090` (el partido se ajusta con
+   `PATCH /partidos/{id}`, §6.7) **[PROPUESTA]**.
+6. Reprogramar: cancha que no es de la liga `422 REFERENCIA_INVALIDA`; conflicto con otro partido,
+   la cancha o el equipo `409 VAL-003` a `VAL-006` o `RF-100`, con el mismo mensaje de §6.7 (DEC-160).
+   Sin `canchaId` se conserva la cancha; `finBloque` lo recalcula el trigger.
+
+Suspender y cancelar solo cambian el estado: no repiten las reglas de programación ni recalculan
+`finBloque`, para poder suspender un partido aunque su cancha se acabe de bloquear (DEC-162).
+
+El motivo queda en `partido_estado_historial` con el usuario y la fecha, y en la auditoría
+`CAMBIAR_ESTADO_PARTIDO` (M-08), que al reprogramar guarda también el inicio y la cancha anteriores y
+nuevos.
+
+```json
+{
+  "estadoNuevo": "REPROGRAMADO",
+  "motivo": "Cancha inundada por la lluvia de la noche",
+  "inicio": "2026-11-29T12:00:00-06:00",
+  "canchaId": "…"
+}
+```
 
 ### 6.9 M-09 Disciplina
 
