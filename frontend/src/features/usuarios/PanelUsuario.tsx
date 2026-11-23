@@ -5,6 +5,8 @@ import {
   CircleAlert,
   CircleCheck,
   Info,
+  Link2,
+  Link2Off,
   Plus,
   ShieldCheck,
   UserRound,
@@ -27,10 +29,11 @@ import {
 import { ModalAgregarAsignacion } from '@/features/usuarios/ModalAgregarAsignacion'
 import { ModalDesactivarCuenta } from '@/features/usuarios/ModalDesactivarCuenta'
 import { ModalRevocarAsignacion } from '@/features/usuarios/ModalRevocarAsignacion'
-import type {
-  AsignacionUsuario,
-  ClubResumen,
-  RolCatalogo,
+import {
+  CODIGO_ROL_JUGADOR_TUTOR,
+  type AsignacionUsuario,
+  type ClubResumen,
+  type RolCatalogo,
 } from '@/features/usuarios/tipos'
 import { ApiError } from '@/lib/api/ApiError'
 import { reintentarConsulta } from '@/lib/api/errores'
@@ -50,6 +53,10 @@ type Props = {
  * En la cuenta propia (separación de funciones, VAL-022, DEC-53; DEF-04) el panel es de solo
  * consulta: oculta «Agregar asignación», «Revocar» y el interruptor «Cuenta activa» y explica por
  * qué. Se compara `perfiles.id` con la sesión, nunca el rol; el backend responde 403 `VAL-022`.
+ *
+ * Muestra si la cuenta está vinculada con su persona (DEF-10.2, DEC-169), sin la CURP, el nombre
+ * de la persona ni su identificador (RNF-012); con `JUGADOR_TUTOR` y sin vínculo avisa que la
+ * cuenta no verá a sus titulares en «Mi información» (H-24).
  */
 export function PanelUsuario({ usuarioId, roles, clubes, onCerrar }: Props) {
   const dialogoRef = useDialogoModal()
@@ -68,6 +75,13 @@ export function PanelUsuario({ usuarioId, roles, clubes, onCerrar }: Props) {
   const usuario = consulta.data
   const ocupado = actualizar.isPending
   const esCuentaPropia = usuario?.id === yo.perfil.id
+  const vinculada = usuario ? usuario.personaId !== null : false
+  const jugadorSinVinculo =
+    usuario !== undefined &&
+    !vinculada &&
+    usuario.asignaciones.some(
+      (asignacion) => asignacion.activa && asignacion.rol.codigo === CODIGO_ROL_JUGADOR_TUTOR,
+    )
 
   const activar = () => {
     if (!usuario) {
@@ -191,6 +205,14 @@ export function PanelUsuario({ usuarioId, roles, clubes, onCerrar }: Props) {
                 </p>
               )}
 
+              {jugadorSinVinculo && (
+                <p className="flex items-start gap-2 rounded-md bg-info/8 p-3 text-body-sm text-info-strong">
+                  <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                  Esta cuenta no tiene persona vinculada: no verá a sus titulares en «Mi
+                  información».
+                </p>
+              )}
+
               <section aria-label="Datos de la cuenta" className="flex flex-col gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <span
@@ -215,6 +237,14 @@ export function PanelUsuario({ usuarioId, roles, clubes, onCerrar }: Props) {
                   <span className="inline-flex items-center gap-1.5 text-body-sm text-text-muted">
                     <CalendarDays aria-hidden="true" className="size-4" />
                     Alta: {formatearFechaAlta(usuario.creadoEn)}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-body-sm text-text-muted">
+                    {vinculada ? (
+                      <Link2 aria-hidden="true" className="size-4" />
+                    ) : (
+                      <Link2Off aria-hidden="true" className="size-4" />
+                    )}
+                    {vinculada ? 'Vinculada con su persona' : 'Sin persona vinculada'}
                   </span>
                 </div>
               </section>

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -12,6 +12,7 @@ import type {
   Usuario,
 } from '@/features/usuarios/tipos'
 import { ApiError } from '@/lib/api/ApiError'
+import type { Problema } from '@/lib/api/tipos'
 
 const { get, post, patch, sesion } = vi.hoisted(() => ({
   get: vi.fn(),
@@ -61,6 +62,16 @@ const ROL_SISTEMA: RolCatalogo = {
   asignable: false,
 }
 
+const ROL_JUGADOR: RolCatalogo = {
+  id: 'r-jugador',
+  codigo: 'JUGADOR_TUTOR',
+  nombre: 'Jugador o tutor',
+  ambitoPredeterminado: 'PROPIO',
+  asignable: true,
+}
+
+const CURP = 'GOMC800101HMNRRR09'
+
 const CLUB: ClubResumen = { id: 'c-1', nombre: 'Club Halcones' }
 
 const ASIGNACION: AsignacionUsuario = {
@@ -87,6 +98,7 @@ const USUARIO: Usuario = {
   correo: 'ana@ejemplo.mx',
   activo: true,
   creadoEn: '2026-01-10T10:00:00-06:00',
+  personaId: null,
   asignaciones: [ASIGNACION],
 }
 
@@ -98,6 +110,7 @@ const INACTIVO: Usuario = {
   nombreMostrado: 'Beto Ruiz',
   correo: 'beto@ejemplo.mx',
   activo: false,
+  personaId: 'p-2',
 }
 
 let lista: unknown
@@ -105,6 +118,24 @@ let detalle: unknown
 
 function error(status: number, codigo: string, detail: string) {
   return new ApiError({ title: 'Error', status, detail, codigo })
+}
+
+function errorConCampo(
+  status: number,
+  codigo: string,
+  detail: string,
+  extensiones?: Record<string, unknown>,
+) {
+  const problema: Problema = {
+    type: 'about:blank',
+    title: 'Error',
+    status,
+    detail,
+    instance: '/api/v1/usuarios',
+    codigo,
+    ...(extensiones ? { extensiones } : {}),
+  }
+  return new ApiError(problema)
 }
 
 function pagina(contenido: Usuario[]) {
@@ -133,8 +164,11 @@ function responder(nuevaLista: unknown = pagina([USUARIO, INACTIVO])) {
       }
       return detalle
     }
+    if (ruta === 'usuarios/u-2') {
+      return INACTIVO
+    }
     if (ruta === 'roles') {
-      return [ROL_ADMIN, ROL_CLUB, ROL_SISTEMA]
+      return [ROL_ADMIN, ROL_CLUB, ROL_JUGADOR, ROL_SISTEMA]
     }
     if (ruta.startsWith('clubes?')) {
       return {
@@ -170,6 +204,21 @@ function montar() {
   )
 
   return enrutador
+}
+
+/** Abre la invitación y llena nombre, correo y rol; devuelve el diálogo. */
+async function llenarInvitacion(rolId: string) {
+  await userEvent.click(await screen.findByRole('button', { name: 'Invitar usuario' }))
+  const dialogo = screen.getByRole('dialog', { name: 'Invitar usuario' })
+
+  await userEvent.type(within(dialogo).getByLabelText(/Nombre completo/), 'Carla Díaz')
+  await userEvent.type(within(dialogo).getByLabelText(/Correo electrónico/), 'carla@ejemplo.mx')
+  await userEvent.selectOptions(within(dialogo).getByLabelText(/Rol/), rolId)
+  return dialogo
+}
+
+async function enviar(dialogo: HTMLElement) {
+  await userEvent.click(within(dialogo).getByRole('button', { name: 'Enviar invitación' }))
 }
 
 async function abrirPanel() {
@@ -421,5 +470,230 @@ describe('PantallaUsuarios', () => {
 
     expect(await screen.findByText('Aún no hay cuentas registradas')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Invitar usuario' })).not.toHaveLength(0)
+  })
+
+  describe('DEF-10.2: CURP en la invitación y vínculo en el panel', () => {
+    it('DEF-10.2: con un rol que no es JUGADOR_TUTOR no pide la CURP ni la envía', async () => {
+      montar()
+      const dialogo = await llenarInvitacion('r-admin')
+
+      expect(within(dialogo).queryByLabelText(/CURP de la persona/)).not.toBeInTheDocument()
+      await enviar(dialogo)
+
+      expect(post).toHaveBeenCalledWith('usuarios', {
+        nombreMostrado: 'Carla Díaz',
+        correo: 'carla@ejemplo.mx',
+        asignaciones: [{ rolId: 'r-admin', ambito: 'LIGA' }],
+      })
+    })
+
+    it('DEF-10.2: con JUGADOR_TUTOR la CURP es obligatoria y vacía no llama a la API', async () => {
+      montar()
+      const dialogo = await llenarInvitacion('r-jugador')
+
+      expect(within(dialogo).getByLabelText(/CURP de la persona/)).toBeRequired()
+      await enviar(dialogo)
+
+      expect(
+        within(dialogo).getByText(
+          'Escribe la CURP de la persona: sin ella la cuenta no verá «Mi información».',
+        ),
+      ).toBeInTheDocument()
+      expect(post).not.toHaveBeenCalled()
+    })
+
+    it('DEF-10.2: una CURP con formato inválido no llama a la API', async () => {
+      montar()
+      const dialogo = await llenarInvitacion('r-jugador')
+
+      await userEvent.type(within(dialogo).getByLabelText(/CURP de la persona/), 'ABC123')
+      await enviar(dialogo)
+
+      expect(
+        within(dialogo).getByText('La CURP debe tener 18 caracteres y el formato oficial.'),
+      ).toBeInTheDocument()
+      expect(post).not.toHaveBeenCalled()
+    })
+
+    it('DEF-10.2: envía la CURP normalizada con ámbito PROPIO', async () => {
+      montar()
+      const dialogo = await llenarInvitacion('r-jugador')
+
+      // `maxLength` corta lo que se teclea; el valor con espacios llega al pegar o autocompletar.
+      fireEvent.change(within(dialogo).getByLabelText(/CURP de la persona/), {
+        target: { value: ' gomc 800101 hmnrrr09 ' },
+      })
+      await enviar(dialogo)
+
+      expect(post).toHaveBeenCalledWith('usuarios', {
+        nombreMostrado: 'Carla Díaz',
+        correo: 'carla@ejemplo.mx',
+        curp: CURP,
+        asignaciones: [{ rolId: 'r-jugador', ambito: 'PROPIO' }],
+      })
+    })
+
+    it('DEF-10.2: al cambiar de JUGADOR_TUTOR a otro rol el campo desaparece y no se envía la CURP', async () => {
+      montar()
+      const dialogo = await llenarInvitacion('r-jugador')
+
+      await userEvent.type(within(dialogo).getByLabelText(/CURP de la persona/), CURP)
+      await userEvent.selectOptions(within(dialogo).getByLabelText(/Rol/), 'r-admin')
+
+      expect(within(dialogo).queryByLabelText(/CURP de la persona/)).not.toBeInTheDocument()
+      await enviar(dialogo)
+
+      expect(post).toHaveBeenCalledWith('usuarios', {
+        nombreMostrado: 'Carla Díaz',
+        correo: 'carla@ejemplo.mx',
+        asignaciones: [{ rolId: 'r-admin', ambito: 'LIGA' }],
+      })
+    })
+
+    it('DEF-10.2: 422 REFERENCIA_INVALIDA se muestra bajo la CURP sin alerta general', async () => {
+      post.mockRejectedValueOnce(
+        errorConCampo(422, 'REFERENCIA_INVALIDA', 'No existe la persona.', { campo: 'curp' }),
+      )
+      montar()
+      const dialogo = await llenarInvitacion('r-jugador')
+
+      await userEvent.type(within(dialogo).getByLabelText(/CURP de la persona/), CURP)
+      await enviar(dialogo)
+
+      expect(
+        await within(dialogo).findByText(
+          'No hay una persona registrada con esa CURP. Regístrala primero (alta de jugador o tutela) y vuelve a invitar.',
+        ),
+      ).toBeInTheDocument()
+      expect(within(dialogo).getByLabelText(/CURP de la persona/)).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      )
+      expect(within(dialogo).getAllByRole('alert')).toHaveLength(1)
+      expect(within(dialogo).queryByText('No existe la persona.')).not.toBeInTheDocument()
+    })
+
+    it('DEF-10.2: 422 RF-106 explica que un menor no tiene cuenta propia', async () => {
+      post.mockRejectedValueOnce(
+        errorConCampo(422, 'RF-106', 'La persona es menor de edad.', { campo: 'curp' }),
+      )
+      montar()
+      const dialogo = await llenarInvitacion('r-jugador')
+
+      await userEvent.type(within(dialogo).getByLabelText(/CURP de la persona/), CURP)
+      await enviar(dialogo)
+
+      expect(
+        await within(dialogo).findByText(
+          'Esa CURP es de un menor de edad, que no tiene cuenta propia. Invita a su tutor con la CURP del tutor.',
+        ),
+      ).toBeInTheDocument()
+      expect(within(dialogo).getAllByRole('alert')).toHaveLength(1)
+    })
+
+    it('DEF-10.2: 409 DUPLICADO de la CURP ofrece «Ver la cuenta» y abre su panel', async () => {
+      post.mockRejectedValueOnce(
+        errorConCampo(409, 'DUPLICADO', 'La persona ya tiene cuenta.', {
+          campo: 'curp',
+          perfilId: 'u-2',
+        }),
+      )
+      montar()
+      const dialogo = await llenarInvitacion('r-jugador')
+
+      await userEvent.type(within(dialogo).getByLabelText(/CURP de la persona/), CURP)
+      await enviar(dialogo)
+
+      expect(
+        await within(dialogo).findByText(
+          'Esa persona ya tiene una cuenta en SIGLIM, activa o desactivada. Ábrela para reactivarla o agregarle el rol.',
+        ),
+      ).toBeInTheDocument()
+      await userEvent.click(within(dialogo).getByRole('button', { name: 'Ver la cuenta' }))
+
+      expect(screen.queryByRole('dialog', { name: 'Invitar usuario' })).not.toBeInTheDocument()
+      const panel = await screen.findByRole('dialog', { name: 'Detalle de usuario' })
+      expect(
+        await within(panel).findByRole('heading', { name: 'Beto Ruiz' }),
+      ).toBeInTheDocument()
+      expect(get).toHaveBeenCalledWith('usuarios/u-2')
+    })
+
+    it('DEF-10.2: 409 DUPLICADO de la CURP sin perfilId muestra el texto sin botón', async () => {
+      post.mockRejectedValueOnce(
+        errorConCampo(409, 'DUPLICADO', 'La persona ya tiene cuenta.', { campo: 'curp' }),
+      )
+      montar()
+      const dialogo = await llenarInvitacion('r-jugador')
+
+      await userEvent.type(within(dialogo).getByLabelText(/CURP de la persona/), CURP)
+      await enviar(dialogo)
+
+      expect(
+        await within(dialogo).findByText(/Esa persona ya tiene una cuenta en SIGLIM/),
+      ).toBeInTheDocument()
+      expect(
+        within(dialogo).queryByRole('button', { name: 'Ver la cuenta' }),
+      ).not.toBeInTheDocument()
+    })
+
+    it('DEF-10.2: 409 DUPLICADO sin campo sigue marcando el correo', async () => {
+      post.mockRejectedValueOnce(
+        errorConCampo(409, 'DUPLICADO', 'Ya existe una cuenta con ese correo.'),
+      )
+      montar()
+      const dialogo = await llenarInvitacion('r-admin')
+      await enviar(dialogo)
+
+      expect(
+        await within(dialogo).findByText('Ya existe una cuenta con ese correo.'),
+      ).toBeInTheDocument()
+      expect(within(dialogo).getByLabelText(/Correo electrónico/)).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      )
+      expect(
+        within(dialogo).queryByRole('button', { name: 'Ver la cuenta' }),
+      ).not.toBeInTheDocument()
+    })
+
+    it('DEF-10.2: el panel muestra el estado del vínculo sin datos de la persona', async () => {
+      montar()
+      const panel = await abrirPanel()
+
+      expect(await within(panel).findByText('Sin persona vinculada')).toBeInTheDocument()
+      expect(within(panel).queryByText(/no tiene persona vinculada/)).not.toBeInTheDocument()
+
+      detalle = { ...DETALLE, personaId: 'p-1' }
+      await userEvent.click(within(panel).getByRole('button', { name: 'Cerrar panel' }))
+      const otro = await abrirPanel()
+
+      expect(await within(otro).findByText('Vinculada con su persona')).toBeInTheDocument()
+      expect(within(otro).queryByText(/p-1/)).not.toBeInTheDocument()
+    })
+
+    it('DEF-10.2: avisa cuando una cuenta JUGADOR_TUTOR no tiene persona vinculada', async () => {
+      detalle = {
+        ...USUARIO,
+        asignaciones: [
+          {
+            id: 'a-jugador',
+            rol: { id: ROL_JUGADOR.id, codigo: ROL_JUGADOR.codigo, nombre: ROL_JUGADOR.nombre },
+            ambito: 'PROPIO',
+            activa: true,
+            creadoEn: '2026-01-10T10:00:00-06:00',
+          },
+        ],
+      } satisfies Usuario
+      montar()
+      const panel = await abrirPanel()
+
+      expect(
+        await within(panel).findByText(
+          'Esta cuenta no tiene persona vinculada: no verá a sus titulares en «Mi información».',
+        ),
+      ).toBeInTheDocument()
+      expect(within(panel).getByText('Sin persona vinculada')).toBeInTheDocument()
+    })
   })
 })
