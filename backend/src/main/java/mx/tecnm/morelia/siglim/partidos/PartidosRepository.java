@@ -185,23 +185,41 @@ class PartidosRepository {
     }
 
     /**
-     * Cambia el estado y, al reprogramar, el inicio y la cancha. El motivo lo toma el trigger del
-     * historial de {@code siglim.motivo}, que el servicio fija antes; {@code fin_bloque} lo recalcula
-     * {@code tg_partidos_programacion} (DEC-25).
+     * Suspende o cancela: cambia solo el estado. No nombra {@code inicio} ni {@code cancha_id} en el
+     * {@code SET} para que no se dispare {@code tg_partidos_programacion} ({@code UPDATE OF}), que
+     * rechazaría suspender en una cancha que se acaba de bloquear o con un equipo dado de baja, y que
+     * recalcularía {@code fin_bloque}. El motivo lo toma el trigger del historial de
+     * {@code siglim.motivo}, que el servicio fija antes.
      */
-    void cambiarEstado(UUID partidoId, EstadoPartido estado, OffsetDateTime inicio, UUID canchaId) {
+    void cambiarEstado(UUID partidoId, EstadoPartido estado) {
         jdbc.sql("""
                         UPDATE partidos
                            SET estado = CAST(:estado AS siglim.estado_partido),
-                               inicio = coalesce(:inicio, inicio),
-                               cancha_id = coalesce(:cancha, cancha_id),
                                actualizado_en = now()
                          WHERE id = :id
                         """)
                 .param("id", partidoId)
                 .param("estado", estado.name())
+                .update();
+    }
+
+    /**
+     * Reprograma: estado {@code REPROGRAMADO} con el nuevo inicio y la cancha. Aquí sí corre
+     * {@code tg_partidos_programacion}, que recalcula {@code fin_bloque} (DEC-25) y repite las reglas de
+     * conflictos como última garantía (DEC-160).
+     */
+    void reprogramar(UUID partidoId, OffsetDateTime inicio, UUID canchaId) {
+        jdbc.sql("""
+                        UPDATE partidos
+                           SET estado = 'REPROGRAMADO',
+                               inicio = :inicio,
+                               cancha_id = :cancha,
+                               actualizado_en = now()
+                         WHERE id = :id
+                        """)
+                .param("id", partidoId)
                 .param("inicio", inicio, Types.TIMESTAMP_WITH_TIMEZONE)
-                .param("cancha", canchaId, Types.OTHER)
+                .param("cancha", canchaId)
                 .update();
     }
 

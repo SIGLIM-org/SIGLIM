@@ -204,7 +204,14 @@ class PartidosServiceTest {
         verify(autorizacion).exigir(PartidosService.CAMBIAR_ESTADO, ObjetivoAutorizacion.deLiga());
         verify(motivoOperacion).fijar(MOTIVO);
         boolean reprogramar = nuevo == EstadoPartido.REPROGRAMADO;
-        verify(partidos).cambiarEstado(PARTIDO, nuevo, reprogramar ? NUEVO_INICIO : null, reprogramar ? CANCHA : null);
+        if (reprogramar) {
+            verify(partidos).reprogramar(PARTIDO, NUEVO_INICIO, CANCHA);
+            verify(partidos, never()).cambiarEstado(any(), any());
+        } else {
+            verify(partidos).cambiarEstado(PARTIDO, nuevo);
+            verify(partidos, never()).reprogramar(any(), any(), any());
+            verifyNoInteractions(reprogramacion);
+        }
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(auditoria).registrar(evento.capture());
         assertThat(evento.getValue().modulo()).isEqualTo("M-08");
@@ -248,7 +255,8 @@ class PartidosServiceTest {
                 .satisfies(error -> assertThat(((ReglaNegocioException) error).propiedades())
                         .containsEntry("estadoActual", actual)
                         .containsEntry("accionesPermitidas", AccionPartido.desde(actual)));
-        verify(partidos, never()).cambiarEstado(any(), any(), any(), any());
+        verify(partidos, never()).cambiarEstado(any(), any());
+        verify(partidos, never()).reprogramar(any(), any(), any());
         verifyNoInteractions(auditoria, motivoOperacion, reprogramacion);
     }
 
@@ -332,7 +340,8 @@ class PartidosServiceTest {
 
         assertThatThrownBy(() -> servicio.transicionar(PARTIDO, hacia(EstadoPartido.CANCELADO)))
                 .hasFieldOrPropertyWithValue("codigo", "RF-090");
-        verify(partidos, never()).cambiarEstado(any(), any(), any(), any());
+        verify(partidos, never()).cambiarEstado(any(), any());
+        verify(partidos, never()).reprogramar(any(), any(), any());
     }
 
     // ── Reprogramación ────────────────────────────────────────────────────────────────────────
@@ -346,7 +355,7 @@ class PartidosServiceTest {
                 new TransicionPartidoRequest(EstadoPartido.REPROGRAMADO, MOTIVO, NUEVO_INICIO, OTRA_CANCHA));
 
         verify(reprogramacion).validar(PARTIDO, NUEVO_INICIO, OTRA_CANCHA);
-        verify(partidos).cambiarEstado(PARTIDO, EstadoPartido.REPROGRAMADO, NUEVO_INICIO, OTRA_CANCHA);
+        verify(partidos).reprogramar(PARTIDO, NUEVO_INICIO, OTRA_CANCHA);
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(auditoria).registrar(evento.capture());
         assertThat(evento.getValue().detalle()).containsEntry("canchaAnteriorId", CANCHA.toString())
@@ -363,7 +372,8 @@ class PartidosServiceTest {
 
         assertThatThrownBy(() -> servicio.transicionar(PARTIDO, hacia(EstadoPartido.REPROGRAMADO)))
                 .hasFieldOrPropertyWithValue("codigo", "VAL-004");
-        verify(partidos, never()).cambiarEstado(any(), any(), any(), any());
+        verify(partidos, never()).cambiarEstado(any(), any());
+        verify(partidos, never()).reprogramar(any(), any(), any());
         verify(motivoOperacion, never()).fijar(anyString());
         verifyNoInteractions(auditoria);
     }

@@ -145,7 +145,12 @@ public class PartidosService {
         }
         String motivo = peticion.motivo().strip();
         motivoOperacion.fijar(motivo);
-        partidos.cambiarEstado(partidoId, peticion.estadoNuevo(), peticion.inicio(), canchaId);
+        if (accion == AccionPartido.REPROGRAMAR) {
+            partidos.reprogramar(partidoId, peticion.inicio(), canchaId);
+        } else {
+            // Solo el estado: suspender o cancelar no pasa por las reglas de programación (DEC-162).
+            partidos.cambiarEstado(partidoId, peticion.estadoNuevo());
+        }
         auditoria.registrar(new EventoAuditoria(ligaId, MODULO, ACCION_AUDITORIA, "partidos", partidoId.toString(),
                 motivo, detalleAuditoria(partido, peticion, canchaId)));
         DatosPartido actualizado = partidos.bloquear(ligaId, partidoId).orElseThrow();

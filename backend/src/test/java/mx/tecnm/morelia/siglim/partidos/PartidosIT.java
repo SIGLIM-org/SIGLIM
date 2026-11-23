@@ -105,6 +105,43 @@ class PartidosIT extends BaseDatosPrueba {
     }
 
     @Test
+    @DisplayName("RF-043: se suspende un partido en curso aunque su cancha quede en mantenimiento en ese horario")
+    void suspenderConCanchaEnMantenimiento() {
+        Escenario datos = escenarioPublicado();
+        iniciarPartido(datos.partido());
+        OffsetDateTime finBloque = finBloque(datos.partido());
+        jdbc.sql("""
+                        INSERT INTO siglim.disponibilidad_canchas (cancha_id, tipo, periodo, motivo)
+                        VALUES (:cancha, 'MANTENIMIENTO',
+                                tstzrange(CAST(:desde AS timestamptz), CAST(:hasta AS timestamptz), '[)'),
+                                'Cancha inundada')
+                        """)
+                .param("cancha", datos.cancha())
+                .param("desde", INICIO.minusHours(1))
+                .param("hasta", INICIO.plusHours(6))
+                .update();
+        String motivo = "Cancha inundada durante el primer tiempo";
+        iniciarSesion(datos.programador());
+
+        PartidoDetalleDto suspendido = servicio.transicionar(datos.partido(),
+                new TransicionPartidoRequest(EstadoPartido.SUSPENDIDO, motivo, null, null));
+
+        assertThat(suspendido.estado()).isEqualTo(EstadoPartido.SUSPENDIDO);
+        assertThat(suspendido.historial()).last().satisfies(cambio -> {
+            assertThat(cambio.estadoNuevo()).isEqualTo(EstadoPartido.SUSPENDIDO);
+            assertThat(cambio.motivo()).isEqualTo(motivo);
+            assertThat(cambio.cambiadoPor().id()).isEqualTo(datos.programador());
+        });
+        assertThat(finBloque(datos.partido())).as("suspender no recalcula el bloque").isEqualTo(finBloque);
+
+        PartidoDetalleDto cancelado = servicio.transicionar(datos.partido(),
+                new TransicionPartidoRequest(EstadoPartido.CANCELADO, "La cancha no estará lista esta temporada",
+                        null, null));
+        assertThat(cancelado.estado()).as("cancelar tampoco pasa por la programación")
+                .isEqualTo(EstadoPartido.CANCELADO);
+    }
+
+    @Test
     @DisplayName("RF-046: cancelado no admite más transiciones y la prohibida responde 409 sin escribir")
     void canceladoEsFinal() {
         Escenario datos = escenarioPublicado();
@@ -258,6 +295,11 @@ class PartidosIT extends BaseDatosPrueba {
     private String estado(UUID partido) {
         return jdbc.sql("SELECT estado::text FROM siglim.partidos WHERE id = :id")
                 .param("id", partido).query(String.class).single();
+    }
+
+    private OffsetDateTime finBloque(UUID partido) {
+        return jdbc.sql("SELECT fin_bloque FROM siglim.partidos WHERE id = :id")
+                .param("id", partido).query(OffsetDateTime.class).single();
     }
 
     private UUID clubDe(UUID equipo) {

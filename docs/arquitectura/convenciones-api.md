@@ -2332,6 +2332,9 @@ Responde `200` con el detalle ya actualizado. Orden de errores:
    la cancha o el equipo `409 VAL-003` a `VAL-006` o `RF-100`, con el mismo mensaje de §6.7 (DEC-160).
    Sin `canchaId` se conserva la cancha; `finBloque` lo recalcula el trigger.
 
+Suspender y cancelar solo cambian el estado: no repiten las reglas de programación ni recalculan
+`finBloque`, para poder suspender un partido aunque su cancha se acabe de bloquear (DEC-162).
+
 El motivo queda en `partido_estado_historial` con el usuario y la fecha, y en la auditoría
 `CAMBIAR_ESTADO_PARTIDO` (M-08), que al reprogramar guarda también el inicio y la cancha anteriores y
 nuevos.
