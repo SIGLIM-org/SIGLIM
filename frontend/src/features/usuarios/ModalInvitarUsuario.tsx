@@ -1,24 +1,30 @@
 import { useId, useState, type FormEvent } from 'react'
-import { Info, MailPlus } from 'lucide-react'
+import { Info, MailPlus, UserRound } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { CampoSeleccion } from '@/components/ui/CampoSeleccion'
 import { CampoTexto } from '@/components/ui/CampoTexto'
 import { useDialogoModal } from '@/components/ui/useDialogoModal'
+import { curpValida } from '@/features/organizacion/directiva'
+import { normalizarCurp } from '@/features/registros/asistenteAlta'
 import { useInvitarUsuario } from '@/features/usuarios/api'
-import type {
-  Ambito,
-  ClubResumen,
-  CrearUsuarioPeticion,
-  RolCatalogo,
-  Usuario,
+import {
+  CODIGO_ROL_JUGADOR_TUTOR,
+  type Ambito,
+  type ClubResumen,
+  type CrearUsuarioPeticion,
+  type RolCatalogo,
+  type Usuario,
 } from '@/features/usuarios/tipos'
 import { ApiError } from '@/lib/api/ApiError'
+import type { Problema } from '@/lib/api/tipos'
 
 type Props = {
   roles: readonly RolCatalogo[]
   clubes: readonly ClubResumen[]
   onCerrar: () => void
   onInvitado: (usuario: Usuario) => void
+  /** Abre el panel de una cuenta que ya existe con esa persona (409 `DUPLICADO`, DEC-168). */
+  onAbrirCuenta: (perfilId: string) => void
 }
 
 type Valores = {
@@ -27,6 +33,7 @@ type Valores = {
   rolId: string
   ambito: Ambito | ''
   clubId: string
+  curp: string
 }
 
 const VALORES_INICIALES: Valores = {
@@ -35,29 +42,61 @@ const VALORES_INICIALES: Valores = {
   rolId: '',
   ambito: '',
   clubId: '',
+  curp: '',
 }
 
-const CAMPOS_FORMULARIO = new Set(['nombreMostrado', 'correo'])
+const CAMPOS_FORMULARIO = new Set(['nombreMostrado', 'correo', 'curp'])
+
+/** Textos propios de los errores de la CURP (DEC-168); los demás usan `detail`. */
+const MENSAJES_CURP: Readonly<Record<string, string>> = {
+  REFERENCIA_INVALIDA:
+    'No hay una persona registrada con esa CURP. Regístrala primero (alta de jugador o tutela) y vuelve a invitar.',
+  'RF-106':
+    'Esa CURP es de un menor de edad, que no tiene cuenta propia. Invita a su tutor con la CURP del tutor.',
+  DUPLICADO:
+    'Esa persona ya tiene una cuenta en SIGLIM, activa o desactivada. Ábrela para reactivarla o agregarle el rol.',
+}
 
 function correoValido(correo: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)
+}
+
+/** Lee una extensión de texto del problema (`campo`, `perfilId`); cualquier otro tipo se ignora. */
+function extensionTexto(problema: Problema, clave: string): string | undefined {
+  const valor = problema.extensiones?.[clave]
+  return typeof valor === 'string' ? valor : undefined
 }
 
 /**
  * Modal de invitación de F-12 (H-03.2, RF-094): nombre, correo, rol, ámbito y club si es de club.
  * La cuenta la crea el backend en Supabase Auth y envía el correo; aquí solo se captura la
  * asignación inicial. No promete plazos ni folios que el ERS no define.
+ *
+ * Con el rol `JUGADOR_TUTOR` pide la CURP de la persona para vincularla a la cuenta (DEF-10.2,
+ * DEC-155, DEC-167): es obligatoria en la interfaz porque sin vínculo la cuenta no ve «Mi
+ * información» y no se puede vincular después (DEC-159). Se normaliza y se valida antes de enviar,
+ * y se descarta al cambiar a otro rol. Los errores de la CURP se muestran bajo su campo según
+ * `codigo` y `extensiones.campo`; un 409 con `perfilId` ofrece abrir la cuenta existente (DEC-168).
  */
-export function ModalInvitarUsuario({ roles, clubes, onCerrar, onInvitado }: Props) {
+export function ModalInvitarUsuario({
+  roles,
+  clubes,
+  onCerrar,
+  onInvitado,
+  onAbrirCuenta,
+}: Props) {
   const dialogoRef = useDialogoModal()
   const invitar = useInvitarUsuario()
   const [valores, setValores] = useState<Valores>(VALORES_INICIALES)
   const [errores, setErrores] = useState<Record<string, string>>({})
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
+  const [cuentaExistente, setCuentaExistente] = useState<string | null>(null)
   const id = useId()
   const idTitulo = `${id}-titulo`
   const rolesAsignables = roles.filter((rol) => rol.asignable)
   const guardando = invitar.isPending
+  const pideCurp =
+    rolesAsignables.find((rol) => rol.id === valores.rolId)?.codigo === CODIGO_ROL_JUGADOR_TUTOR
 
   const limpiarErrores = (campos: readonly string[]) => {
     setErrores((actuales) => {
@@ -67,6 +106,9 @@ export function ModalInvitarUsuario({ roles, clubes, onCerrar, onInvitado }: Pro
       }
       return siguiente
     })
+    if (campos.includes('curp')) {
+      setCuentaExistente(null)
+    }
   }
 
   const cambiar = (cambios: Partial<Valores>) => {
@@ -78,14 +120,16 @@ export function ModalInvitarUsuario({ roles, clubes, onCerrar, onInvitado }: Pro
   const cambiarRol = (rolId: string) => {
     const rol = rolesAsignables.find((candidato) => candidato.id === rolId)
     const ambito = rol?.ambitoPredeterminado ?? ''
+    const conservaCurp = rol?.codigo === CODIGO_ROL_JUGADOR_TUTOR
 
     setValores((actuales) => ({
       ...actuales,
       rolId,
       ambito,
       clubId: ambito === 'CLUB' ? actuales.clubId : '',
+      curp: conservaCurp ? actuales.curp : '',
     }))
-    limpiarErrores(['rolId', 'ambito', 'clubId'])
+    limpiarErrores(conservaCurp ? ['rolId', 'ambito', 'clubId'] : ['rolId', 'ambito', 'clubId', 'curp'])
     setErrorGeneral(null)
   }
 
@@ -100,25 +144,48 @@ export function ModalInvitarUsuario({ roles, clubes, onCerrar, onInvitado }: Pro
   }
 
   const alFallar = (error: unknown) => {
+    setCuentaExistente(null)
+
     if (!(error instanceof ApiError)) {
       setErrorGeneral('No se pudo enviar la invitación. Intenta de nuevo.')
       return
     }
 
-    if (error.problema.codigo === 'DUPLICADO') {
-      setErrores({ correo: error.problema.detail })
+    const { problema } = error
+    const campo = extensionTexto(problema, 'campo')
+
+    if (campo === 'curp') {
+      setErrores({ curp: MENSAJES_CURP[problema.codigo] ?? problema.detail })
+      setErrorGeneral(null)
+      if (problema.codigo === 'DUPLICADO') {
+        setCuentaExistente(extensionTexto(problema, 'perfilId') ?? null)
+      }
+      return
+    }
+
+    if (problema.codigo === 'DUPLICADO' && (campo === undefined || campo === 'correo')) {
+      setErrores({ correo: problema.detail })
       setErrorGeneral(null)
       return
     }
 
-    const deCampos = Object.fromEntries(
-      (error.problema.errores ?? [])
-        .filter(({ campo }) => CAMPOS_FORMULARIO.has(campo))
-        .map(({ campo, mensaje }) => [campo, mensaje]),
+    const deCampos: Record<string, string> = Object.fromEntries(
+      (problema.errores ?? [])
+        .filter(({ campo: nombre }) => CAMPOS_FORMULARIO.has(nombre))
+        .map(({ campo: nombre, mensaje }) => [nombre, mensaje]),
     )
 
+    if (
+      problema.codigo === 'VALIDACION' &&
+      campo !== undefined &&
+      CAMPOS_FORMULARIO.has(campo) &&
+      !deCampos[campo]
+    ) {
+      deCampos[campo] = problema.detail
+    }
+
     setErrores(deCampos)
-    setErrorGeneral(error.problema.detail)
+    setErrorGeneral(problema.detail)
   }
 
   const validar = (): Record<string, string> => {
@@ -142,6 +209,15 @@ export function ModalInvitarUsuario({ roles, clubes, onCerrar, onInvitado }: Pro
     if (valores.ambito === 'CLUB' && !valores.clubId) {
       encontrados.clubId = 'Elige el club de la asignación.'
     }
+    if (pideCurp) {
+      const curp = normalizarCurp(valores.curp)
+      if (!curp) {
+        encontrados.curp =
+          'Escribe la CURP de la persona: sin ella la cuenta no verá «Mi información».'
+      } else if (!curpValida(curp)) {
+        encontrados.curp = 'La CURP debe tener 18 caracteres y el formato oficial.'
+      }
+    }
 
     return encontrados
   }
@@ -149,6 +225,7 @@ export function ModalInvitarUsuario({ roles, clubes, onCerrar, onInvitado }: Pro
   const alEnviar = (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault()
     setErrorGeneral(null)
+    setCuentaExistente(null)
 
     const encontrados = validar()
     setErrores(encontrados)
@@ -160,6 +237,7 @@ export function ModalInvitarUsuario({ roles, clubes, onCerrar, onInvitado }: Pro
     const peticion: CrearUsuarioPeticion = {
       nombreMostrado: valores.nombreMostrado.trim(),
       correo: valores.correo.trim().toLowerCase(),
+      ...(pideCurp ? { curp: normalizarCurp(valores.curp) } : {}),
       asignaciones: [
         {
           rolId: valores.rolId,
@@ -254,6 +332,34 @@ export function ModalInvitarUsuario({ roles, clubes, onCerrar, onInvitado }: Pro
               <option value="PROPIO">Propio</option>
             </CampoSeleccion>
           </div>
+
+          {pideCurp && (
+            <div className="flex flex-col gap-2">
+              <CampoTexto
+                id={`${id}-curp`}
+                etiqueta="CURP de la persona"
+                required
+                maxLength={18}
+                autoComplete="off"
+                spellCheck={false}
+                ayuda="18 caracteres. Debe ser de una persona adulta ya registrada; con ella la cuenta verá «Mi información»."
+                error={errores.curp}
+                value={valores.curp}
+                onChange={(evento) => cambiar({ curp: evento.target.value })}
+              />
+              {errores.curp && cuentaExistente && (
+                <div>
+                  <Button
+                    variante="secundario"
+                    icono={UserRound}
+                    onClick={() => onAbrirCuenta(cuentaExistente)}
+                  >
+                    Ver la cuenta
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
           {valores.ambito === 'CLUB' && (
             <CampoSeleccion

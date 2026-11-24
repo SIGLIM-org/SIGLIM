@@ -35,7 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li><b>Permiso.</b> Consultar exige {@code partidos.cedula:CONSULTAR} y capturar,
  *       {@code partidos.cedula:CAPTURAR}, los dos con ámbito {@code LIGA}: la cédula es de la liga y
  *       en la matriz inicial los tiene el Capturista. La vista del árbitro designado ({@code PROPIO})
- *       llega con su bandeja (H-17) <b>[PROPUESTA]</b> (DEC-155).</li>
+ *       llega con su bandeja (H-17) <b>[PROPUESTA]</b> (DEC-164).</li>
  *   <li><b>Abrir (RF-025, RF-046).</b> Solo con el partido {@code EN_CURSO}; un partido tiene una sola
  *       cédula ({@code 409 DUPLICADO}). Quien la abre queda como capturista y nunca podrá aprobarla
  *       (VAL-021).</li>
@@ -45,17 +45,17 @@ import org.springframework.transaction.annotation.Transactional;
  *       alineación completa. Se valida cada jugador y, si alguno no puede jugar, nada se guarda y se
  *       responde {@code 422 VAL-002} con la lista {@code errores}: un elemento por jugador con su
  *       {@code codigo} ({@code RF-019}, {@code RF-020}, {@code VAL-018}, {@code RF-025} o
- *       {@code REFERENCIA_INVALIDA}) y un mensaje con su nombre (DEC-156).</li>
+ *       {@code REFERENCIA_INVALIDA}) y un mensaje con su nombre (DEC-165).</li>
  *   <li><b>Marcador (RF-047, RF-126, DEC-24, DEC-28).</b> Con un equipo no presentado el sistema asigna
  *       el marcador por default de la versión vigente de los parámetros (3-0 <b>[DEMO]</b>, DEC-72) y
  *       la petición no lleva goles; si no, los dos goles son obligatorios y los penales solo se
- *       registran con empate (DEC-157).</li>
+ *       registran con empate (DEC-166).</li>
  *   <li><b>Auditoría (RF-093).</b> {@code ABRIR_CEDULA}, {@code CAPTURAR_ALINEACION} y
  *       {@code CAPTURAR_MARCADOR} en M-08, sin nombres de jugadores.</li>
  * </ul>
  *
  * <p>Refs: H-16.1, RF-019, RF-020, RF-025, RF-046, RF-047, RF-110, RF-122, RF-126, VAL-002, VAL-018,
- * DEC-12, DEC-19, DEC-24, DEC-28, DEC-155, DEC-156, DEC-157
+ * DEC-12, DEC-19, DEC-24, DEC-28, DEC-164, DEC-165, DEC-166
  */
 @Service
 public class CedulaService {
