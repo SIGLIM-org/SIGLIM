@@ -1,0 +1,25 @@
+# DEF-10.3 · Base de datos y auditoría después de los escenarios (consultas como dueño del esquema)
+
+     accion      |          quien          | con_entidad |                                                        detalle                                                        
+-----------------+-------------------------+-------------+-----------------------------------------------------------------------------------------------------------------------
+ INVITAR_USUARIO | Administrador de prueba | t           | {"personaId": "d1700001-0000-4000-8000-000000000001", "asignaciones": [{"rol": "JUGADOR_TUTOR", "ambito": "PROPIO"}]}
+ INVITAR_USUARIO | Administrador de prueba | t           | {"personaId": "d1700002-0000-4000-8000-000000000001", "asignaciones": [{"rol": "JUGADOR_TUTOR", "ambito": "PROPIO"}]}
+ INVITAR_USUARIO | Administrador de prueba | t           | {"asignaciones": [{"rol": "SECRETARIO", "ambito": "LIGA"}]}
+(3 rows)
+
+     nombre_mostrado     |              persona_id              | persona_existe | cuenta_auth 
+-------------------------+--------------------------------------+----------------+-------------
+ Administrador de prueba |                                      | f              | t
+ Jorge Jugador           | d1700001-0000-4000-8000-000000000001 | t              | t
+ Secretario de prueba    |                                      | f              | t
+ Sistema                 |                                      | f              | 
+ Teresa Tutora           | d1700002-0000-4000-8000-000000000001 | t              | t
+(5 rows)
+
+cuentas en auth.users: 4
+
+# Bitácora del Supabase Auth simulado: llamadas a la API de administración
+  2026-11-24T06:09:00.125Z POST /auth/v1/invite 
+  2026-11-24T06:09:00.937Z POST /auth/v1/invite 
+  2026-11-24T06:09:01.677Z POST /auth/v1/invite 
+  (3 invitaciones: Jorge, Teresa y el Secretario. Los cinco errores de CA-2 y el de F-12 no llegaron a Supabase Auth.)
