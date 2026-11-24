@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.23 · 23 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.24 · 23 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -72,6 +72,7 @@ Versión 5.23 · 23 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.21 | 22 de noviembre de 2026 | DEF-10.1 (SCRUM-450): §6.1 con `curp` opcional en `POST /usuarios`, que vincula el perfil con la persona (`perfiles.persona_id`); el orden de errores (`400 VALIDACION` del formato, `409 DUPLICADO` con `campo`, `422 REFERENCIA_INVALIDA`, `422 RF-106` y `409 DUPLICADO` con `perfilId`), todos antes de llamar a Supabase Auth; `personaId` en la lista y el detalle; y `personaId` en el detalle de `INVITAR_USUARIO` (DEC-155 a DEC-159). |
 | 5.22 | 22 de noviembre de 2026 | H-15.1: §6.8 «Consulta y transiciones del partido» con el listado paginado `GET /partidos?jornadaId=&estado=&desde=&hasta=`, el detalle con jornada, árbitros, cédula, resultado vigente, historial y `accionesPermitidas`, el historial y `POST /partidos/{id}/transiciones` (motivo `400 RN-021`, transición prohibida `409 RF-046` con `estadoActual` y `accionesPermitidas`, jornada sin publicar `409 RF-090`, reprogramación con `inicio` futuro y conflictos `409 VAL-003` a `VAL-006`); visibilidad por ámbito (DEC-160 a DEC-162). |
 | 5.23 | 23 de noviembre de 2026 | H-16.1: §6.8 con la captura de la cédula: `GET` y `POST /partidos/{id}/cedula` (abrir solo con el partido `EN_CURSO`, una vez, `201` con `Location`), `PUT /cedulas/{id}/alineaciones` (reemplazo completo, `422 VAL-002` con un error por jugador: `RF-019`, `RF-020`, `VAL-018`, `RF-025`, `REFERENCIA_INVALIDA`) y `PUT /cedulas/{id}/marcador` (no presentación con el marcador por default de la versión vigente de los parámetros, penales solo con empate); permisos `partidos.cedula:CONSULTAR` y `:CAPTURAR` con ámbito `LIGA`; auditoría `ABRIR_CEDULA`, `CAPTURAR_ALINEACION` y `CAPTURAR_MARCADOR` (DEC-164 a DEC-166). |
+| 5.24 | 23 de noviembre de 2026 | H-16.2: §6.8 «Eventos, incidencias, observaciones y envío»: `POST /cedulas/{id}/eventos` (`201` con la cédula, equipo tomado de la alineación, sustitución del mismo equipo), `DELETE /cedulas/{id}/eventos/{eventoId}` (`204`), `POST /cedulas/{id}/incidencias` (tipo activo del catálogo e involucrados: jugador alineado o equipo del partido, `422 RF-026`), `PUT /cedulas/{id}/observaciones` (nuevo) y `POST /cedulas/{id}/envio` (`422 VAL-020` con la extensión `faltantes`); fuera de captura todo responde `409 RF-122`; la cédula agrega `eventos`, `incidencias`, `enviadaEn` y `plazoVenceEn`; auditoría y evento `CedulaEnviada` (DEC-170, DEC-171). |
 
 ## Índice
 
@@ -2277,6 +2278,7 @@ paso en `historial_publicacion` con quien lo hizo y su motivo.
 | `PUT /cedulas/{id}/marcador` | Goles, penales, no presentación (marcador por default de los parámetros) | `partidos.cedula:CAPTURAR` | RF-047, RF-126 | N |
 | `POST /cedulas/{id}/eventos` · `DELETE /cedulas/{id}/eventos/{eventoId}` | Goles, tarjetas, sustituciones | `partidos.cedula:CAPTURAR` | RF-025 | N |
 | `POST /cedulas/{id}/incidencias` | Incidencia con tipo e involucrados | `partidos.cedula:CAPTURAR` | RF-026 | N |
+| `PUT /cedulas/{id}/observaciones` | Observaciones del partido | `partidos.cedula:CAPTURAR` | RF-025 | N |
 | `POST /cedulas/{id}/envio` · `/aprobacion` · `/devolucion` · `/reapertura` | Flujo de la cédula | ver §2.1 | RF-122 a RF-124 | N |
 | `GET /cedulas?estado=PENDIENTE_VALIDACION&plazoVencido=true` | Bandeja del árbitro o de la Comisión | `partidos.cedula:CONSULTAR` | RF-123, RF-124 | N |
 | `GET /partidos/{id}/resultados` | Versiones del resultado (vigente y anteriores) | `partidos.partido:CONSULTAR` | RF-052 | N |
@@ -2420,8 +2422,76 @@ default sale de parámetros de demostración (la interfaz lo rotula «No oficial
   versión vigente de los parámetros (3-0 **[DEMO]**, DEC-24, DEC-72). Se audita `CAPTURAR_MARCADOR`
   con los goles, el equipo no presentado y `porDefault`.
 
-Los eventos (goles, tarjetas y sustituciones), las incidencias, las observaciones y el envío a
-validación (VAL-020) son de H-16.2.
+#### Eventos, incidencias, observaciones y envío (H-16.2, RF-025, RF-026, RF-122, VAL-020, DEC-170, DEC-171)
+
+Los cinco exigen `partidos.cedula:CAPTURAR` con ámbito `LIGA` y siguen el mismo orden de errores:
+`403 VAL-015` → cédula de otra liga `404` → la cédula no está `EN_CAPTURA`: `409 RF-122` (en
+validación, devuelta o aprobada nada se edita; el trigger `tg_cedula_en_captura` es la última
+garantía) → los errores propios de cada uno. Todos, salvo el `DELETE`, responden la cédula completa,
+que ahora agrega:
+
+```json
+{
+  "eventos": [
+    { "id": "…", "tipo": "SUSTITUCION", "minuto": 60, "equipoId": "…",
+      "jugador": { "id": "…", "nombre": "Juan Pérez López" },
+      "entra": { "id": "…", "nombre": "Luis Gómez Ruiz" }, "observaciones": null }
+  ],
+  "incidencias": [
+    { "id": "…", "tipo": { "id": 2, "nombre": "Expulsión", "abreExpediente": true }, "minuto": 75,
+      "descripcion": "Agresión a un rival después de la jugada",
+      "involucrados": [ { "personaId": null, "equipoId": "…", "nombre": "Toros" },
+                        { "personaId": "…", "equipoId": null, "nombre": "Juan Pérez López" } ] }
+  ],
+  "enviadaEn": null,
+  "plazoVenceEn": null
+}
+```
+
+`jugador.id` y `entra.id` son filas de `alineaciones`. Los eventos y las incidencias van por minuto (sin
+minuto, al final).
+
+- **`POST /cedulas/{id}/eventos`** con
+  `{ "tipo": "GOL"|"AUTOGOL"|"TARJETA_AMARILLA"|"TARJETA_ROJA"|"SUSTITUCION", "minuto"?, "alineacionId",
+  "alineacionEntraId"?, "observaciones"? }`. El equipo es el de la alineación del jugador.
+  `400 VALIDACION` sin tipo o jugador, con `minuto` fuera de 0 a 150, `observaciones` de más de 500
+  caracteres, una sustitución sin el que entra o con el mismo jugador, o `alineacionEntraId` en otro tipo
+  → el jugador (o el que entra) no está en la alineación de esta cédula: `422 REFERENCIA_INVALIDA` → en
+  una sustitución, el que entra es de otro equipo: `422 RF-025`. Responde `201` con la cédula y sin
+  `Location` (el evento no tiene `GET`). Se audita `REGISTRAR_EVENTO_CEDULA` con tipo, minuto y equipo.
+- **`DELETE /cedulas/{id}/eventos/{eventoId}`** quita un evento capturado por error: `404` si no es de
+  esta cédula; responde `204`. Se audita `ELIMINAR_EVENTO_CEDULA`.
+- **`POST /cedulas/{id}/incidencias`** con
+  `{ "tipoIncidenciaId", "minuto"?, "descripcion", "involucrados": [ { "personaId" } | { "equipoId" } ] }`.
+  `400 VALIDACION` sin tipo, sin descripción (hasta 1000 caracteres), con `minuto` fuera de rango, sin
+  involucrados (hasta 30) o con uno que trae los dos identificadores, ninguno o repetido (`errores` con
+  `involucrados[i]`) → el tipo no existe en el catálogo de la liga o está inactivo:
+  `422 REFERENCIA_INVALIDA` → la persona no es un jugador alineado en la cédula o el equipo no juega el
+  partido: `422 RF-026` **[PROPUESTA]** (DEC-171). Responde `201` con la cédula. Se audita
+  `REGISTRAR_INCIDENCIA_CEDULA` con el tipo y el número de involucrados, sin la descripción. Abrir el
+  expediente de los tipos que lo piden es de M-09.
+- **`PUT /cedulas/{id}/observaciones`** con `{ "observaciones" }`: hasta 2000 caracteres; vacías o
+  `null` las quitan. Se audita `CAPTURAR_OBSERVACIONES` sin el texto.
+- **`POST /cedulas/{id}/envio`**, sin cuerpo: `EN_CAPTURA → PENDIENTE_VALIDACION`. Exige el marcador y
+  la alineación de cada equipo que se presentó (el no presentado no la necesita). Si falta algo,
+  `422 VAL-020` con la extensión `faltantes`, en este orden (DEC-170):
+
+  ```json
+  {
+    "status": 422,
+    "codigo": "VAL-020",
+    "detail": "La cédula está incompleta y no se puede enviar: Captura el marcador o marca al equipo que no se presentó. Captura la alineación de «Toros».",
+    "faltantes": [
+      { "campo": "marcador", "mensaje": "Captura el marcador o marca al equipo que no se presentó." },
+      { "campo": "alineacionVisitante", "mensaje": "Captura la alineación de «Toros»." }
+    ]
+  }
+  ```
+
+  Completa, responde `200` con `enviadaEn` y `plazoVenceEn` (el plazo del árbitro de la versión vigente
+  de los parámetros, 48 h **[DEMO]**, RF-124), deja el cambio en `cedula_estado_historial`, audita
+  `ENVIAR_CEDULA` y publica el evento de dominio `CedulaEnviada` para el aviso al árbitro designado
+  (H-25).
 
 ### 6.9 M-09 Disciplina
 

@@ -1,5 +1,6 @@
 package mx.tecnm.morelia.siglim.partidos;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -16,20 +17,24 @@ import mx.tecnm.morelia.siglim.compartido.error.ErroresTecnicos;
 import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.partidos.CedulaRepository.CedulaBloqueada;
+import mx.tecnm.morelia.siglim.partidos.CedulaRepository.DatosEnvio;
 import mx.tecnm.morelia.siglim.partidos.CedulaRepository.EquipoAlineacion;
 import mx.tecnm.morelia.siglim.partidos.CedulaRepository.MarcadorDefault;
 import mx.tecnm.morelia.siglim.partidos.CedulaRepository.PartidoCedula;
 import mx.tecnm.morelia.siglim.partidos.CedulaRepository.RegistroAlineable;
 import mx.tecnm.morelia.siglim.partidos.GuardarAlineacionesRequest.JugadorRequest;
+import mx.tecnm.morelia.siglim.partidos.RegistrarIncidenciaRequest.InvolucradoRequest;
+import mx.tecnm.morelia.siglim.partidos.eventos.CedulaEnviada;
 import mx.tecnm.morelia.siglim.programacion.EstadoPartido;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
 import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Captura de la cédula del partido: abrirla, la alineación con elegibilidad y el marcador (M-08.2,
- * H-16.1). Los eventos, las incidencias y el envío a validación son de H-16.2.
+ * H-16.1); los eventos, las incidencias, las observaciones y el envío a validación (H-16.2).
  *
  * <ul>
  *   <li><b>Permiso.</b> Consultar exige {@code partidos.cedula:CONSULTAR} y capturar,
@@ -50,12 +55,22 @@ import org.springframework.transaction.annotation.Transactional;
  *       el marcador por default de la versión vigente de los parámetros (3-0 <b>[DEMO]</b>, DEC-72) y
  *       la petición no lleva goles; si no, los dos goles son obligatorios y los penales solo se
  *       registran con empate (DEC-166).</li>
- *   <li><b>Auditoría (RF-093).</b> {@code ABRIR_CEDULA}, {@code CAPTURAR_ALINEACION} y
- *       {@code CAPTURAR_MARCADOR} en M-08, sin nombres de jugadores.</li>
+ *   <li><b>Eventos e incidencias (RF-025, RF-026, H-16.2).</b> Un evento es de un jugador alineado en
+ *       la cédula y toma su equipo; la sustitución lleva al que entra, del mismo equipo. Una incidencia
+ *       lleva un tipo activo del catálogo y al menos un involucrado: un jugador alineado o uno de los dos
+ *       equipos <b>[PROPUESTA]</b> (DEC-171). Los eventos se quitan con {@code DELETE} mientras la
+ *       cédula está en captura.</li>
+ *   <li><b>Envío (RF-122, VAL-020, H-16.2).</b> Exige el marcador y la alineación de cada equipo que se
+ *       presentó; si falta algo responde {@code 422 VAL-020} con la lista {@code faltantes}. Después ya
+ *       nada se edita ({@code 409 RF-122}) hasta que el árbitro la devuelva (DEC-170).</li>
+ *   <li><b>Auditoría (RF-093).</b> {@code ABRIR_CEDULA}, {@code CAPTURAR_ALINEACION},
+ *       {@code CAPTURAR_MARCADOR}, {@code REGISTRAR_EVENTO_CEDULA}, {@code ELIMINAR_EVENTO_CEDULA},
+ *       {@code REGISTRAR_INCIDENCIA_CEDULA}, {@code CAPTURAR_OBSERVACIONES} y {@code ENVIAR_CEDULA} en
+ *       M-08, sin nombres de jugadores ni textos libres.</li>
  * </ul>
  *
- * <p>Refs: H-16.1, RF-019, RF-020, RF-025, RF-046, RF-047, RF-110, RF-122, RF-126, VAL-002, VAL-018,
- * DEC-12, DEC-19, DEC-24, DEC-28, DEC-164, DEC-165, DEC-166
+ * <p>Refs: H-16.1, H-16.2, RF-019, RF-020, RF-025, RF-026, RF-046, RF-047, RF-110, RF-122, RF-126,
+ * VAL-002, VAL-018, VAL-020, DEC-12, DEC-19, DEC-24, DEC-28, DEC-164, DEC-165, DEC-166, DEC-170, DEC-171
  */
 @Service
 public class CedulaService {
@@ -67,17 +82,26 @@ public class CedulaService {
     private static final int GOLES_MAXIMOS = 99;
     private static final int PLAYERA_MAXIMA = 99;
     private static final int JUGADORES_MAXIMOS = 100;
+    /** Límite del {@code ck_eventos_minuto}: tiempo extra y penales caben en 150 minutos. */
+    private static final int MINUTO_MAXIMO = 150;
+    /** [PROPUESTA] Ni el ERS ni la BD fijan los largos; evitan textos desmedidos en la cédula (DEC-171). */
+    private static final int MAXIMO_OBSERVACIONES_EVENTO = 500;
+    private static final int MAXIMO_DESCRIPCION = 1000;
+    private static final int MAXIMO_OBSERVACIONES = 2000;
+    private static final int INVOLUCRADOS_MAXIMOS = 30;
 
     private final CedulaRepository cedulas;
     private final Autorizacion autorizacion;
     private final AuditoriaService auditoria;
+    private final ApplicationEventPublisher eventos;
     private final UUID ligaId;
 
     CedulaService(CedulaRepository cedulas, Autorizacion autorizacion, AuditoriaService auditoria,
-            SiglimPropiedades propiedades) {
+            ApplicationEventPublisher eventos, SiglimPropiedades propiedades) {
         this.cedulas = cedulas;
         this.autorizacion = autorizacion;
         this.auditoria = auditoria;
+        this.eventos = eventos;
         this.ligaId = propiedades.ligaId();
     }
 
@@ -269,7 +293,234 @@ public class CedulaService {
         return cedulas.buscar(cedulaId).orElseThrow();
     }
 
+    /**
+     * Registra un gol, autogol, tarjeta o sustitución (RF-025). El equipo es el de la alineación del
+     * jugador.
+     *
+     * <p>Orden: permiso → la cédula es de la liga ({@code 404}) → está en captura ({@code 409 RF-122})
+     * → datos ({@code 400 VALIDACION}) → el jugador (y el que entra) están alineados en esta cédula
+     * ({@code 422 REFERENCIA_INVALIDA}) → en una sustitución, los dos son del mismo equipo
+     * ({@code 422 RF-025}).
+     */
+    @Transactional
+    public CedulaDto registrarEvento(UUID cedulaId, RegistrarEventoRequest peticion) {
+        autorizacion.exigir(CAPTURAR, ObjetivoAutorizacion.deLiga());
+        CedulaBloqueada cedula = bloquearEnCaptura(cedulaId, "Los eventos");
+        if (peticion == null || peticion.tipo() == null) {
+            throw invalida("Indica el tipo de evento: gol, autogol, tarjeta o sustitución.");
+        }
+        if (peticion.alineacionId() == null) {
+            throw invalida("Indica el jugador del evento.");
+        }
+        boolean sustitucion = peticion.tipo() == TipoEventoCedula.SUSTITUCION;
+        if (sustitucion && peticion.alineacionEntraId() == null) {
+            throw invalida("Indica el jugador que entra en la sustitución.");
+        }
+        if (!sustitucion && peticion.alineacionEntraId() != null) {
+            throw invalida("El jugador que entra solo se indica en una sustitución.");
+        }
+        if (sustitucion && peticion.alineacionEntraId().equals(peticion.alineacionId())) {
+            throw invalida("En una sustitución entra un jugador distinto del que sale.");
+        }
+        Integer minuto = minuto(peticion.minuto());
+        String observaciones = textoOpcional(peticion.observaciones(), MAXIMO_OBSERVACIONES_EVENTO, "observaciones");
+        UUID equipoId = cedulas.equipoDeAlineacion(cedulaId, peticion.alineacionId())
+                .orElseThrow(() -> noAlineado("El jugador del evento"));
+        if (sustitucion) {
+            UUID equipoEntra = cedulas.equipoDeAlineacion(cedulaId, peticion.alineacionEntraId())
+                    .orElseThrow(() -> noAlineado("El jugador que entra"));
+            if (!equipoEntra.equals(equipoId)) {
+                throw ReglaNegocioException.noProcesable("RF-025",
+                        "En una sustitución, el jugador que entra y el que sale son del mismo equipo.");
+            }
+        }
+        cedulas.insertarEvento(cedulaId, peticion.tipo(), minuto, equipoId, peticion.alineacionId(),
+                peticion.alineacionEntraId(), observaciones);
+        cedulas.tocar(cedulaId);
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("partidoId", cedula.partidoId().toString());
+        detalle.put("tipo", peticion.tipo().name());
+        detalle.put("minuto", minuto);
+        detalle.put("equipoId", equipoId.toString());
+        auditar("REGISTRAR_EVENTO_CEDULA", cedulaId, detalle);
+        return cedulas.buscar(cedulaId).orElseThrow();
+    }
+
+    /**
+     * Quita un evento capturado por error. Orden: permiso → la cédula es de la liga ({@code 404}) → está
+     * en captura ({@code 409 RF-122}) → el evento es de esta cédula ({@code 404}).
+     */
+    @Transactional
+    public void eliminarEvento(UUID cedulaId, UUID eventoId) {
+        autorizacion.exigir(CAPTURAR, ObjetivoAutorizacion.deLiga());
+        CedulaBloqueada cedula = bloquearEnCaptura(cedulaId, "Los eventos");
+        if (cedulas.eliminarEvento(cedulaId, eventoId) == 0) {
+            throw new RecursoNoEncontradoException("Evento " + eventoId);
+        }
+        cedulas.tocar(cedulaId);
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("partidoId", cedula.partidoId().toString());
+        detalle.put("eventoId", eventoId.toString());
+        auditar("ELIMINAR_EVENTO_CEDULA", cedulaId, detalle);
+    }
+
+    /**
+     * Registra una incidencia con su tipo y sus involucrados (RF-026).
+     *
+     * <p>Orden: permiso → la cédula es de la liga ({@code 404}) → está en captura ({@code 409 RF-122})
+     * → datos ({@code 400 VALIDACION} con {@code errores} por involucrado) → el tipo es activo de la liga
+     * ({@code 422 REFERENCIA_INVALIDA}) → cada involucrado es un jugador alineado en la cédula o uno de
+     * los dos equipos ({@code 422 RF-026}) <b>[PROPUESTA]</b> (DEC-171).
+     */
+    @Transactional
+    public CedulaDto registrarIncidencia(UUID cedulaId, RegistrarIncidenciaRequest peticion) {
+        autorizacion.exigir(CAPTURAR, ObjetivoAutorizacion.deLiga());
+        CedulaBloqueada cedula = bloquearEnCaptura(cedulaId, "Las incidencias");
+        if (peticion == null || peticion.tipoIncidenciaId() == null) {
+            throw invalida("Indica el tipo de incidencia.");
+        }
+        Integer minuto = minuto(peticion.minuto());
+        String descripcion = textoOpcional(peticion.descripcion(), MAXIMO_DESCRIPCION, "descripcion");
+        if (descripcion == null) {
+            throw invalida("Describe lo que pasó en la incidencia.").con("errores",
+                    List.of(errorDeCampo("descripcion", "Es obligatoria.")));
+        }
+        List<InvolucradoRequest> involucrados = validarInvolucrados(peticion.involucrados());
+        var tipo = cedulas.tipoIncidenciaActivo(ligaId, peticion.tipoIncidenciaId())
+                .orElseThrow(() -> ReglaNegocioException.noProcesable(ErroresTecnicos.REFERENCIA_INVALIDA,
+                        "El tipo de incidencia no existe en el catálogo de la liga o está inactivo."));
+        Set<UUID> alineados = cedulas.personasAlineadas(cedulaId);
+        for (InvolucradoRequest involucrado : involucrados) {
+            if (involucrado.equipoId() != null && !cedula.juega(involucrado.equipoId())) {
+                throw ReglaNegocioException.noProcesable("RF-026",
+                        "El equipo involucrado debe ser uno de los dos equipos del partido.");
+            }
+            if (involucrado.personaId() != null && !alineados.contains(involucrado.personaId())) {
+                throw ReglaNegocioException.noProcesable("RF-026",
+                        "La persona involucrada debe ser un jugador alineado en esta cédula.");
+            }
+        }
+        UUID incidenciaId = cedulas.insertarIncidencia(cedulaId, tipo.id(), minuto, descripcion);
+        involucrados.forEach(involucrado ->
+                cedulas.insertarInvolucrado(incidenciaId, involucrado.personaId(), involucrado.equipoId()));
+        cedulas.tocar(cedulaId);
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("partidoId", cedula.partidoId().toString());
+        detalle.put("incidenciaId", incidenciaId.toString());
+        detalle.put("tipoIncidenciaId", tipo.id());
+        detalle.put("involucrados", involucrados.size());
+        auditar("REGISTRAR_INCIDENCIA_CEDULA", cedulaId, detalle);
+        return cedulas.buscar(cedulaId).orElseThrow();
+    }
+
+    /**
+     * Reemplaza las observaciones del partido (RF-025). Orden: permiso → {@code 404} →
+     * {@code 409 RF-122} → hasta 2000 caracteres ({@code 400 VALIDACION}).
+     */
+    @Transactional
+    public CedulaDto guardarObservaciones(UUID cedulaId, GuardarObservacionesRequest peticion) {
+        autorizacion.exigir(CAPTURAR, ObjetivoAutorizacion.deLiga());
+        CedulaBloqueada cedula = bloquearEnCaptura(cedulaId, "Las observaciones");
+        String observaciones = textoOpcional(peticion == null ? null : peticion.observaciones(),
+                MAXIMO_OBSERVACIONES, "observaciones");
+        cedulas.guardarObservaciones(cedulaId, observaciones);
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("partidoId", cedula.partidoId().toString());
+        detalle.put("conObservaciones", observaciones != null);
+        auditar("CAPTURAR_OBSERVACIONES", cedulaId, detalle);
+        return cedulas.buscar(cedulaId).orElseThrow();
+    }
+
+    /**
+     * Envía la cédula a validación: {@code EN_CAPTURA → PENDIENTE_VALIDACION} (RF-122).
+     *
+     * <p>Orden: permiso → la cédula es de la liga ({@code 404}) → está en captura ({@code 409 RF-122})
+     * → está completa ({@code 422 VAL-020} con la extensión {@code faltantes}: el marcador y la alineación
+     * de cada equipo que se presentó, DEC-170). El trigger fija el plazo del árbitro (RF-124) y repite
+     * VAL-020. Publica {@link CedulaEnviada} para el aviso al árbitro designado (H-25).
+     */
+    @Transactional
+    public CedulaDto enviar(UUID cedulaId) {
+        autorizacion.exigir(CAPTURAR, ObjetivoAutorizacion.deLiga());
+        CedulaBloqueada cedula = bloquearEnCaptura(cedulaId, "El envío");
+        DatosEnvio datos = cedulas.datosEnvio(cedulaId);
+        List<Map<String, Object>> faltantes = new ArrayList<>();
+        if (!datos.conMarcador()) {
+            faltantes.add(errorDeCampo("marcador", "Captura el marcador o marca al equipo que no se presentó."));
+        }
+        if (datos.jugadoresLocal() == 0 && !cedula.equipoLocalId().equals(datos.noPresentadoEquipoId())) {
+            faltantes.add(errorDeCampo("alineacionLocal", "Captura la alineación de «" + datos.localNombre() + "»."));
+        }
+        if (datos.jugadoresVisitante() == 0 && !cedula.equipoVisitanteId().equals(datos.noPresentadoEquipoId())) {
+            faltantes.add(errorDeCampo("alineacionVisitante",
+                    "Captura la alineación de «" + datos.visitanteNombre() + "»."));
+        }
+        if (!faltantes.isEmpty()) {
+            throw ReglaNegocioException.noProcesable("VAL-020", "La cédula está incompleta y no se puede enviar: "
+                            + String.join(" ", faltantes.stream().map(falta -> (String) falta.get("mensaje")).toList()))
+                    .con("faltantes", faltantes);
+        }
+        OffsetDateTime plazo = cedulas.enviar(cedulaId);
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("partidoId", cedula.partidoId().toString());
+        detalle.put("plazoVenceEn", plazo.toString());
+        auditar("ENVIAR_CEDULA", cedulaId, detalle);
+        eventos.publishEvent(new CedulaEnviada(ligaId, cedulaId, cedula.partidoId(), plazo));
+        return cedulas.buscar(cedulaId).orElseThrow();
+    }
+
     // ── Apoyo ─────────────────────────────────────────────────────────────────────────────────
+
+    /** Forma de los involucrados: al menos uno, persona o equipo (no ambos) y sin repetir. */
+    private static List<InvolucradoRequest> validarInvolucrados(List<InvolucradoRequest> involucrados) {
+        if (involucrados == null || involucrados.isEmpty()) {
+            throw invalida("Indica al menos una persona o equipo involucrado.");
+        }
+        if (involucrados.size() > INVOLUCRADOS_MAXIMOS) {
+            throw invalida("Una incidencia admite hasta " + INVOLUCRADOS_MAXIMOS + " involucrados.");
+        }
+        List<Map<String, Object>> errores = new ArrayList<>();
+        Set<UUID> vistos = new HashSet<>();
+        for (int i = 0; i < involucrados.size(); i++) {
+            InvolucradoRequest involucrado = involucrados.get(i);
+            String campo = "involucrados[" + i + "]";
+            if (involucrado == null || (involucrado.personaId() == null) == (involucrado.equipoId() == null)) {
+                errores.add(errorDeCampo(campo, "Indica una persona o un equipo, no ambos."));
+            } else if (!vistos.add(involucrado.personaId() != null ? involucrado.personaId() : involucrado.equipoId())) {
+                errores.add(errorDeCampo(campo, "El involucrado está repetido."));
+            }
+        }
+        if (!errores.isEmpty()) {
+            throw invalida("Revisa los involucrados de la incidencia.").con("errores", errores);
+        }
+        return involucrados;
+    }
+
+    private static Integer minuto(Integer minuto) {
+        if (minuto != null && (minuto < 0 || minuto > MINUTO_MAXIMO)) {
+            throw invalida("El minuto va de 0 a " + MINUTO_MAXIMO + ".").con("errores",
+                    List.of(errorDeCampo("minuto", "Fuera de rango.")));
+        }
+        return minuto;
+    }
+
+    /** Texto recortado; vacío cuenta como {@code null}. */
+    private static String textoOpcional(String texto, int maximo, String campo) {
+        if (texto == null || texto.isBlank()) {
+            return null;
+        }
+        String limpio = texto.strip();
+        if (limpio.length() > maximo) {
+            throw invalida("El texto admite hasta " + maximo + " caracteres.").con("errores",
+                    List.of(errorDeCampo(campo, "Demasiado largo.")));
+        }
+        return limpio;
+    }
+
+    private static ReglaNegocioException noAlineado(String quien) {
+        return ReglaNegocioException.noProcesable(ErroresTecnicos.REFERENCIA_INVALIDA,
+                quien + " no está en la alineación de esta cédula.");
+    }
 
     private CedulaBloqueada bloquearEnCaptura(UUID cedulaId, String contenido) {
         CedulaBloqueada cedula = cedulas.bloquear(ligaId, cedulaId)

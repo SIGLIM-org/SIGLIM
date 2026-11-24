@@ -13,7 +13,11 @@ import java.util.stream.Stream;
 import mx.tecnm.morelia.siglim.compartido.config.SeguridadPrueba;
 import mx.tecnm.morelia.siglim.compartido.error.ErroresTecnicos;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
+import mx.tecnm.morelia.siglim.partidos.CedulaDto.EventoDto;
+import mx.tecnm.morelia.siglim.partidos.CedulaDto.IncidenciaDto;
+import mx.tecnm.morelia.siglim.partidos.CedulaDto.InvolucradoDto;
 import mx.tecnm.morelia.siglim.partidos.CedulaDto.JugadorAlineadoDto;
+import mx.tecnm.morelia.siglim.partidos.CedulaDto.TipoIncidenciaDto;
 import mx.tecnm.morelia.siglim.partidos.CedulaDto.MarcadorDto;
 import mx.tecnm.morelia.siglim.partidos.CedulaDto.PartidoDto;
 import mx.tecnm.morelia.siglim.partidos.CedulaDto.ReferenciaDto;
@@ -219,14 +223,198 @@ class CedulaControllerTest {
                 .pruebas();
     }
 
+    // ── H-16.2: eventos, incidencias, observaciones y envío ─────────────────────────────────────
+
+    private static final UUID FILA = UUID.fromString("99999999-9999-4999-8999-999999999999");
+    private static final UUID EVENTO = UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    private static final String CUERPO_EVENTO = """
+            { "tipo": "GOL", "minuto": 34, "alineacionId": "%s" }
+            """.formatted(FILA);
+    private static final String CUERPO_INCIDENCIA = """
+            { "tipoIncidenciaId": 2, "minuto": 70, "descripcion": "Agresión al rival",
+              "involucrados": [ { "equipoId": "%s" } ] }
+            """.formatted(VISITANTE);
+    private static final String CUERPO_OBSERVACIONES = """
+            { "observaciones": "Lluvia en el segundo tiempo" }
+            """;
+
+    @Test
+    @DisplayName("RF-025: POST /cedulas/{id}/eventos responde 201 con la cédula y pasa el evento al servicio")
+    void registrarEvento() throws Exception {
+        given(servicio.registrarEvento(eq(CEDULA), any())).willReturn(cedula());
+
+        MvcTestResult resultado = mvc.post().uri("/api/v1/cedulas/" + CEDULA + "/eventos")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(CUERPO_EVENTO).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.CREATED);
+        assertThat(resultado).hasHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        assertThat(resultado).bodyJson().extractingPath("$.eventos[0].tipo").isEqualTo("GOL");
+        assertThat(resultado).bodyJson().extractingPath("$.eventos[0].jugador.nombre").isEqualTo("Juan Prueba");
+        ArgumentCaptor<RegistrarEventoRequest> peticion = ArgumentCaptor.forClass(RegistrarEventoRequest.class);
+        Mockito.verify(servicio).registrarEvento(eq(CEDULA), peticion.capture());
+        assertThat(peticion.getValue()).isEqualTo(new RegistrarEventoRequest(TipoEventoCedula.GOL, 34, FILA, null, null));
+    }
+
+    @Test
+    @DisplayName("RF-025: un tipo de evento que no existe responde 400 sin llegar al servicio")
+    void eventoConTipoInvalido() {
+        MvcTestResult resultado = mvc.post().uri("/api/v1/cedulas/" + CEDULA + "/eventos")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content("{ \"tipo\": \"PENAL\" }").exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        Mockito.verifyNoInteractions(servicio);
+    }
+
+    @Test
+    @DisplayName("RF-025: DELETE /cedulas/{id}/eventos/{eventoId} responde 204 sin cuerpo")
+    void eliminarEvento() {
+        MvcTestResult resultado = mvc.delete().uri("/api/v1/cedulas/" + CEDULA + "/eventos/" + EVENTO)
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.NO_CONTENT);
+        Mockito.verify(servicio).eliminarEvento(CEDULA, EVENTO);
+    }
+
+    @Test
+    @DisplayName("RF-026: POST /cedulas/{id}/incidencias responde 201 con la incidencia y sus involucrados")
+    void registrarIncidencia() throws Exception {
+        given(servicio.registrarIncidencia(eq(CEDULA), any())).willReturn(cedula());
+
+        MvcTestResult resultado = mvc.post().uri("/api/v1/cedulas/" + CEDULA + "/incidencias")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(CUERPO_INCIDENCIA).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.CREATED);
+        assertThat(resultado).bodyJson().extractingPath("$.incidencias[0].tipo.abreExpediente").isEqualTo(true);
+        assertThat(resultado).bodyJson().extractingPath("$.incidencias[0].involucrados[0].nombre").isEqualTo("Toros");
+        ArgumentCaptor<RegistrarIncidenciaRequest> peticion = ArgumentCaptor.forClass(RegistrarIncidenciaRequest.class);
+        Mockito.verify(servicio).registrarIncidencia(eq(CEDULA), peticion.capture());
+        assertThat(peticion.getValue().involucrados())
+                .containsExactly(new RegistrarIncidenciaRequest.InvolucradoRequest(null, VISITANTE));
+    }
+
+    @Test
+    @DisplayName("RF-025: PUT /cedulas/{id}/observaciones responde 200 con la cédula")
+    void guardarObservaciones() {
+        given(servicio.guardarObservaciones(eq(CEDULA), any())).willReturn(cedula());
+
+        MvcTestResult resultado = mvc.put().uri("/api/v1/cedulas/" + CEDULA + "/observaciones")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(CUERPO_OBSERVACIONES).exchange();
+
+        assertThat(resultado).hasStatusOk();
+        Mockito.verify(servicio).guardarObservaciones(CEDULA, new GuardarObservacionesRequest("Lluvia en el segundo tiempo"));
+    }
+
+    @Test
+    @DisplayName("RF-122: POST /cedulas/{id}/envio responde 200 con la cédula en validación y su plazo")
+    void enviar() {
+        given(servicio.enviar(CEDULA)).willReturn(cedula());
+
+        MvcTestResult resultado = mvc.post().uri("/api/v1/cedulas/" + CEDULA + "/envio")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatusOk();
+        assertThat(resultado).bodyJson().extractingPath("$.plazoVenceEn").isEqualTo("2031-03-12T10:00:00-06:00");
+    }
+
+    @Test
+    @DisplayName("VAL-020: el 422 del envío incompleto conserva la extensión faltantes")
+    void enviarIncompleta() {
+        given(servicio.enviar(CEDULA)).willThrow(ReglaNegocioException.noProcesable("VAL-020",
+                        "La cédula está incompleta y no se puede enviar: Captura el marcador.")
+                .con("faltantes", List.of(Map.of("campo", "marcador", "mensaje", "Captura el marcador."))));
+
+        MvcTestResult resultado = mvc.post().uri("/api/v1/cedulas/" + CEDULA + "/envio")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.UNPROCESSABLE_CONTENT);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo("VAL-020");
+        assertThat(resultado).bodyJson().extractingPath("$.faltantes[0].campo").isEqualTo("marcador");
+    }
+
+    @Test
+    @DisplayName("RF-122: el 409 de la cédula fuera de captura llega con su código")
+    void fueraDeCaptura() {
+        given(servicio.registrarEvento(eq(CEDULA), any())).willThrow(ReglaNegocioException.conflicto("RF-122",
+                "Los eventos solo se modifican mientras la cédula está en captura; ahora está pendiente validacion."));
+
+        MvcTestResult resultado = mvc.post().uri("/api/v1/cedulas/" + CEDULA + "/eventos")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(CUERPO_EVENTO).exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.CONFLICT);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo("RF-122");
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de POST /api/v1/cedulas/{id}/eventos")
+    Stream<DynamicTest> seguridadEventos() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.POST, "/api/v1/cedulas/{id}/eventos", CEDULA)
+                .cuerpoJson(CUERPO_EVENTO)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.registrarEvento(eq(CEDULA), any())).willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de DELETE /api/v1/cedulas/{id}/eventos/{eventoId}")
+    Stream<DynamicTest> seguridadEliminarEvento() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.DELETE, "/api/v1/cedulas/{id}/eventos/{eventoId}", CEDULA, EVENTO)
+                .dobles(servicio)
+                .simularDenegacion(error -> Mockito.doThrow(error).when(servicio).eliminarEvento(CEDULA, EVENTO))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de POST /api/v1/cedulas/{id}/incidencias")
+    Stream<DynamicTest> seguridadIncidencias() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.POST, "/api/v1/cedulas/{id}/incidencias", CEDULA)
+                .cuerpoJson(CUERPO_INCIDENCIA)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.registrarIncidencia(eq(CEDULA), any())).willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de PUT /api/v1/cedulas/{id}/observaciones")
+    Stream<DynamicTest> seguridadObservaciones() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.PUT, "/api/v1/cedulas/{id}/observaciones", CEDULA)
+                .cuerpoJson(CUERPO_OBSERVACIONES)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.guardarObservaciones(eq(CEDULA), any())).willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de POST /api/v1/cedulas/{id}/envio")
+    Stream<DynamicTest> seguridadEnvio() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.POST, "/api/v1/cedulas/{id}/envio", CEDULA)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.enviar(CEDULA)).willThrow(error))
+                .pruebas();
+    }
+
     private static CedulaDto cedula() {
         OffsetDateTime inicio = OffsetDateTime.parse("2031-03-10T10:00:00-06:00");
+        UUID fila = UUID.randomUUID();
         return new CedulaDto(CEDULA,
                 new PartidoDto(PARTIDO, new ReferenciaDto(LOCAL, "Halcones"), new ReferenciaDto(VISITANTE, "Toros"),
                         inicio, EstadoPartido.EN_CURSO),
                 EstadoCedula.EN_CAPTURA, new ReferenciaDto(UUID.randomUUID(), "Capturista"),
                 new MarcadorDto(0, 3, null, null, new ReferenciaDto(LOCAL, "Halcones"), true, true),
-                List.of(new JugadorAlineadoDto(UUID.randomUUID(), REGISTRO, "Juan Prueba", LOCAL, 10, true, true)),
-                null, inicio, inicio);
+                List.of(new JugadorAlineadoDto(fila, REGISTRO, "Juan Prueba", LOCAL, 10, true, true)),
+                List.of(new EventoDto(EVENTO, TipoEventoCedula.GOL, 34, LOCAL, new ReferenciaDto(fila, "Juan Prueba"),
+                        null, null)),
+                List.of(new IncidenciaDto(UUID.randomUUID(), new TipoIncidenciaDto(2L, "Expulsión", true), 70,
+                        "Agresión al rival", List.of(new InvolucradoDto(null, VISITANTE, "Toros")))),
+                null, null, inicio.plusDays(2), inicio, inicio);
     }
 }
