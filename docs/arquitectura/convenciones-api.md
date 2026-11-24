@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.22 · 22 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.23 · 23 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -71,6 +71,7 @@ Versión 5.22 · 22 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.20 | 17 de noviembre de 2026 | §6.4 «Alta de un registro», paso 11: `POST /registros-jugador` responde `409 RF-111` si el registro anterior más reciente de la persona es de otro club y la temporada no permite el cambio de club, como la transferencia; no obliga a usar el movimiento (DEC-154). |
 | 5.21 | 22 de noviembre de 2026 | DEF-10.1 (SCRUM-450): §6.1 con `curp` opcional en `POST /usuarios`, que vincula el perfil con la persona (`perfiles.persona_id`); el orden de errores (`400 VALIDACION` del formato, `409 DUPLICADO` con `campo`, `422 REFERENCIA_INVALIDA`, `422 RF-106` y `409 DUPLICADO` con `perfilId`), todos antes de llamar a Supabase Auth; `personaId` en la lista y el detalle; y `personaId` en el detalle de `INVITAR_USUARIO` (DEC-155 a DEC-159). |
 | 5.22 | 22 de noviembre de 2026 | H-15.1: §6.8 «Consulta y transiciones del partido» con el listado paginado `GET /partidos?jornadaId=&estado=&desde=&hasta=`, el detalle con jornada, árbitros, cédula, resultado vigente, historial y `accionesPermitidas`, el historial y `POST /partidos/{id}/transiciones` (motivo `400 RN-021`, transición prohibida `409 RF-046` con `estadoActual` y `accionesPermitidas`, jornada sin publicar `409 RF-090`, reprogramación con `inicio` futuro y conflictos `409 VAL-003` a `VAL-006`); visibilidad por ámbito (DEC-160 a DEC-162). |
+| 5.23 | 23 de noviembre de 2026 | H-16.1: §6.8 con la captura de la cédula: `GET` y `POST /partidos/{id}/cedula` (abrir solo con el partido `EN_CURSO`, una vez, `201` con `Location`), `PUT /cedulas/{id}/alineaciones` (reemplazo completo, `422 VAL-002` con un error por jugador: `RF-019`, `RF-020`, `VAL-018`, `RF-025`, `REFERENCIA_INVALIDA`) y `PUT /cedulas/{id}/marcador` (no presentación con el marcador por default de la versión vigente de los parámetros, penales solo con empate); permisos `partidos.cedula:CONSULTAR` y `:CAPTURAR` con ámbito `LIGA`; auditoría `ABRIR_CEDULA`, `CAPTURAR_ALINEACION` y `CAPTURAR_MARCADOR` (DEC-164 a DEC-166). |
 
 ## Índice
 
@@ -2271,7 +2272,7 @@ paso en `historial_publicacion` con quien lo hizo y su motivo.
 | `GET /partidos?jornadaId=&estado=&desde=&hasta=` · `GET /partidos/{id}` | Partido con estado, historial, árbitros, cédula, resultado y `accionesPermitidas` | `partidos.partido:CONSULTAR` | RF-043, RF-046 | N |
 | `GET /partidos/{id}/historial` | Transiciones con usuario y motivo | `partidos.partido:CONSULTAR` | RF-045 | N |
 | `POST /partidos/{id}/transiciones` | Suspender, reprogramar o cancelar | `partidos.partido:CAMBIAR_ESTADO` | RF-043 | N |
-| `GET /partidos/{id}/cedula` · `POST /partidos/{id}/cedula` | Obtener o abrir la cédula (`EN_CAPTURA`) | `partidos.cedula:*` | RF-025 | N |
+| `GET /partidos/{id}/cedula` · `POST /partidos/{id}/cedula` | Obtener o abrir la cédula (`EN_CAPTURA`); detalle abajo | `partidos.cedula:CONSULTAR` · `partidos.cedula:CAPTURAR` (ámbito `LIGA`) | RF-025, RF-046 | N |
 | `PUT /cedulas/{id}/alineaciones` | Alineación de ambos equipos; valida elegibilidad por jugador (`422` con `errores` por jugador) | `partidos.cedula:CAPTURAR` | RF-019, RF-110, VAL-002, VAL-018 | N |
 | `PUT /cedulas/{id}/marcador` | Goles, penales, no presentación (marcador por default de los parámetros) | `partidos.cedula:CAPTURAR` | RF-047, RF-126 | N |
 | `POST /cedulas/{id}/eventos` · `DELETE /cedulas/{id}/eventos/{eventoId}` | Goles, tarjetas, sustituciones | `partidos.cedula:CAPTURAR` | RF-025 | N |
@@ -2347,6 +2348,80 @@ nuevos.
   "canchaId": "…"
 }
 ```
+
+
+#### Captura de la cédula: abrirla, alineación y marcador (H-16.1, RF-025, RF-047, RF-126, DEC-164 a DEC-166)
+
+Los tres exigen su permiso con ámbito `LIGA` (`partidos.cedula:CONSULTAR` para leer y
+`partidos.cedula:CAPTURAR` para escribir; en la matriz inicial, el Capturista). La consulta del árbitro
+designado (`PROPIO`) llega con H-17 **[PROPUESTA]**. Las respuestas llevan `Cache-Control: no-store`
+y la misma cédula:
+
+```json
+{
+  "id": "…",
+  "partido": { "id": "…", "equipoLocal": { "id": "…", "nombre": "Halcones" },
+               "equipoVisitante": { "id": "…", "nombre": "Toros" },
+               "inicio": "2026-11-28T10:00:00-06:00", "estado": "EN_CURSO" },
+  "estado": "EN_CAPTURA",
+  "capturista": { "id": "…", "nombre": "Capturista" },
+  "marcador": { "golesLocal": 3, "golesVisitante": 0, "penalesLocal": null, "penalesVisitante": null,
+                "noPresentado": { "id": "…", "nombre": "Toros" }, "porDefault": true, "valorDemo": true },
+  "alineaciones": [
+    { "id": "…", "registroJugadorId": "…", "nombre": "Juan Pérez López", "equipoId": "…",
+      "numeroPlayera": 10, "titular": true, "categoriaSuperior": false }
+  ],
+  "observaciones": null,
+  "creadoEn": "2026-11-28T10:05:00-06:00",
+  "actualizadoEn": "2026-11-28T10:20:00-06:00"
+}
+```
+
+`alineaciones` va con el local primero, los titulares antes y por número de playera; nunca lleva la
+CURP. `marcador.porDefault` indica la no presentación y `marcador.valorDemo`, que el marcador por
+default sale de parámetros de demostración (la interfaz lo rotula «No oficial»).
+
+- **`GET /partidos/{id}/cedula`.** `404` si el partido no es de la liga o si todavía no tiene cédula.
+- **`POST /partidos/{id}/cedula`**, sin cuerpo. Orden: `403 VAL-015` → partido de otra liga `404` →
+  el partido no está `EN_CURSO`: `409 RF-046` → ya tiene cédula: `409 DUPLICADO`. Responde `201` con
+  `Location: /api/v1/partidos/{id}/cedula`; la sesión queda como capturista y nunca podrá aprobarla
+  (VAL-021). Se audita `ABRIR_CEDULA`.
+- **`PUT /cedulas/{id}/alineaciones`** con
+  `{ "jugadores": [ { "registroJugadorId", "equipoId", "numeroPlayera", "titular" } ] }` reemplaza la
+  alineación de los dos equipos (una lista vacía la quita). `titular` vale `true` si se omite. Orden:
+  `403` → cédula de otra liga `404` → la cédula no está `EN_CAPTURA`: `409 RF-122` → forma inválida:
+  `400 VALIDACION` con `errores` por campo (`jugadores[i].registroJugadorId`, jugador repetido,
+  `numeroPlayera` de 0 a 99, hasta 100 jugadores) → algún jugador no elegible: `422 VAL-002` → un
+  jugador que sale ya tiene eventos: `422 RF-025`. En el `422 VAL-002` no se guarda nadie y `errores`
+  trae un elemento por jugador:
+
+  ```json
+  { "campo": "jugadores[1]", "indice": 1, "registroJugadorId": "…", "codigo": "RF-020",
+    "mensaje": "«Juan Pérez López» tiene una sanción vigente que le impide jugar." }
+  ```
+
+  | `codigo` del jugador | Causa |
+  | --- | --- |
+  | `RF-025` | El equipo indicado no juega el partido |
+  | `REFERENCIA_INVALIDA` | El registro no existe en la liga |
+  | `RF-019` | El registro es de otra temporada o no está `ACTIVO` (el mensaje dice su estado) |
+  | `RF-020` | Sanción `VIGENTE` de suspensión por partidos o de baja |
+  | `VAL-018` | Otro equipo que no es la categoría inmediata superior de su club (RF-110, DEC-12) |
+
+  Quien sigue en la alineación conserva su fila (sus eventos no se pierden). Se audita
+  `CAPTURAR_ALINEACION` con el número de jugadores de cada equipo, sin nombres.
+- **`PUT /cedulas/{id}/marcador`** con
+  `{ "golesLocal", "golesVisitante", "penalesLocal", "penalesVisitante", "noPresentadoEquipoId" }`.
+  Orden: `403` → `404` → `409 RF-122` → datos: `400 VALIDACION` (goles obligatorios de 0 a 99 si ambos
+  jugaron, penales de los dos o de ninguno, sin goles ni penales con un equipo no presentado) → el
+  equipo no presentado no juega el partido: `422 RF-126` → la temporada no tiene parámetros:
+  `409 RF-100` → penales sin empate: `422 RF-047` (DEC-28). Con `noPresentadoEquipoId`, el sistema
+  asigna `goles_default_ganador` al equipo que sí se presentó y `goles_default_perdedor` al otro, de la
+  versión vigente de los parámetros (3-0 **[DEMO]**, DEC-24, DEC-72). Se audita `CAPTURAR_MARCADOR`
+  con los goles, el equipo no presentado y `porDefault`.
+
+Los eventos (goles, tarjetas y sustituciones), las incidencias, las observaciones y el envío a
+validación (VAL-020) son de H-16.2.
 
 ### 6.9 M-09 Disciplina
 

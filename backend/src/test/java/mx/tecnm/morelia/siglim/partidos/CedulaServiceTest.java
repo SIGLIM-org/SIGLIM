@@ -1,0 +1,448 @@
+package mx.tecnm.morelia.siglim.partidos;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
+import mx.tecnm.morelia.siglim.auditoria.EventoAuditoria;
+import mx.tecnm.morelia.siglim.compartido.config.SiglimPropiedades;
+import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
+import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
+import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
+import mx.tecnm.morelia.siglim.partidos.CedulaDto.MarcadorDto;
+import mx.tecnm.morelia.siglim.partidos.CedulaDto.PartidoDto;
+import mx.tecnm.morelia.siglim.partidos.CedulaDto.ReferenciaDto;
+import mx.tecnm.morelia.siglim.partidos.CedulaRepository.CedulaBloqueada;
+import mx.tecnm.morelia.siglim.partidos.CedulaRepository.EquipoAlineacion;
+import mx.tecnm.morelia.siglim.partidos.CedulaRepository.MarcadorDefault;
+import mx.tecnm.morelia.siglim.partidos.CedulaRepository.PartidoCedula;
+import mx.tecnm.morelia.siglim.partidos.CedulaRepository.RegistroAlineable;
+import mx.tecnm.morelia.siglim.partidos.GuardarAlineacionesRequest.JugadorRequest;
+import mx.tecnm.morelia.siglim.programacion.EstadoPartido;
+import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
+import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+
+/** Captura de la cédula: abrirla, alineación con elegibilidad y marcador (H-16.1), sin Spring ni base. */
+class CedulaServiceTest {
+
+    private static final UUID LIGA = UUID.fromString("a0000000-0000-4000-8000-000000000001");
+    private static final UUID PERFIL = UUID.fromString("55555555-5555-4555-8555-555555555555");
+    private static final UUID PARTIDO = UUID.fromString("11111111-1111-4111-8111-111111111111");
+    private static final UUID CEDULA = UUID.fromString("22222222-2222-4222-8222-222222222222");
+    private static final UUID TEMPORADA = UUID.fromString("33333333-3333-4333-8333-333333333333");
+    private static final UUID OTRA_TEMPORADA = UUID.fromString("33333333-3333-4333-8333-000000000000");
+    private static final UUID LOCAL = UUID.fromString("44444444-4444-4444-8444-000000000001");
+    private static final UUID VISITANTE = UUID.fromString("44444444-4444-4444-8444-000000000002");
+    private static final UUID LOCAL_SEGUNDA = UUID.fromString("44444444-4444-4444-8444-000000000003");
+    private static final UUID AJENO = UUID.fromString("44444444-4444-4444-8444-000000000004");
+    private static final UUID CLUB_LOCAL = UUID.fromString("66666666-6666-4666-8666-000000000001");
+    private static final UUID CLUB_VISITANTE = UUID.fromString("66666666-6666-4666-8666-000000000002");
+    private static final UUID PRIMERA = UUID.fromString("77777777-7777-4777-8777-000000000001");
+    private static final UUID SEGUNDA = UUID.fromString("77777777-7777-4777-8777-000000000002");
+
+    private final CedulaRepository cedulas = mock(CedulaRepository.class);
+    private final Autorizacion autorizacion = mock(Autorizacion.class);
+    private final AuditoriaService auditoria = mock(AuditoriaService.class);
+    private final CedulaService servicio = new CedulaService(cedulas, autorizacion, auditoria,
+            new SiglimPropiedades(null, null, null, LIGA));
+
+    @BeforeEach
+    void iniciarSesion() {
+        Instant ahora = Instant.now();
+        Jwt token = Jwt.withTokenValue("token-de-prueba").header("alg", "ES256")
+                .subject(UUID.randomUUID().toString()).issuedAt(ahora).expiresAt(ahora.plusSeconds(3600)).build();
+        SecurityContextHolder.getContext().setAuthentication(new AutenticacionSiglim(token, PERFIL));
+        given(cedulas.buscar(CEDULA)).willReturn(Optional.of(cedula()));
+    }
+
+    @AfterEach
+    void cerrarSesion() {
+        SecurityContextHolder.clearContext();
+    }
+
+    // ── Consultar ───────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-025: consulta la cédula del partido con partidos.cedula:CONSULTAR en la liga")
+    void consultar() {
+        given(cedulas.existePartido(LIGA, PARTIDO)).willReturn(true);
+        given(cedulas.cedulaDePartido(PARTIDO)).willReturn(Optional.of(CEDULA));
+
+        assertThat(servicio.consultar(PARTIDO).id()).isEqualTo(CEDULA);
+        verify(autorizacion).exigir(CedulaService.CONSULTAR, ObjetivoAutorizacion.deLiga());
+    }
+
+    @Test
+    @DisplayName("VAL-024: un partido de otra liga o sin cédula responde 404")
+    void consultarInexistente() {
+        given(cedulas.existePartido(LIGA, PARTIDO)).willReturn(false);
+        assertThatThrownBy(() -> servicio.consultar(PARTIDO)).isInstanceOf(RecursoNoEncontradoException.class);
+
+        given(cedulas.existePartido(LIGA, PARTIDO)).willReturn(true);
+        given(cedulas.cedulaDePartido(PARTIDO)).willReturn(Optional.empty());
+        assertThatThrownBy(() -> servicio.consultar(PARTIDO)).isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
+    // ── Abrir ───────────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-025: abre la cédula EN_CAPTURA con la sesión como capturista y la audita")
+    void abrir() {
+        given(cedulas.bloquearPartido(LIGA, PARTIDO)).willReturn(Optional.of(partido(EstadoPartido.EN_CURSO)));
+        given(cedulas.cedulaDePartido(PARTIDO)).willReturn(Optional.empty());
+        given(cedulas.insertar(PARTIDO, PERFIL)).willReturn(Optional.of(CEDULA));
+
+        CedulaDto abierta = servicio.abrir(PARTIDO);
+
+        assertThat(abierta.estado()).isEqualTo(EstadoCedula.EN_CAPTURA);
+        verify(autorizacion).exigir(CedulaService.CAPTURAR, ObjetivoAutorizacion.deLiga());
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.accion()).isEqualTo("ABRIR_CEDULA");
+        assertThat(evento.modulo()).isEqualTo("M-08");
+        assertThat(evento.entidadId()).isEqualTo(CEDULA.toString());
+    }
+
+    @Test
+    @DisplayName("RF-046: un partido que no está en curso responde 409 y no abre la cédula")
+    void abrirPartidoNoEnCurso() {
+        given(cedulas.bloquearPartido(LIGA, PARTIDO)).willReturn(Optional.of(partido(EstadoPartido.PROGRAMADO)));
+
+        esperarError(() -> servicio.abrir(PARTIDO), "RF-046", HttpStatus.CONFLICT);
+        verify(cedulas, never()).insertar(any(), any());
+    }
+
+    @Test
+    @DisplayName("RF-025: un partido con cédula responde 409 DUPLICADO, también si otra petición la abrió antes")
+    void abrirDuplicada() {
+        given(cedulas.bloquearPartido(LIGA, PARTIDO)).willReturn(Optional.of(partido(EstadoPartido.EN_CURSO)));
+        given(cedulas.cedulaDePartido(PARTIDO)).willReturn(Optional.of(CEDULA));
+        esperarError(() -> servicio.abrir(PARTIDO), "DUPLICADO", HttpStatus.CONFLICT);
+
+        given(cedulas.cedulaDePartido(PARTIDO)).willReturn(Optional.empty());
+        given(cedulas.insertar(PARTIDO, PERFIL)).willReturn(Optional.empty());
+        esperarError(() -> servicio.abrir(PARTIDO), "DUPLICADO", HttpStatus.CONFLICT);
+    }
+
+    @Test
+    @DisplayName("VAL-024: un partido que no es de la liga responde 404")
+    void abrirPartidoInexistente() {
+        given(cedulas.bloquearPartido(LIGA, PARTIDO)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.abrir(PARTIDO)).isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
+    // ── Alineación ──────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-019 · RF-110: guarda jugadores elegibles, incluido uno de la categoría inmediata superior, y audita")
+    void guardarAlineacion() {
+        UUID titularLocal = UUID.randomUUID();
+        UUID deSegunda = UUID.randomUUID();
+        UUID visitante = UUID.randomUUID();
+        enCaptura();
+        given(cedulas.registros(any(), anyCollection())).willReturn(Map.of(
+                titularLocal, registro(titularLocal, "ACTIVO", TEMPORADA, LOCAL, CLUB_LOCAL, PRIMERA, null, false),
+                deSegunda, registro(deSegunda, "ACTIVO", TEMPORADA, LOCAL_SEGUNDA, CLUB_LOCAL, SEGUNDA, PRIMERA, false),
+                visitante, registro(visitante, "ACTIVO", TEMPORADA, VISITANTE, CLUB_VISITANTE, PRIMERA, null, false)));
+        given(cedulas.equipos(anyCollection())).willReturn(equipos());
+        given(cedulas.alineacionActual(CEDULA)).willReturn(Map.of());
+
+        servicio.guardarAlineaciones(CEDULA, new GuardarAlineacionesRequest(List.of(
+                new JugadorRequest(titularLocal, LOCAL, 10, null),
+                new JugadorRequest(deSegunda, LOCAL, 14, false),
+                new JugadorRequest(visitante, VISITANTE, 9, true))));
+
+        verify(cedulas).insertarAlineacion(CEDULA, titularLocal, LOCAL, 10, true);
+        verify(cedulas).insertarAlineacion(CEDULA, deSegunda, LOCAL, 14, false);
+        verify(cedulas).insertarAlineacion(CEDULA, visitante, VISITANTE, 9, true);
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.accion()).isEqualTo("CAPTURAR_ALINEACION");
+        assertThat(evento.detalle()).containsEntry("jugadoresLocal", 2).containsEntry("jugadoresVisitante", 1);
+        assertThat(evento.detalle().toString()).doesNotContain("Jugador");
+    }
+
+    @Test
+    @DisplayName("VAL-002 · RF-019 · RF-020 · VAL-018 · RF-025: devuelve un error por jugador y no guarda nada")
+    void alineacionConJugadoresNoElegibles() {
+        UUID pendiente = UUID.randomUUID();
+        UUID sancionado = UUID.randomUUID();
+        UUID otroClub = UUID.randomUUID();
+        UUID otraTemporada = UUID.randomUUID();
+        UUID inexistente = UUID.randomUUID();
+        UUID equipoAjeno = UUID.randomUUID();
+        enCaptura();
+        given(cedulas.registros(any(), anyCollection())).willReturn(Map.of(
+                pendiente, registro(pendiente, "PENDIENTE_VALIDACION", TEMPORADA, LOCAL, CLUB_LOCAL, PRIMERA, null, false),
+                sancionado, registro(sancionado, "ACTIVO", TEMPORADA, LOCAL, CLUB_LOCAL, PRIMERA, null, true),
+                otroClub, registro(otroClub, "ACTIVO", TEMPORADA, AJENO, CLUB_VISITANTE, SEGUNDA, PRIMERA, false),
+                otraTemporada, registro(otraTemporada, "ACTIVO", OTRA_TEMPORADA, LOCAL, CLUB_LOCAL, PRIMERA, null, false),
+                equipoAjeno, registro(equipoAjeno, "ACTIVO", TEMPORADA, LOCAL, CLUB_LOCAL, PRIMERA, null, false)));
+        given(cedulas.equipos(anyCollection())).willReturn(equipos());
+
+        assertThatThrownBy(() -> servicio.guardarAlineaciones(CEDULA, new GuardarAlineacionesRequest(List.of(
+                new JugadorRequest(pendiente, LOCAL, null, null),
+                new JugadorRequest(sancionado, LOCAL, null, null),
+                new JugadorRequest(otroClub, LOCAL, null, null),
+                new JugadorRequest(otraTemporada, LOCAL, null, null),
+                new JugadorRequest(inexistente, VISITANTE, null, null),
+                new JugadorRequest(equipoAjeno, AJENO, null, null)))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.codigo()).isEqualTo("VAL-002");
+                    assertThat(error.estado()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> errores = (List<Map<String, Object>>) error.propiedades().get("errores");
+                    assertThat(errores).extracting(e -> e.get("codigo"))
+                            .containsExactly("RF-019", "RF-020", "VAL-018", "RF-019", "REFERENCIA_INVALIDA", "RF-025");
+                    assertThat(errores).extracting(e -> e.get("indice")).containsExactly(0, 1, 2, 3, 4, 5);
+                    assertThat(errores.get(0).get("mensaje")).asString()
+                            .contains("«Jugador " + pendiente + "»").contains("pendiente de validación");
+                    assertThat(errores.get(1).get("mensaje")).asString().contains("sanción vigente");
+                    assertThat(errores.get(2).get("mensaje")).asString().contains("categoría inmediata superior");
+                });
+        verify(cedulas, never()).insertarAlineacion(any(), any(), any(), any(), anyBoolean());
+        verify(cedulas, never()).eliminarAlineaciones(anyCollection());
+        verify(auditoria, never()).registrar(any());
+    }
+
+    @Test
+    @DisplayName("VAL-018: un jugador de su club dos categorías abajo no se alinea en la superior")
+    void alineacionDosCategoriasArriba() {
+        UUID deTercera = UUID.randomUUID();
+        UUID tercera = UUID.randomUUID();
+        enCaptura();
+        given(cedulas.registros(any(), anyCollection())).willReturn(Map.of(deTercera,
+                registro(deTercera, "ACTIVO", TEMPORADA, LOCAL_SEGUNDA, CLUB_LOCAL, tercera, SEGUNDA, false)));
+        given(cedulas.equipos(anyCollection())).willReturn(equipos());
+
+        esperarError(() -> servicio.guardarAlineaciones(CEDULA, new GuardarAlineacionesRequest(List.of(
+                new JugadorRequest(deTercera, LOCAL, null, null)))), "VAL-002", HttpStatus.UNPROCESSABLE_CONTENT);
+    }
+
+    @Test
+    @DisplayName("VALIDACION: sin lista, con un jugador repetido o una playera fuera de 0 a 99 responde 400 con errores")
+    void alineacionMalFormada() {
+        enCaptura();
+        UUID repetido = UUID.randomUUID();
+        esperarError(() -> servicio.guardarAlineaciones(CEDULA, new GuardarAlineacionesRequest(null)),
+                "VALIDACION", HttpStatus.BAD_REQUEST);
+        assertThatThrownBy(() -> servicio.guardarAlineaciones(CEDULA, new GuardarAlineacionesRequest(List.of(
+                new JugadorRequest(repetido, LOCAL, 10, true),
+                new JugadorRequest(repetido, LOCAL, 11, true),
+                new JugadorRequest(null, null, 100, true)))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+                    assertThat(error.codigo()).isEqualTo("VALIDACION");
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> errores = (List<Map<String, Object>>) error.propiedades().get("errores");
+                    assertThat(errores).extracting(e -> e.get("campo")).containsExactly(
+                            "jugadores[1].registroJugadorId", "jugadores[2].registroJugadorId",
+                            "jugadores[2].equipoId", "jugadores[2].numeroPlayera");
+                });
+        verify(cedulas, never()).registros(any(), anyCollection());
+    }
+
+    @Test
+    @DisplayName("RF-122: con la cédula fuera de captura la alineación y el marcador responden 409")
+    void contenidoFueraDeCaptura() {
+        given(cedulas.bloquear(LIGA, CEDULA)).willReturn(Optional.of(bloqueada(EstadoCedula.PENDIENTE_VALIDACION)));
+
+        esperarError(() -> servicio.guardarAlineaciones(CEDULA, new GuardarAlineacionesRequest(List.of())),
+                "RF-122", HttpStatus.CONFLICT);
+        esperarError(() -> servicio.guardarMarcador(CEDULA, new GuardarMarcadorRequest(1, 0, null, null, null)),
+                "RF-122", HttpStatus.CONFLICT);
+        verify(cedulas, never()).guardarMarcador(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("RF-025: reemplaza la alineación: actualiza a quien sigue, agrega al nuevo y quita al que sale")
+    void reemplazarAlineacion() {
+        UUID sigue = UUID.randomUUID();
+        UUID nuevo = UUID.randomUUID();
+        UUID sale = UUID.randomUUID();
+        UUID filaSigue = UUID.randomUUID();
+        UUID filaSale = UUID.randomUUID();
+        enCaptura();
+        given(cedulas.registros(any(), anyCollection())).willReturn(Map.of(
+                sigue, registro(sigue, "ACTIVO", TEMPORADA, LOCAL, CLUB_LOCAL, PRIMERA, null, false),
+                nuevo, registro(nuevo, "ACTIVO", TEMPORADA, VISITANTE, CLUB_VISITANTE, PRIMERA, null, false)));
+        given(cedulas.equipos(anyCollection())).willReturn(equipos());
+        given(cedulas.alineacionActual(CEDULA)).willReturn(Map.of(sigue, filaSigue, sale, filaSale));
+        given(cedulas.conEventos(Set.of(filaSale))).willReturn(Set.of());
+
+        servicio.guardarAlineaciones(CEDULA, new GuardarAlineacionesRequest(List.of(
+                new JugadorRequest(sigue, LOCAL, 7, false),
+                new JugadorRequest(nuevo, VISITANTE, 3, true))));
+
+        verify(cedulas).eliminarAlineaciones(Set.of(filaSale));
+        verify(cedulas).actualizarAlineacion(filaSigue, LOCAL, 7, false);
+        verify(cedulas).insertarAlineacion(CEDULA, nuevo, VISITANTE, 3, true);
+    }
+
+    @Test
+    @DisplayName("RF-025: quitar a un jugador con eventos en la cédula responde 422 y no cambia nada")
+    void quitarJugadorConEventos() {
+        UUID sale = UUID.randomUUID();
+        UUID filaSale = UUID.randomUUID();
+        enCaptura();
+        given(cedulas.registros(any(), anyCollection())).willReturn(Map.of());
+        given(cedulas.equipos(anyCollection())).willReturn(equipos());
+        given(cedulas.alineacionActual(CEDULA)).willReturn(Map.of(sale, filaSale));
+        given(cedulas.conEventos(Set.of(filaSale))).willReturn(Set.of(filaSale));
+
+        esperarError(() -> servicio.guardarAlineaciones(CEDULA, new GuardarAlineacionesRequest(List.of())),
+                "RF-025", HttpStatus.UNPROCESSABLE_CONTENT);
+        verify(cedulas, never()).eliminarAlineaciones(anyCollection());
+    }
+
+    // ── Marcador ────────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-047: guarda el marcador y lo audita sin datos personales")
+    void guardarMarcador() {
+        enCaptura();
+
+        servicio.guardarMarcador(CEDULA, new GuardarMarcadorRequest(2, 1, null, null, null));
+
+        verify(cedulas).guardarMarcador(CEDULA, 2, 1, null, null, null);
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.accion()).isEqualTo("CAPTURAR_MARCADOR");
+        assertThat(evento.detalle()).containsEntry("golesLocal", 2).containsEntry("golesVisitante", 1)
+                .containsEntry("porDefault", false);
+    }
+
+    @Test
+    @DisplayName("RF-126 · DEC-24: el equipo no presentado pierde con el marcador por default de los parámetros")
+    void noPresentacion() {
+        enCaptura();
+        given(cedulas.marcadorDefault(TEMPORADA)).willReturn(Optional.of(new MarcadorDefault(3, 0, true)));
+
+        servicio.guardarMarcador(CEDULA, new GuardarMarcadorRequest(null, null, null, null, LOCAL));
+        verify(cedulas).guardarMarcador(CEDULA, 0, 3, null, null, LOCAL);
+
+        servicio.guardarMarcador(CEDULA, new GuardarMarcadorRequest(null, null, null, null, VISITANTE));
+        verify(cedulas).guardarMarcador(CEDULA, 3, 0, null, null, VISITANTE);
+    }
+
+    @Test
+    @DisplayName("DEC-72: el marcador por default sale de la versión vigente de los parámetros, no del código")
+    void noPresentacionConParametrosPropios() {
+        enCaptura();
+        given(cedulas.marcadorDefault(TEMPORADA)).willReturn(Optional.of(new MarcadorDefault(2, 0, false)));
+
+        servicio.guardarMarcador(CEDULA, new GuardarMarcadorRequest(null, null, null, null, VISITANTE));
+
+        verify(cedulas).guardarMarcador(CEDULA, 2, 0, null, null, VISITANTE);
+    }
+
+    @Test
+    @DisplayName("RF-126 · RF-100: no presentación con goles, de un equipo ajeno o sin parámetros se rechaza")
+    void noPresentacionInvalida() {
+        enCaptura();
+        esperarError(() -> servicio.guardarMarcador(CEDULA, new GuardarMarcadorRequest(1, 0, null, null, LOCAL)),
+                "VALIDACION", HttpStatus.BAD_REQUEST);
+        esperarError(() -> servicio.guardarMarcador(CEDULA, new GuardarMarcadorRequest(null, null, null, null, AJENO)),
+                "RF-126", HttpStatus.UNPROCESSABLE_CONTENT);
+        given(cedulas.marcadorDefault(TEMPORADA)).willReturn(Optional.empty());
+        esperarError(() -> servicio.guardarMarcador(CEDULA, new GuardarMarcadorRequest(null, null, null, null, LOCAL)),
+                "RF-100", HttpStatus.CONFLICT);
+        verify(cedulas, never()).guardarMarcador(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("RF-047 · DEC-28: los goles son obligatorios y los penales van completos y solo con empate")
+    void marcadorInvalido() {
+        enCaptura();
+        esperarError(() -> servicio.guardarMarcador(CEDULA, new GuardarMarcadorRequest(1, null, null, null, null)),
+                "VALIDACION", HttpStatus.BAD_REQUEST);
+        esperarError(() -> servicio.guardarMarcador(CEDULA, new GuardarMarcadorRequest(-1, 0, null, null, null)),
+                "VALIDACION", HttpStatus.BAD_REQUEST);
+        esperarError(() -> servicio.guardarMarcador(CEDULA, new GuardarMarcadorRequest(1, 1, 4, null, null)),
+                "VALIDACION", HttpStatus.BAD_REQUEST);
+        esperarError(() -> servicio.guardarMarcador(CEDULA, new GuardarMarcadorRequest(2, 1, 4, 3, null)),
+                "RF-047", HttpStatus.UNPROCESSABLE_CONTENT);
+
+        servicio.guardarMarcador(CEDULA, new GuardarMarcadorRequest(1, 1, 4, 3, null));
+        verify(cedulas).guardarMarcador(CEDULA, 1, 1, 4, 3, null);
+    }
+
+    @Test
+    @DisplayName("VAL-024: una cédula que no es de la liga responde 404")
+    void cedulaInexistente() {
+        given(cedulas.bloquear(LIGA, CEDULA)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.guardarMarcador(CEDULA, new GuardarMarcadorRequest(1, 0, null, null, null)))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
+    // ── Apoyo ───────────────────────────────────────────────────────────────────────────────────
+
+    private void enCaptura() {
+        given(cedulas.bloquear(LIGA, CEDULA)).willReturn(Optional.of(bloqueada(EstadoCedula.EN_CAPTURA)));
+    }
+
+    private static CedulaBloqueada bloqueada(EstadoCedula estado) {
+        return new CedulaBloqueada(CEDULA, estado, PARTIDO, LOCAL, VISITANTE, TEMPORADA);
+    }
+
+    private static PartidoCedula partido(EstadoPartido estado) {
+        return new PartidoCedula(PARTIDO, estado, LOCAL, VISITANTE, TEMPORADA);
+    }
+
+    private static RegistroAlineable registro(UUID id, String estado, UUID temporada, UUID equipo, UUID club,
+            UUID categoria, UUID categoriaSuperior, boolean sancionado) {
+        return new RegistroAlineable(id, estado, temporada, equipo, club, categoria, categoriaSuperior,
+                "Jugador " + id, sancionado);
+    }
+
+    private static Map<UUID, EquipoAlineacion> equipos() {
+        return Map.of(
+                LOCAL, new EquipoAlineacion(LOCAL, CLUB_LOCAL, PRIMERA),
+                VISITANTE, new EquipoAlineacion(VISITANTE, CLUB_VISITANTE, PRIMERA),
+                LOCAL_SEGUNDA, new EquipoAlineacion(LOCAL_SEGUNDA, CLUB_LOCAL, SEGUNDA),
+                AJENO, new EquipoAlineacion(AJENO, CLUB_VISITANTE, SEGUNDA));
+    }
+
+    private static CedulaDto cedula() {
+        OffsetDateTime ahora = OffsetDateTime.parse("2031-03-10T10:30:00-06:00");
+        return new CedulaDto(CEDULA,
+                new PartidoDto(PARTIDO, new ReferenciaDto(LOCAL, "Halcones"), new ReferenciaDto(VISITANTE, "Toros"),
+                        ahora, EstadoPartido.EN_CURSO),
+                EstadoCedula.EN_CAPTURA, new ReferenciaDto(PERFIL, "Capturista"),
+                new MarcadorDto(null, null, null, null, null, false, false), List.of(), null, ahora, ahora);
+    }
+
+    private EventoAuditoria eventoAuditado() {
+        ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
+        verify(auditoria).registrar(evento.capture());
+        return evento.getValue();
+    }
+
+    private static void esperarError(ThrowingCallable accion, String codigo, HttpStatus estado) {
+        assertThatThrownBy(accion).isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+            assertThat(error.codigo()).isEqualTo(codigo);
+            assertThat(error.estado()).isEqualTo(estado);
+        });
+    }
+}
