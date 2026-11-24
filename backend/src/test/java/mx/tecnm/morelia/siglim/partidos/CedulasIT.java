@@ -28,8 +28,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * H-16.1 contra PostgreSQL real: abrir la cédula de un partido en curso, guardar la alineación con la
  * elegibilidad de cada jugador (RF-019, RF-110, VAL-018) y el marcador con la no presentación por
- * default de los parámetros vigentes (RF-126, DEC-24, DEC-72). Los triggers {@code tg_cedulas_validar},
- * {@code tg_alineaciones_validar} y {@code tg_cedula_en_captura} se comprueban como última garantía.
+ * default de los parámetros vigentes (RF-126, DEC-24, DEC-72). H-16.2: eventos, incidencias,
+ * observaciones y el envío a validación con VAL-020 y el bloqueo fuera de captura (RF-122). Los triggers
+ * {@code tg_cedulas_validar}, {@code tg_alineaciones_validar} y {@code tg_cedula_en_captura} se comprueban
+ * como última garantía.
  */
 class CedulasIT extends BaseDatosPrueba {
 
@@ -209,6 +211,134 @@ class CedulasIT extends BaseDatosPrueba {
         assertThatThrownBy(() -> jdbc.sql("DELETE FROM siglim.alineaciones WHERE cedula_id = :id")
                 .param("id", cedula).update()).hasStackTraceContaining("RF-122");
         assertThat(alineados(cedula)).isEqualTo(2);
+    }
+
+    // ── Eventos, incidencias y envío (H-16.2) ───────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("RF-025 · RF-026: registra gol, tarjeta, sustitución e incidencia con involucrados, y quita un evento")
+    void eventosEIncidencias() {
+        UUID cedula = abrirCedula(escenario);
+        CedulaDto alineada = alinearAmbos(cedula);
+        UUID primerHalcon = fila(alineada, escenario.localPrimera());
+        UUID segundoHalcon = fila(alineada, escenario.localSegunda());
+        UUID primerToro = fila(alineada, escenario.visitantePrimera());
+
+        CedulaDto conGol = servicio.registrarEvento(cedula,
+                new RegistrarEventoRequest(TipoEventoCedula.GOL, 12, primerHalcon, null, "Tiro libre"));
+        servicio.registrarEvento(cedula, new RegistrarEventoRequest(TipoEventoCedula.TARJETA_AMARILLA, 40, primerToro,
+                null, null));
+        servicio.registrarEvento(cedula, new RegistrarEventoRequest(TipoEventoCedula.SUSTITUCION, 60, primerHalcon,
+                segundoHalcon, null));
+        CedulaDto conIncidencia = servicio.registrarIncidencia(cedula, new RegistrarIncidenciaRequest(
+                tipoIncidencia("EXPULSION"), 75, "Agresión a un rival después de la jugada",
+                List.of(new RegistrarIncidenciaRequest.InvolucradoRequest(persona(escenario.visitantePrimera()), null),
+                        new RegistrarIncidenciaRequest.InvolucradoRequest(null, escenario.equipoVisitante()))));
+
+        assertThat(conIncidencia.eventos()).extracting(CedulaDto.EventoDto::tipo).containsExactly(
+                TipoEventoCedula.GOL, TipoEventoCedula.TARJETA_AMARILLA, TipoEventoCedula.SUSTITUCION);
+        assertThat(conIncidencia.eventos().get(0)).satisfies(gol -> {
+            assertThat(gol.equipoId()).as("el equipo sale de la alineación").isEqualTo(escenario.equipoLocal());
+            assertThat(gol.jugador().nombre()).isEqualTo("Primer Halcón Prueba");
+        });
+        assertThat(conIncidencia.eventos().get(2).entra().nombre()).isEqualTo("Segundo Halcón Prueba");
+        assertThat(conIncidencia.incidencias()).singleElement().satisfies(incidencia -> {
+            assertThat(incidencia.tipo().abreExpediente()).isTrue();
+            assertThat(incidencia.involucrados()).extracting(CedulaDto.InvolucradoDto::equipoId)
+                    .containsExactly(escenario.equipoVisitante(), null);
+            assertThat(incidencia.involucrados()).extracting(CedulaDto.InvolucradoDto::nombre)
+                    .satisfiesExactly(equipo -> assertThat(equipo).startsWith("Toros Primera"),
+                            jugador -> assertThat(jugador).isEqualTo("Primer Toro Prueba"));
+        });
+
+        UUID gol = conGol.eventos().getFirst().id();
+        servicio.eliminarEvento(cedula, gol);
+        assertThat(servicio.consultar(escenario.partido()).eventos()).extracting(CedulaDto.EventoDto::id)
+                .doesNotContain(gol).hasSize(2);
+        assertThat(accionesAuditadas(cedula)).containsSubsequence("REGISTRAR_EVENTO_CEDULA",
+                "REGISTRAR_INCIDENCIA_CEDULA", "ELIMINAR_EVENTO_CEDULA");
+        esperarError(() -> servicio.registrarEvento(cedula,
+                new RegistrarEventoRequest(TipoEventoCedula.SUSTITUCION, 70, primerHalcon, primerToro, null)),
+                "RF-025", HttpStatus.UNPROCESSABLE_CONTENT);
+    }
+
+    @Test
+    @DisplayName("VAL-020 · RF-122: la cédula incompleta no se envía; completa pasa a validación y ya no se edita")
+    void enviarCedula() {
+        UUID cedula = abrirCedula(escenario);
+
+        assertThatThrownBy(() -> servicio.enviar(cedula)).isInstanceOfSatisfying(ReglaNegocioException.class, error -> {
+            assertThat(error.codigo()).isEqualTo("VAL-020");
+            assertThat(error.estado()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> faltantes = (List<Map<String, Object>>) error.propiedades().get("faltantes");
+            assertThat(faltantes).extracting(falta -> falta.get("campo"))
+                    .containsExactly("marcador", "alineacionLocal", "alineacionVisitante");
+        });
+
+        CedulaDto alineada = alinearAmbos(cedula);
+        UUID primerHalcon = fila(alineada, escenario.localPrimera());
+        servicio.guardarMarcador(cedula, new GuardarMarcadorRequest(1, 0, null, null, null));
+        servicio.guardarObservaciones(cedula, new GuardarObservacionesRequest("Lluvia en el segundo tiempo"));
+        OffsetDateTime antes = OffsetDateTime.now();
+
+        CedulaDto enviada = servicio.enviar(cedula);
+
+        assertThat(enviada.estado()).isEqualTo(EstadoCedula.PENDIENTE_VALIDACION);
+        assertThat(enviada.observaciones()).isEqualTo("Lluvia en el segundo tiempo");
+        assertThat(enviada.enviadaEn()).isAfterOrEqualTo(antes.minusSeconds(5));
+        assertThat(enviada.plazoVenceEn()).as("48 h [DEMO] de los parámetros")
+                .isEqualTo(enviada.enviadaEn().plusHours(48));
+        assertThat(jdbc.sql("SELECT estado_nuevo::text FROM siglim.cedula_estado_historial WHERE cedula_id = :id ORDER BY id")
+                .param("id", cedula).query(String.class).list()).containsExactly("EN_CAPTURA", "PENDIENTE_VALIDACION");
+        assertThat(accionesAuditadas(cedula)).last().isEqualTo("ENVIAR_CEDULA");
+
+        esperarError(() -> servicio.registrarEvento(cedula,
+                new RegistrarEventoRequest(TipoEventoCedula.GOL, 80, primerHalcon, null, null)), "RF-122", HttpStatus.CONFLICT);
+        esperarError(() -> servicio.registrarIncidencia(cedula, new RegistrarIncidenciaRequest(tipoIncidencia("RINA"), 80,
+                "Riña en la banca", List.of(new RegistrarIncidenciaRequest.InvolucradoRequest(null, escenario.equipoLocal())))),
+                "RF-122", HttpStatus.CONFLICT);
+        esperarError(() -> servicio.guardarObservaciones(cedula, new GuardarObservacionesRequest("Otra nota")),
+                "RF-122", HttpStatus.CONFLICT);
+        esperarError(() -> servicio.enviar(cedula), "RF-122", HttpStatus.CONFLICT);
+        assertThatThrownBy(() -> jdbc.sql("""
+                        INSERT INTO siglim.eventos_cedula (cedula_id, tipo, equipo_id, alineacion_id)
+                        VALUES (:cedula, 'GOL', :equipo, :fila)
+                        """).param("cedula", cedula).param("equipo", escenario.equipoLocal()).param("fila", primerHalcon)
+                .update()).as("el trigger es la última garantía").hasStackTraceContaining("RF-122");
+    }
+
+    @Test
+    @DisplayName("VAL-020 · RF-126: con un equipo no presentado basta la alineación del que sí se presentó")
+    void enviarConNoPresentacion() {
+        UUID cedula = abrirCedula(escenario);
+        servicio.guardarAlineaciones(cedula, new GuardarAlineacionesRequest(List.of(
+                new JugadorRequest(escenario.localPrimera(), escenario.equipoLocal(), 10, true))));
+        servicio.guardarMarcador(cedula, new GuardarMarcadorRequest(null, null, null, null, escenario.equipoVisitante()));
+
+        assertThat(servicio.enviar(cedula).estado()).isEqualTo(EstadoCedula.PENDIENTE_VALIDACION);
+    }
+
+    private CedulaDto alinearAmbos(UUID cedula) {
+        return servicio.guardarAlineaciones(cedula, new GuardarAlineacionesRequest(List.of(
+                new JugadorRequest(escenario.localPrimera(), escenario.equipoLocal(), 10, true),
+                new JugadorRequest(escenario.localSegunda(), escenario.equipoLocal(), 14, false),
+                new JugadorRequest(escenario.visitantePrimera(), escenario.equipoVisitante(), 9, true))));
+    }
+
+    private static UUID fila(CedulaDto cedula, UUID registro) {
+        return cedula.alineaciones().stream().filter(jugador -> jugador.registroJugadorId().equals(registro))
+                .findFirst().orElseThrow().id();
+    }
+
+    private UUID persona(UUID registro) {
+        return jdbc.sql("SELECT persona_id FROM siglim.registros_jugador WHERE id = :id")
+                .param("id", registro).query(UUID.class).single();
+    }
+
+    private long tipoIncidencia(String codigo) {
+        return jdbc.sql("SELECT id FROM siglim.tipos_incidencia WHERE liga_id = :liga AND codigo = :codigo")
+                .param("liga", LIGA).param("codigo", codigo).query(Long.class).single();
     }
 
     // ── Escenario ───────────────────────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -12,7 +13,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import mx.tecnm.morelia.siglim.partidos.CedulaDto.EventoDto;
+import mx.tecnm.morelia.siglim.partidos.CedulaDto.IncidenciaDto;
+import mx.tecnm.morelia.siglim.partidos.CedulaDto.InvolucradoDto;
 import mx.tecnm.morelia.siglim.partidos.CedulaDto.JugadorAlineadoDto;
+import mx.tecnm.morelia.siglim.partidos.CedulaDto.TipoIncidenciaDto;
 import mx.tecnm.morelia.siglim.partidos.CedulaDto.MarcadorDto;
 import mx.tecnm.morelia.siglim.partidos.CedulaDto.PartidoDto;
 import mx.tecnm.morelia.siglim.partidos.CedulaDto.ReferenciaDto;
@@ -131,7 +136,7 @@ class CedulaRepository {
     Optional<CedulaDto> buscar(UUID cedulaId) {
         Optional<CedulaDto> cedula = jdbc.sql("""
                         SELECT c.id, c.estado, c.goles_local, c.goles_visitante, c.penales_local, c.penales_visitante,
-                               c.observaciones, c.creado_en, c.actualizado_en,
+                               c.observaciones, c.enviada_en, c.plazo_vence_en, c.creado_en, c.actualizado_en,
                                cap.id AS capturista_id, cap.nombre_mostrado AS capturista_nombre,
                                p.id AS partido_id, p.inicio, p.estado AS partido_estado,
                                el.id AS local_id, el.nombre AS local_nombre,
@@ -150,11 +155,219 @@ class CedulaRepository {
                          WHERE c.id = :cedula
                         """)
                 .param("cedula", cedulaId)
-                .query((fila, numero) -> aCedula(fila, List.of()))
+                .query((fila, numero) -> aCedula(fila))
                 .optional();
         return cedula.map(datos -> new CedulaDto(datos.id(), datos.partido(), datos.estado(), datos.capturista(),
-                datos.marcador(), alineaciones(cedulaId), datos.observaciones(), datos.creadoEn(),
+                datos.marcador(), alineaciones(cedulaId), eventos(cedulaId), incidencias(cedulaId),
+                datos.observaciones(), datos.enviadaEn(), datos.plazoVenceEn(), datos.creadoEn(),
                 datos.actualizadoEn()));
+    }
+
+    /** Eventos de la cédula por minuto; los que no lo tienen, al final. */
+    List<EventoDto> eventos(UUID cedulaId) {
+        return jdbc.sql("""
+                        SELECT ev.id, ev.tipo, ev.minuto, ev.equipo_id, ev.observaciones,
+                               a.id AS sale_id, concat_ws(' ', ps.nombre, ps.apellido_paterno, ps.apellido_materno) AS sale_nombre,
+                               ae.id AS entra_id, concat_ws(' ', pe.nombre, pe.apellido_paterno, pe.apellido_materno) AS entra_nombre
+                          FROM eventos_cedula ev
+                          JOIN alineaciones a ON a.id = ev.alineacion_id
+                          JOIN registros_jugador rs ON rs.id = a.registro_jugador_id
+                          JOIN personas ps ON ps.id = rs.persona_id
+                          LEFT JOIN alineaciones ae ON ae.id = ev.alineacion_entra_id
+                          LEFT JOIN registros_jugador re ON re.id = ae.registro_jugador_id
+                          LEFT JOIN personas pe ON pe.id = re.persona_id
+                         WHERE ev.cedula_id = :cedula
+                         ORDER BY ev.minuto NULLS LAST, ev.id
+                        """)
+                .param("cedula", cedulaId)
+                .query((fila, numero) -> {
+                    UUID entra = fila.getObject("entra_id", UUID.class);
+                    return new EventoDto(
+                            fila.getObject("id", UUID.class),
+                            TipoEventoCedula.valueOf(fila.getString("tipo")),
+                            fila.getObject("minuto", Integer.class),
+                            fila.getObject("equipo_id", UUID.class),
+                            new ReferenciaDto(fila.getObject("sale_id", UUID.class), fila.getString("sale_nombre")),
+                            entra == null ? null : new ReferenciaDto(entra, fila.getString("entra_nombre")),
+                            fila.getString("observaciones"));
+                })
+                .list();
+    }
+
+    /** Incidencias de la cédula por minuto, con su tipo y sus involucrados. */
+    List<IncidenciaDto> incidencias(UUID cedulaId) {
+        Map<UUID, List<InvolucradoDto>> involucrados = new HashMap<>();
+        jdbc.sql("SELECT ii.incidencia_id, ii.persona_id, ii.equipo_id,"
+                        + " coalesce(e.nombre, " + NOMBRE_COMPLETO + ") AS nombre"
+                        + """
+                           FROM incidencia_involucrados ii
+                           JOIN incidencias i ON i.id = ii.incidencia_id
+                           LEFT JOIN personas pe ON pe.id = ii.persona_id
+                           LEFT JOIN equipos e ON e.id = ii.equipo_id
+                          WHERE i.cedula_id = :cedula
+                          ORDER BY ii.equipo_id NULLS LAST, nombre
+                         """)
+                .param("cedula", cedulaId)
+                .query((fila, numero) -> Map.entry(fila.getObject("incidencia_id", UUID.class), new InvolucradoDto(
+                        fila.getObject("persona_id", UUID.class),
+                        fila.getObject("equipo_id", UUID.class),
+                        fila.getString("nombre"))))
+                .list()
+                .forEach(par -> involucrados.computeIfAbsent(par.getKey(), clave -> new ArrayList<>()).add(par.getValue()));
+        return jdbc.sql("""
+                        SELECT i.id, i.minuto, i.descripcion, t.id AS tipo_id, t.nombre AS tipo_nombre, t.abre_expediente
+                          FROM incidencias i
+                          JOIN tipos_incidencia t ON t.id = i.tipo_incidencia_id
+                         WHERE i.cedula_id = :cedula
+                         ORDER BY i.minuto NULLS LAST, i.id
+                        """)
+                .param("cedula", cedulaId)
+                .query((fila, numero) -> {
+                    UUID id = fila.getObject("id", UUID.class);
+                    return new IncidenciaDto(id,
+                            new TipoIncidenciaDto(fila.getLong("tipo_id"), fila.getString("tipo_nombre"),
+                                    fila.getBoolean("abre_expediente")),
+                            fila.getObject("minuto", Integer.class),
+                            fila.getString("descripcion"),
+                            List.copyOf(involucrados.getOrDefault(id, List.of())));
+                })
+                .list();
+    }
+
+    /** Equipo de una fila de alineación de la cédula; vacío si la fila no es de esta cédula. */
+    Optional<UUID> equipoDeAlineacion(UUID cedulaId, UUID alineacionId) {
+        return jdbc.sql("SELECT equipo_id FROM alineaciones WHERE id = :alineacion AND cedula_id = :cedula")
+                .param("alineacion", alineacionId)
+                .param("cedula", cedulaId)
+                .query(UUID.class)
+                .optional();
+    }
+
+    void insertarEvento(UUID cedulaId, TipoEventoCedula tipo, Integer minuto, UUID equipoId, UUID alineacionId,
+            UUID alineacionEntraId, String observaciones) {
+        jdbc.sql("""
+                        INSERT INTO eventos_cedula (cedula_id, tipo, minuto, equipo_id, alineacion_id,
+                                                    alineacion_entra_id, observaciones)
+                        VALUES (:cedula, CAST(:tipo AS siglim.tipo_evento_cedula), :minuto, :equipo, :alineacion,
+                                :entra, :observaciones)
+                        """)
+                .param("cedula", cedulaId)
+                .param("tipo", tipo.name())
+                .param("minuto", minuto)
+                .param("equipo", equipoId)
+                .param("alineacion", alineacionId)
+                .param("entra", alineacionEntraId)
+                .param("observaciones", observaciones)
+                .update();
+    }
+
+    /** Quita el evento de la cédula; devuelve cuántas filas borró (0 si no es de esta cédula). */
+    int eliminarEvento(UUID cedulaId, UUID eventoId) {
+        return jdbc.sql("DELETE FROM eventos_cedula WHERE id = :evento AND cedula_id = :cedula")
+                .param("evento", eventoId)
+                .param("cedula", cedulaId)
+                .update();
+    }
+
+    /** Tipo de incidencia activo de la liga, o vacío. */
+    Optional<TipoIncidenciaDto> tipoIncidenciaActivo(UUID ligaId, long tipoId) {
+        return jdbc.sql("""
+                        SELECT id, nombre, abre_expediente FROM tipos_incidencia
+                         WHERE id = :tipo AND liga_id = :liga AND activo
+                        """)
+                .param("tipo", tipoId)
+                .param("liga", ligaId)
+                .query((fila, numero) -> new TipoIncidenciaDto(fila.getLong("id"), fila.getString("nombre"),
+                        fila.getBoolean("abre_expediente")))
+                .optional();
+    }
+
+    /** Personas de los jugadores alineados en la cédula. */
+    Set<UUID> personasAlineadas(UUID cedulaId) {
+        return new HashSet<>(jdbc.sql("""
+                        SELECT r.persona_id FROM alineaciones a
+                          JOIN registros_jugador r ON r.id = a.registro_jugador_id
+                         WHERE a.cedula_id = :cedula
+                        """)
+                .param("cedula", cedulaId)
+                .query(UUID.class)
+                .list());
+    }
+
+    UUID insertarIncidencia(UUID cedulaId, long tipoId, Integer minuto, String descripcion) {
+        return jdbc.sql("""
+                        INSERT INTO incidencias (cedula_id, tipo_incidencia_id, minuto, descripcion)
+                        VALUES (:cedula, :tipo, :minuto, :descripcion)
+                        RETURNING id
+                        """)
+                .param("cedula", cedulaId)
+                .param("tipo", tipoId)
+                .param("minuto", minuto)
+                .param("descripcion", descripcion)
+                .query(UUID.class)
+                .single();
+    }
+
+    void insertarInvolucrado(UUID incidenciaId, UUID personaId, UUID equipoId) {
+        jdbc.sql("""
+                        INSERT INTO incidencia_involucrados (incidencia_id, persona_id, equipo_id)
+                        VALUES (:incidencia, :persona, :equipo)
+                        """)
+                .param("incidencia", incidenciaId)
+                .param("persona", personaId)
+                .param("equipo", equipoId)
+                .update();
+    }
+
+    void guardarObservaciones(UUID cedulaId, String observaciones) {
+        jdbc.sql("UPDATE cedulas SET observaciones = :observaciones, actualizado_en = now() WHERE id = :id")
+                .param("id", cedulaId)
+                .param("observaciones", observaciones)
+                .update();
+    }
+
+    /** Lo que revisa el envío (VAL-020): marcador, equipo no presentado y jugadores por equipo. */
+    DatosEnvio datosEnvio(UUID cedulaId) {
+        return jdbc.sql("""
+                        SELECT c.goles_local IS NOT NULL AND c.goles_visitante IS NOT NULL AS con_marcador,
+                               c.no_presentado_equipo_id,
+                               el.nombre AS local_nombre, ev.nombre AS visitante_nombre,
+                               (SELECT count(*) FROM alineaciones a
+                                 WHERE a.cedula_id = c.id AND a.equipo_id = p.equipo_local_id) AS jugadores_local,
+                               (SELECT count(*) FROM alineaciones a
+                                 WHERE a.cedula_id = c.id AND a.equipo_id = p.equipo_visitante_id) AS jugadores_visitante
+                          FROM cedulas c
+                          JOIN partidos p ON p.id = c.partido_id
+                          JOIN equipos el ON el.id = p.equipo_local_id
+                          JOIN equipos ev ON ev.id = p.equipo_visitante_id
+                         WHERE c.id = :cedula
+                        """)
+                .param("cedula", cedulaId)
+                .query((fila, numero) -> new DatosEnvio(
+                        fila.getBoolean("con_marcador"),
+                        fila.getObject("no_presentado_equipo_id", UUID.class),
+                        fila.getString("local_nombre"),
+                        fila.getString("visitante_nombre"),
+                        fila.getLong("jugadores_local"),
+                        fila.getLong("jugadores_visitante")))
+                .single();
+    }
+
+    /**
+     * Pasa la cédula a {@code PENDIENTE_VALIDACION}. {@code tg_cedulas_validar} repite VAL-020 y fija
+     * {@code enviada_en} y {@code plazo_vence_en} con los parámetros vigentes de la temporada.
+     *
+     * @return el fin del plazo de validación
+     */
+    OffsetDateTime enviar(UUID cedulaId) {
+        return jdbc.sql("""
+                        UPDATE cedulas SET estado = 'PENDIENTE_VALIDACION', actualizado_en = now()
+                         WHERE id = :id
+                        RETURNING plazo_vence_en
+                        """)
+                .param("id", cedulaId)
+                .query(OffsetDateTime.class)
+                .single();
     }
 
     /** Jugadores alineados, por equipo, titulares primero y por número de playera. */
@@ -350,7 +563,7 @@ class CedulaRepository {
                 .update();
     }
 
-    private static CedulaDto aCedula(ResultSet fila, List<JugadorAlineadoDto> alineaciones) throws SQLException {
+    private static CedulaDto aCedula(ResultSet fila) throws SQLException {
         UUID noPresentadoId = fila.getObject("no_presentado_id", UUID.class);
         boolean porDefault = noPresentadoId != null;
         MarcadorDto marcador = new MarcadorDto(
@@ -374,8 +587,12 @@ class CedulaRepository {
                 EstadoCedula.valueOf(fila.getString("estado")),
                 capturistaId == null ? null : new ReferenciaDto(capturistaId, fila.getString("capturista_nombre")),
                 marcador,
-                alineaciones,
+                List.of(),
+                List.of(),
+                List.of(),
                 fila.getString("observaciones"),
+                enZonaDeNegocio(fila.getObject("enviada_en", OffsetDateTime.class)),
+                enZonaDeNegocio(fila.getObject("plazo_vence_en", OffsetDateTime.class)),
                 enZonaDeNegocio(fila.getObject("creado_en", OffsetDateTime.class)),
                 enZonaDeNegocio(fila.getObject("actualizado_en", OffsetDateTime.class)));
     }
@@ -409,5 +626,10 @@ class CedulaRepository {
 
     /** Goles del marcador por default y si son valores de demostración. */
     record MarcadorDefault(int golesGanador, int golesPerdedor, boolean esDemo) {
+    }
+
+    /** Estado de la captura que decide si la cédula se puede enviar (VAL-020). */
+    record DatosEnvio(boolean conMarcador, UUID noPresentadoEquipoId, String localNombre, String visitanteNombre,
+                      long jugadoresLocal, long jugadoresVisitante) {
     }
 }

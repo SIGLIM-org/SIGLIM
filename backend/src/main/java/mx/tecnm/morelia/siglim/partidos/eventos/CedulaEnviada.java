@@ -1,0 +1,20 @@
+package mx.tecnm.morelia.siglim.partidos.eventos;
+
+import java.time.OffsetDateTime;
+import java.util.UUID;
+
+/**
+ * Evento de dominio que publica el envío de la cédula a validación (RF-122).
+ *
+ * <p>Se publica dentro de la transacción del envío. Aún no tiene oyentes: el aviso al árbitro designado
+ * es H-25 (M-14), que lo escuchará sin que este módulo dependa de notificaciones (ADR-0006).
+ *
+ * <p>Refs: H-16.2, RF-122, ADR-0006
+ *
+ * @param ligaId       liga de la cédula
+ * @param cedulaId     cédula enviada
+ * @param partidoId    partido de la cédula, para encontrar al árbitro designado
+ * @param plazoVenceEn fin del plazo del árbitro para validarla (RF-124)
+ */
+public record CedulaEnviada(UUID ligaId, UUID cedulaId, UUID partidoId, OffsetDateTime plazoVenceEn) {
+}
