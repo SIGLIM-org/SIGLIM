@@ -48,7 +48,7 @@ respaldado por un escenario ya aprobado.
 | H-09 | Alta de jugador por CURP con tutor y consentimiento; la misma CURP no se registra dos veces en la temporada (VAL-017) | `/app/organizacion/jugadores/alta` | Directiva |
 | H-10 | Documentos del registro en S3 con visor de enlace temporal (60 s); el Secretario activa o rechaza el registro (VAL-001) | `/app/organizacion/jugadores/:id/documentos` · `/app/organizacion/registros` | Directiva + Secretario |
 | H-23 | Baja de un registro ACTIVO con motivo, sin perder su historial | `/app/organizacion/jugadores` | Directiva |
-| H-24 | «Mi información» del jugador o tutor, en móvil | `/app/mi-informacion` | Jugador o tutor (vínculo por SQL hasta DEF-10) |
+| H-24 | «Mi información» del jugador o tutor, en móvil | `/app/mi-informacion` | Jugador o tutor invitado con su CURP en F-12 (DEF-10) |
 | B-05 | Venta de equipo y conservación de plaza, aplicadas al cerrar la temporada | `/app/organizacion/operaciones-equipo` | Directiva + Presidente |
 | B-06 / B-07 | Renovación y transferencia entre temporadas; historial de estados del registro | Asistente de alta y plantilla | Directiva |
 | H-11 | Árbitros presentados por el club (PROPUESTO) y validados o rechazados por la Comisión | `/app/programacion/arbitros` | Directiva + Comisión de Arbitraje |
@@ -72,8 +72,6 @@ pruebas). El Sprint 3 terminó **48 SP**: los 41 comprometidos y los 7 que vení
   `/tabla`) todavía no la consulta (H-19), así que muestra estados vacíos a propósito: *no se usan
   datos de ejemplo*.
 - **Disciplina** (expedientes y sanciones, H-27): solo existen los catálogos de H-26.
-- **Vínculo de una cuenta con su persona** (DEF-10): para enseñar «Mi información» (H-24) la cuenta
-  se vincula por SQL en la base local; se corrige en el Sprint 4.
 - **Competencias (liguilla, ascensos), reportes REP-xxx, avisos y correo** (M-10, M-12, M-14):
   pendientes de sprint.
 - Fuera de alcance por el ERS §2.6: programación automática, pasarela real, reconocimiento facial,
@@ -101,7 +99,8 @@ pruebas). El Sprint 3 terminó **48 SP**: los 41 comprometidos y los 7 que vení
 ### 2.2 Cuentas
 
 No se inventan correos ni contraseñas: se usan las cuentas que el equipo ya tiene en el proyecto.
-Hacen falta **cuatro** (la quinta, Secretario, solo si se demuestran B-02/B-27):
+Hacen falta **cuatro** (la quinta, Secretario, solo si se demuestran B-02/B-27, y la sexta,
+Jugador o tutor, solo si se demuestra «Mi información»):
 
 | Cuenta | Rol y ámbito | Para qué | Nota |
 | --- | --- | --- | --- |
@@ -110,6 +109,7 @@ Hacen falta **cuatro** (la quinta, Secretario, solo si se demuestran B-02/B-27):
 | **Tesorero** | Tesorero · Liga | cobros, adeudos y pago externo | No puede pagar en línea |
 | **Directiva** | Directiva de club · ámbito **CLUB** del club de la demo | paga un cobro en línea (simulado) y ve solo su club | Si no existe, el Administrador le agrega la asignación en F-12 (acto 3, paso 5) |
 | (Secretario) | Secretario · Liga | convocatoria y redacción de comunicados | Opcional para el núcleo |
+| (Jugador o tutor) | Jugador o tutor · **PROPIO** | «Mi información» (H-24) | El Administrador la invita en F-12 con la CURP de un adulto ya registrado (por ejemplo, el tutor del menor de H-09); un menor no tiene cuenta propia |
 
 Si falta una cuenta: el Administrador la invita en F-12 con un correo **del equipo** (Supabase solo
 envía el correo integrado a miembros de la organización y con límite por hora, así que la invitación
