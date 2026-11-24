@@ -658,7 +658,8 @@ describe('router', () => {
   it('H-02.4: con permiso, una subruta inexistente muestra 404 y no 403', async () => {
     iniciarSesion()
 
-    montar('/app/partidos/inexistente')
+    // `/app/partidos/:partidoId` ya es el detalle (H-15.3): se usa una subruta que no existe.
+    montar('/app/partidos/p1/inexistente')
 
     expect(
       await screen.findByRole('heading', { name: 'No encontramos lo que buscas' }),
