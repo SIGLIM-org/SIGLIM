@@ -294,6 +294,23 @@ describe('PantallaProgramacion (F-22, H-12.4)', () => {
     expect(screen.getByRole('button', { name: 'Enviar a aprobación' })).toBeDisabled()
   })
 
+  it('H-15.3: enlaza cada partido con su detalle solo con permiso de consultar partidos', async () => {
+    otorgar(CONSULTAR, EDITAR, 'partidos.partido:CONSULTAR')
+    responder()
+    const { unmount } = montarPantalla()
+
+    const enlace = await screen.findByRole('link', { name: 'Ver el detalle del partido Halcones vs. Toros' })
+    expect(enlace.getAttribute('href')).toMatch(/^\/app\/partidos\/.+/)
+    unmount()
+
+    otorgar(CONSULTAR, EDITAR)
+    responder()
+    montarPantalla()
+
+    expect(await screen.findByRole('heading', { name: 'Jornada 1' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Ver el detalle del partido/ })).not.toBeInTheDocument()
+  })
+
   it('habilita el envío cuando la verificación no encuentra conflictos', async () => {
     otorgar(CONSULTAR, EDITAR, ENVIAR)
     responder({ verificacion: { conflictos: [], advertencias: [] } })

@@ -1,5 +1,8 @@
-import { CircleAlert, Clock, MapPin, Pencil, TriangleAlert } from 'lucide-react'
+import { Link } from 'react-router'
+import { CircleAlert, Clock, Eye, MapPin, Pencil, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { clasesBoton } from '@/components/ui/estilosBoton'
+import { ConPermiso } from '@/features/seguridad/ConPermiso'
 import { Insignia } from '@/components/ui/Insignia'
 import {
   etiquetaConflicto,
@@ -76,17 +79,30 @@ export function FilaPartido({
           </div>
         </div>
 
-        {puedeEditar && (
-          <Button
-            variante="secundario"
-            icono={Pencil}
-            onClick={() => onEditar(partido)}
-            className="w-full shrink-0 sm:w-auto"
-            aria-label={`Editar el partido ${partido.equipoLocal.nombre} vs. ${partido.equipoVisitante.nombre}`}
-          >
-            Editar
-          </Button>
-        )}
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          {/* F-25 (H-15.3): estado, historial y acciones del partido. */}
+          <ConPermiso permiso="partidos.partido:CONSULTAR">
+            <Link
+              to={`/app/partidos/${partido.id}`}
+              className={`${clasesBoton('secundario')} w-full sm:w-auto`}
+              aria-label={`Ver el detalle del partido ${partido.equipoLocal.nombre} vs. ${partido.equipoVisitante.nombre}`}
+            >
+              <Eye aria-hidden="true" className="size-4 shrink-0" />
+              Ver detalle
+            </Link>
+          </ConPermiso>
+          {puedeEditar && (
+            <Button
+              variante="secundario"
+              icono={Pencil}
+              onClick={() => onEditar(partido)}
+              className="w-full sm:w-auto"
+              aria-label={`Editar el partido ${partido.equipoLocal.nombre} vs. ${partido.equipoVisitante.nombre}`}
+            >
+              Editar
+            </Button>
+          )}
+        </div>
       </div>
 
       {tieneConflictos && (

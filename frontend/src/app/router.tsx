@@ -269,6 +269,17 @@ export const rutas: RouteObject[] = [
                 HydrateFallback: CargandoPagina,
               },
               {
+                path: '/app/partidos/:partidoId',
+                lazy: async () => {
+                  const { PantallaDetallePartido } = await import(
+                    '@/features/partidos/PantallaDetallePartido'
+                  )
+
+                  return { Component: PantallaDetallePartido }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
                 path: '/app/disciplina/catalogos',
                 lazy: async () => {
                   const { PantallaCatalogosDisciplinarios } = await import(
