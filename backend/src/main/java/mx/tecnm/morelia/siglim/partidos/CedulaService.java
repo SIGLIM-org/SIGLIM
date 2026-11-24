@@ -2,6 +2,7 @@ package mx.tecnm.morelia.siglim.partidos;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,6 +17,7 @@ import mx.tecnm.morelia.siglim.compartido.contexto.UsuarioActual;
 import mx.tecnm.morelia.siglim.compartido.error.ErroresTecnicos;
 import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
+import mx.tecnm.morelia.siglim.partidos.CedulaRepository.Candidato;
 import mx.tecnm.morelia.siglim.partidos.CedulaRepository.CedulaBloqueada;
 import mx.tecnm.morelia.siglim.partidos.CedulaRepository.DatosEnvio;
 import mx.tecnm.morelia.siglim.partidos.CedulaRepository.EquipoAlineacion;
@@ -117,6 +119,55 @@ public class CedulaService {
         UUID cedulaId = cedulas.cedulaDePartido(partidoId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Cédula del partido " + partidoId));
         return cedulas.buscar(cedulaId).orElseThrow();
+    }
+
+    /**
+     * Jugadores que se pueden proponer para la alineación, con su elegibilidad (H-16.3, DEC-172): los
+     * registros de los dos equipos y los del mismo club en la categoría inmediata inferior. Exige
+     * {@code partidos.cedula:CAPTURAR}, porque sirve para capturar, y la cédula de la liga
+     * ({@code 404}); se puede consultar en cualquier estado. Orden: local primero, su propio equipo antes
+     * que la categoría inferior y por nombre.
+     */
+    @Transactional(readOnly = true)
+    public List<JugadorDisponibleDto> jugadoresDisponibles(UUID cedulaId) {
+        autorizacion.exigir(CAPTURAR, ObjetivoAutorizacion.deLiga());
+        CedulaBloqueada cedula = cedulas.datosDeCedula(ligaId, cedulaId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Cédula " + cedulaId));
+        List<Candidato> candidatos = cedulas.candidatos(cedulaId, cedula.temporadaId());
+        Map<UUID, RegistroAlineable> registros = cedulas.registros(ligaId,
+                candidatos.stream().map(Candidato::registroId).toList());
+        Set<UUID> equipoIds = new HashSet<>(Set.of(cedula.equipoLocalId(), cedula.equipoVisitanteId()));
+        registros.values().forEach(registro -> equipoIds.add(registro.equipoId()));
+        Map<UUID, EquipoAlineacion> equipos = cedulas.equipos(equipoIds);
+        return candidatos.stream()
+                .filter(candidato -> registros.containsKey(candidato.registroId()))
+                .map(candidato -> {
+                    RegistroAlineable registro = registros.get(candidato.registroId());
+                    Causa causa = causaDeInelegibilidad(cedula,
+                            new JugadorRequest(candidato.registroId(), candidato.equipoPartidoId(), null, null),
+                            registro, equipos);
+                    return new JugadorDisponibleDto(candidato.registroId(), registro.nombre(),
+                            candidato.equipoPartidoId(), candidato.equipoRegistro(),
+                            !candidato.equipoRegistro().id().equals(candidato.equipoPartidoId()), causa == null,
+                            causa == null ? null : new JugadorDisponibleDto.CausaDto(causa.codigo(), causa.mensaje()));
+                })
+                .sorted(Comparator
+                        .comparing((JugadorDisponibleDto jugador) -> !jugador.equipoId().equals(cedula.equipoLocalId()))
+                        .thenComparing(JugadorDisponibleDto::categoriaSuperior)
+                        .thenComparing(JugadorDisponibleDto::nombre))
+                .toList();
+    }
+
+    /**
+     * Tipos de incidencia activos para capturar incidencias (H-16.3, DEC-172). El catálogo completo de
+     * M-09 exige {@code disciplina.catalogo:EDITAR}; aquí basta {@code partidos.cedula:CAPTURAR} y solo
+     * salen los activos, que son los que admite {@code POST /cedulas/{id}/incidencias}.
+     */
+    @Transactional(readOnly = true)
+    public List<CedulaDto.TipoIncidenciaDto> tiposIncidencia(UUID cedulaId) {
+        autorizacion.exigir(CAPTURAR, ObjetivoAutorizacion.deLiga());
+        cedulas.datosDeCedula(ligaId, cedulaId).orElseThrow(() -> new RecursoNoEncontradoException("Cédula " + cedulaId));
+        return cedulas.tiposIncidenciaActivos(ligaId);
     }
 
     /**

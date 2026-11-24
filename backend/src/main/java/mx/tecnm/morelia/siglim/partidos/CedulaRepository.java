@@ -108,6 +108,15 @@ class CedulaRepository {
 
     /** Cédula de la liga con su estado y los datos de su partido, bloqueada para modificarla. */
     Optional<CedulaBloqueada> bloquear(UUID ligaId, UUID cedulaId) {
+        return datosDeCedula(ligaId, cedulaId, " FOR UPDATE OF c");
+    }
+
+    /** Los mismos datos sin bloquear, para consultas de solo lectura. */
+    Optional<CedulaBloqueada> datosDeCedula(UUID ligaId, UUID cedulaId) {
+        return datosDeCedula(ligaId, cedulaId, "");
+    }
+
+    private Optional<CedulaBloqueada> datosDeCedula(UUID ligaId, UUID cedulaId, String bloqueo) {
         return jdbc.sql("""
                         SELECT c.id, c.estado, p.id AS partido_id, p.equipo_local_id, p.equipo_visitante_id,
                                ct.temporada_id
@@ -118,8 +127,7 @@ class CedulaRepository {
                           JOIN categorias_temporada ct ON ct.id = g.categoria_temporada_id
                           JOIN temporadas t ON t.id = ct.temporada_id
                          WHERE c.id = :cedula AND t.liga_id = :liga
-                         FOR UPDATE OF c
-                        """)
+                        """ + bloqueo)
                 .param("cedula", cedulaId)
                 .param("liga", ligaId)
                 .query((fila, numero) -> new CedulaBloqueada(
@@ -130,6 +138,42 @@ class CedulaRepository {
                         fila.getObject("equipo_visitante_id", UUID.class),
                         fila.getObject("temporada_id", UUID.class)))
                 .optional();
+    }
+
+    /**
+     * Registros que se pueden proponer para la alineación (H-16.3, DEC-172): los de los dos equipos del
+     * partido y los del mismo club en la categoría inmediata inferior (RF-110), de la temporada del
+     * partido, salvo {@code RECHAZADO} y {@code BAJA}. Cada uno con el equipo del partido con el que
+     * jugaría; su elegibilidad la decide el servicio con la misma regla de la alineación.
+     */
+    List<Candidato> candidatos(UUID cedulaId, UUID temporadaId) {
+        return jdbc.sql("""
+                        SELECT r.id AS registro_id, e.id AS equipo_registro_id, e.nombre AS equipo_registro_nombre,
+                               CASE WHEN r.equipo_id IN (p.equipo_local_id, p.equipo_visitante_id) THEN r.equipo_id
+                                    WHEN e.club_id = el.club_id THEN p.equipo_local_id
+                                    ELSE p.equipo_visitante_id END AS equipo_partido_id
+                          FROM cedulas c
+                          JOIN partidos p ON p.id = c.partido_id
+                          JOIN equipos el ON el.id = p.equipo_local_id
+                          JOIN equipos ev ON ev.id = p.equipo_visitante_id
+                          JOIN registros_jugador r ON r.temporada_id = :temporada
+                          JOIN equipos e ON e.id = r.equipo_id
+                         WHERE c.id = :cedula
+                           AND r.estado NOT IN ('RECHAZADO', 'BAJA')
+                           AND (r.equipo_id IN (p.equipo_local_id, p.equipo_visitante_id)
+                                OR (e.club_id IN (el.club_id, ev.club_id)
+                                    AND (SELECT cat.categoria_superior_id FROM categorias cat
+                                          WHERE cat.id = siglim.categoria_de_equipo(e.id))
+                                        = siglim.categoria_de_equipo(p.equipo_local_id)))
+                        """)
+                .param("cedula", cedulaId)
+                .param("temporada", temporadaId)
+                .query((fila, numero) -> new Candidato(
+                        fila.getObject("registro_id", UUID.class),
+                        fila.getObject("equipo_partido_id", UUID.class),
+                        new ReferenciaDto(fila.getObject("equipo_registro_id", UUID.class),
+                                fila.getString("equipo_registro_nombre"))))
+                .list();
     }
 
     /** La cédula completa para la respuesta. */
@@ -269,6 +313,19 @@ class CedulaRepository {
                 .update();
     }
 
+    /** Tipos de incidencia activos de la liga, por nombre (H-16.3, DEC-172). */
+    List<TipoIncidenciaDto> tiposIncidenciaActivos(UUID ligaId) {
+        return jdbc.sql("""
+                        SELECT id, nombre, abre_expediente FROM tipos_incidencia
+                         WHERE liga_id = :liga AND activo
+                         ORDER BY nombre, id
+                        """)
+                .param("liga", ligaId)
+                .query((fila, numero) -> new TipoIncidenciaDto(fila.getLong("id"), fila.getString("nombre"),
+                        fila.getBoolean("abre_expediente")))
+                .list();
+    }
+
     /** Tipo de incidencia activo de la liga, o vacío. */
     Optional<TipoIncidenciaDto> tipoIncidenciaActivo(UUID ligaId, long tipoId) {
         return jdbc.sql("""
@@ -372,7 +429,7 @@ class CedulaRepository {
 
     /** Jugadores alineados, por equipo, titulares primero y por número de playera. */
     List<JugadorAlineadoDto> alineaciones(UUID cedulaId) {
-        return jdbc.sql("SELECT a.id, a.registro_jugador_id, a.equipo_id, a.numero_playera, a.titular,"
+        return jdbc.sql("SELECT a.id, a.registro_jugador_id, r.persona_id, a.equipo_id, a.numero_playera, a.titular,"
                         + " a.categoria_superior, " + NOMBRE_COMPLETO + " AS nombre"
                         + """
                            FROM alineaciones a
@@ -388,6 +445,7 @@ class CedulaRepository {
                 .query((fila, numero) -> new JugadorAlineadoDto(
                         fila.getObject("id", UUID.class),
                         fila.getObject("registro_jugador_id", UUID.class),
+                        fila.getObject("persona_id", UUID.class),
                         fila.getString("nombre"),
                         fila.getObject("equipo_id", UUID.class),
                         fila.getObject("numero_playera", Integer.class),
@@ -626,6 +684,10 @@ class CedulaRepository {
 
     /** Goles del marcador por default y si son valores de demostración. */
     record MarcadorDefault(int golesGanador, int golesPerdedor, boolean esDemo) {
+    }
+
+    /** Registro que se puede proponer para la alineación, con el equipo del partido con el que jugaría. */
+    record Candidato(UUID registroId, UUID equipoPartidoId, ReferenciaDto equipoRegistro) {
     }
 
     /** Estado de la captura que decide si la cédula se puede enviar (VAL-020). */

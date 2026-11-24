@@ -1,6 +1,7 @@
 package mx.tecnm.morelia.siglim.partidos;
 
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -20,7 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
  * las observaciones y el envío a validación (convenciones de API §6.8). Sin reglas de negocio: el
  * permiso, el estado y la elegibilidad los valida el servicio y, en última instancia, los triggers.
  *
- * <p>Refs: H-16.1, H-16.2, RF-025, RF-026, RF-047, RF-110, RF-122, RF-126, VAL-002, VAL-018, VAL-020
+ * <p>Refs: H-16.1, H-16.2, H-16.3, RF-025, RF-026, RF-047, RF-110, RF-122, RF-126, VAL-002, VAL-018,
+ * VAL-020, DEC-172
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -45,6 +47,21 @@ class CedulaController {
         return ResponseEntity.created(URI.create("/api/v1/partidos/" + partidoId + "/cedula"))
                 .cacheControl(CacheControl.noStore())
                 .body(cedula);
+    }
+
+    /**
+     * Jugadores que se pueden proponer para la alineación, con su elegibilidad (H-16.3, DEC-172). Sin
+     * paginar: son los registros de dos equipos y de sus categorías inferiores.
+     */
+    @GetMapping("/cedulas/{id}/jugadores")
+    ResponseEntity<List<JugadorDisponibleDto>> jugadoresDisponibles(@PathVariable UUID id) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(servicio.jugadoresDisponibles(id));
+    }
+
+    /** Tipos de incidencia activos para la captura (H-16.3, DEC-172). */
+    @GetMapping("/cedulas/{id}/tipos-incidencia")
+    ResponseEntity<List<CedulaDto.TipoIncidenciaDto>> tiposIncidencia(@PathVariable UUID id) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(servicio.tiposIncidencia(id));
     }
 
     /** Reemplaza la alineación de los dos equipos (RF-019, RF-020, RF-110). */

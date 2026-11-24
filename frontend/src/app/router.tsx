@@ -280,6 +280,17 @@ export const rutas: RouteObject[] = [
                 HydrateFallback: CargandoPagina,
               },
               {
+                path: '/app/partidos/:partidoId/cedula',
+                lazy: async () => {
+                  const { PantallaCapturaCedula } = await import(
+                    '@/features/partidos/cedula/PantallaCapturaCedula'
+                  )
+
+                  return { Component: PantallaCapturaCedula }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
                 path: '/app/disciplina/catalogos',
                 lazy: async () => {
                   const { PantallaCatalogosDisciplinarios } = await import(

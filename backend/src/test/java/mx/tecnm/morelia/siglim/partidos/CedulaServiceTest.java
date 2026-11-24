@@ -90,6 +90,66 @@ class CedulaServiceTest {
         SecurityContextHolder.clearContext();
     }
 
+    // ── Jugadores disponibles (H-16.3) ──────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("DEC-172: lista los candidatos con su elegibilidad, el local primero y la categoría inferior después")
+    void jugadoresDisponibles() {
+        UUID visitante = UUID.randomUUID();
+        UUID deSegunda = UUID.randomUUID();
+        UUID titular = UUID.randomUUID();
+        UUID sancionado = UUID.randomUUID();
+        given(cedulas.datosDeCedula(LIGA, CEDULA)).willReturn(Optional.of(bloqueada(EstadoCedula.EN_CAPTURA)));
+        given(cedulas.candidatos(CEDULA, TEMPORADA)).willReturn(List.of(
+                new CedulaRepository.Candidato(visitante, VISITANTE, new ReferenciaDto(VISITANTE, "Toros")),
+                new CedulaRepository.Candidato(deSegunda, LOCAL, new ReferenciaDto(LOCAL_SEGUNDA, "Halcones Segunda")),
+                new CedulaRepository.Candidato(titular, LOCAL, new ReferenciaDto(LOCAL, "Halcones")),
+                new CedulaRepository.Candidato(sancionado, LOCAL, new ReferenciaDto(LOCAL, "Halcones"))));
+        given(cedulas.registros(any(), anyCollection())).willReturn(Map.of(
+                visitante, new RegistroAlineable(visitante, "ACTIVO", TEMPORADA, VISITANTE, CLUB_VISITANTE, PRIMERA, null,
+                        "Ana Visitante", false),
+                deSegunda, new RegistroAlineable(deSegunda, "ACTIVO", TEMPORADA, LOCAL_SEGUNDA, CLUB_LOCAL, SEGUNDA, PRIMERA,
+                        "Beto Segunda", false),
+                titular, new RegistroAlineable(titular, "ACTIVO", TEMPORADA, LOCAL, CLUB_LOCAL, PRIMERA, null,
+                        "Carlos Titular", false),
+                sancionado, new RegistroAlineable(sancionado, "ACTIVO", TEMPORADA, LOCAL, CLUB_LOCAL, PRIMERA, null,
+                        "Diego Sancionado", true)));
+        given(cedulas.equipos(anyCollection())).willReturn(equipos());
+
+        List<JugadorDisponibleDto> jugadores = servicio.jugadoresDisponibles(CEDULA);
+
+        verify(autorizacion).exigir(CedulaService.CAPTURAR, ObjetivoAutorizacion.deLiga());
+        assertThat(jugadores).extracting(JugadorDisponibleDto::nombre)
+                .containsExactly("Carlos Titular", "Diego Sancionado", "Beto Segunda", "Ana Visitante");
+        assertThat(jugadores.get(1).elegible()).isFalse();
+        assertThat(jugadores.get(1).causa().codigo()).isEqualTo("RF-020");
+        assertThat(jugadores.get(2).categoriaSuperior()).isTrue();
+        assertThat(jugadores.get(2).elegible()).isTrue();
+        assertThat(jugadores.get(2).equipoRegistro().nombre()).isEqualTo("Halcones Segunda");
+        assertThat(jugadores.get(0).causa()).isNull();
+    }
+
+    @Test
+    @DisplayName("DEC-172: los tipos de incidencia activos se consultan con partidos.cedula:CAPTURAR")
+    void tiposIncidencia() {
+        given(cedulas.datosDeCedula(LIGA, CEDULA)).willReturn(Optional.of(bloqueada(EstadoCedula.EN_CAPTURA)));
+        given(cedulas.tiposIncidenciaActivos(LIGA)).willReturn(List.of(new CedulaDto.TipoIncidenciaDto(2L, "Expulsión", true)));
+
+        assertThat(servicio.tiposIncidencia(CEDULA)).extracting(CedulaDto.TipoIncidenciaDto::nombre).containsExactly("Expulsión");
+        verify(autorizacion).exigir(CedulaService.CAPTURAR, ObjetivoAutorizacion.deLiga());
+
+        given(cedulas.datosDeCedula(LIGA, CEDULA)).willReturn(Optional.empty());
+        assertThatThrownBy(() -> servicio.tiposIncidencia(CEDULA)).isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
+    @Test
+    @DisplayName("VAL-024: los jugadores de una cédula que no es de la liga responden 404")
+    void jugadoresDeCedulaInexistente() {
+        given(cedulas.datosDeCedula(LIGA, CEDULA)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicio.jugadoresDisponibles(CEDULA)).isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
     // ── Consultar ───────────────────────────────────────────────────────────────────────────────
 
     @Test

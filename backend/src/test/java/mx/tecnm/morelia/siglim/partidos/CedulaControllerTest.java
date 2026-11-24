@@ -212,6 +212,54 @@ class CedulaControllerTest {
                 .pruebas();
     }
 
+    @Test
+    @DisplayName("DEC-172: GET /cedulas/{id}/jugadores responde la lista con su elegibilidad, no-store y sin CURP")
+    void jugadoresDisponibles() {
+        given(servicio.jugadoresDisponibles(CEDULA)).willReturn(List.of(
+                new JugadorDisponibleDto(REGISTRO, "Juan Prueba", LOCAL, new ReferenciaDto(LOCAL, "Halcones"), false,
+                        false, new JugadorDisponibleDto.CausaDto("RF-020", "«Juan Prueba» tiene una sanción vigente."))));
+
+        MvcTestResult resultado = mvc.get().uri("/api/v1/cedulas/" + CEDULA + "/jugadores")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatusOk().hasHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        assertThat(resultado).bodyJson().extractingPath("$[0].elegible").isEqualTo(false);
+        assertThat(resultado).bodyJson().extractingPath("$[0].causa.codigo").isEqualTo("RF-020");
+        assertThat(resultado).bodyJson().doesNotHavePath("$[0].curp");
+    }
+
+    @Test
+    @DisplayName("DEC-172: GET /cedulas/{id}/tipos-incidencia responde los tipos activos")
+    void tiposIncidencia() {
+        given(servicio.tiposIncidencia(CEDULA)).willReturn(List.of(new TipoIncidenciaDto(2L, "Expulsión", true)));
+
+        MvcTestResult resultado = mvc.get().uri("/api/v1/cedulas/" + CEDULA + "/tipos-incidencia")
+                .header(HttpHeaders.AUTHORIZATION, autorizacion).exchange();
+
+        assertThat(resultado).hasStatusOk().hasHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        assertThat(resultado).bodyJson().extractingPath("$[0].abreExpediente").isEqualTo(true);
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de GET /api/v1/cedulas/{id}/tipos-incidencia")
+    Stream<DynamicTest> seguridadTiposIncidencia() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.GET, "/api/v1/cedulas/{id}/tipos-incidencia", CEDULA)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.tiposIncidencia(CEDULA)).willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de GET /api/v1/cedulas/{id}/jugadores")
+    Stream<DynamicTest> seguridadJugadores() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.GET, "/api/v1/cedulas/{id}/jugadores", CEDULA)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.jugadoresDisponibles(CEDULA)).willThrow(error))
+                .pruebas();
+    }
+
     @TestFactory
     @DisplayName("RNF-003: seguridad de PUT /api/v1/cedulas/{id}/marcador")
     Stream<DynamicTest> seguridadMarcador() {
@@ -410,7 +458,7 @@ class CedulaControllerTest {
                         inicio, EstadoPartido.EN_CURSO),
                 EstadoCedula.EN_CAPTURA, new ReferenciaDto(UUID.randomUUID(), "Capturista"),
                 new MarcadorDto(0, 3, null, null, new ReferenciaDto(LOCAL, "Halcones"), true, true),
-                List.of(new JugadorAlineadoDto(fila, REGISTRO, "Juan Prueba", LOCAL, 10, true, true)),
+                List.of(new JugadorAlineadoDto(fila, REGISTRO, UUID.randomUUID(), "Juan Prueba", LOCAL, 10, true, true)),
                 List.of(new EventoDto(EVENTO, TipoEventoCedula.GOL, 34, LOCAL, new ReferenciaDto(fila, "Juan Prueba"),
                         null, null)),
                 List.of(new IncidenciaDto(UUID.randomUUID(), new TipoIncidenciaDto(2L, "Expulsión", true), 70,
