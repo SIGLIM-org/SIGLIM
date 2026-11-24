@@ -1,0 +1,19 @@
+# DEF-10.3 · Pruebas automáticas sobre develop en 1b5b68f (24-nov-2026)
+
+## Backend: ./mvnw verify (con Docker para Testcontainers)
+[INFO] Tests run: 2252, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 359, Failures: 0, Errors: 0, Skipped: 1
+[INFO] BUILD SUCCESS
+
+Clases que cubren DEF-10:
+Tests run: 13, Failures: 0, Errors: 0, Skipped: 0-- in mx.tecnm.morelia.siglim.registros.MiInformacionControllerTest
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0-- in mx.tecnm.morelia.siglim.registros.MiInformacionServiceTest
+Tests run: 48, Failures: 0, Errors: 0, Skipped: 0-- in mx.tecnm.morelia.siglim.seguridad.UsuarioControllerTest
+Tests run: 30, Failures: 0, Errors: 0, Skipped: 0-- in mx.tecnm.morelia.siglim.seguridad.UsuarioServiceTest
+Tests run: 6, Failures: 0, Errors: 0, Skipped: 0-- in mx.tecnm.morelia.siglim.registros.MiInformacionIT
+Tests run: 2, Failures: 0, Errors: 0, Skipped: 0-- in mx.tecnm.morelia.siglim.seguridad.InvitacionConPersonaIT
+Tests run: 8, Failures: 0, Errors: 0, Skipped: 0-- in mx.tecnm.morelia.siglim.seguridad.UsuarioRepositoryIT
+
+## Frontend: npx vitest run src/features/usuarios src/features/registros/mi-informacion
+Test Files  3 passed (3)
+Tests  40 passed (40)

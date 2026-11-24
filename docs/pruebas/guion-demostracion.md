@@ -531,3 +531,6 @@ H-09) · [H-11](aceptacion/H-11-arbitros.md) · [H-12](aceptacion/H-12-conflicto
 [B-14](aceptacion/B-14-tramites-cancha.md) · [B-15](aceptacion/B-15-advertencia-localia.md) ·
 [B-29](aceptacion/B-29-tarifas.md) · [B-30](aceptacion/B-30-cobros-automaticos.md) ·
 [DEF-07](aceptacion/DEF-07-migraciones-compartido.md)
+
+Sprint 4:
+[DEF-10](aceptacion/DEF-10-vinculo-cuenta-persona.md)

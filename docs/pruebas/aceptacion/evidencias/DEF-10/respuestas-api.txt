@@ -1,0 +1,434 @@
+# DEF-10.3 · Respuestas de la API (backend local sobre la base efímera, 24-nov-2026)
+# Las cuentas se nombran por su rol; los correos son ficticios (dominio .test). Sin tokens.
+
+## CA-1 · Invitar al jugador adulto con su CURP en minúsculas (el backend la pasa a mayúsculas)
+> POST /api/v1/usuarios  (cuenta: Administrador de prueba)
+> {"nombreMostrado":"Jorge Jugador","correo":"jugador@def10.test","asignaciones":[{"rolId":"54854d0e-4f2a-42ec-8bd5-e27da1eb3124"}],"curp":"xexj960101hmnxxx01"}
+< HTTP 201
+{
+  "id": "aadb93f8-127c-436b-a935-df2e91a4f851",
+  "nombreMostrado": "Jorge Jugador",
+  "correo": "jugador@def10.test",
+  "personaId": "d1700001-0000-4000-8000-000000000001",
+  "activo": true,
+  "creadoEn": "2026-11-24T06:09:00.037866Z",
+  "asignaciones": [
+    {
+      "id": "265e0327-aa35-4aa8-801b-e76186f3902c",
+      "rol": {
+        "id": "54854d0e-4f2a-42ec-8bd5-e27da1eb3124",
+        "codigo": "JUGADOR_TUTOR",
+        "nombre": "Jugador o tutor"
+      },
+      "ambito": "PROPIO",
+      "activa": true,
+      "creadoEn": "2026-11-24T06:09:00.037866Z"
+    }
+  ]
+}
+
+## CA-1 · Invitar a la tutora con su CURP
+> POST /api/v1/usuarios  (cuenta: Administrador de prueba)
+> {"nombreMostrado":"Teresa Tutora","correo":"tutora@def10.test","asignaciones":[{"rolId":"54854d0e-4f2a-42ec-8bd5-e27da1eb3124"}],"curp":"XEXT850202MMNXXX02"}
+< HTTP 201
+{
+  "id": "b2b953ac-e992-422b-bbfd-873f57a181ec",
+  "nombreMostrado": "Teresa Tutora",
+  "correo": "tutora@def10.test",
+  "personaId": "d1700002-0000-4000-8000-000000000001",
+  "activo": true,
+  "creadoEn": "2026-11-24T06:09:00.923605Z",
+  "asignaciones": [
+    {
+      "id": "7856d834-5972-47b8-a314-94aa2c070a0a",
+      "rol": {
+        "id": "54854d0e-4f2a-42ec-8bd5-e27da1eb3124",
+        "codigo": "JUGADOR_TUTOR",
+        "nombre": "Jugador o tutor"
+      },
+      "ambito": "PROPIO",
+      "activa": true,
+      "creadoEn": "2026-11-24T06:09:00.923605Z"
+    }
+  ]
+}
+
+## CA-3 · Invitar sin CURP (Secretario): la invitación no cambia
+> POST /api/v1/usuarios  (cuenta: Administrador de prueba)
+> {"nombreMostrado":"Secretario de prueba","correo":"secretario@def10.test","asignaciones":[{"rolId":"74280f81-ad55-4cb5-a756-35364226c9d5"}]}
+< HTTP 201
+{
+  "id": "85963f34-18c4-4240-97f9-69c58b4d71ad",
+  "nombreMostrado": "Secretario de prueba",
+  "correo": "secretario@def10.test",
+  "personaId": null,
+  "activo": true,
+  "creadoEn": "2026-11-24T06:09:01.668904Z",
+  "asignaciones": [
+    {
+      "id": "e1a34f56-8397-4022-a51d-b808a89f89f4",
+      "rol": {
+        "id": "74280f81-ad55-4cb5-a756-35364226c9d5",
+        "codigo": "SECRETARIO",
+        "nombre": "Secretario (liga)"
+      },
+      "ambito": "LIGA",
+      "activa": true,
+      "creadoEn": "2026-11-24T06:09:01.668904Z"
+    }
+  ]
+}
+
+invitaciones enviadas a Supabase Auth hasta aquí: 3
+## CA-2 · Errores, todos antes de llamar a Supabase Auth
+### CURP con formato inválido
+> POST /api/v1/usuarios  (cuenta: Administrador de prueba)
+> {"nombreMostrado":"Formato invalido","correo":"formato@def10.test","asignaciones":[{"rolId":"54854d0e-4f2a-42ec-8bd5-e27da1eb3124"}],"curp":"ABC123"}
+< HTTP 400
+{
+  "detail": "La CURP debe tener 18 caracteres y el formato oficial.",
+  "instance": "/api/v1/usuarios",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION",
+  "campo": "curp"
+}
+
+### CURP con formato válido que no está registrada
+> POST /api/v1/usuarios  (cuenta: Administrador de prueba)
+> {"nombreMostrado":"Sin registro","correo":"inexistente@def10.test","asignaciones":[{"rolId":"54854d0e-4f2a-42ec-8bd5-e27da1eb3124"}],"curp":"XEXZ990101HMNXXX09"}
+< HTTP 422
+{
+  "detail": "No hay una persona registrada con esa CURP. Regístrala primero y después invita su cuenta.",
+  "instance": "/api/v1/usuarios",
+  "status": 422,
+  "title": "No se puede procesar",
+  "type": "https://siglim.mx/errores/referencia-invalida",
+  "codigo": "REFERENCIA_INVALIDA",
+  "campo": "curp"
+}
+
+### CURP de un menor (Mateo, nacido en 2014)
+> POST /api/v1/usuarios  (cuenta: Administrador de prueba)
+> {"nombreMostrado":"Mateo Menor","correo":"menor@def10.test","asignaciones":[{"rolId":"54854d0e-4f2a-42ec-8bd5-e27da1eb3124"}],"curp":"XEXM140510HMNXXX03"}
+< HTTP 422
+{
+  "detail": "Un menor de edad no tiene cuenta propia. Invita a su tutor con la CURP del tutor.",
+  "instance": "/api/v1/usuarios",
+  "status": 422,
+  "title": "No se puede procesar",
+  "type": "https://siglim.mx/errores/rf-106",
+  "codigo": "RF-106",
+  "campo": "curp"
+}
+
+### CURP ya vinculada a otra cuenta (la de Jorge)
+> POST /api/v1/usuarios  (cuenta: Administrador de prueba)
+> {"nombreMostrado":"Jorge otra vez","correo":"jugador2@def10.test","asignaciones":[{"rolId":"54854d0e-4f2a-42ec-8bd5-e27da1eb3124"}],"curp":"XEXJ960101HMNXXX01"}
+< HTTP 409
+{
+  "detail": "La persona con esa CURP ya tiene una cuenta en SIGLIM. Búscala en la lista de usuarios en lugar de invitarla de nuevo.",
+  "instance": "/api/v1/usuarios",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/duplicado",
+  "codigo": "DUPLICADO",
+  "campo": "curp",
+  "perfilId": "aadb93f8-127c-436b-a935-df2e91a4f851"
+}
+
+### Correo ya registrado (sin CURP)
+> POST /api/v1/usuarios  (cuenta: Administrador de prueba)
+> {"nombreMostrado":"Correo repetido","correo":"secretario@def10.test","asignaciones":[{"rolId":"74280f81-ad55-4cb5-a756-35364226c9d5"}]}
+< HTTP 409
+{
+  "detail": "Ya existe una cuenta con el correo «secretario@def10.test».",
+  "instance": "/api/v1/usuarios",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/duplicado",
+  "codigo": "DUPLICADO",
+  "campo": "correo"
+}
+
+invitaciones enviadas a Supabase Auth después de los cinco errores: 3
+## Observación · CURP con espacios alrededor por la API (F-12 la recorta antes de enviarla)
+> POST /api/v1/usuarios  (cuenta: Administrador de prueba)
+> {"nombreMostrado":"Espacios","correo":"espacios@def10.test","asignaciones":[{"rolId":"54854d0e-4f2a-42ec-8bd5-e27da1eb3124"}],"curp":" XEXZ990101HMNXXX09 "}
+< HTTP 400
+{
+  "detail": "Revisa los campos marcados.",
+  "instance": "/api/v1/usuarios",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/validacion",
+  "codigo": "VALIDACION",
+  "errores": [
+    {
+      "mensaje": "La CURP admite hasta 18 caracteres",
+      "campo": "curp"
+    }
+  ]
+}
+
+## CA-1 · Detalle y listado muestran personaId
+> GET /api/v1/usuarios/aadb93f8-127c-436b-a935-df2e91a4f851  (cuenta: Administrador de prueba)
+< HTTP 200
+{
+  "id": "aadb93f8-127c-436b-a935-df2e91a4f851",
+  "nombreMostrado": "Jorge Jugador",
+  "correo": "jugador@def10.test",
+  "personaId": "d1700001-0000-4000-8000-000000000001",
+  "activo": true,
+  "creadoEn": "2026-11-24T06:09:00.037866Z",
+  "asignaciones": [
+    {
+      "id": "265e0327-aa35-4aa8-801b-e76186f3902c",
+      "rol": {
+        "id": "54854d0e-4f2a-42ec-8bd5-e27da1eb3124",
+        "codigo": "JUGADOR_TUTOR",
+        "nombre": "Jugador o tutor"
+      },
+      "ambito": "PROPIO",
+      "activa": true,
+      "creadoEn": "2026-11-24T06:09:00.037866Z"
+    }
+  ]
+}
+
+> GET /api/v1/usuarios?pagina=0&tamano=20  (cuenta: Administrador de prueba)
+< HTTP 200
+
+Administrador de prueba  personaId: null
+Jorge Jugador            personaId: d1700001-0000-4000-8000-000000000001
+Secretario de prueba     personaId: null
+Teresa Tutora            personaId: d1700002-0000-4000-8000-000000000001
+
+## CA-4 · La cuenta del jugador vinculado (cuenta 1) consulta «Mi información»
+> GET /api/v1/mi-informacion  (cuenta: Cuenta invitada 1)
+< HTTP 200
+{
+  "titulares": [
+    {
+      "personaId": "d1700001-0000-4000-8000-000000000001",
+      "nombre": "Jorge Jugador Prueba",
+      "esPropia": true,
+      "esMenor": false
+    }
+  ]
+}
+
+## CA-4 · La cuenta de la tutora vinculada (cuenta 2) ve al menor bajo su tutela
+> GET /api/v1/mi-informacion  (cuenta: Cuenta invitada 2)
+< HTTP 200
+{
+  "titulares": [
+    {
+      "personaId": "d1700002-0000-4000-8000-000000000001",
+      "nombre": "Teresa Tutora Prueba",
+      "esPropia": true,
+      "esMenor": false
+    },
+    {
+      "personaId": "d1700003-0000-4000-8000-000000000001",
+      "nombre": "Mateo Menor Prueba",
+      "esPropia": false,
+      "esMenor": true
+    }
+  ]
+}
+
+## CA-4 · La cuenta sin vínculo (Secretario, cuenta 3) no tiene datos propios
+> GET /api/v1/mi-informacion  (cuenta: Cuenta invitada 3)
+< HTTP 200
+{
+  "titulares": []
+}
+
+## CA-4 · Detalle del jugador vinculado: su registro
+> GET /api/v1/mi-informacion/d1700001-0000-4000-8000-000000000001  (cuenta: Cuenta invitada 1)
+< HTTP 200
+{
+  "persona": {
+    "id": "d1700001-0000-4000-8000-000000000001",
+    "nombreCompleto": "Jorge Jugador Prueba",
+    "curpEnmascarada": "XEXJ******HMN***01",
+    "esMenor": false
+  },
+  "registros": [
+    {
+      "id": "af4a126f-4c48-4a3f-8184-e964cdedb2ae",
+      "temporada": {
+        "id": "d1300000-0000-4000-8000-000000000001",
+        "nombre": "Temporada 2026-2027 (prueba)",
+        "estado": "CONFIGURACION"
+      },
+      "club": {
+        "id": "d1500000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones"
+      },
+      "equipo": {
+        "id": "d1600000-0000-4000-8000-000000000001",
+        "nombre": "Halcones Libre"
+      },
+      "categoria": {
+        "id": "d1310000-0000-4000-8000-000000000001",
+        "nombre": "Libre (prueba)"
+      },
+      "estado": "ACTIVO",
+      "altaEn": "2026-08-10",
+      "bajaEn": null,
+      "motivoBaja": null,
+      "observaciones": null,
+      "elegibilidad": {
+        "elegible": true,
+        "causas": []
+      },
+      "documentos": {
+        "requisitos": [
+          {
+            "tipoDocumento": {
+              "id": 2,
+              "codigo": "IDENTIFICACION",
+              "nombre": "Identificación"
+            },
+            "cantidad": 1,
+            "soloMenores": false,
+            "esDemo": false,
+            "cargados": 0,
+            "aprobados": 0,
+            "faltan": 1,
+            "documentos": []
+          },
+          {
+            "tipoDocumento": {
+              "id": 5,
+              "codigo": "FOTOGRAFIA",
+              "nombre": "Fotografía"
+            },
+            "cantidad": 2,
+            "soloMenores": false,
+            "esDemo": false,
+            "cargados": 0,
+            "aprobados": 0,
+            "faltan": 2,
+            "documentos": []
+          }
+        ],
+        "completo": false,
+        "listoParaValidar": false
+      },
+      "proximosPartidos": [],
+      "partidosJugados": []
+    }
+  ],
+  "sanciones": []
+}
+
+## CA-4 · La tutora consulta el detalle del menor
+> GET /api/v1/mi-informacion/d1700003-0000-4000-8000-000000000001  (cuenta: Cuenta invitada 2)
+< HTTP 200
+{
+  "persona": {
+    "id": "d1700003-0000-4000-8000-000000000001",
+    "nombreCompleto": "Mateo Menor Prueba",
+    "curpEnmascarada": "XEXM******HMN***03",
+    "esMenor": true
+  },
+  "registros": [
+    {
+      "id": "a5ebb044-3342-4791-b563-ccf66544d9ab",
+      "temporada": {
+        "id": "d1300000-0000-4000-8000-000000000001",
+        "nombre": "Temporada 2026-2027 (prueba)",
+        "estado": "CONFIGURACION"
+      },
+      "club": {
+        "id": "d1500000-0000-4000-8000-000000000001",
+        "nombre": "Club Halcones"
+      },
+      "equipo": {
+        "id": "d1600000-0000-4000-8000-000000000001",
+        "nombre": "Halcones Libre"
+      },
+      "categoria": {
+        "id": "d1310000-0000-4000-8000-000000000001",
+        "nombre": "Libre (prueba)"
+      },
+      "estado": "ACTIVO",
+      "altaEn": "2026-08-10",
+      "bajaEn": null,
+      "motivoBaja": null,
+      "observaciones": null,
+      "elegibilidad": {
+        "elegible": true,
+        "causas": []
+      },
+      "documentos": {
+        "requisitos": [
+          {
+            "tipoDocumento": {
+              "id": 2,
+              "codigo": "IDENTIFICACION",
+              "nombre": "Identificación"
+            },
+            "cantidad": 1,
+            "soloMenores": false,
+            "esDemo": false,
+            "cargados": 0,
+            "aprobados": 0,
+            "faltan": 1,
+            "documentos": []
+          },
+          {
+            "tipoDocumento": {
+              "id": 5,
+              "codigo": "FOTOGRAFIA",
+              "nombre": "Fotografía"
+            },
+            "cantidad": 2,
+            "soloMenores": false,
+            "esDemo": false,
+            "cargados": 0,
+            "aprobados": 0,
+            "faltan": 2,
+            "documentos": []
+          },
+          {
+            "tipoDocumento": {
+              "id": 6,
+              "codigo": "INE_TUTOR",
+              "nombre": "Credencial INE del tutor"
+            },
+            "cantidad": 1,
+            "soloMenores": true,
+            "esDemo": false,
+            "cargados": 0,
+            "aprobados": 0,
+            "faltan": 1,
+            "documentos": []
+          }
+        ],
+        "completo": false,
+        "listoParaValidar": false
+      },
+      "proximosPartidos": [],
+      "partidosJugados": []
+    }
+  ],
+  "sanciones": []
+}
+
+## CA-4 · El jugador no ve al menor (no es su titular)
+> GET /api/v1/mi-informacion/d1700003-0000-4000-8000-000000000001  (cuenta: Cuenta invitada 1)
+< HTTP 404
+{
+  "detail": "El recurso no existe o no tienes acceso a él.",
+  "instance": "/api/v1/mi-informacion/d1700003-0000-4000-8000-000000000001",
+  "status": 404,
+  "title": "Recurso no encontrado",
+  "type": "https://siglim.mx/errores/no-encontrado",
+  "codigo": "NO_ENCONTRADO"
+}
+
