@@ -8,3 +8,5 @@ siglim:
     # arrancar. Sus pruebas las invocan directamente con un reloj fijo (backend/AGENTS.md).
     vencimiento-cobros:
       habilitada: false
+    inicio-partidos:
+      habilitada: false

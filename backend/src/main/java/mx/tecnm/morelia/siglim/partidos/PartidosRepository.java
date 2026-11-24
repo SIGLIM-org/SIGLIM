@@ -223,6 +223,49 @@ class PartidosRepository {
                 .update();
     }
 
+    /**
+     * Pasa a {@code EN_CURSO} los partidos {@code PROGRAMADO} o {@code REPROGRAMADO} de jornadas
+     * publicadas de la liga cuyo inicio ya llegó (RF-127, ADR-0009 §2). Es un solo {@code UPDATE}
+     * condicional: repetirlo no encuentra filas, y si otra ejecución ya los inició, la condición del
+     * {@code WHERE} se vuelve a evaluar sobre la fila bloqueada y la excluye. Solo cambia
+     * {@code estado}, así que no corre {@code tg_partidos_programacion}; el historial lo escribe
+     * {@code tg_partidos_historial} con el motivo fijado por el servicio.
+     *
+     * @return solo los partidos que cambiaron en esta ejecución, con su estado anterior
+     */
+    List<PartidoIniciado> iniciarLlegados(UUID ligaId, OffsetDateTime ahora) {
+        return jdbc.sql("""
+                        WITH llegados AS (
+                            SELECT p.id, p.estado
+                              FROM partidos p
+                              JOIN jornadas j ON j.id = p.jornada_id
+                              JOIN grupos g ON g.id = j.grupo_id
+                              JOIN categorias_temporada ct ON ct.id = g.categoria_temporada_id
+                              JOIN temporadas t ON t.id = ct.temporada_id
+                             WHERE t.liga_id = :liga
+                               AND j.estado_publicacion = 'PUBLICADO'
+                               AND p.estado IN ('PROGRAMADO', 'REPROGRAMADO')
+                               AND p.inicio <= :ahora
+                        )
+                        UPDATE partidos p
+                           SET estado = 'EN_CURSO', actualizado_en = now()
+                          FROM llegados l
+                         WHERE p.id = l.id AND p.estado IN ('PROGRAMADO', 'REPROGRAMADO')
+                        RETURNING p.id, l.estado AS estado_anterior, p.inicio
+                        """)
+                .param("liga", ligaId)
+                .param("ahora", ahora, Types.TIMESTAMP_WITH_TIMEZONE)
+                .query((fila, numero) -> new PartidoIniciado(
+                        fila.getObject("id", UUID.class),
+                        EstadoPartido.valueOf(fila.getString("estado_anterior")),
+                        fila.getObject("inicio", OffsetDateTime.class)))
+                .list();
+    }
+
+    /** Partido que la tarea de inicio pasó a {@code EN_CURSO}. */
+    record PartidoIniciado(UUID id, EstadoPartido estadoAnterior, OffsetDateTime inicio) {
+    }
+
     private static final String FILTROS = """
              AND (CAST(:jornada AS uuid) IS NULL OR p.jornada_id = :jornada)
              AND (CAST(:estadoFiltro AS text) IS NULL OR p.estado = CAST(:estadoFiltro AS siglim.estado_partido))
