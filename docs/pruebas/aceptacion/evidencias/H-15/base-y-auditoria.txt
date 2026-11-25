@@ -1,0 +1,40 @@
+# H-15.4 · Base de datos, auditoría y bitácora después de los escenarios (24-nov-2026, consultas como dueño del esquema)
+
+## Estados finales de los partidos
+          partido           |    estado    |  inicio_morelia  |        cancha         
+----------------------------+--------------+------------------+-----------------------
+ H15 Halcones vs. H15 Toros | EN_CURSO     | 24-11-2026 21:18 | Cancha Demostración 2
+ H15 Toros vs. H15 Lobos    | CANCELADO    | 29-11-2026 10:00 | Cancha Demostración 2
+ H15 Pumas vs. H15 Lobos    | REPROGRAMADO | 30-11-2026 17:00 | Cancha Demostración 2
+(3 rows)
+
+## partido_estado_historial (RF-045): usuario, fecha y motivo de cada cambio
+          partido           | estado_anterior | estado_nuevo |                         motivo                          |     cambiado_por      |   hora   
+----------------------------+-----------------+--------------+---------------------------------------------------------+-----------------------+----------
+ H15 Halcones vs. H15 Toros |                 | PROGRAMADO   | Programación del partido                                | Programador de prueba | 21:09:31
+ H15 Pumas vs. H15 Lobos    |                 | PROGRAMADO   | Programación del partido                                | Programador de prueba | 21:09:31
+ H15 Toros vs. H15 Lobos    |                 | PROGRAMADO   | Programación del partido                                | Programador de prueba | 21:09:32
+ H15 Halcones vs. H15 Toros | PROGRAMADO      | REPROGRAMADO | El equipo visitante pidió cambio por el torneo regional | Programador de prueba | 21:09:48
+ H15 Toros vs. H15 Lobos    | PROGRAMADO      | CANCELADO    | El club local se retiró del torneo de prueba            | Programador de prueba | 21:09:48
+ H15 Pumas vs. H15 Lobos    | PROGRAMADO      | REPROGRAMADO | La cancha 1 estará ocupada por el torneo infantil       | Programador de prueba | 21:11:06
+ H15 Halcones vs. H15 Toros | REPROGRAMADO    | EN_CURSO     | inicio automático por fecha y hora                      | Sistema               | 21:18:00
+(7 rows)
+
+## Auditoría de M-08 (RF-093)
+         accion         |         quien         |          partido           |                         motivo                          |                                                                                                                               detalle                                                                                                                                
+------------------------+-----------------------+----------------------------+---------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ CAMBIAR_ESTADO_PARTIDO | Programador de prueba | H15 Halcones vs. H15 Toros | El equipo visitante pidió cambio por el torneo regional | {"estadoNuevo": "REPROGRAMADO", "inicioNuevo": "2026-11-25T03:18Z", "canchaNuevaId": "d1500002-0000-4000-8000-000000000001", "estadoAnterior": "PROGRAMADO", "inicioAnterior": "2026-11-24T21:15-06:00", "canchaAnteriorId": "d1500001-0000-4000-8000-000000000001"}
+ CAMBIAR_ESTADO_PARTIDO | Programador de prueba | H15 Toros vs. H15 Lobos    | El club local se retiró del torneo de prueba            | {"estadoNuevo": "CANCELADO", "estadoAnterior": "PROGRAMADO"}
+ CAMBIAR_ESTADO_PARTIDO | Programador de prueba | H15 Pumas vs. H15 Lobos    | La cancha 1 estará ocupada por el torneo infantil       | {"estadoNuevo": "REPROGRAMADO", "inicioNuevo": "2026-11-30T23:00Z", "canchaNuevaId": "d1500002-0000-4000-8000-000000000001", "estadoAnterior": "PROGRAMADO", "inicioAnterior": "2026-11-28T10:00-06:00", "canchaAnteriorId": "d1500001-0000-4000-8000-000000000001"}
+ INICIAR_PARTIDO        | Sistema               | H15 Halcones vs. H15 Toros | inicio automático por fecha y hora                      | {"inicio": "2026-11-25T03:18Z", "estadoNuevo": "EN_CURSO", "estadoAnterior": "REPROGRAMADO"}
+(4 rows)
+
+## CA-3 · Idempotencia: inicios de P1 (Halcones vs. Toros)
+ historial_en_curso | auditorias_iniciar 
+--------------------+--------------------
+                  1 |                  1
+(1 row)
+
+## Bitácora del backend: ejecuciones de la tarea que iniciaron partidos (INFO solo si inició alguno, ADR-0009 §6)
+2026-11-24T21:18:00.014-06:00 INFO 19264 [ scheduling-1] m.t.m.s.partidos.InicioPartidosService : Inicio de partidos: 1 partido(s) en curso en 14 ms
+(La tarea corre cada minuto; a las 21:19 y 21:20 volvió a correr sin iniciar nada, por eso no hay más líneas.)
