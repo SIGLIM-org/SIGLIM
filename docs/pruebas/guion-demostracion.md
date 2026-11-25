@@ -533,4 +533,5 @@ H-09) · [H-11](aceptacion/H-11-arbitros.md) · [H-12](aceptacion/H-12-conflicto
 [DEF-07](aceptacion/DEF-07-migraciones-compartido.md)
 
 Sprint 4:
-[DEF-10](aceptacion/DEF-10-vinculo-cuenta-persona.md) · [H-16](aceptacion/H-16-cedula.md)
+[H-15](aceptacion/H-15-estado-partido.md) · [H-16](aceptacion/H-16-cedula.md) ·
+[DEF-10](aceptacion/DEF-10-vinculo-cuenta-persona.md)
