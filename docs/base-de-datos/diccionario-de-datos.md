@@ -1,7 +1,7 @@
 # Diccionario de datos
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.13 · 17 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
+Versión 2.14 · 25 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
 
 > [!NOTE]
 > Este diccionario describe la migración
@@ -30,6 +30,7 @@ Versión 2.13 · 17 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alinea
 | 2.11 | 16 de noviembre de 2026 | Migración `20261116180000_parametros_localia.sql` (B-15.1, RF-120, VAL-027, RN-049, DEC-34): `parametros_temporada` agrega `fechas_fase_regular` (`smallint`, nulo = sin definir) y `fechas_finales_unidad_deportiva` (`smallint`, no nulo, default 10 **[DEMO]**) con `ck_parametros_localia`; el backend advierte una cancha fuera de la unidad deportiva en las jornadas de la fase regular con `numero > fechas_fase_regular − fechas_finales_unidad_deportiva` y guarda el motivo con que se acepta en `partidos.motivo_localia`. Las versiones existentes quedan sin total de fechas (la regla no se evalúa) y con 10. |
 | 2.12 | 17 de noviembre de 2026 | Migración `20261117190000_renovacion_transferencia_registros.sql` (B-06.1, RF-015, RF-016, RF-111, VAL-026, DEC-146): función `SECURITY DEFINER` de lectura mínima `registro_anterior(uuid, uuid)` (registro no rechazado más reciente de la persona en una temporada anterior, con club, equipo y temporada) e índice `ix_registros_anterior`; `tg_registros_validar` valida `registro_anterior_id` (misma persona, temporada anterior, mismo club o cambio permitido por `permite_cambio_club` de la temporada destino) y, al activar, VAL-001 cuenta también los documentos aprobados de los registros anteriores del mismo club (renovación). Sin cambios en columnas. |
 | 2.13 | 17 de noviembre de 2026 | Migración `20261117220000_alta_normal_cambio_club.sql` (B-06, RF-111, DEC-154): `tg_registros_validar` conserva sus reglas y, en un alta sin `registro_anterior_id`, rechaza con `RF-111` el cambio de club entre temporadas si el registro anterior más reciente de la persona es de otro club y la versión vigente de parámetros de la temporada destino no lo permite. Sin cambios en columnas. |
+| 2.14 | 25 de noviembre de 2026 | Migración `20261125100000_programacion_automatica.sql` (T-06, DEC-173 a DEC-182, ADR-0015): `parametros_temporada` agrega `vueltas` (`smallint`, no nulo, default 1) con `ck_parametros_vueltas` (1 a 4) y `hora_inicio_juego` y `hora_fin_juego` (`time`, no nulos, default 08:00 y 18:00 **[DEMO]**) con `ck_parametros_horario_juego` (fin > inicio); las versiones existentes reciben los valores por default. `categorias_temporada` agrega `dias_juego` (`smallint[]`, no nulo, ISO 8601) con `ck_categorias_temporada_dias` (1 a 7 elementos, valores 1 a 7); las filas existentes se llenan por tipo de categoría (LIBRE → {7}; INFANTIL y VETERANOS → {6} **[DEMO]**) y el trigger `tg_categorias_temporada_dias_juego` aplica la misma regla al insertar con nulo. Tablas nuevas `fechas_programacion` (la fecha agrupa las jornadas de todos los grupos de una semana, DEC-175) y `emparejamientos` (calendario por grupo y fecha con descansos y causa de lo no asignado, DEC-174, DEC-180; el trigger `tg_emparejamientos_equipo_unico` rechaza con `RN-012` un equipo que ya tiene emparejamiento en la misma fecha del grupo, como local, visitante o descanso), con RLS `app_sin_restriccion` y `SELECT`, `INSERT` y `UPDATE` a `siglim_app` (sin `DELETE`). `jornadas` agrega `fecha_id` con el índice único parcial `ux_jornadas_fecha_grupo`; `partidos` agrega `asignado_automaticamente` y `designaciones` agrega `automatica` (`boolean`, no nulos, default false). Permiso nuevo `arbitraje.designacion:AUTOMATICA` (M-05) asignado a `PROGRAMADOR` (DEC-182), fuera de los pares incompatibles. Pruebas nuevas en `supabase/pruebas/prueba_programacion_automatica.sql`. |
 
 ## 1. Propósito y alcance
 
@@ -91,7 +92,7 @@ entrega N y B del modelo conceptual del ERS (§4.4); las de entrega F no tienen 
 | M-04 Registros y elegibilidad | `documentos`, `registro_estado_historial`, `registros_jugador`, `requisitos_documento`, `tipos_documento` |
 | M-05 Árbitros y designaciones | `arbitros`, `designaciones`, `disponibilidad_arbitral` |
 | M-06 Canchas y recursos | `canchas`, `disponibilidad_canchas`, `horarios_cancha_club`, `sedes`, `solicitudes_cancha` |
-| M-07 Programación manual | `historial_publicacion`, `jornadas`, `partidos` |
+| M-07 Programación manual y automática | `emparejamientos`, `fechas_programacion`, `historial_publicacion`, `jornadas`, `partidos` |
 | M-08 Partidos, cédula y resultados | `alineaciones`, `cedula_estado_historial`, `cedulas`, `eventos_cedula`, `incidencia_involucrados`, `incidencias`, `partido_estado_historial`, `resultados`, `sorteos_desempate`, `tabla_historial` |
 | M-09 Disciplina | `articulos`, `expediente_estado_historial`, `expedientes`, `recursos`, `resoluciones`, `sanciones`, `tipos_incidencia` |
 | M-10 Competencias y fases finales | `fases`, `llaves`, `propuesta_movimiento_detalle`, `propuestas_movimiento` |
@@ -171,6 +172,8 @@ erDiagram
     CANCHAS ||--o{ DISPONIBILIDAD_CANCHAS : "cancha_id"
     CANCHAS ||--o{ HORARIOS_CANCHA_CLUB : "cancha_id"
     FASES |o--o{ JORNADAS : "fase_id"
+    FECHAS_PROGRAMACION |o--o{ JORNADAS : "fecha_id"
+    PARTIDOS |o--o| EMPAREJAMIENTOS : "partido_id"
     FASES ||--o{ LLAVES : "fase_id"
     LLAVES |o--o{ LLAVES : "siguiente_llave_id"
     JORNADAS ||--o{ PARTIDOS : "jornada_id"
@@ -476,10 +479,13 @@ Categorías que participan en la temporada (RF-004).
 | `id` | uuid | No | gen_random_uuid() | PK | Identificador único. |
 | `temporada_id` | uuid | No |  | FK → temporadas.id | Temporada en que participa la categoría. |
 | `categoria_id` | uuid | No |  | FK → categorias.id | Categoría del catálogo. |
+| `dias_juego` | smallint[] | No |  |  | Días de la semana en que juega la categoría (ISO 8601: 1 = lunes … 7 = domingo). Si se inserta nulo, un trigger lo llena por tipo [DEMO]: LIBRE → {7}; INFANTIL y VETERANOS → {6}; editable. Si ningún día de la fecha coincide, se usan todos con advertencia (DEC-177). |
 
 Restricciones, índices y triggers:
 
 - `categorias_temporada_temporada_id_categoria_id_key`: `UNIQUE (temporada_id, categoria_id)`
+- `ck_categorias_temporada_dias`: `CHECK (((cardinality(dias_juego) >= 1) AND (cardinality(dias_juego) <= 7) AND (dias_juego <@ '{1,2,3,4,5,6,7}'::smallint[])))`
+- Trigger `tg_categorias_temporada_dias_juego` (before insert) → `tg_categorias_temporada_dias_juego()` — llena `dias_juego` cuando viene nulo (DEC-177).
 
 #### `convocatorias`
 
@@ -566,6 +572,9 @@ Reglas versionadas de la temporada; la versión mayor es la vigente (RF-006, RF-
 | `equipos_por_arbitro` | smallint | No | 4 |  | Equipos activos del club por cada árbitro validado que debe presentar; la cuota se redondea hacia arriba (4 [DEMO], RF-114, DEC-17). |
 | `fechas_fase_regular` | smallint | Sí |  |  | Total de fechas (jornadas) de la fase regular; nulo = sin definir y no se evalúa la regla de las últimas fechas (RN-049, B-15.1). |
 | `fechas_finales_unidad_deportiva` | smallint | No | 10 |  | Últimas fechas de la fase regular en las que se advierte una cancha fuera de la unidad deportiva; 0 desactiva la regla (10 [DEMO], RF-120, VAL-027, DEC-34). |
+| `vueltas` | smallint | No | 1 |  | Vueltas del calendario por método del círculo: cada par de equipos del grupo se enfrenta una vez por vuelta, alternando localía (1 a 4; DEC-174, RF-034). |
+| `hora_inicio_juego` | time | No | 08:00:00 |  | Inicio del horario de juego por defecto de cada día de la fecha (08:00 [DEMO], DEC-176); si la cancha tiene periodos DISPONIBLE ese día, se usan esos. |
+| `hora_fin_juego` | time | No | 18:00:00 |  | Fin del horario de juego por defecto; el último bloque de cancha termina a esta hora o antes (18:00 [DEMO], DEC-176). |
 | `es_demo` | boolean | No | true |  | Valor de demostración [DEMO]: configurable y rotulado «no oficial» en la interfaz. |
 | `motivo` | text | No |  |  | Motivo de la operación o del cambio. |
 | `creado_por` | uuid | Sí |  | FK → perfiles.id | Perfil que creó el registro. |
@@ -576,11 +585,13 @@ Restricciones, índices y triggers:
 - `ck_parametros_arbitros`: `CHECK ((equipos_por_arbitro > 0))`
 - `ck_parametros_criterios`: `CHECK ((criterios_desempate[1] = 'PUNTOS'))`
 - `ck_parametros_default`: `CHECK (((goles_default_ganador > goles_default_perdedor) AND (goles_default_perdedor >= 0)))`
+- `ck_parametros_horario_juego`: `CHECK ((hora_fin_juego > hora_inicio_juego))`
 - `ck_parametros_liguilla`: `CHECK ((clasificados_liguilla = ANY (ARRAY[2, 4, 8, 16, 32])))`
 - `ck_parametros_localia`: `CHECK ((((fechas_fase_regular IS NULL) OR (fechas_fase_regular > 0)) AND (fechas_finales_unidad_deportiva >= 0)))`
 - `ck_parametros_movimientos`: `CHECK (((equipos_ascienden >= 0) AND (equipos_descienden >= 0)))`
 - `ck_parametros_puntos`: `CHECK (((puntos_victoria >= puntos_empate) AND (puntos_empate >= puntos_derrota) AND (puntos_derrota >= 0)))`
 - `ck_parametros_tiempos`: `CHECK (((duracion_juego_min > 0) AND (bloque_cancha_min >= duracion_juego_min) AND (plazo_validacion_cedula > '00:00:00'::interval)))`
+- `ck_parametros_vueltas`: `CHECK (((vueltas >= 1) AND (vueltas <= 4)))`
 - `parametros_temporada_temporada_id_version_key`: `UNIQUE (temporada_id, version)`
 - Trigger `tg_parametros_inmutable` (before delete or update) → `tg_inmutable()`
 - Trigger `tg_parametros_sin_truncate` (before truncate, por sentencia) → `tg_inmutable()`
@@ -957,6 +968,7 @@ Restricciones, índices y triggers:
 | `designado_por` | uuid | Sí |  | FK → perfiles.id | Perfil que designó. |
 | `designado_en` | timestamptz | No | now() |  | Fecha y hora de designación. |
 | `motivo_cambio` | text | Sí |  |  | Motivo al sustituir una designación. |
+| `automatica` | boolean | No | false |  | Verdadero si el árbitro central lo designó la asignación automática (H-34, DEC-182); el cambio manual lo hace la Comisión de Arbitraje. |
 
 Restricciones, índices y triggers:
 
@@ -1091,7 +1103,64 @@ Restricciones, índices y triggers:
 - `ck_solicitudes_cancha_solicitante`: `CHECK (((club_id IS NULL) <> (solicitante_externo IS NULL)))`
 - `solicitudes_cancha_liga_id_numero_oficio_key`: `UNIQUE (liga_id, numero_oficio)`
 
-### 5.7 M-07 Programación manual
+### 5.7 M-07 Programación manual y automática
+
+#### `emparejamientos`
+
+Calendario por grupo: quién juega contra quién en cada fecha y vuelta, con descansos (método del círculo; DEC-174, RF-034, RF-037). Lo que no cabe queda sin partido, con código y causa (DEC-180, VAL-007). Nunca se borra (DEC-181).
+
+| Columna | Tipo | Nulo | Predeterminado | Llave | Descripción |
+| --- | --- | --- | --- | --- | --- |
+| `id` | uuid | No | gen_random_uuid() | PK | Identificador único. |
+| `grupo_id` | uuid | No |  | FK → grupos.id | Grupo cuyo calendario forma el emparejamiento. |
+| `vuelta` | smallint | No |  |  | Vuelta del calendario (> 0, hasta `parametros_temporada.vueltas`; DEC-174). |
+| `numero_fecha` | smallint | No |  |  | Número de la fecha del grupo (> 0); corresponde a `fechas_programacion.numero` (DEC-175). |
+| `equipo_local_id` | uuid | No |  | FK → equipos.id | Equipo local; en un descanso, el equipo que descansa (RF-037). |
+| `equipo_visitante_id` | uuid | Sí |  | FK → equipos.id | Equipo visitante; nulo = descanso (RF-037). |
+| `partido_id` | uuid | Sí |  | FK → partidos.id | Partido creado al asignar cancha y horario; nulo mientras no se asigna o si no cupo. Un descanso nunca tiene partido (DEC-180). |
+| `codigo_no_asignado` | varchar(20) | Sí |  |  | Código del ERS que explica por qué no se asignó (VAL-007, VAL-006 …; DEC-180). |
+| `causa_no_asignado` | text | Sí |  |  | Explicación legible de por qué quedó sin partido (DEC-180). |
+| `creado_por` | uuid | Sí |  | FK → perfiles.id | Programador que generó el calendario (DEC-174). |
+| `creado_en` | timestamptz | No | now() |  | Fecha y hora de creación. |
+
+Restricciones, índices y triggers:
+
+- `ck_emparejamientos_descanso`: `CHECK (((equipo_visitante_id IS NOT NULL) OR (partido_id IS NULL)))`
+- `ck_emparejamientos_equipos`: `CHECK (((equipo_visitante_id IS NULL) OR (equipo_visitante_id <> equipo_local_id)))`
+- `ck_emparejamientos_numeros`: `CHECK (((vuelta > 0) AND (numero_fecha > 0)))`
+- `emparejamientos_partido_id_key`: `UNIQUE (partido_id)`
+- Índice `ix_emparejamientos_creado_por`: `USING btree (creado_por) WHERE (creado_por IS NOT NULL)`
+- Índice `ix_emparejamientos_equipo_local`: `USING btree (equipo_local_id)`
+- Índice `ix_emparejamientos_equipo_visitante`: `USING btree (equipo_visitante_id) WHERE (equipo_visitante_id IS NOT NULL)`
+- Índice único `ux_emparejamientos_local`: `USING btree (grupo_id, numero_fecha, equipo_local_id)` — un equipo juega o descansa una vez por grupo y fecha como local.
+- Índice único `ux_emparejamientos_visitante`: `USING btree (grupo_id, numero_fecha, equipo_visitante_id) WHERE (equipo_visitante_id IS NOT NULL)` — un equipo juega una vez por grupo y fecha como visitante.
+- Trigger `tg_emparejamientos_equipo_unico` (before insert or update of grupo_id, numero_fecha, equipo_local_id, equipo_visitante_id) → `tg_emparejamientos_equipo_unico()` — RN-012: un equipo tiene un solo emparejamiento por grupo y fecha en cualquier papel (local, visitante o descanso); los índices únicos solo cubren el mismo papel y quedan como última garantía (DEC-174).
+
+#### `fechas_programacion`
+
+Fecha de la temporada: agrupa las jornadas de todos los grupos de una semana; se envía y se aprueba completa (DEC-175, RF-034, RF-041).
+
+| Columna | Tipo | Nulo | Predeterminado | Llave | Descripción |
+| --- | --- | --- | --- | --- | --- |
+| `id` | uuid | No | gen_random_uuid() | PK | Identificador único. |
+| `temporada_id` | uuid | No |  | FK → temporadas.id | Temporada a la que pertenece la fecha. |
+| `numero` | smallint | No |  |  | Número consecutivo de la fecha en la temporada (> 0; único por temporada). |
+| `dias` | date[] | No |  |  | Días calendario de la fecha (1 a 7), normalmente sábado y domingo; se cruzan con `categorias_temporada.dias_juego` (DEC-176, DEC-177). |
+| `generada_por` | uuid | Sí |  | FK → perfiles.id | Programador que ejecutó la última asignación automática (RF-041). |
+| `generada_en` | timestamptz | Sí |  |  | Fecha y hora de la última asignación automática (RF-041). |
+| `parametros_generacion` | jsonb | Sí |  |  | Datos de la última asignación automática: versión de parámetros, modo (pendientes o regenerar), motivo y totales (RF-041, DEC-181). |
+| `creado_por` | uuid | Sí |  | FK → perfiles.id | Usuario que creó la fecha (al generar el calendario, DEC-174). |
+| `creado_en` | timestamptz | No | now() |  | Fecha y hora de creación. |
+| `actualizado_en` | timestamptz | No | now() |  | Fecha y hora de la última modificación (la fija un trigger). |
+
+Restricciones, índices y triggers:
+
+- `ck_fechas_dias`: `CHECK (((cardinality(dias) >= 1) AND (cardinality(dias) <= 7)))`
+- `ck_fechas_numero`: `CHECK ((numero > 0))`
+- `fechas_programacion_temporada_id_numero_key`: `UNIQUE (temporada_id, numero)`
+- Índice `ix_fechas_programacion_creado_por`: `USING btree (creado_por) WHERE (creado_por IS NOT NULL)`
+- Índice `ix_fechas_programacion_generada_por`: `USING btree (generada_por) WHERE (generada_por IS NOT NULL)`
+- Trigger `tg_fechas_programacion_actualizado_en` (before update) → `tg_actualizado_en()`
 
 #### `historial_publicacion`
 
@@ -1128,6 +1197,7 @@ Jornada con estado de publicación Borrador → Revisión → Publicado; la apru
 | `creado_por` | uuid | Sí |  | FK → perfiles.id | Perfil que creó el registro. |
 | `creado_en` | timestamptz | No | now() |  | Fecha y hora de creación. |
 | `actualizado_en` | timestamptz | No | now() |  | Fecha y hora de la última modificación (la fija un trigger). |
+| `fecha_id` | uuid | Sí |  | FK → fechas_programacion.id | Fecha de programación a la que pertenece la jornada; una por grupo y fecha. Nulo en jornadas manuales y de fases finales (DEC-175). |
 
 Restricciones, índices y triggers:
 
@@ -1135,6 +1205,7 @@ Restricciones, índices y triggers:
 - `ck_jornadas_numero`: `CHECK ((numero > 0))`
 - Índice `ix_jornadas_grupo`: `USING btree (grupo_id, estado_publicacion)`
 - Índice único `ux_jornadas_fase`: `USING btree (fase_id, numero) WHERE (fase_id IS NOT NULL)`
+- Índice único `ux_jornadas_fecha_grupo`: `USING btree (fecha_id, grupo_id) WHERE (fecha_id IS NOT NULL)` — DEC-175: una sola jornada por grupo en cada fecha.
 - Índice único `ux_jornadas_regular`: `USING btree (grupo_id, numero) WHERE (fase_id IS NULL)`
 - Trigger `tg_jornadas_actualizado_en` (before update) → `tg_actualizado_en()`
 - Trigger `tg_jornadas_publicacion` (before update of estado_publicacion) → `tg_publicacion_estado()`
@@ -1154,10 +1225,11 @@ Partido programado manualmente. fin_bloque = inicio + bloque de cancha de la cat
 | `inicio` | timestamptz | No |  |  | Fecha y hora de inicio programada. |
 | `fin_bloque` | timestamptz | No |  |  | Fin del bloque de cancha = inicio + bloque de la categoría (lo calcula un trigger). |
 | `estado` | estado_partido | No | PROGRAMADO |  | Estado actual (máquinas de estado del ERS §4.3). |
-| `motivo_localia` | text | Sí |  |  | Motivo con el que se aceptó una advertencia de localía (RF-120, VAL-027); el backend lo exige de al menos 10 caracteres y lo borra si el partido ya respeta la localía (B-15.1). |
+| `motivo_localia` | text | Sí |  |  | Motivo con el que se aceptó una advertencia de localía (RF-120, VAL-027); el backend lo exige de al menos 10 caracteres y lo borra si el partido ya respeta la localía (B-15.1). En la asignación automática se llena con «Asignación automática: …» cuando no se cumple la preferencia de cancha (DEC-179). |
 | `creado_por` | uuid | Sí |  | FK → perfiles.id | Perfil que creó el registro. |
 | `creado_en` | timestamptz | No | now() |  | Fecha y hora de creación. |
 | `actualizado_en` | timestamptz | No | now() |  | Fecha y hora de la última modificación (la fija un trigger). |
+| `asignado_automaticamente` | boolean | No | false |  | Verdadero si la cancha y el horario los asignó la programación automática (H-33, RF-041, DEC-175); un ajuste manual posterior queda en la auditoría. |
 
 Restricciones, índices y triggers:
 
@@ -1965,13 +2037,13 @@ evalúa el backend (ADR-0007).
 | `tutelas` | `tutelas_editar` | UPDATE | `siglim.persona_visible(menor_id)` |
 | `tutelas` | `tutelas_leer` | SELECT | `(siglim.persona_visible(menor_id) OR (creado_por = siglim.usuario_actual()))` |
 
-Tablas con la política `app_sin_restriccion` (el rol `siglim_app` opera sin filtro de fila): `afiliacion_categorias`, `afiliaciones`, `alineaciones`, `arbitros`, `articulos`, `asignaciones_rol`, `avisos_privacidad`, `canchas`, `cargos_directiva`, `categorias`, `categorias_temporada`, `cedula_estado_historial`, `cedulas`, `clubes`, `comunicados`, `convocatorias`, `designaciones`, `disponibilidad_arbitral`, `disponibilidad_canchas`, `equipos`, `eventos_cedula`, `fases`, `grupos`, `historial_publicacion`, `horarios_cancha_club`, `incidencia_involucrados`, `incidencias`, `interpretaciones_regla`, `jornadas`, `ligas`, `llaves`, `operaciones_equipo`, `parametros_categoria`, `parametros_temporada`, `pares_incompatibles`, `partido_estado_historial`, `partidos`, `permisos`, `propuesta_movimiento_detalle`, `propuestas_movimiento`, `recursos`, `requisitos_documento`, `resoluciones`, `resultados`, `rol_permisos`, `roles`, `sedes`, `solicitudes_cambio_permisos`, `solicitudes_cancha`, `sorteos_desempate`, `tabla_historial`, `tarifas`, `temporadas`, `tipos_documento`, `tipos_incidencia`.
+Tablas con la política `app_sin_restriccion` (el rol `siglim_app` opera sin filtro de fila): `afiliacion_categorias`, `afiliaciones`, `alineaciones`, `arbitros`, `articulos`, `asignaciones_rol`, `avisos_privacidad`, `canchas`, `cargos_directiva`, `categorias`, `categorias_temporada`, `cedula_estado_historial`, `cedulas`, `clubes`, `comunicados`, `convocatorias`, `designaciones`, `disponibilidad_arbitral`, `disponibilidad_canchas`, `emparejamientos`, `equipos`, `eventos_cedula`, `fases`, `fechas_programacion`, `grupos`, `historial_publicacion`, `horarios_cancha_club`, `incidencia_involucrados`, `incidencias`, `interpretaciones_regla`, `jornadas`, `ligas`, `llaves`, `operaciones_equipo`, `parametros_categoria`, `parametros_temporada`, `pares_incompatibles`, `partido_estado_historial`, `partidos`, `permisos`, `propuesta_movimiento_detalle`, `propuestas_movimiento`, `recursos`, `requisitos_documento`, `resoluciones`, `resultados`, `rol_permisos`, `roles`, `sedes`, `solicitudes_cambio_permisos`, `solicitudes_cancha`, `sorteos_desempate`, `tabla_historial`, `tarifas`, `temporadas`, `tipos_documento`, `tipos_incidencia`.
 
 ### 9.2 Privilegios del rol `siglim_app`
 
 | Privilegios | Tablas |
 | --- | --- |
-| INSERT, SELECT, UPDATE | `afiliaciones`, `arbitros`, `articulos`, `asignaciones_rol`, `avisos_privacidad`, `canchas`, `cargos_directiva`, `categorias`, `categorias_temporada`, `cedulas`, `clubes`, `cobros`, `comunicados`, `consentimientos`, `convocatorias`, `correos_salientes`, `designaciones`, `documentos`, `equipos`, `expedientes`, `fases`, `grupos`, `intentos_pago`, `interpretaciones_regla`, `jornadas`, `ligas`, `llaves`, `notificaciones`, `operaciones_equipo`, `pagos`, `partidos`, `perfiles`, `permisos`, `personas`, `propuesta_movimiento_detalle`, `propuestas_movimiento`, `recursos`, `registros_jugador`, `roles`, `sanciones`, `sedes`, `solicitudes_arco`, `solicitudes_cambio_permisos`, `solicitudes_cancha`, `tarifas`, `temporadas`, `tipos_documento`, `tipos_incidencia`, `tutelas`, `v_publica_comunicados`, `v_publica_equipos`, `v_publica_programacion`, `v_publica_resultados`, `v_publica_sanciones` |
+| INSERT, SELECT, UPDATE | `afiliaciones`, `arbitros`, `articulos`, `asignaciones_rol`, `avisos_privacidad`, `canchas`, `cargos_directiva`, `categorias`, `categorias_temporada`, `cedulas`, `clubes`, `cobros`, `comunicados`, `consentimientos`, `convocatorias`, `correos_salientes`, `designaciones`, `documentos`, `emparejamientos`, `equipos`, `expedientes`, `fases`, `fechas_programacion`, `grupos`, `intentos_pago`, `interpretaciones_regla`, `jornadas`, `ligas`, `llaves`, `notificaciones`, `operaciones_equipo`, `pagos`, `partidos`, `perfiles`, `permisos`, `personas`, `propuesta_movimiento_detalle`, `propuestas_movimiento`, `recursos`, `registros_jugador`, `roles`, `sanciones`, `sedes`, `solicitudes_arco`, `solicitudes_cambio_permisos`, `solicitudes_cancha`, `tarifas`, `temporadas`, `tipos_documento`, `tipos_incidencia`, `tutelas`, `v_publica_comunicados`, `v_publica_equipos`, `v_publica_programacion`, `v_publica_resultados`, `v_publica_sanciones` |
 | DELETE, INSERT, SELECT, UPDATE | `afiliacion_categorias`, `alineaciones`, `disponibilidad_arbitral`, `disponibilidad_canchas`, `eventos_cedula`, `horarios_cancha_club`, `incidencia_involucrados`, `incidencias`, `parametros_categoria`, `pares_incompatibles`, `requisitos_documento`, `rol_permisos`, `sorteos_desempate` |
 | INSERT, SELECT | `auditoria`, `cedula_estado_historial`, `expediente_estado_historial`, `historial_publicacion`, `parametros_temporada`, `partido_estado_historial`, `registro_estado_historial`, `resoluciones`, `resultados`, `tabla_historial` |
 
@@ -1997,7 +2069,7 @@ matriz inicial del Apéndice E del ERS (configurable, DEC-04), los pares incompa
 | `DIRECTIVA_CLUB` | Directiva de club | CLUB | Sí | arbitraje.arbitro:CONSULTAR, arbitraje.arbitro:PROPONER, canchas.solicitud:CREAR, disciplina.expediente:CONSULTAR, disciplina.recurso:INTERPONER, notificaciones.aviso:CONSULTAR, organizacion.afiliacion:CAPTURAR, organizacion.club:CONSULTAR, organizacion.directiva:EDITAR, organizacion.equipo:CONSULTAR, organizacion.equipo:EDITAR, organizacion.persona:CONSULTAR, organizacion.persona:EDITAR, organizacion.venta:SOLICITAR, partidos.partido:CONSULTAR, programacion.jornada:CONSULTAR, registros.documento:CONSULTAR, registros.documento:CREAR, registros.registro:CONSULTAR, registros.registro:EDITAR, reportes.reporte:CONSULTAR, reportes.reporte:EXPORTAR, seguridad.consentimiento:REGISTRAR, tesoreria.cobro:CONSULTAR, tesoreria.pago:PAGAR |
 | `JUGADOR_TUTOR` | Jugador o tutor | PROPIO | Sí | disciplina.expediente:CONSULTAR, notificaciones.aviso:CONSULTAR, partidos.partido:CONSULTAR, registros.documento:CONSULTAR, registros.registro:CONSULTAR |
 | `PRESIDENTE` | Presidente del Comité Ejecutivo | LIGA | Sí | auditoria.registro:CONSULTAR, canchas.cancha:CONSULTAR, canchas.solicitud:APROBAR, competencias.propuesta:APROBAR, disciplina.expediente:CONSULTAR, disciplina.recurso:RESOLVER, notificaciones.aviso:CONSULTAR, organizacion.afiliacion:APROBAR, organizacion.club:CONSULTAR, organizacion.directiva:APROBAR, organizacion.equipo:CONSULTAR, organizacion.venta:APROBAR, partidos.partido:CONSULTAR, partidos.sorteo:REGISTRAR, programacion.jornada:APROBAR, programacion.jornada:CONSULTAR, publicacion.comunicado:APROBAR, reportes.reporte:CONSULTAR, reportes.reporte:EXPORTAR, seguridad.permisos:APROBAR_INCOMPATIBLE, seguridad.rol:CONSULTAR, temporadas.interpretacion:APROBAR, temporadas.temporada:CONSULTAR |
-| `PROGRAMADOR` | Programador de partidos | LIGA | Sí | arbitraje.arbitro:CONSULTAR, arbitraje.designacion:CONSULTAR, canchas.cancha:CONSULTAR, competencias.fase:EDITAR, notificaciones.aviso:CONSULTAR, organizacion.equipo:CONSULTAR, partidos.partido:CAMBIAR_ESTADO, partidos.partido:CONSULTAR, programacion.jornada:CONSULTAR, programacion.jornada:EDITAR, programacion.jornada:ENVIAR, temporadas.temporada:CONSULTAR |
+| `PROGRAMADOR` | Programador de partidos | LIGA | Sí | arbitraje.arbitro:CONSULTAR, arbitraje.designacion:AUTOMATICA, arbitraje.designacion:CONSULTAR, canchas.cancha:CONSULTAR, competencias.fase:EDITAR, notificaciones.aviso:CONSULTAR, organizacion.equipo:CONSULTAR, partidos.partido:CAMBIAR_ESTADO, partidos.partido:CONSULTAR, programacion.jornada:CONSULTAR, programacion.jornada:EDITAR, programacion.jornada:ENVIAR, temporadas.temporada:CONSULTAR |
 | `SECRETARIO` | Secretario (liga) | LIGA | Sí | canchas.cancha:CONSULTAR, canchas.oficio:GENERAR, canchas.solicitud:CREAR, notificaciones.aviso:CONSULTAR, organizacion.afiliacion:CAPTURAR, organizacion.club:CONSULTAR, organizacion.club:EDITAR, organizacion.directiva:EDITAR, organizacion.equipo:CONSULTAR, organizacion.equipo:EDITAR, organizacion.persona:CONSULTAR, organizacion.persona:EDITAR, publicacion.comunicado:REDACTAR, registros.documento:CONSULTAR, registros.documento:VALIDAR, registros.registro:CONSULTAR, registros.registro:VALIDAR, reportes.reporte:CONSULTAR, reportes.reporte:EXPORTAR, seguridad.consentimiento:REGISTRAR, temporadas.convocatoria:EDITAR, temporadas.temporada:CONSULTAR |
 | `SISTEMA` | Sistema | LIGA | No | — |
 | `TESORERO` | Tesorero (liga) | LIGA | Sí | canchas.cancha:CONSULTAR, notificaciones.aviso:CONSULTAR, organizacion.club:CONSULTAR, organizacion.equipo:CONSULTAR, reportes.reporte:CONSULTAR, reportes.reporte:EXPORTAR, tesoreria.cobro:CONSULTAR, tesoreria.cobro:CREAR, tesoreria.pago:REGISTRAR, tesoreria.tarifa:EDITAR |
@@ -2043,6 +2115,7 @@ matriz inicial del Apéndice E del ERS (configurable, DEC-04), los pares incompa
 | M-05 | `arbitraje.arbitro:CONSULTAR` | Consultar árbitros |
 | M-05 | `arbitraje.arbitro:PROPONER` | Registrar árbitros del club (RF-112) |
 | M-05 | `arbitraje.arbitro:VALIDAR` | Validar árbitros (RF-113) |
+| M-05 | `arbitraje.designacion:AUTOMATICA` | Designar automáticamente al árbitro central (H-34); lo agrega `20261125100000_programacion_automatica.sql` (DEC-182) |
 | M-05 | `arbitraje.designacion:CONSULTAR` | Consultar designaciones |
 | M-05 | `arbitraje.designacion:EDITAR` | Designar árbitros a partidos (RF-023) |
 | M-05 | `arbitraje.disponibilidad:EDITAR` | Registrar disponibilidad arbitral (RF-022) |
@@ -2164,7 +2237,9 @@ oficial**, quién es el responsable, para qué se usan los datos y cómo ejercer
 [`supabase/pruebas/`](../../supabase/pruebas/) contiene una simulación mínima de Supabase y pruebas que
 recorren P-01, P-02, P-03, P-05, P-06 y P-11 con el rol `siglim_app` y verifican 50 reglas (conflictos,
 separación de funciones, RLS por ámbito, inmutabilidad, desempates). Desde la versión 2.2 también
-comprueban que las tablas inmutables no se vacían con `TRUNCATE`, directo ni por cascada. Se ejecutan con
+comprueban que las tablas inmutables no se vacían con `TRUNCATE`, directo ni por cascada, y desde la 2.14
+`prueba_programacion_automatica.sql` verifica las restricciones, los índices únicos, el trigger de
+`dias_juego`, la regla RN-012 de `emparejamientos`, los privilegios y el permiso de la programación automática. Se ejecutan con
 `supabase/pruebas/ejecutar.sh` contra un PostgreSQL local.
 
 ## 13. Cambios respecto a la versión 1.0
