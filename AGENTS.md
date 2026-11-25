@@ -31,9 +31,10 @@ No leas todo en cada tarea: localiza el módulo (M-xx) y los RF de la tarea y le
 menor autoridad: ver los conflictos C-01 a C-08 en
 [`docs/diseno-ui/open-design-decisions.md`](docs/diseno-ui/open-design-decisions.md).
 
-> `docs/requisitos/ERS.md` es la **Rev. 0.4.1** (integra el registro de decisiones DEC-01 a DEC-46).
+> `docs/requisitos/ERS.md` es la **Rev. 0.5** (integra el registro de decisiones DEC-01 a DEC-46 y la
+> programación automática: DEC-173 a DEC-182 y DEC-184 a DEC-186).
 > Si un requisito es ambiguo, pregunta en lugar de suponer.
-> Las decisiones **DEC-47 en adelante** viven en
+> Las demás decisiones **desde DEC-47** viven en
 > [`docs/requisitos/decisiones/registro-de-decisiones.md`](docs/requisitos/decisiones/registro-de-decisiones.md):
 > precisan el ERS y mandan sobre él hasta su siguiente revisión. Antes de implementar, busca ahí las
 > DEC del módulo.
