@@ -138,6 +138,8 @@ repositorio + prueba del servicio).
 
 - **Unitarias** (obligatorias): reglas del servicio con Mockito, sin Spring ni BD. Nombre del
   método en español; `@DisplayName` con el ID del requisito.
+- **Propiedades de algoritmos de dominio:** `@ParameterizedTest` exhaustivo con `@MethodSource`
+  sobre el dominio real; no se usa jqwik (DEC-183). Ejemplo: `GeneradorCalendarioTest`.
 - **De controlador** (`@WebMvcTest` + `@MockitoBean`): códigos HTTP, validación y formato de error.
   Las pruebas de seguridad de **cada endpoint** (convenciones de API §10) se generan con el arnés
   `seguridad.ArnesAutorizacionEndpoint` (H-02.3): `401` sin token y con token inválido (sin tocar el

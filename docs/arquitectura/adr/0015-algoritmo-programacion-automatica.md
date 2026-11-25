@@ -3,7 +3,7 @@
 - **Estado:** Aceptada
 - **Fecha:** 2026-11-24
 - **Responsables:** Equipo SIGLIM
-- **Trazabilidad:** RF-032, RF-034, RF-035, RF-036, RF-037, RF-039, RF-041, RF-042, RN-012, RN-016, RN-017, RN-020, VAL-003 a VAL-007, VAL-019, VAL-027, CA-002, DD-005, PEN-027, PEN-028, DEC-173 a DEC-182
+- **Trazabilidad:** RF-032, RF-034, RF-035, RF-036, RF-037, RF-039, RF-041, RF-042, RN-012, RN-016, RN-017, RN-020, VAL-003 a VAL-007, VAL-019, VAL-027, CA-002, DD-005, PEN-027, PEN-028, DEC-173 a DEC-186
 
 ## Contexto
 
@@ -28,11 +28,13 @@ Fuerzas:
 ## Decisión
 
 1. **Calendario por el método del círculo (tablas de Berger).** Por cada grupo con equipos
-   `ACTIVO`, ordenados por `id`, se agrega un DESCANSO si N es impar, se fija el primer equipo y los
-   demás rotan una posición por ronda; en cada ronda se empareja `e[i]` con `e[N−1−i]`. El equipo
-   fijo es local en las rondas pares y los demás pares invierten la localía en las impares, de modo
-   que la diferencia entre partidos de local y de visitante de cada equipo es como máximo 1 por
-   vuelta. Cada vuelta adicional repite las rondas con la localía invertida. El número de vueltas es
+   `ACTIVO`, ordenados por el texto de su `id` (DEC-185), se arma el arreglo `a`: con N impar,
+   `[DESCANSO, e0, …, eN−1]` (el descanso es el elemento fijo); con N par, `[e0, …, eN−1]`. Con
+   `M = |a|`, en la ronda `r` la mesa `i` empareja `a[i]` con `a[M−1−i]` y después `a[1..M−1]` rota
+   una posición a la derecha. Localía (DEC-184): en la mesa 0, `a[0]` es local en las rondas pares y
+   visitante en las impares; en la mesa `i ≥ 1`, `a[i]` es local si `i` es impar y `a[M−1−i]` si es
+   par. Así la diferencia entre partidos de local y de visitante de cada equipo es como máximo 1 por
+   vuelta. Cada vuelta par repite las rondas con la localía invertida. El número de vueltas es
    un parámetro versionado de la temporada (DEC-174). El calendario se guarda una vez por
    temporada en `emparejamientos`.
 2. **Cancha y horario con una heurística voraz «más restringido primero».** Por fecha, para todas
@@ -80,7 +82,20 @@ Fuerzas:
   modelan (no hay datos); la disponibilidad arbitral (RF-022) tampoco. Los valores de horario de
   juego y días por categoría son [DEMO] hasta que la Liga los confirme.
 - **Pruebas:** propiedades del calendario (cada par v veces, nadie dos veces por fecha, descansos y
-  localía equilibrados, determinismo) y una prueba de integración multicategoría con canchas
+  localía equilibrados, determinismo), exhaustivas con `@ParameterizedTest` sobre N = 2…30 y 1…4
+  vueltas, sin jqwik (DEC-183), y una prueba de integración multicategoría con canchas
   compartidas en la que la verificación no encuentra conflictos duros (CA-002).
 
 Detalle de diseño, modelo de datos y API: [`docs/planning/programacion-automatica.md`](../../planning/programacion-automatica.md).
+
+## Corrección (H-32.1, DEC-184)
+
+La primera versión de la Decisión 1 decía que «el equipo fijo es local en las rondas pares y los
+demás pares invierten la localía en las impares». Esa regla no cumple la diferencia ≤ 1 por vuelta.
+Contraejemplo con N = 4: las rondas quedan `e0–e3, e1–e2`; `e2–e0, e1–e3`; `e0–e1, e2–e3` (local–
+visitante) y `e3` juega sus 3 partidos de visitante. Con la regla corregida, la localía de un equipo
+que rota depende solo de la paridad de la posición que ocupa (local en las impares de las mesas
+`i ≥ 1`) y la mesa 0 alterna por ronda; como cada equipo pasa por todas las posiciones una vez por
+vuelta, la diferencia es como máximo 1. Además, con N impar el DESCANSO pasa a ser el elemento fijo
+del círculo, así que cada equipo descansa exactamente una vez por vuelta. La implementación es
+`programacion.GeneradorCalendario` y la prueba de propiedades `GeneradorCalendarioTest`.

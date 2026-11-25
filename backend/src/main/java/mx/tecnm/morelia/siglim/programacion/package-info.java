@@ -9,6 +9,10 @@
  * advertencias de localía (RF-120, VAL-027) que se aceptan con motivo. La consulta de la ocupación de
  * canchas vive en {@code canchas} (H-07.1).
  *
+ * <p>Programación automática (DEC-173): en H-32.1, el generador del calendario por el método del
+ * círculo ({@code GeneradorCalendario}) y los días de cada fecha ({@code DiasDeFecha}), como dominio
+ * puro sin Spring ni base de datos.
+ *
  * <p>Nivel 5 de dependencias (ADR-0006): solo puede usar los paquetes de los niveles 0 a 4. Si
  * necesita información de un módulo de nivel superior, lo hace con una interfaz definida en este
  * paquete o con un evento de dominio en {@code eventos}.
