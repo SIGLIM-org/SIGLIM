@@ -1,0 +1,21 @@
+# H-15.4 · Pruebas automáticas sobre develop en 0a62518 (24-nov-2026)
+
+## Backend: ./mvnw verify (con Docker para Testcontainers)
+[INFO] Tests run: 2296, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 362, Failures: 0, Errors: 0, Skipped: 1
+[INFO] BUILD SUCCESS
+(La omitida es AlmacenamientoDocumentosAwsIT: no hay credenciales de AWS en el entorno local.)
+
+Clases que cubren H-15:
+Tests run: 30, Failures: 0, Errors: 0, Skipped: 0-- in mx.tecnm.morelia.siglim.partidos.PartidosControllerTest
+Tests run: 44, Failures: 0, Errors: 0, Skipped: 0-- in mx.tecnm.morelia.siglim.partidos.PartidosServiceTest
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0-- in mx.tecnm.morelia.siglim.partidos.InicioPartidosServiceTest
+Tests run: 10, Failures: 0, Errors: 0, Skipped: 0-- in mx.tecnm.morelia.siglim.partidos.PartidosIT
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0-- in mx.tecnm.morelia.siglim.partidos.InicioPartidosIT
+
+## Frontend: npx vitest run src/features/partidos src/features/programacion
+✓ src/features/partidos/PantallaDetallePartido.test.tsx (11 pruebas)
+✓ src/features/programacion/PantallaProgramacion.test.tsx (19 pruebas)
+✓ src/features/programacion/PantallaRevisionJornada.test.tsx (10 pruebas)
+Test Files  3 passed (3)
+Tests  40 passed (40)
