@@ -5,8 +5,9 @@ Decisiones: [DEC-173 a DEC-182](../requisitos/decisiones/registro-de-decisiones.
 Historias: T-06, H-32, H-33, H-34 y H-35 (Sprint 4). Las fechas, los responsables y el estado de cada subtarea viven en **Jira** (etiqueta `programacion-automatica`), no en este archivo.
 
 > [!IMPORTANT]
-> Este documento reabre la programación automática que el ERS Rev. 0.4.1 deja fuera (§2.6, DEC-06).
-> Hasta la revisión 0.5 del ERS, **DEC-173 a DEC-182 mandan sobre el ERS** en este tema (AGENTS.md §2).
+> Este documento reabre la programación automática que el ERS Rev. 0.4.1 dejaba fuera (§2.6, DEC-06).
+> El ERS Rev. 0.5 ya la integra (DEC-173 a DEC-182 y DEC-184 a DEC-186): RF-034, RF-035, RF-037,
+> RF-041, RF-042, RN-016, RN-017, VAL-007 y DD-005 son núcleo (N) y RF-038 sigue manual.
 
 ---
 

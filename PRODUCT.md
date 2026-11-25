@@ -74,7 +74,7 @@ los conflictos, pero no genera calendarios.
   consentimiento.
 - Las tareas clave (capturar la cédula, aprobarla, registrar un jugador, pagar un cobro) se hacen en
   tres pasos o menos desde el panel (RNF-006).
-- Los requisitos siguen en revisión: el ERS (IEEE 830, Rev. 0.4.1) aún no lo aprueba la Liga.
+- Los requisitos siguen en revisión: el ERS (IEEE 830, Rev. 0.5) aún no lo aprueba la Liga.
 - Stack ya decidido en el código: React 19 con TypeScript, Vite y Tailwind CSS 4 en el frontend;
   Spring Boot en el backend.
 

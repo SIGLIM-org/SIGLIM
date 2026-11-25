@@ -1,14 +1,18 @@
 > [!NOTE]
-> **ERS Rev. 0.4.1.** Integra el registro de decisiones
-> [`decisiones/registro-de-decisiones.md`](decisiones/registro-de-decisiones.md) (DEC-01 a DEC-46):
-> recupera los 12 tipos de usuario con su funcionalidad y redefine el alcance de entrega. Sustituye a la
-> Rev. 0.3, que se conserva en [`historico/ERS-rev0.3.md`](historico/ERS-rev0.3.md). Los diagramas están en
-> Mermaid; la versión en Word se genera a partir de este archivo.
+> **ERS Rev. 0.5.** Integra el registro de decisiones
+> [`decisiones/registro-de-decisiones.md`](decisiones/registro-de-decisiones.md) hasta DEC-46 y la
+> programación automática (DEC-173 a DEC-182 y sus precisiones DEC-184 a DEC-186): recupera los 12 tipos de usuario con su funcionalidad,
+> redefine el alcance de entrega y devuelve al núcleo la generación del calendario y la asignación de
+> cancha, horario y árbitro central. Sustituye a la Rev. 0.4.1, que se conserva en
+> [`historico/ERS-rev0.4.1.md`](historico/ERS-rev0.4.1.md) (la Rev. 0.3, en
+> [`historico/ERS-rev0.3.md`](historico/ERS-rev0.3.md)). Las demás decisiones desde DEC-47 siguen en el
+> registro y mandan sobre este documento hasta su siguiente revisión. Los diagramas están en Mermaid; la
+> versión en Word se genera a partir de este archivo.
 
 # Especificación de requisitos de software
 
 **Proyecto:** SIGLIM — Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia
-**Revisión:** 0.4.1 (alcance integral con núcleo comprometido)
+**Revisión:** 0.5 (alcance integral con núcleo comprometido y programación automática)
 **Estado:** borrador para seguimiento académico; pendiente de validación por la Liga y el profesor.
 
 Instituto Tecnológico de Morelia (TecNM) · Ingeniería en Sistemas Computacionales · Fundamentos de Ingeniería de Software
@@ -24,11 +28,11 @@ Instituto Tecnológico de Morelia (TecNM) · Ingeniería en Sistemas Computacion
 | --- | --- |
 | Proyecto | SIGLIM — Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia. Nombre definitivo del proyecto: **SIGLIM**. |
 | Documento | Especificación de requisitos de software (ERS), estructurada según IEEE Std 830-1998. |
-| Revisión | 0.4.1. Versiones previas: 0.1, 0.2, 0.3 y 0.4. |
-| Fecha | Octubre de 2026 |
+| Revisión | 0.5. Versiones previas: 0.1, 0.2, 0.3, 0.4 y 0.4.1. |
+| Fecha | Noviembre de 2026 |
 | Elaborado por | López Meza Leonardo, por encargo del equipo de trabajo (véase 1.2). |
 | Seguimiento | Profesor de Fundamentos de Ingeniería de Software: Claudio Ernesto Florian Arenas. |
-| Estado | Borrador para seguimiento. Los requisitos no han sido aprobados por la Liga. La revisión 0.4 sustituye la reducción de perfiles de la 0.3 por el alcance acordado por el equipo el 19-oct-2026 (registro de decisiones). |
+| Estado | Borrador para seguimiento. Los requisitos no han sido aprobados por la Liga. La revisión 0.4 sustituye la reducción de perfiles de la 0.3 por el alcance acordado por el equipo el 19-oct-2026 (registro de decisiones); la 0.5 incorpora la programación automática aprobada por el equipo y el Product Owner el 24-nov-2026 (DEC-173). |
 
 ### Historial de revisiones
 
@@ -39,6 +43,7 @@ Instituto Tecnológico de Morelia (TecNM) · Ingeniería en Sistemas Computacion
 | 0.3 | Octubre de 2026 | López Meza Leonardo | Reducción al alcance de entrega propuesto para un equipo de tres personas; sección 2.6 y Apéndices C y D. Aprobada parcialmente por el profesor y el equipo el 07/10/26. |
 | 0.4 | 19 de octubre de 2026 | López Meza Leonardo | Se recuperan los 12 tipos de usuario y su funcionalidad (DEC-01). Se incorporan las respuestas del cliente en el levantamiento (R2), los formatos de carta (R8) y las decisiones del equipo (R9), sobre la base del ERS 0.3 con las ediciones del equipo (DEC-41): cédula con validación arbitral, disciplina, tesorería, canchas de club, transferencias entre temporadas, liguilla, ascensos y descensos, reportes, portal ampliado y notificaciones. Nuevos RF-094 a RF-145, RNF-016 a RNF-019, RN-037 a RN-058, VAL-017 a VAL-028, CA-009 a CA-014, CU-017 a CU-029, P-10 a P-13, UI-023 a UI-034, REP-012 a REP-014, DD-011, DD-012, DP-007, DP-008, PEN-039 a PEN-043 y los módulos M-13 y M-14. Se sustituye la clasificación I/S/P por N/B/F (véase Convenciones). Se resuelven los pendientes que respondió el cliente o el equipo (Apéndices A y C). |
 | 0.4.1 | 20 de octubre de 2026 | López Meza Leonardo | Ajuste de referencias: arquitectura v2.1, BPMN v2.0 y diccionario de datos v2.0 ya actualizados a la Rev. 0.4. Almacenamiento de imágenes y documentos en AWS S3 con la referencia en Supabase (DEC-45, ADR-0013). Proveedor de correo pendiente (DEC-46, PEN-034). PEN-030 resuelto en ADR-0003. Sin cambios en requisitos. |
+| 0.5 | 25 de noviembre de 2026 | Olvera Lobato David Geovani | Se reabre la programación automática (DEC-173 a DEC-182, con las precisiones DEC-184 a DEC-186, y ADR-0015; revierte en parte DEC-06): sale de 1.1 y de 2.6 y vuelven al núcleo (N) DD-005, RF-034, RF-035, RF-037, RF-041, RF-042, RN-016, RN-017 y VAL-007. RF-038 (reprogramación) sigue manual con RF-040 y RF-043. Precisión de RF-023 (árbitro central automático, DEC-182) y RF-121 (aprobación de la fecha completa, DEC-175). Nuevos CU-030 y entidades Fecha de programación y Emparejamiento. Se cierran PEN-028 y Q-04 y se precisa PEN-027 (DEC-173, DEC-174). La matriz de trazabilidad liga estos requisitos con las historias T-06 y H-32 a H-35. M-07 pasa a llamarse «Programación de partidos» y P-03, «Programación manual y automática, designación y publicación». |
 
 ### Registro de aprobaciones
 
@@ -73,13 +78,13 @@ El proyecto es real y el documento es de seguimiento. Se conserva la informació
 
 ### 1.1 Alcance
 
-**Producto.** SIGLIM es una plataforma web responsive con una aplicación interna, con acceso según el rol y el ámbito de cada usuario, y un portal público de solo consulta. Administra el ciclo completo de una temporada de la Liga: afiliación de clubes, registro y validación de jugadores, árbitros, canchas, programación manual, cédula arbitral, resultados oficiales, tabla, disciplina, liguilla, ascensos y descensos, cobros, reportes y publicación de la información autorizada.
+**Producto.** SIGLIM es una plataforma web responsive con una aplicación interna, con acceso según el rol y el ámbito de cada usuario, y un portal público de solo consulta. Administra el ciclo completo de una temporada de la Liga: afiliación de clubes, registro y validación de jugadores, árbitros, canchas, programación manual y automática de partidos, cédula arbitral, resultados oficiales, tabla, disciplina, liguilla, ascensos y descensos, cobros, reportes y publicación de la información autorizada.
 
 **Contexto operativo.** La operación se organiza en la estructura Temporada → Categoría → Grupo → Equipos → Partidos. Las programaciones observadas incluyen Primera Especial, Primera Fuerza, Reserva, Intermedia, Segunda, Tercera, Juvenil, Cuarta y Veteranos. Una categoría puede tener uno o varios grupos y un equipo pertenece a una categoría y grupo durante una temporada. El orden y la jerarquía de las categorías son configurables (DEC-16). La Liga de referencia tiene cerca de 200 clubes, más de 600 equipos, 40 canchas en su unidad deportiva y recibe de 5,000 a 6,000 asistentes por fin de semana (R2).
 
 **Beneficios esperados.** Centralizar la información que hoy está dispersa y en papel; detectar jugadores registrados en dos clubes («cachirules») mediante la CURP; oficializar resultados con una cédula validada; aplicar las sanciones según el reglamento con trazabilidad; y publicar solo información autorizada.
 
-**Alcance de esta entrega.** Comprende los 14 módulos de la sección 2.2. Cada requisito indica si pertenece al núcleo comprometido (N), al backlog priorizado (B) o si queda fuera (F). No incluye programación automática ni las integraciones que se listan en 2.6.
+**Alcance de esta entrega.** Comprende los 14 módulos de la sección 2.2. Cada requisito indica si pertenece al núcleo comprometido (N), al backlog priorizado (B) o si queda fuera (F). Incluye la programación automática: el calendario de la temporada y la asignación de cancha, horario y árbitro central de cada fecha, que el Programador revisa y el Presidente aprueba (DEC-173). No incluye las integraciones ni las capacidades que se listan en 2.6.
 
 ### 1.2 Personal involucrado
 
@@ -137,7 +142,9 @@ El proyecto es real y el documento es de seguimiento. Se conserva la informació
 | Afiliación (tarjetón) | Registro del club al inicio de cada temporada con su directiva, colores, categorías y firmas; lleva un folio (R2). |
 | Directiva de club | Presidente, secretario, tesorero y delegado de un club. Es un solo tipo de usuario con cuatro cargos y ámbito de club. |
 | Competencia / Fase | Estructura de competencia de una temporada y su fase (fase regular, liguilla). El formato lo define el programador de partidos con los parámetros de la temporada. |
-| Programación / Jornada | Organización de partidos con fecha, hora, cancha y árbitros asignados. |
+| Programación / Jornada | Organización de partidos con fecha, hora, cancha y árbitros asignados. La jornada pertenece a un grupo. |
+| Fecha (de programación) | Fin de semana de juego que agrupa las jornadas de todos los grupos; se asigna, se envía y se aprueba completa (DEC-175). |
+| Calendario / Emparejamiento | Enfrentamientos de la temporada generados una vez por grupo; cada emparejamiento indica fecha, vuelta, local y visitante (o descanso) y, cuando se asigna, el partido que lo juega (DEC-174, DEC-180). |
 | Bloque de cancha | Intervalo que ocupa un partido en una cancha para detectar choques de horario. Es configurable por categoría (DEC-25). |
 | Cédula | Registro oficial del partido: alineación, marcador, goles, tarjetas, incidencias, sustituciones y observaciones. La captura el Capturista y la valida el árbitro (DEC-19). |
 | Incidencia | Hecho registrado en la cédula. Según su tipo puede abrir un expediente disciplinario. |
@@ -226,7 +233,7 @@ El sistema se organiza en 14 módulos funcionales. No se exige una interfaz o un
 | M-04 | Registros y elegibilidad | Alta, baja, renovación y transferencia entre temporadas; documentos; unicidad por CURP; elegibilidad y alineación en categoría superior. | Directiva de club, Secretario, Jugador |
 | M-05 | Árbitros y designaciones | Árbitros presentados por los clubes, validación, disponibilidad y designación a partidos. | Comisión de Arbitraje, Directiva de club, Árbitro |
 | M-06 | Canchas y recursos | Canchas de la liga y de clubes, comodatos, ofertas, préstamos, horarios, disponibilidad y bloqueos. | Administrador general, Secretario, Presidente, Directiva de club |
-| M-07 | Programación manual | Jornadas y partidos con validación de conflictos y localía, aprobación y publicación. | Programador de partidos, Presidente |
+| M-07 | Programación de partidos | Calendario de la temporada; jornadas y partidos capturados a mano o asignados automáticamente (cancha, horario y árbitro central), con validación de conflictos y localía, aprobación y publicación. | Programador de partidos, Presidente |
 | M-08 | Partidos, cédula y resultados | Ciclo de vida del partido, cédula con validación arbitral, resultado oficial, tabla y estadísticas. | Capturista, Árbitro, Comisión de Arbitraje |
 | M-09 | Disciplina | Catálogos de incidencias y artículos, expedientes, resoluciones, sanciones, bajas y recursos. | Comisión Disciplinaria, Presidente |
 | M-10 | Competencias y fases finales | Liguilla, llaves, campeón, ascensos y descensos. | Programador de partidos, Presidente |
@@ -244,7 +251,7 @@ flowchart LR
     S --> M04[M-04 Registros y elegibilidad]
     S --> M05[M-05 Árbitros y designaciones]
     S --> M06[M-06 Canchas y recursos]
-    S --> M07[M-07 Programación manual]
+    S --> M07[M-07 Programación de partidos]
     S --> M08[M-08 Partidos, cédula y resultados]
     S --> M09[M-09 Disciplina]
     S --> M10[M-10 Competencias y fases finales]
@@ -270,7 +277,7 @@ Existen 12 tipos de usuario (DEC-01, DEC-02). Cada uno tiene permisos por módul
 | 4 | Tesorero (liga) | Liga | Manejo de cobros y pagos **[PROPUESTA]**. | Configura tarifas, genera cobros, registra pagos y da seguimiento a adeudos. | Cobros manuales, registro de pagos y adeudos. |
 | 5 | Comisión Disciplinaria | Liga | Dominio de las reglas a seguir y de la plataforma. | Revisa expedientes, aplica artículos del reglamento y resuelve sanciones y bajas. | Expedientes, resoluciones y sanciones con vigencia. |
 | 6 | Comisión de Arbitraje | Liga | Conocimiento del cuerpo arbitral **[PROPUESTA]**. | Valida árbitros, administra su disponibilidad, los designa y aprueba cédulas cuando vence el plazo del árbitro. | Validación y designación de árbitros; aprobación por vencimiento. |
-| 7 | Programador de partidos | Liga | Disponer de horarios y dominar la plataforma. | Arma las jornadas, asigna canchas y horarios, ajusta la programación y configura fases finales. | Programación manual con conflictos y estados del partido. |
+| 7 | Programador de partidos | Liga | Disponer de horarios y dominar la plataforma. | Genera el calendario y la asignación automática de cada fecha, arma las jornadas, asigna canchas y horarios, ajusta la programación y configura fases finales. | Programación manual y automática con conflictos y estados del partido. |
 | 8 | Directiva de club | Club | Conocimiento de su club y de la convocatoria **[PROPUESTA]**. | Cargos presidente, secretario, tesorero y delegado. Solicita la afiliación, registra jugadores y árbitros, solicita canchas, interpone recursos y paga adeudos de su club. | Afiliación, registro de jugadores y árbitros, pago de adeudos. |
 | 9 | Árbitro | Propio | Conocimiento del reglamento de juego **[PROPUESTA]**. | Consulta sus designaciones y aprueba o devuelve la cédula de sus partidos. | Validación de la cédula. |
 | 10 | Capturista | Liga | Noción del entorno de la plataforma. | Captura la cédula del partido (alineación, marcador, goles, tarjetas, incidencias, sustituciones y observaciones) y la envía a validación. | Captura de la cédula. |
@@ -289,7 +296,7 @@ Decisiones de diseño que el equipo debe respetar (R3 §18.1 y R9):
 | DD-002 | Debe existir un backend modular dentro de una sola aplicación. | N |
 | DD-003 | Se utilizará una base de datos relacional. | N |
 | DD-004 | Las reglas deportivas y disciplinarias se parametrizan por temporada en catálogos y configuración, no en código (motor de reglas por configuración). | N |
-| DD-005 | ~~Servicio específico de programación automática~~. Descartada: no hay programación automática (DEC-06). | F |
+| DD-005 | La programación automática cuenta con un servicio específico de generación dentro de M-07 (generador de calendario y asignador de cancha, horario y árbitro central) que reutiliza la validación de conflictos de la programación manual; no es un servicio aparte (DEC-173, ADR-0015). | N |
 | DD-006 | Debe existir trazabilidad de cambios y decisiones críticas. | N |
 | DD-007 | Las temporadas históricas no deben sobrescribirse. | N |
 | DD-008 | La publicación requiere control: la programación y los comunicados se aprueban; los resultados oficiales se publican al validarse la cédula. | N |
@@ -323,7 +330,7 @@ Los siguientes elementos se conservan solo por su identificador, para trazabilid
 
 | Capacidad | Identificadores | Motivo |
 | --- | --- | --- |
-| Programación automática (generación de enfrentamientos, fechas, horarios y descansos; restricciones blandas; explicación de inviabilidad) | RF-034, RF-035, RF-037, RF-038, RF-041, RF-042; RN-016, RN-017; VAL-007; DD-005; PEN-027, PEN-028 | DEC-06. La reprogramación de un partido se hace manualmente con RF-040 y RF-043. |
+| Reprogramación automática de partidos; restricciones blandas de preferencias de clubes y de desplazamientos | RF-038 | DEC-173: la reprogramación de un partido se hace manualmente con RF-040 y RF-043, y no hay datos de preferencias ni de desplazamientos. La programación automática del calendario y de cada fecha sí se incluye (3.2.7). |
 | Pasarela de pago real | — | DEC-37: el pago en línea es simulado. |
 | Reconocimiento facial de jugadores | — | Mencionado como idea en R2; el nivel de validación acordado es el 2 (DEC-10). |
 | Integraciones no aprobadas: WhatsApp/SMS, mapas, API pública, autenticación con proveedores externos, importación masiva CSV/Excel de históricos | PEN-003, PEN-033 a PEN-035 | Sin justificación de costo y necesidad. La exportación a PDF/Excel sí está incluida (RF-092). |
@@ -352,7 +359,7 @@ El sistema es una aplicación web responsive (RNF-007) con una aplicación inter
 | UI-006 | Registro de jugadores | Directiva de club, Secretario | Alta, baja, renovación y transferencia; estado de elegibilidad | N |
 | UI-007 | Árbitros | Comisión de Arbitraje | Catálogo, validación y disponibilidad | N |
 | UI-008 | Canchas | Administrador general, Secretario | Catálogo, propietario, comodato, horarios, disponibilidad y bloqueos | N |
-| UI-009 | Programación de jornada | Programador, Presidente | Registrar, ajustar, validar conflictos, aprobar y publicar | N |
+| UI-009 | Programación de jornada | Programador, Presidente | Generar el calendario, asignar la fecha automáticamente, registrar, ajustar, validar conflictos, aprobar y publicar | N |
 | UI-010 | Detalle de partido | Usuarios internos | Estado, historial, árbitros, cédula y acciones permitidas | N |
 | UI-011 | Captura de cédula | Capturista | Alineación, marcador, goles, tarjetas, incidencias, sustituciones y observaciones | N |
 | UI-012 | Tabla de posiciones | Interno y público | Consultar la clasificación | N |
@@ -483,7 +490,7 @@ Los requisitos funcionales (RF) describen comportamientos verificables; no defin
 | RF-021 | Gestionar catálogo de árbitros | El sistema debe mantener el catálogo de árbitros validados con el club que los presenta y su estado. | Comisión de Arbitraje | R3 §3.5 | Alta | N |
 | RF-114 | Verificar la cuota de árbitros | El sistema debe indicar si un club presenta al menos un árbitro por cada cuatro equipos (redondeo hacia arriba). | Sistema | R2, DEC-17 | Media | B |
 | RF-022 | Gestionar disponibilidad arbitral | El sistema debe registrar la disponibilidad de los árbitros por fecha y horario. | Comisión de Arbitraje, árbitro | R3 §3.5 | Media | B |
-| RF-023 | Designar árbitros a partido | El sistema debe permitir asignar árbitros a los partidos de una jornada. | Comisión de Arbitraje | R3 §3.5, DEC-18 | Alta | N |
+| RF-023 | Designar árbitros a partido | El sistema debe permitir asignar árbitros a los partidos de una jornada. Al asignar una fecha automáticamente, designa al árbitro central con la menor carga de la temporada; el cambio manual sigue siendo de la Comisión (DEC-182). | Comisión de Arbitraje, Programador | R3 §3.5, DEC-18, DEC-182 | Alta | N |
 | RF-115 | Impedir designación al propio club | El sistema debe rechazar la designación de un árbitro a un partido en que juegue un equipo de su club. | Sistema | DEC-18 | Alta | N |
 | RF-024 | Consultar historial de designaciones | El sistema debe conservar y permitir consultar el historial de designaciones. | Comisión de Arbitraje, árbitro | R3 §3.5 | Media | B |
 
@@ -502,7 +509,7 @@ Los requisitos funcionales (RF) describen comportamientos verificables; no defin
 | RF-117 | Gestionar préstamo y comodato | El sistema debe registrar la solicitud de préstamo o comodato conforme al Formato 1, dirigida a la Liga o a un dueño externo, con los estados Pendiente, Aprobada y No aprobada. | Directiva de club, Presidente | R2, R8, DEC-35 | Media | B |
 | RF-118 | Generar cartas con número de oficio | El sistema debe generar la carta de los Formatos 1 y 2 con número de oficio y datos del trámite. | Sistema | R2, R8 | Baja | B |
 
-#### 3.2.7 M-07 Programación manual
+#### 3.2.7 M-07 Programación de partidos
 
 | ID | Requisito | Descripción | Actor | Fuente | Prioridad | Entrega |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -511,8 +518,13 @@ Los requisitos funcionales (RF) describen comportamientos verificables; no defin
 | RF-039 | Detectar conflictos de programación | El sistema debe detectar equipo duplicado, cancha ocupada, cancha no disponible, equipo con baja o sanción que impida jugar, y árbitro con conflicto, usando el bloque de cancha de cada categoría. | Sistema | R3 §3.7, RN-050, RN-057 | Alta | N |
 | RF-120 | Advertir reglas de localía | El sistema debe advertir cuando un partido no respete las reglas de localía o use una cancha externa en las últimas diez fechas; el programador puede aceptar con motivo. | Sistema | R2, DEC-34 | Media | B |
 | RF-040 | Permitir ajuste manual autorizado | El sistema debe permitir modificar la programación, incluida la reprogramación de partidos, con motivo y traza (RN-018). | Programador | R3 §3.7 | Alta | N |
-| RF-121 | Aprobar la programación | El sistema debe someter cada jornada a la aprobación del Presidente antes de publicarla; el Presidente puede aprobarla o devolverla con observaciones. | Presidente | DEC-04, DEC-21 | Alta | N |
-| RF-034, RF-035, RF-037, RF-038, RF-041, RF-042 | Programación automática | Generación de enfrentamientos, fechas, horarios y descansos; registro de causa de generación; explicación de inviabilidad. | — | R3 §3.7 | — | F |
+| RF-121 | Aprobar la programación | El sistema debe someter cada jornada a la aprobación del Presidente antes de publicarla; el Presidente puede aprobarla o devolverla con observaciones. Una fecha generada automáticamente se envía, se aprueba y se devuelve completa (DEC-175). | Presidente | DEC-04, DEC-21, DEC-175 | Alta | N |
+| RF-034 | Generar enfrentamientos | El sistema debe generar una vez por temporada el calendario de cada grupo con sus equipos activos: cada par se enfrenta una vez por vuelta, con el número de vueltas de los parámetros de la temporada (1 por defecto) y localía alternada (diferencia de local y visitante de a lo más uno por vuelta). | Sistema, Programador | R3 §3.7, DEC-173, DEC-174, DEC-184 | Alta | N |
+| RF-035 | Asignar fechas y horarios | El sistema debe ubicar cada emparejamiento en una fecha (sábado y domingo de la semana) y, al asignar la fecha, darle cancha y horario dentro del horario de juego **[DEMO]** y de los días de juego de su categoría, sin conflictos duros (RF-039); el resultado queda en Borrador para que el Programador lo revise. | Sistema, Programador | R3 §3.7, DEC-175 a DEC-179, DEC-186 | Alta | N |
+| RF-037 | Aplicar descansos | El sistema debe asignar un descanso por fecha en los grupos con número impar de equipos, de modo que cada equipo descanse una vez por vuelta. | Sistema | R3 §3.7, DEC-174 | Alta | N |
+| RF-041 | Registrar causa de generación o modificación | El sistema debe registrar si un partido fue asignado automáticamente o ajustado a mano, y de cada generación los parámetros, el modo, el motivo y los totales, con auditoría; «Regenerar» exige motivo y cancela, sin borrar, los partidos de la fecha. | Sistema | R3 §3.7, DEC-179, DEC-181 | Alta | N |
+| RF-042 | Explicar conflictos sin solución | Cuando un emparejamiento no quepa, el sistema debe conservarlo pendiente con su código (VAL-006 o VAL-007) y una causa legible, resumir por día las franjas libres y los partidos requeridos, y permitir asignarlo a mano. | Sistema, Programador | R3 §3.7, DEC-180 | Alta | N |
+| RF-038 | Aplicar reprogramaciones | La reprogramación de un partido no se genera automáticamente: se hace a mano con RF-040 y RF-043. | — | R3 §3.7, DEC-173 | — | F |
 
 #### 3.2.8 M-08 Partidos, cédula y resultados
 
@@ -635,7 +647,7 @@ Validaciones que el sistema debe aplicar y su comportamiento ante el fallo. Los 
 | VAL-004 | Programación | Cancha ocupada en el bloque | Rechazar y explicar el conflicto | N |
 | VAL-005 | Programación | Cancha bloqueada, en mantenimiento, inactiva o fuera de disponibilidad | Rechazar y explicar el conflicto | N |
 | VAL-006 | Programación | Equipo dado de baja o con sanción que impide jugar | Rechazar y explicar el conflicto | N |
-| VAL-007 | Programación automática | No existe solución | Fuera de alcance | F |
+| VAL-007 | Programación automática | Un emparejamiento no cabe en las franjas libres de la fecha | Conservarlo sin partido con su causa y explicar el conflicto (RF-042) | N |
 | VAL-008 | Estado del partido | Acción no permitida por el estado | Rechazar la acción | N |
 | VAL-009 | Resultado | Cédula no aprobada | No oficializar ni publicar | N |
 | VAL-010 | Corrección de resultado | Corrección sin resolución disciplinaria | Rechazar y conservar el dato oficial | N |
@@ -785,8 +797,8 @@ Las reglas deportivas y disciplinarias provienen de la convocatoria de cada temp
 | RN-013 | Una cancha ocupada no se reutiliza en el mismo bloque | Se asigna cancha | Se bloquea la asignación | N |
 | RN-014 | Una cancha no disponible no se asigna | Bloqueo, mantenimiento, inactividad o fuera de disponibilidad | Se impide la asignación | N |
 | RN-015 | Una sanción puede afectar la programación | Equipo dado de baja o con pérdida de partidos | La programación lo considera (RN-057) | N |
-| RN-016 | Las preferencias son restricciones blandas del algoritmo | — | Fuera de alcance (programación automática) | F |
-| RN-017 | Explicación de conflictos sin solución | — | Fuera de alcance (programación automática) | F |
+| RN-016 | Las preferencias son restricciones blandas del algoritmo | Se asigna automáticamente una fecha | Se intenta usar la cancha del club local, la unidad deportiva en las últimas fechas y los horarios más tempranos para las categorías de menor orden sin violar restricciones duras; si no se cumple, se anota el motivo (DEC-178, DEC-179) | N |
+| RN-017 | Explicación de conflictos sin solución | Un partido no puede asignarse automáticamente | El sistema identifica y explica el conflicto que lo impide (RF-042, VAL-007) | N |
 | RN-018 | Los cambios manuales quedan trazados | Se modifica la programación | Se registra usuario, fecha y motivo | N |
 | RN-048 | Localía | Un equipo es local | Se usa su cancha; si el rival no tiene cancha, se juega en la del que sí tiene; la cancha de un club solo se usa cuando ese club es local | B |
 | RN-049 | Últimas diez fechas en la unidad deportiva | Partido en las últimas diez fechas de la fase regular | Se advierte el uso de canchas externas (restricción blanda) | B |
@@ -859,7 +871,7 @@ Atributos que requieren definición **[PENDIENTE]**: campos obligatorios por for
 | ID | Criterio | Entrega |
 | --- | --- | --- |
 | CA-001 | Las temporadas históricas no se alteran. | N |
-| CA-002 | La programación manual no acepta asignaciones con conflicto duro detectable. | N |
+| CA-002 | La programación manual o automática no acepta asignaciones con conflicto duro detectable. | N |
 | CA-003 | Una cédula aprobada actualiza la tabla y el portal. | N |
 | CA-004 | Una sanción vigente impide la alineación o la programación según su alcance. | N |
 | CA-005 | Una resolución genera una vigencia verificable. | N |
@@ -926,6 +938,7 @@ flowchart LR
     SYS([Sistema])
     subgraph S2[SIGLIM]
         CU006[CU-006 Programar jornada]
+        CU030[CU-030 Generar programación automática]
         CU015[CU-015 Fase final]
         CU019[CU-019 Registrar y validar árbitros]
         CU020[CU-020 Designar árbitros]
@@ -936,7 +949,7 @@ flowchart LR
         CU011[CU-011 Resolver expediente]
         CU012[CU-012 Publicar castigados y sanciones]
     end
-    PRO --- CU006 & CU015
+    PRO --- CU006 & CU030 & CU015
     CAR --- CU019 & CU020 & CU017
     CAP --- CU010
     ARB --- CU017
@@ -977,7 +990,7 @@ flowchart LR
 | CU-004 Registrar jugador | Directiva de club | Inscribir a una persona en un equipo. Club afiliado en la temporada. | Capturar CURP → validar unicidad → datos y documentos según categoría → consentimiento (tutor si es menor) → enviar a validación. | CURP con registro activo → rechazo (VAL-017). Menor sin tutor → no se completa (VAL-025). Renovación o transferencia entre temporadas. | RF-010 a RF-017, RF-097, RF-106 a RF-108, RF-111 | N |
 | CU-005 Registrar cancha | Administrador general | Incorporar una cancha y su disponibilidad. | Registrar cancha → propietario y ubicación → disponibilidad → bloqueos. | Cancha de club → horarios por categoría (RF-119). | RF-027 a RF-032, RF-119 | N |
 | CU-006 Programar jornada | Programador | Registrar o ajustar los partidos sin conflictos duros. Equipos y canchas registrados. | Crear jornada → registrar partidos (equipos, fecha, hora, cancha) → validar conflictos y localía → enviar a aprobación. | Conflicto duro → rechazo explicado. Advertencia de localía → aceptar con motivo. Reprogramación con motivo. | RF-033, RF-036, RF-039, RF-040, RF-120 | N |
-| CU-007 Aprobar y publicar programación | Presidente | Autorizar la jornada antes de hacerla pública. Jornada en revisión. | Revisar → aprobar → publicar → generar cobros de la jornada. | Devolver con observaciones → Borrador. | RF-121, RF-090, RF-056, RF-082, RF-136 | N |
+| CU-007 Aprobar y publicar programación | Presidente | Autorizar la jornada, o la fecha completa si se generó automáticamente (DEC-175), antes de hacerla pública. Jornada en revisión. | Revisar → aprobar → publicar → generar cobros de la jornada. | Devolver con observaciones → Borrador. | RF-121, RF-090, RF-056, RF-082, RF-136 | N |
 | CU-008 Registrar resultado | Sistema | Oficializar el resultado de un partido. Cédula aprobada. | Registrar resultado oficial → recalcular tabla → publicar → abrir expedientes. | Resolución disciplinaria posterior → recalcular (RF-052). | RF-047, RF-048, RF-052, RF-055, RF-056, RF-125 | N |
 | CU-009 Calcular tabla | Sistema | Calcular posiciones con los parámetros de la temporada. | Recuperar resultados oficiales → estadísticas → puntos → desempates → posiciones. | Empate total → sorteo registrado por el Presidente. | RF-049 a RF-051, RF-053, RF-055 | N |
 | CU-010 Capturar cédula | Capturista | Registrar la cédula del partido. Partido en curso o terminado. | Seleccionar partido → alineaciones (con validación de elegibilidad) → marcador, goles, tarjetas, sustituciones, incidencias y observaciones → enviar a validación. | No presentación → marcador por default (RF-126). Campos incompletos → no se envía (VAL-020). | RF-019, RF-020, RF-025, RF-026, RF-110, RF-122, RF-126 | N |
@@ -1000,6 +1013,7 @@ flowchart LR
 | CU-027 Publicar comunicado | Secretario, Presidente | Difundir un comunicado oficial. | Redactar → enviar a revisión → aprobar → publicar. | Devolver con observaciones. | RF-086, RF-090 | B |
 | CU-028 Consultar información propia | Jugador o tutor | Consultar su registro, partidos y sanciones. Cuenta activa. | Iniciar sesión → consultar. | Menor → lo consulta el tutor. | RF-144, RF-097 | N |
 | CU-029 Generar reportes | Usuarios internos | Obtener y exportar reportes. | Elegir reporte → filtros → generar → exportar. | — | RF-091, RF-092, RF-134 | B |
+| CU-030 Generar programación automática | Programador; secundario: Sistema | Generar el calendario de la temporada y asignar cada fecha sin conflictos duros. Equipos activos en sus grupos, canchas y árbitros validados registrados. | Generar calendario (una vez por temporada) → elegir fecha → asignar cancha, horario y árbitro central → revisar pendientes y ajustar con motivo → enviar la fecha completa a aprobación (CU-007). | Emparejamiento sin franja → queda pendiente con su causa (VAL-007) y se asigna a mano. Sin árbitro candidato → advertencia que no bloquea el envío. Regenerar → motivo y cancelación de los partidos de la fecha. Calendario con partidos ligados → no se regenera (RN-020). | RF-023, RF-034, RF-035, RF-037, RF-039 a RF-042, RF-121 | N |
 
 ### 4.2 Modelo de procesos
 
@@ -1061,19 +1075,21 @@ flowchart LR
     D4 --> F
 ```
 
-#### 4.2.3 P-03 Programación manual, designación y publicación
+#### 4.2.3 P-03 Programación manual y automática, designación y publicación
 
 | Elemento | Contenido |
 | --- | --- |
-| Objetivo | Registrar la jornada sin conflictos duros, designar árbitros, aprobarla y publicarla. |
+| Objetivo | Registrar la jornada a mano o asignar la fecha automáticamente sin conflictos duros, designar árbitros, aprobarla y publicarla. |
 | Restricciones duras | Equipo duplicado, cancha ocupada, cancha no disponible, equipo con baja o sanción, árbitro de un club participante. |
-| Restricciones blandas | Localía y canchas externas en las últimas diez fechas (advertencia). |
-| Requisitos | RF-023, RF-033, RF-036, RF-039, RF-040, RF-115, RF-120, RF-121, RF-136; CU-006, CU-007, CU-020 |
+| Restricciones blandas | Localía y canchas externas en las últimas diez fechas (advertencia). En la asignación automática, además, la cancha del club local y el orden de las categorías en el día (RN-016). |
+| Requisitos | RF-023, RF-033 a RF-037, RF-039 a RF-042, RF-115, RF-120, RF-121, RF-136; CU-006, CU-007, CU-020, CU-030 |
 
 ```mermaid
 flowchart LR
     subgraph PRO[Programador]
-        A0((Inicio)) --> A1[Crear jornada] --> A2[Registrar partido] --> X1{¿Conflicto duro?}
+        A0((Inicio)) --> X0{¿Fecha automática?}
+        X0 -- Sí --> G1[Asignar la fecha: cancha, horario y árbitro central] --> G2[Revisar pendientes y ajustar con motivo] --> A5
+        X0 -- No --> A1[Crear jornada] --> A2[Registrar partido] --> X1{¿Conflicto duro?}
         X1 -- Sí --> A3[Corregir partido] --> A2
         X1 -- No --> X2{¿Advertencia de localía?}
         X2 -- Sí --> A4[Aceptar con motivo o corregir]
@@ -1377,8 +1393,8 @@ Modelo conceptual. Las entidades provienen de la fuente (R3 §11) y de las decis
 | Temporada | Periodo deportivo | Periodo, estado, versión de reglas | R3 | N |
 | Convocatoria | Documento normativo de la temporada | Referencia, versión | R3 | B |
 | Categoría | Nivel deportivo del catálogo | Nombre, orden, categoría superior inmediata, tipo (infantil, libre, veteranos) | R3, DEC-16 | N |
-| Categoría de temporada / Grupo | Participación de la categoría y sus grupos | Temporada, categoría, grupos | R3 | N |
-| Parámetros de temporada | Reglas configurables | Puntos, desempates, bloque de cancha, marcador por default, plazo de cédula, liguilla, ascenso | DEC-26 a DEC-29 | N |
+| Categoría de temporada / Grupo | Participación de la categoría y sus grupos | Temporada, categoría, grupos, días de juego | R3, DEC-177 | N |
+| Parámetros de temporada | Reglas configurables | Puntos, desempates, bloque de cancha, marcador por default, plazo de cédula, liguilla, ascenso, vueltas, horario de juego | DEC-26 a DEC-29, DEC-174, DEC-176 | N |
 | Persona | Identidad única | CURP, nombre, fecha de nacimiento, contacto | R3, DEC-10 | N |
 | Tutela | Relación tutor–menor | Tutor, menor, consentimiento | DEC-11 | N |
 | Consentimiento | Aceptación del aviso de privacidad | Titular u otorgante, versión del aviso, finalidades, fecha | DEC-40 | N |
@@ -1393,13 +1409,15 @@ Modelo conceptual. Las entidades provienen de la fuente (R3 §11) y de las decis
 | Registro de jugador | Persona en un equipo por temporada | Persona, equipo, estado, fechas | R3, DEC-12 | N |
 | Documento | Archivo del registro o evidencia | Tipo, ruta privada, estado de validación | DEC-10 | N |
 | Árbitro | Persona con rol arbitral | Persona, club que lo presenta, estado | R3, DEC-17 | N |
-| Disponibilidad arbitral / Designación | Disponibilidad y asignación | Árbitro, partido, fecha | R3 | N |
+| Disponibilidad arbitral / Designación | Disponibilidad y asignación | Árbitro, partido, fecha, asignación automática | R3, DEC-182 | N |
 | Cancha / Sede | Recurso físico | Ubicación, propietario, sede, estado | R3, DEC-33 | N |
 | Disponibilidad de cancha | Disponibilidad, bloqueos y mantenimiento | Cancha, intervalo, tipo | R3 | N |
 | Horario de cancha de club / Comodato | Uso de canchas por club | Cancha, club, categoría, día y hora | DEC-33 | B |
 | Solicitud de cancha | Formatos 1 y 2 | Tipo, oficio, datos del formato, estado | R8, DEC-35 | B |
-| Jornada | Unidad de programación | Grupo, número, estado de publicación | R3 | N |
-| Partido | Unidad competitiva | Equipos, cancha, inicio, fin de bloque, estado | R3 | N |
+| Fecha de programación | Fin de semana que agrupa las jornadas de todos los grupos | Temporada, número, días, estado derivado de sus jornadas | DEC-175 | N |
+| Emparejamiento | Enfrentamiento del calendario | Grupo, fecha, vuelta, local, visitante o descanso, partido, causa si no se asignó | DEC-174, DEC-180 | N |
+| Jornada | Unidad de programación | Grupo, número, fecha de programación, estado de publicación | R3, DEC-175 | N |
+| Partido | Unidad competitiva | Equipos, cancha, inicio, fin de bloque, estado, asignación automática | R3, DEC-179 | N |
 | Historial de estados del partido | Transiciones | Estado anterior y nuevo, usuario, motivo | R3 | N |
 | Cédula | Registro oficial del partido | Partido, estado, capturista, árbitro validador, fechas | R3, DEC-19 | N |
 | Alineación | Jugadores del partido | Cédula, registro de jugador, equipo, categoría superior | R2, DEC-12 | N |
@@ -1468,6 +1486,7 @@ erDiagram
 Arquitectura cliente-servidor de tres niveles **[PROPUESTA]** justificada en el documento de arquitectura y los ADR: una aplicación web de una sola página (React) con el portal público y la aplicación interna; un backend monolítico modular en capas (Spring Boot), con un paquete por módulo M-xx; servicios administrados de datos e identidad (Supabase); y almacenamiento de archivos en AWS S3 (DEC-45). Componentes adicionales que exige esta revisión:
 
 - **Tareas programadas** para el cambio automático de estado del partido, el vencimiento del plazo de la cédula y de los cobros (RF-124, RF-127, RF-141).
+- **Servicio de generación de la programación** dentro de M-07: calendario por el método del círculo y asignación voraz de cancha, horario y árbitro central validada con el mismo componente de conflictos de la captura manual (DD-005, ADR-0015).
 - **Autorización por permiso y ámbito** en la capa de servicios, con políticas de seguridad a nivel de fila como defensa adicional (RN-054).
 - **Almacenamiento privado** de documentos con URL firmadas (RNF-018).
 - **Servicio de correo** transaccional (RF-143).
@@ -1478,7 +1497,7 @@ Arquitectura cliente-servidor de tres niveles **[PROPUESTA]** justificada en el 
 | DP-002 | Versionar explícitamente las reglas de la temporada | Trazabilidad normativa | N |
 | DP-003 | Máquinas de estado explícitas (partido, cédula, expediente, cobro) | El estado controla acciones y auditoría | N |
 | DP-004 | Tratar la jornada como entidad con estado de publicación | Histórico, publicación y cobros | N |
-| DP-005 | Componente específico de validación de conflictos de programación | La programación es manual; se validan restricciones duras y blandas | N |
+| DP-005 | Componente específico de validación de conflictos de programación | La programación manual y la automática validan las mismas restricciones duras y blandas (DEC-173) | N |
 | DP-006 | Separar datos publicados de datos internos | Reduce la exposición accidental | N |
 | DP-007 | Tareas programadas idempotentes para los procesos por tiempo | Plazos de cédula, estados y vencimientos | N |
 | DP-008 | Permisos como datos (rol, módulo, acción, ámbito), nunca por nombre de rol en el código | Permisos configurables (DEC-04) | N |
@@ -1499,7 +1518,7 @@ Arquitectura cliente-servidor de tres niveles **[PROPUESTA]** justificada en el 
 | RF-013 a RF-020, RF-107 a RF-111, RF-144 | CU-004, CU-021, CU-028 | P-02 | M-04 | UI-006, UI-024, UI-032 | Registro de jugador, documento, alineación | DEC-10, DEC-12, DEC-13 |
 | RF-021 a RF-024, RF-112 a RF-115 | CU-019, CU-020 | P-03 | M-05 | UI-007, UI-025 | Árbitro, disponibilidad, designación | DEC-17, DEC-18 |
 | RF-027 a RF-032, RF-116 a RF-119 | CU-005, CU-024, CU-025 | P-10 | M-06 | UI-008, UI-028 | Cancha, sede, disponibilidad, horario, solicitud | DEC-33, DEC-35 |
-| RF-033, RF-036, RF-039, RF-040, RF-120, RF-121 | CU-006, CU-007 | P-03 | M-07 | UI-009 | Jornada, partido | DEC-06, DEC-34 |
+| RF-033 a RF-037, RF-039 a RF-042, RF-120, RF-121 | CU-006, CU-007, CU-030 | P-03 | M-07 | UI-009 | Fecha de programación, emparejamiento, jornada, partido | DEC-06, DEC-34, DEC-173 a DEC-182 |
 | RF-025, RF-026, RF-043 a RF-056, RF-122 a RF-127 | CU-008 a CU-010, CU-017 | P-04, P-05 | M-08 | UI-010 a UI-014 | Partido, cédula, alineación, evento, incidencia, resultado | DEC-19 a DEC-21, DEC-23 a DEC-27 |
 | RF-057 a RF-068, RF-128 a RF-133 | CU-011 a CU-013 | P-06 | M-09 | UI-015 a UI-017, UI-026 | Tipo de incidencia, artículo, expediente, resolución, sanción, recurso | DEC-22, DEC-30 a DEC-32 |
 | RF-069 a RF-081 | CU-014, CU-015 | P-07, P-08 | M-10 | UI-018, UI-019 | Competencia/fase, temporada | DEC-28, DEC-29 |
@@ -1507,6 +1526,23 @@ Arquitectura cliente-servidor de tres niveles **[PROPUESTA]** justificada en el 
 | RF-091, RF-092 | CU-029 | Transversal | M-12 | UI-021 | Reportes | DEC-05 |
 | RF-135 a RF-141 | CU-023 | P-11 | M-13 | UI-027 | Tarifa, cobro, pago | DEC-36, DEC-37 |
 | RF-142, RF-143 | Transversal | Transversal | M-14 | UI-030 | Notificación | DEC-38 |
+
+**Programación automática e historias del Sprint 4.** Los requisitos que la Rev. 0.5 devuelve al núcleo se implementan en la tarea T-06 y las historias H-32 a H-35 del backlog ([`../planning/sprint-plan.md`](../planning/sprint-plan.md), diseño en [`../planning/programacion-automatica.md`](../planning/programacion-automatica.md)). T-06 prepara la base de datos (vueltas, horario y días de juego, fechas, emparejamientos y marcas de asignación automática) y la documentación de todos ellos.
+
+| Requisito | Historias | Decisiones |
+| --- | --- | --- |
+| DD-005 Servicio de generación dentro de M-07 | T-06, H-32, H-33, H-34 | DEC-173; ADR-0015 |
+| RF-034 Generar enfrentamientos | H-32 | DEC-174, DEC-184, DEC-185 |
+| RF-035 Asignar fechas y horarios | H-32 (fechas), H-33 (cancha y horario) | DEC-175 a DEC-179, DEC-186 |
+| RF-037 Aplicar descansos | H-32 | DEC-174, DEC-184 |
+| RF-041 Registrar causa de generación o modificación | H-32, H-33, H-35 | DEC-179, DEC-181 |
+| RF-042 Explicar conflictos sin solución | H-33, H-35 | DEC-180 |
+| RN-016 Preferencias como restricciones blandas | H-33 | DEC-178, DEC-179 |
+| RN-017 Explicación de conflictos sin solución | H-33, H-35 | DEC-180 |
+| VAL-007 Emparejamiento sin franja libre | H-33, H-35 | DEC-180 |
+| RF-023 Designar árbitros (árbitro central automático) | H-34 | DEC-182 |
+| RF-121 Aprobar la programación (fecha completa) | H-35 | DEC-175 |
+| RF-038 Aplicar reprogramaciones | — (F: manual con RF-040 y RF-043) | DEC-173 |
 
 ## Apéndice A. Pendientes por definir
 
@@ -1538,8 +1574,8 @@ Se conservan los identificadores PEN de la fuente. **Estado:** Resuelto (con la 
 | PEN-022 | Modelo de disponibilidad de canchas | Resuelto | DEC-25, DEC-33 |
 | PEN-023 | Documentos y evidencias | Resuelto | Almacenamiento privado en AWS S3 (DEC-10, DEC-45, RNF-018, ADR-0013) |
 | PEN-024 a PEN-026 | Stack, frontend y base de datos | Resuelto | DEC-43 |
-| PEN-027 | Estrategia del motor de reglas | Resuelto | Reglas por configuración y catálogos (DD-004) |
-| PEN-028 | Algoritmo de programación | Fuera | DEC-06 |
+| PEN-027 | Estrategia del motor de reglas | Resuelto | Reglas por configuración y catálogos (DD-004); la programación automática aplica las mismas reglas con el validador de conflictos y valores configurables (DEC-173, ADR-0015) |
+| PEN-028 | Algoritmo de programación | Resuelto | Método del círculo para el calendario y asignación voraz validada para cancha, horario y árbitro central (DEC-173, DEC-174, ADR-0015) |
 | PEN-029 | Matriz de permisos detallada | Resuelto | Apéndice E |
 | PEN-030 | Políticas de sesión y contraseñas | Resuelto | ADR-0003; los valores [PROPUESTA] se confirman con la Liga |
 | PEN-031 | Política de respaldo y recuperación | Resuelto | Metas de RNF-010; procedimiento en la arquitectura |
@@ -1603,7 +1639,7 @@ Se conservan los identificadores PEN de la fuente. **Estado:** Resuelto (con la 
 | Q-01 | Renovación y transferencia | Resuelta | DEC-13 |
 | Q-02 | Alcance que exige la rúbrica | Abierta | Profesor |
 | Q-03 | Reglamento y Convocatoria como fuente | Abierta | Valores [DEMO] hasta contar con ellos |
-| Q-04 | Programación automática | Resuelta | No se incluye (DEC-06) |
+| Q-04 | Programación automática | Resuelta | Se incluye en el núcleo: calendario y asignación de cada fecha; la reprogramación sigue manual (DEC-173, revierte en parte DEC-06) |
 | Q-05 | Disciplina en el producto | Resuelta | Incluida (DEC-01, DEC-19 a DEC-22, DEC-30 a DEC-32) |
 | Q-06 | Arbitraje y cédula | Resuelta | DEC-17 a DEC-20 |
 | Q-07 | Matriz de permisos | Resuelta | DEC-04, Apéndice E |
@@ -1652,7 +1688,7 @@ Configuración inicial de DEC-04. **C** crear/registrar · **L** consultar · **
 | 4 | Tesorero (liga) | M-13 C L E A (tarifas, cobros, pagos, adeudos) · M-06 L (costos de cancha) · M-12 L X · M-03 L (clubes y equipos, para dirigir cobros; DEC-55) |
 | 5 | Comisión Disciplinaria | M-09 C L E A (expedientes, resoluciones, sanciones, publicación de sanciones) · M-08 L (cédulas e incidencias) · M-04 L (elegibilidad) · M-12 L X |
 | 6 | Comisión de Arbitraje | M-05 C L E A (catálogo, validación, disponibilidad, designaciones) · M-08 A (cédula con plazo vencido) · M-07 L · M-12 L X |
-| 7 | Programador de partidos | M-07 C L E (programación y ajustes) · M-08 E (Suspendido, Reprogramado, Cancelado) · M-10 C E (fases y llaves) · M-05 L · M-06 L |
+| 7 | Programador de partidos | M-07 C L E (programación manual y automática, y ajustes) · M-08 E (Suspendido, Reprogramado, Cancelado) · M-10 C E (fases y llaves) · M-05 L y designación automática del árbitro central (DEC-182) · M-06 L |
 | 8 | Directiva de club | M-03 C\* E\* (tarjetón y equipos; solo el presidente del club lo firma) · M-04 C\* E\* (jugadores y documentos) · M-05 C\* (árbitros del club) · M-06 C\* (solicitudes y ofertas) · M-09 C\* L\* (recursos, sanciones del club) · M-13 L\* y pago\* (cargo tesorero) · M-07 y M-08 L\* · M-12 L X\* |
 | 9 | Árbitro | M-05 L\* E\* (designaciones y disponibilidad propias) · M-08 A\* (cédula de sus partidos) |
 | 10 | Capturista | M-08 C E (cédula y envío a validación) |
