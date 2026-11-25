@@ -1,0 +1,63 @@
+== Estado de las cédulas
+                cedula                |               partido                |        estado        | goles_local | goles_visitante | no_presentado | enviada | plazo  | capturista_ok 
+--------------------------------------+--------------------------------------+----------------------+-------------+-----------------+---------------+---------+--------+---------------
+ 12b483c5-0b88-464a-949a-14de364b8b26 | 41600001-0000-4000-8000-000000000001 | APROBADA             |           2 |               1 | f             | t       | 2 days | t
+ 6746d7a5-8039-4006-bc42-18de680f0725 | 41600002-0000-4000-8000-000000000001 | PENDIENTE_VALIDACION |           2 |               0 | t             | t       | 2 days | t
+
+== Historial de estados de la cédula
+              cedula_id               |   estado_anterior    |     estado_nuevo     |     cambiado_por     |                    motivo                     
+--------------------------------------+----------------------+----------------------+----------------------+-----------------------------------------------
+ 12b483c5-0b88-464a-949a-14de364b8b26 |                      | EN_CAPTURA           | Capturista de prueba | 
+ 12b483c5-0b88-464a-949a-14de364b8b26 | EN_CAPTURA           | PENDIENTE_VALIDACION | Capturista de prueba | 
+ 12b483c5-0b88-464a-949a-14de364b8b26 | PENDIENTE_VALIDACION | APROBADA             | Árbitro de prueba    | Aprobación del árbitro (simulada para H-16.4)
+ 6746d7a5-8039-4006-bc42-18de680f0725 |                      | EN_CAPTURA           | Capturista de prueba | 
+ 6746d7a5-8039-4006-bc42-18de680f0725 | EN_CAPTURA           | PENDIENTE_VALIDACION | Capturista de prueba | 
+
+== Alineaciones guardadas (ninguna de los intentos rechazados)
+              partido_id              |      equipo      | jugadores 
+--------------------------------------+------------------+-----------
+ 41600001-0000-4000-8000-000000000001 | Halcones Primera |         3
+ 41600001-0000-4000-8000-000000000001 | Toros Primera    |         3
+ 41600002-0000-4000-8000-000000000001 | Pumas Primera    |         2
+
+== Auditoría M-08 (acción, usuario, detalle)
+           accion            |       usuario        |              entidad_id              |                                                                                     detalle                                                                                     
+-----------------------------+----------------------+--------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ ABRIR_CEDULA                | Capturista de prueba | 12b483c5-0b88-464a-949a-14de364b8b26 | {"partidoId": "41600001-0000-4000-8000-000000000001"}
+ CAPTURAR_ALINEACION         | Capturista de prueba | 12b483c5-0b88-464a-949a-14de364b8b26 | {"partidoId": "41600001-0000-4000-8000-000000000001", "jugadoresLocal": 3, "jugadoresVisitante": 3}
+ REGISTRAR_EVENTO_CEDULA     | Capturista de prueba | 12b483c5-0b88-464a-949a-14de364b8b26 | {"tipo": "GOL", "minuto": 12, "equipoId": "a1600001-0000-4000-8000-000000000001", "partidoId": "41600001-0000-4000-8000-000000000001"}
+ REGISTRAR_EVENTO_CEDULA     | Capturista de prueba | 12b483c5-0b88-464a-949a-14de364b8b26 | {"tipo": "TARJETA_AMARILLA", "minuto": 30, "equipoId": "a1600001-0000-4000-8000-000000000001", "partidoId": "41600001-0000-4000-8000-000000000001"}
+ REGISTRAR_EVENTO_CEDULA     | Capturista de prueba | 12b483c5-0b88-464a-949a-14de364b8b26 | {"tipo": "SUSTITUCION", "minuto": 60, "equipoId": "a1600001-0000-4000-8000-000000000001", "partidoId": "41600001-0000-4000-8000-000000000001"}
+ REGISTRAR_INCIDENCIA_CEDULA | Capturista de prueba | 12b483c5-0b88-464a-949a-14de364b8b26 | {"partidoId": "41600001-0000-4000-8000-000000000001", "incidenciaId": "c4c432f1-ed62-42ad-9f81-68b6c8df762d", "involucrados": 2, "tipoIncidenciaId": 1}
+ CAPTURAR_OBSERVACIONES      | Capturista de prueba | 12b483c5-0b88-464a-949a-14de364b8b26 | {"partidoId": "41600001-0000-4000-8000-000000000001", "conObservaciones": true}
+ CAPTURAR_MARCADOR           | Capturista de prueba | 12b483c5-0b88-464a-949a-14de364b8b26 | {"partidoId": "41600001-0000-4000-8000-000000000001", "golesLocal": 2, "porDefault": false, "golesVisitante": 1}
+ ENVIAR_CEDULA               | Capturista de prueba | 12b483c5-0b88-464a-949a-14de364b8b26 | {"partidoId": "41600001-0000-4000-8000-000000000001", "plazoVenceEn": "2026-11-27T03:30:38.960364Z"}
+ ABRIR_CEDULA                | Capturista de prueba | 6746d7a5-8039-4006-bc42-18de680f0725 | {"partidoId": "41600002-0000-4000-8000-000000000001"}
+ CAPTURAR_MARCADOR           | Capturista de prueba | 6746d7a5-8039-4006-bc42-18de680f0725 | {"partidoId": "41600002-0000-4000-8000-000000000001", "golesLocal": 2, "porDefault": true, "golesVisitante": 0, "noPresentadoEquipoId": "a1600004-0000-4000-8000-000000000001"}
+ CAPTURAR_ALINEACION         | Capturista de prueba | 6746d7a5-8039-4006-bc42-18de680f0725 | {"partidoId": "41600002-0000-4000-8000-000000000001", "jugadoresLocal": 2, "jugadoresVisitante": 0}
+ ENVIAR_CEDULA               | Capturista de prueba | 6746d7a5-8039-4006-bc42-18de680f0725 | {"partidoId": "41600002-0000-4000-8000-000000000001", "plazoVenceEn": "2026-11-27T03:30:39.947569Z"}
+
+== ¿Algún detalle de auditoría trae nombres o textos libres?
+ con_datos_personales 
+----------------------
+                    0
+
+== Última garantía en la base, sin pasar por el servicio (como dueño del esquema)
+-- 1) Cambiar el marcador de la cédula APROBADA
+psql:/trigger.sql:3: ERROR:  RF-048: Una cédula aprobada no se modifica; el resultado solo cambia por resolución.
+HINT:  RF-048
+CONTEXT:  PL/pgSQL function error_negocio(text,text) line 3 at RAISE
+SQL statement "SELECT siglim.error_negocio('RF-048', 'Una cédula aprobada no se modifica; el resultado solo cambia por resolución.')"
+PL/pgSQL function tg_cedulas_validar() line 18 at PERFORM
+-- 2) Agregar un jugador a la cédula PENDIENTE_VALIDACION de P2
+psql:/trigger.sql:5: ERROR:  RF-122: El contenido de la cédula solo se modifica mientras está en captura.
+HINT:  RF-122
+CONTEXT:  PL/pgSQL function error_negocio(text,text) line 3 at RAISE
+SQL statement "SELECT siglim.error_negocio('RF-122', 'El contenido de la cédula solo se modifica mientras está en captura.')"
+PL/pgSQL function tg_cedula_en_captura() line 12 at PERFORM
+-- 3) Cambiar el marcador de la cédula PENDIENTE_VALIDACION de P2
+psql:/trigger.sql:7: ERROR:  RF-122: La cédula en validación no se edita; debe devolverse a captura.
+HINT:  RF-122
+CONTEXT:  PL/pgSQL function error_negocio(text,text) line 3 at RAISE
+SQL statement "SELECT siglim.error_negocio('RF-122', 'La cédula en validación no se edita; debe devolverse a captura.')"
+PL/pgSQL function tg_cedulas_validar() line 62 at PERFORM

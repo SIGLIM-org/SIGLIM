@@ -1,0 +1,2153 @@
+
+## S-1 Sin sesión: 401
+> GET /api/v1/partidos/41600001-0000-4000-8000-000000000001/cedula  (cuenta: sin sesión)
+< HTTP 401
+{
+    "type": "https://siglim.mx/errores/no-autenticado",
+    "title": "No autenticado",
+    "status": 401,
+    "detail": "Inicia sesión para continuar.",
+    "instance": "/api/v1/partidos/41600001-0000-4000-8000-000000000001/cedula",
+    "codigo": "NO_AUTENTICADO"
+}
+
+## S-2 Directiva de club (sin partidos.cedula:CAPTURAR) abre la cédula: 403
+> POST /api/v1/partidos/41600001-0000-4000-8000-000000000001/cedula  (cuenta: Directiva de prueba (club Halcones))
+< HTTP 403
+{
+    "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+    "instance": "/api/v1/partidos/41600001-0000-4000-8000-000000000001/cedula",
+    "status": 403,
+    "title": "Acción no permitida",
+    "type": "https://siglim.mx/errores/val-015",
+    "codigo": "VAL-015"
+}
+
+## S-3 Partido inexistente: 404
+> GET /api/v1/partidos/00000000-0000-4000-8000-000000000000/cedula  (cuenta: Capturista de prueba)
+< HTTP 404
+{
+    "detail": "El recurso no existe o no tienes acceso a él.",
+    "instance": "/api/v1/partidos/00000000-0000-4000-8000-000000000000/cedula",
+    "status": 404,
+    "title": "Recurso no encontrado",
+    "type": "https://siglim.mx/errores/no-encontrado",
+    "codigo": "NO_ENCONTRADO"
+}
+
+## S-4 Partido programado (no en curso): 409 RF-046
+> POST /api/v1/partidos/41600003-0000-4000-8000-000000000001/cedula  (cuenta: Capturista de prueba)
+< HTTP 409
+{
+    "detail": "La cédula se abre cuando el partido está en curso; este partido está programado.",
+    "instance": "/api/v1/partidos/41600003-0000-4000-8000-000000000001/cedula",
+    "status": 409,
+    "title": "Conflicto con el estado actual",
+    "type": "https://siglim.mx/errores/rf-046",
+    "codigo": "RF-046"
+}
+
+## S-5 Capturista abre la cédula de P1 en curso: 201 EN_CAPTURA
+> POST /api/v1/partidos/41600001-0000-4000-8000-000000000001/cedula  (cuenta: Capturista de prueba)
+< HTTP 201
+{
+    "id": "12b483c5-0b88-464a-949a-14de364b8b26",
+    "partido": {
+        "id": "41600001-0000-4000-8000-000000000001",
+        "equipoLocal": {
+            "id": "a1600001-0000-4000-8000-000000000001",
+            "nombre": "Halcones Primera"
+        },
+        "equipoVisitante": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "inicio": "2026-11-24T21:00:30.676125-06:00",
+        "estado": "EN_CURSO"
+    },
+    "estado": "EN_CAPTURA",
+    "capturista": {
+        "id": "e1600001-0000-4000-8000-000000000001",
+        "nombre": "Capturista de prueba"
+    },
+    "marcador": {
+        "golesLocal": null,
+        "golesVisitante": null,
+        "penalesLocal": null,
+        "penalesVisitante": null,
+        "noPresentado": null,
+        "porDefault": false,
+        "valorDemo": false
+    },
+    "alineaciones": [],
+    "eventos": [],
+    "incidencias": [],
+    "observaciones": null,
+    "enviadaEn": null,
+    "plazoVenceEn": null,
+    "creadoEn": "2026-11-24T21:30:37.175157-06:00",
+    "actualizadoEn": "2026-11-24T21:30:37.175157-06:00"
+}
+
+## S-6 Segunda apertura: 409 DUPLICADO
+> POST /api/v1/partidos/41600001-0000-4000-8000-000000000001/cedula  (cuenta: Capturista de prueba)
+< HTTP 409
+{
+    "detail": "El partido ya tiene cédula.",
+    "instance": "/api/v1/partidos/41600001-0000-4000-8000-000000000001/cedula",
+    "status": 409,
+    "title": "Conflicto con el estado actual",
+    "type": "https://siglim.mx/errores/duplicado",
+    "codigo": "DUPLICADO"
+}
+
+## S-7 Cédula inexistente: 404
+> GET /api/v1/cedulas/00000000-0000-4000-8000-000000000000/jugadores  (cuenta: Capturista de prueba)
+< HTTP 404
+{
+    "detail": "El recurso no existe o no tienes acceso a él.",
+    "instance": "/api/v1/cedulas/00000000-0000-4000-8000-000000000000/jugadores",
+    "status": 404,
+    "title": "Recurso no encontrado",
+    "type": "https://siglim.mx/errores/no-encontrado",
+    "codigo": "NO_ENCONTRADO"
+}
+
+## S-8 Jugadores disponibles con su elegibilidad (DEC-172)
+> GET /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/jugadores  (cuenta: Capturista de prueba)
+< HTTP 200
+[
+    {
+        "registroJugadorId": "81600000-0000-4000-8000-000000000001",
+        "nombre": "Andrés Halcón Prueba",
+        "equipoId": "a1600001-0000-4000-8000-000000000001",
+        "equipoRegistro": {
+            "id": "a1600001-0000-4000-8000-000000000001",
+            "nombre": "Halcones Primera"
+        },
+        "categoriaSuperior": false,
+        "elegible": true,
+        "causa": null
+    },
+    {
+        "registroJugadorId": "81600000-0000-4000-8000-000000000002",
+        "nombre": "Bruno Halcón Prueba",
+        "equipoId": "a1600001-0000-4000-8000-000000000001",
+        "equipoRegistro": {
+            "id": "a1600001-0000-4000-8000-000000000001",
+            "nombre": "Halcones Primera"
+        },
+        "categoriaSuperior": false,
+        "elegible": true,
+        "causa": null
+    },
+    {
+        "registroJugadorId": "81600000-0000-4000-8000-000000000003",
+        "nombre": "Pedro Pendiente Prueba",
+        "equipoId": "a1600001-0000-4000-8000-000000000001",
+        "equipoRegistro": {
+            "id": "a1600001-0000-4000-8000-000000000001",
+            "nombre": "Halcones Primera"
+        },
+        "categoriaSuperior": false,
+        "elegible": false,
+        "causa": {
+            "codigo": "RF-019",
+            "mensaje": "«Pedro Pendiente Prueba» no puede jugar: su registro está pendiente de validación."
+        }
+    },
+    {
+        "registroJugadorId": "81600000-0000-4000-8000-000000000004",
+        "nombre": "Samuel Sancionado Prueba",
+        "equipoId": "a1600001-0000-4000-8000-000000000001",
+        "equipoRegistro": {
+            "id": "a1600001-0000-4000-8000-000000000001",
+            "nombre": "Halcones Primera"
+        },
+        "categoriaSuperior": false,
+        "elegible": false,
+        "causa": {
+            "codigo": "RF-020",
+            "mensaje": "«Samuel Sancionado Prueba» tiene una sanción vigente que le impide jugar."
+        }
+    },
+    {
+        "registroJugadorId": "81600000-0000-4000-8000-000000000005",
+        "nombre": "Diego Segunda Prueba",
+        "equipoId": "a1600001-0000-4000-8000-000000000001",
+        "equipoRegistro": {
+            "id": "a1600002-0000-4000-8000-000000000001",
+            "nombre": "Halcones Segunda"
+        },
+        "categoriaSuperior": true,
+        "elegible": true,
+        "causa": null
+    },
+    {
+        "registroJugadorId": "81600000-0000-4000-8000-000000000007",
+        "nombre": "Carlos Toro Prueba",
+        "equipoId": "a1600004-0000-4000-8000-000000000001",
+        "equipoRegistro": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "categoriaSuperior": false,
+        "elegible": true,
+        "causa": null
+    },
+    {
+        "registroJugadorId": "81600000-0000-4000-8000-000000000008",
+        "nombre": "Mario Toro Prueba",
+        "equipoId": "a1600004-0000-4000-8000-000000000001",
+        "equipoRegistro": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "categoriaSuperior": false,
+        "elegible": true,
+        "causa": null
+    },
+    {
+        "registroJugadorId": "81600000-0000-4000-8000-000000000009",
+        "nombre": "Óscar Torito Prueba",
+        "equipoId": "a1600004-0000-4000-8000-000000000001",
+        "equipoRegistro": {
+            "id": "a1600005-0000-4000-8000-000000000001",
+            "nombre": "Toros Segunda"
+        },
+        "categoriaSuperior": true,
+        "elegible": true,
+        "causa": null
+    }
+]
+
+## CA-1a Pedro Pendiente (registro PENDIENTE_VALIDACION): 422 VAL-002 / RF-019
+> PUT /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/alineaciones  (cuenta: Capturista de prueba)
+> {"jugadores":[{"registroJugadorId":"81600000-0000-4000-8000-000000000003","equipoId":"a1600001-0000-4000-8000-000000000001","numeroPlayera":3}]}
+< HTTP 422
+{
+    "detail": "Un jugador no puede alinearse: «Pedro Pendiente Prueba» no puede jugar: su registro está pendiente de validación.",
+    "instance": "/api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/alineaciones",
+    "status": 422,
+    "title": "No se puede procesar",
+    "type": "https://siglim.mx/errores/val-002",
+    "codigo": "VAL-002",
+    "errores": [
+        {
+            "campo": "jugadores[0]",
+            "indice": 0,
+            "registroJugadorId": "81600000-0000-4000-8000-000000000003",
+            "codigo": "RF-019",
+            "mensaje": "«Pedro Pendiente Prueba» no puede jugar: su registro está pendiente de validación."
+        }
+    ]
+}
+
+## CA-1b Samuel Sancionado (suspensión vigente): 422 VAL-002 / RF-020
+> PUT /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/alineaciones  (cuenta: Capturista de prueba)
+> {"jugadores":[{"registroJugadorId":"81600000-0000-4000-8000-000000000004","equipoId":"a1600001-0000-4000-8000-000000000001","numeroPlayera":4}]}
+< HTTP 422
+{
+    "detail": "Un jugador no puede alinearse: «Samuel Sancionado Prueba» tiene una sanción vigente que le impide jugar.",
+    "instance": "/api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/alineaciones",
+    "status": 422,
+    "title": "No se puede procesar",
+    "type": "https://siglim.mx/errores/val-002",
+    "codigo": "VAL-002",
+    "errores": [
+        {
+            "campo": "jugadores[0]",
+            "indice": 0,
+            "registroJugadorId": "81600000-0000-4000-8000-000000000004",
+            "codigo": "RF-020",
+            "mensaje": "«Samuel Sancionado Prueba» tiene una sanción vigente que le impide jugar."
+        }
+    ]
+}
+
+## CA-1c Andrés (elegible) con Pedro y Samuel: 422 con 2 errores y no se guarda nadie
+> PUT /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/alineaciones  (cuenta: Capturista de prueba)
+> {"jugadores":[{"registroJugadorId":"81600000-0000-4000-8000-000000000001","equipoId":"a1600001-0000-4000-8000-000000000001","numeroPlayera":1},{"registroJugadorId":"81600000-0000-4000-8000-000000000003","equipoId":"a1600001-0000-4000-8000-000000000001","numeroPlayera":3},{"registroJugadorId":"81600000-0000-4000-8000-000000000004","equipoId":"a1600001-0000-4000-8000-000000000001","numeroPlayera":4}]}
+< HTTP 422
+{
+    "detail": "2 jugadores no pueden alinearse. Revisa la causa de cada uno.",
+    "instance": "/api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/alineaciones",
+    "status": 422,
+    "title": "No se puede procesar",
+    "type": "https://siglim.mx/errores/val-002",
+    "codigo": "VAL-002",
+    "errores": [
+        {
+            "campo": "jugadores[1]",
+            "indice": 1,
+            "registroJugadorId": "81600000-0000-4000-8000-000000000003",
+            "codigo": "RF-019",
+            "mensaje": "«Pedro Pendiente Prueba» no puede jugar: su registro está pendiente de validación."
+        },
+        {
+            "campo": "jugadores[2]",
+            "indice": 2,
+            "registroJugadorId": "81600000-0000-4000-8000-000000000004",
+            "codigo": "RF-020",
+            "mensaje": "«Samuel Sancionado Prueba» tiene una sanción vigente que le impide jugar."
+        }
+    ]
+}
+
+## CA-1d La alineación sigue vacía
+> GET /api/v1/partidos/41600001-0000-4000-8000-000000000001/cedula  (cuenta: Capturista de prueba)
+< HTTP 200
+{
+    "id": "12b483c5-0b88-464a-949a-14de364b8b26",
+    "partido": {
+        "id": "41600001-0000-4000-8000-000000000001",
+        "equipoLocal": {
+            "id": "a1600001-0000-4000-8000-000000000001",
+            "nombre": "Halcones Primera"
+        },
+        "equipoVisitante": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "inicio": "2026-11-24T21:00:30.676125-06:00",
+        "estado": "EN_CURSO"
+    },
+    "estado": "EN_CAPTURA",
+    "capturista": {
+        "id": "e1600001-0000-4000-8000-000000000001",
+        "nombre": "Capturista de prueba"
+    },
+    "marcador": {
+        "golesLocal": null,
+        "golesVisitante": null,
+        "penalesLocal": null,
+        "penalesVisitante": null,
+        "noPresentado": null,
+        "porDefault": false,
+        "valorDemo": false
+    },
+    "alineaciones": [],
+    "eventos": [],
+    "incidencias": [],
+    "observaciones": null,
+    "enviadaEn": null,
+    "plazoVenceEn": null,
+    "creadoEn": "2026-11-24T21:30:37.175157-06:00",
+    "actualizadoEn": "2026-11-24T21:30:37.175157-06:00"
+}
+
+## CA-2a Tomás Tercera (Halcones Tercera, dos categorías abajo) con Halcones Primera: 422 VAL-018
+> PUT /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/alineaciones  (cuenta: Capturista de prueba)
+> {"jugadores":[{"registroJugadorId":"81600000-0000-4000-8000-000000000006","equipoId":"a1600001-0000-4000-8000-000000000001","numeroPlayera":6}]}
+< HTTP 422
+{
+    "detail": "Un jugador no puede alinearse: «Tomás Tercera Prueba» solo puede alinearse con su equipo o con el de la categoría inmediata superior de su club.",
+    "instance": "/api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/alineaciones",
+    "status": 422,
+    "title": "No se puede procesar",
+    "type": "https://siglim.mx/errores/val-002",
+    "codigo": "VAL-002",
+    "errores": [
+        {
+            "campo": "jugadores[0]",
+            "indice": 0,
+            "registroJugadorId": "81600000-0000-4000-8000-000000000006",
+            "codigo": "VAL-018",
+            "mensaje": "«Tomás Tercera Prueba» solo puede alinearse con su equipo o con el de la categoría inmediata superior de su club."
+        }
+    ]
+}
+
+## CA-2b Óscar Torito (Toros Segunda, otro club) con Halcones Primera: 422 VAL-018
+> PUT /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/alineaciones  (cuenta: Capturista de prueba)
+> {"jugadores":[{"registroJugadorId":"81600000-0000-4000-8000-000000000009","equipoId":"a1600001-0000-4000-8000-000000000001","numeroPlayera":9}]}
+< HTTP 422
+{
+    "detail": "Un jugador no puede alinearse: «Óscar Torito Prueba» solo puede alinearse con su equipo o con el de la categoría inmediata superior de su club.",
+    "instance": "/api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/alineaciones",
+    "status": 422,
+    "title": "No se puede procesar",
+    "type": "https://siglim.mx/errores/val-002",
+    "codigo": "VAL-002",
+    "errores": [
+        {
+            "campo": "jugadores[0]",
+            "indice": 0,
+            "registroJugadorId": "81600000-0000-4000-8000-000000000009",
+            "codigo": "VAL-018",
+            "mensaje": "«Óscar Torito Prueba» solo puede alinearse con su equipo o con el de la categoría inmediata superior de su club."
+        }
+    ]
+}
+
+## CA-2c Alineación válida: Diego Segunda y Óscar Torito suben a la Primera de su club (categoriaSuperior: true): 200
+> PUT /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/alineaciones  (cuenta: Capturista de prueba)
+> {"jugadores":[{"registroJugadorId":"81600000-0000-4000-8000-000000000001","equipoId":"a1600001-0000-4000-8000-000000000001","numeroPlayera":1},{"registroJugadorId":"81600000-0000-4000-8000-000000000002","equipoId":"a1600001-0000-4000-8000-000000000001","numeroPlayera":2},{"registroJugadorId":"81600000-0000-4000-8000-000000000005","equipoId":"a1600001-0000-4000-8000-000000000001","numeroPlayera":15,"titular":false},{"registroJugadorId":"81600000-0000-4000-8000-000000000007","equipoId":"a1600004-0000-4000-8000-000000000001","numeroPlayera":7},{"registroJugadorId":"81600000-0000-4000-8000-000000000008","equipoId":"a1600004-0000-4000-8000-000000000001","numeroPlayera":8},{"registroJugadorId":"81600000-0000-4000-8000-000000000009","equipoId":"a1600004-0000-4000-8000-000000000001","numeroPlayera":19,"titular":false}]}
+< HTTP 200
+{
+    "id": "12b483c5-0b88-464a-949a-14de364b8b26",
+    "partido": {
+        "id": "41600001-0000-4000-8000-000000000001",
+        "equipoLocal": {
+            "id": "a1600001-0000-4000-8000-000000000001",
+            "nombre": "Halcones Primera"
+        },
+        "equipoVisitante": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "inicio": "2026-11-24T21:00:30.676125-06:00",
+        "estado": "EN_CURSO"
+    },
+    "estado": "EN_CAPTURA",
+    "capturista": {
+        "id": "e1600001-0000-4000-8000-000000000001",
+        "nombre": "Capturista de prueba"
+    },
+    "marcador": {
+        "golesLocal": null,
+        "golesVisitante": null,
+        "penalesLocal": null,
+        "penalesVisitante": null,
+        "noPresentado": null,
+        "porDefault": false,
+        "valorDemo": false
+    },
+    "alineaciones": [
+        {
+            "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000001",
+            "personaId": "91600000-0000-4000-8000-000000000001",
+            "nombre": "Andrés Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 1,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000002",
+            "personaId": "91600000-0000-4000-8000-000000000002",
+            "nombre": "Bruno Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 2,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "a3c0b74d-de04-4ce4-83ff-eddcc016668e",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000005",
+            "personaId": "91600000-0000-4000-8000-000000000005",
+            "nombre": "Diego Segunda Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 15,
+            "titular": false,
+            "categoriaSuperior": true
+        },
+        {
+            "id": "0d22e710-8168-4023-9400-aa72350bc6f2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000007",
+            "personaId": "91600000-0000-4000-8000-000000000007",
+            "nombre": "Carlos Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 7,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "1c45d4a6-94eb-42e1-bf88-f24b3c80a9d8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000008",
+            "personaId": "91600000-0000-4000-8000-000000000008",
+            "nombre": "Mario Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 8,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "3398aae4-0d7f-411f-92e2-7114852a80a8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000009",
+            "personaId": "91600000-0000-4000-8000-000000000009",
+            "nombre": "Óscar Torito Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 19,
+            "titular": false,
+            "categoriaSuperior": true
+        }
+    ],
+    "eventos": [],
+    "incidencias": [],
+    "observaciones": null,
+    "enviadaEn": null,
+    "plazoVenceEn": null,
+    "creadoEn": "2026-11-24T21:30:37.175157-06:00",
+    "actualizadoEn": "2026-11-24T21:30:37.984476-06:00"
+}
+
+## CA-4a Envío sin marcador: 422 VAL-020 con faltantes [marcador]
+> POST /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/envio  (cuenta: Capturista de prueba)
+< HTTP 422
+{
+    "detail": "La cédula está incompleta y no se puede enviar: Captura el marcador o marca al equipo que no se presentó.",
+    "instance": "/api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/envio",
+    "status": 422,
+    "title": "No se puede procesar",
+    "type": "https://siglim.mx/errores/val-020",
+    "codigo": "VAL-020",
+    "faltantes": [
+        {
+            "campo": "marcador",
+            "mensaje": "Captura el marcador o marca al equipo que no se presentó."
+        }
+    ]
+}
+
+## C-1 Gol de Andrés al 12'
+> POST /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/eventos  (cuenta: Capturista de prueba)
+> {"tipo":"GOL","minuto":12,"alineacionId":"3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2"}
+< HTTP 201
+{
+    "id": "12b483c5-0b88-464a-949a-14de364b8b26",
+    "partido": {
+        "id": "41600001-0000-4000-8000-000000000001",
+        "equipoLocal": {
+            "id": "a1600001-0000-4000-8000-000000000001",
+            "nombre": "Halcones Primera"
+        },
+        "equipoVisitante": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "inicio": "2026-11-24T21:00:30.676125-06:00",
+        "estado": "EN_CURSO"
+    },
+    "estado": "EN_CAPTURA",
+    "capturista": {
+        "id": "e1600001-0000-4000-8000-000000000001",
+        "nombre": "Capturista de prueba"
+    },
+    "marcador": {
+        "golesLocal": null,
+        "golesVisitante": null,
+        "penalesLocal": null,
+        "penalesVisitante": null,
+        "noPresentado": null,
+        "porDefault": false,
+        "valorDemo": false
+    },
+    "alineaciones": [
+        {
+            "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000001",
+            "personaId": "91600000-0000-4000-8000-000000000001",
+            "nombre": "Andrés Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 1,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000002",
+            "personaId": "91600000-0000-4000-8000-000000000002",
+            "nombre": "Bruno Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 2,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "a3c0b74d-de04-4ce4-83ff-eddcc016668e",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000005",
+            "personaId": "91600000-0000-4000-8000-000000000005",
+            "nombre": "Diego Segunda Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 15,
+            "titular": false,
+            "categoriaSuperior": true
+        },
+        {
+            "id": "0d22e710-8168-4023-9400-aa72350bc6f2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000007",
+            "personaId": "91600000-0000-4000-8000-000000000007",
+            "nombre": "Carlos Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 7,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "1c45d4a6-94eb-42e1-bf88-f24b3c80a9d8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000008",
+            "personaId": "91600000-0000-4000-8000-000000000008",
+            "nombre": "Mario Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 8,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "3398aae4-0d7f-411f-92e2-7114852a80a8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000009",
+            "personaId": "91600000-0000-4000-8000-000000000009",
+            "nombre": "Óscar Torito Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 19,
+            "titular": false,
+            "categoriaSuperior": true
+        }
+    ],
+    "eventos": [
+        {
+            "id": "08231bfb-cb9b-4138-8312-f97b28c0a735",
+            "tipo": "GOL",
+            "minuto": 12,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+                "nombre": "Andrés Halcón Prueba"
+            },
+            "entra": null,
+            "observaciones": null
+        }
+    ],
+    "incidencias": [],
+    "observaciones": null,
+    "enviadaEn": null,
+    "plazoVenceEn": null,
+    "creadoEn": "2026-11-24T21:30:37.175157-06:00",
+    "actualizadoEn": "2026-11-24T21:30:38.281979-06:00"
+}
+
+## C-2 Amarilla a Bruno al 30'
+> POST /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/eventos  (cuenta: Capturista de prueba)
+> {"tipo":"TARJETA_AMARILLA","minuto":30,"alineacionId":"e77048bf-d5a8-40ea-8782-46ad3e15470a"}
+< HTTP 201
+{
+    "id": "12b483c5-0b88-464a-949a-14de364b8b26",
+    "partido": {
+        "id": "41600001-0000-4000-8000-000000000001",
+        "equipoLocal": {
+            "id": "a1600001-0000-4000-8000-000000000001",
+            "nombre": "Halcones Primera"
+        },
+        "equipoVisitante": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "inicio": "2026-11-24T21:00:30.676125-06:00",
+        "estado": "EN_CURSO"
+    },
+    "estado": "EN_CAPTURA",
+    "capturista": {
+        "id": "e1600001-0000-4000-8000-000000000001",
+        "nombre": "Capturista de prueba"
+    },
+    "marcador": {
+        "golesLocal": null,
+        "golesVisitante": null,
+        "penalesLocal": null,
+        "penalesVisitante": null,
+        "noPresentado": null,
+        "porDefault": false,
+        "valorDemo": false
+    },
+    "alineaciones": [
+        {
+            "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000001",
+            "personaId": "91600000-0000-4000-8000-000000000001",
+            "nombre": "Andrés Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 1,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000002",
+            "personaId": "91600000-0000-4000-8000-000000000002",
+            "nombre": "Bruno Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 2,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "a3c0b74d-de04-4ce4-83ff-eddcc016668e",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000005",
+            "personaId": "91600000-0000-4000-8000-000000000005",
+            "nombre": "Diego Segunda Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 15,
+            "titular": false,
+            "categoriaSuperior": true
+        },
+        {
+            "id": "0d22e710-8168-4023-9400-aa72350bc6f2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000007",
+            "personaId": "91600000-0000-4000-8000-000000000007",
+            "nombre": "Carlos Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 7,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "1c45d4a6-94eb-42e1-bf88-f24b3c80a9d8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000008",
+            "personaId": "91600000-0000-4000-8000-000000000008",
+            "nombre": "Mario Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 8,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "3398aae4-0d7f-411f-92e2-7114852a80a8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000009",
+            "personaId": "91600000-0000-4000-8000-000000000009",
+            "nombre": "Óscar Torito Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 19,
+            "titular": false,
+            "categoriaSuperior": true
+        }
+    ],
+    "eventos": [
+        {
+            "id": "08231bfb-cb9b-4138-8312-f97b28c0a735",
+            "tipo": "GOL",
+            "minuto": 12,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+                "nombre": "Andrés Halcón Prueba"
+            },
+            "entra": null,
+            "observaciones": null
+        },
+        {
+            "id": "867a5a2f-6ccb-4ee7-b775-230526366bd8",
+            "tipo": "TARJETA_AMARILLA",
+            "minuto": 30,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+                "nombre": "Bruno Halcón Prueba"
+            },
+            "entra": null,
+            "observaciones": null
+        }
+    ],
+    "incidencias": [],
+    "observaciones": null,
+    "enviadaEn": null,
+    "plazoVenceEn": null,
+    "creadoEn": "2026-11-24T21:30:37.175157-06:00",
+    "actualizadoEn": "2026-11-24T21:30:38.377394-06:00"
+}
+
+## C-3 Sustitución: sale Bruno, entra Diego al 60'
+> POST /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/eventos  (cuenta: Capturista de prueba)
+> {"tipo":"SUSTITUCION","minuto":60,"alineacionId":"e77048bf-d5a8-40ea-8782-46ad3e15470a","alineacionEntraId":"a3c0b74d-de04-4ce4-83ff-eddcc016668e"}
+< HTTP 201
+{
+    "id": "12b483c5-0b88-464a-949a-14de364b8b26",
+    "partido": {
+        "id": "41600001-0000-4000-8000-000000000001",
+        "equipoLocal": {
+            "id": "a1600001-0000-4000-8000-000000000001",
+            "nombre": "Halcones Primera"
+        },
+        "equipoVisitante": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "inicio": "2026-11-24T21:00:30.676125-06:00",
+        "estado": "EN_CURSO"
+    },
+    "estado": "EN_CAPTURA",
+    "capturista": {
+        "id": "e1600001-0000-4000-8000-000000000001",
+        "nombre": "Capturista de prueba"
+    },
+    "marcador": {
+        "golesLocal": null,
+        "golesVisitante": null,
+        "penalesLocal": null,
+        "penalesVisitante": null,
+        "noPresentado": null,
+        "porDefault": false,
+        "valorDemo": false
+    },
+    "alineaciones": [
+        {
+            "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000001",
+            "personaId": "91600000-0000-4000-8000-000000000001",
+            "nombre": "Andrés Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 1,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000002",
+            "personaId": "91600000-0000-4000-8000-000000000002",
+            "nombre": "Bruno Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 2,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "a3c0b74d-de04-4ce4-83ff-eddcc016668e",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000005",
+            "personaId": "91600000-0000-4000-8000-000000000005",
+            "nombre": "Diego Segunda Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 15,
+            "titular": false,
+            "categoriaSuperior": true
+        },
+        {
+            "id": "0d22e710-8168-4023-9400-aa72350bc6f2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000007",
+            "personaId": "91600000-0000-4000-8000-000000000007",
+            "nombre": "Carlos Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 7,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "1c45d4a6-94eb-42e1-bf88-f24b3c80a9d8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000008",
+            "personaId": "91600000-0000-4000-8000-000000000008",
+            "nombre": "Mario Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 8,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "3398aae4-0d7f-411f-92e2-7114852a80a8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000009",
+            "personaId": "91600000-0000-4000-8000-000000000009",
+            "nombre": "Óscar Torito Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 19,
+            "titular": false,
+            "categoriaSuperior": true
+        }
+    ],
+    "eventos": [
+        {
+            "id": "08231bfb-cb9b-4138-8312-f97b28c0a735",
+            "tipo": "GOL",
+            "minuto": 12,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+                "nombre": "Andrés Halcón Prueba"
+            },
+            "entra": null,
+            "observaciones": null
+        },
+        {
+            "id": "867a5a2f-6ccb-4ee7-b775-230526366bd8",
+            "tipo": "TARJETA_AMARILLA",
+            "minuto": 30,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+                "nombre": "Bruno Halcón Prueba"
+            },
+            "entra": null,
+            "observaciones": null
+        },
+        {
+            "id": "5373d4db-427d-4992-81bc-177fcf9c8755",
+            "tipo": "SUSTITUCION",
+            "minuto": 60,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+                "nombre": "Bruno Halcón Prueba"
+            },
+            "entra": {
+                "id": "a3c0b74d-de04-4ce4-83ff-eddcc016668e",
+                "nombre": "Diego Segunda Prueba"
+            },
+            "observaciones": null
+        }
+    ],
+    "incidencias": [],
+    "observaciones": null,
+    "enviadaEn": null,
+    "plazoVenceEn": null,
+    "creadoEn": "2026-11-24T21:30:37.175157-06:00",
+    "actualizadoEn": "2026-11-24T21:30:38.468401-06:00"
+}
+
+## C-4 Tipos de incidencia activos
+> GET /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/tipos-incidencia  (cuenta: Capturista de prueba)
+< HTTP 200
+[
+    {
+        "id": 1,
+        "nombre": "Amonestación",
+        "abreExpediente": false
+    },
+    {
+        "id": 2,
+        "nombre": "Expulsión",
+        "abreExpediente": true
+    },
+    {
+        "id": 3,
+        "nombre": "Riña",
+        "abreExpediente": true
+    }
+]
+
+## C-5 Incidencia con un jugador y un equipo involucrados
+> POST /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/incidencias  (cuenta: Capturista de prueba)
+> {"tipoIncidenciaId":1,"minuto":75,"descripcion":"Protesta airada al árbitro.","involucrados":[{"personaId":"91600000-0000-4000-8000-000000000007"},{"equipoId":"a1600004-0000-4000-8000-000000000001"}]}
+< HTTP 201
+{
+    "id": "12b483c5-0b88-464a-949a-14de364b8b26",
+    "partido": {
+        "id": "41600001-0000-4000-8000-000000000001",
+        "equipoLocal": {
+            "id": "a1600001-0000-4000-8000-000000000001",
+            "nombre": "Halcones Primera"
+        },
+        "equipoVisitante": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "inicio": "2026-11-24T21:00:30.676125-06:00",
+        "estado": "EN_CURSO"
+    },
+    "estado": "EN_CAPTURA",
+    "capturista": {
+        "id": "e1600001-0000-4000-8000-000000000001",
+        "nombre": "Capturista de prueba"
+    },
+    "marcador": {
+        "golesLocal": null,
+        "golesVisitante": null,
+        "penalesLocal": null,
+        "penalesVisitante": null,
+        "noPresentado": null,
+        "porDefault": false,
+        "valorDemo": false
+    },
+    "alineaciones": [
+        {
+            "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000001",
+            "personaId": "91600000-0000-4000-8000-000000000001",
+            "nombre": "Andrés Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 1,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000002",
+            "personaId": "91600000-0000-4000-8000-000000000002",
+            "nombre": "Bruno Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 2,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "a3c0b74d-de04-4ce4-83ff-eddcc016668e",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000005",
+            "personaId": "91600000-0000-4000-8000-000000000005",
+            "nombre": "Diego Segunda Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 15,
+            "titular": false,
+            "categoriaSuperior": true
+        },
+        {
+            "id": "0d22e710-8168-4023-9400-aa72350bc6f2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000007",
+            "personaId": "91600000-0000-4000-8000-000000000007",
+            "nombre": "Carlos Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 7,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "1c45d4a6-94eb-42e1-bf88-f24b3c80a9d8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000008",
+            "personaId": "91600000-0000-4000-8000-000000000008",
+            "nombre": "Mario Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 8,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "3398aae4-0d7f-411f-92e2-7114852a80a8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000009",
+            "personaId": "91600000-0000-4000-8000-000000000009",
+            "nombre": "Óscar Torito Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 19,
+            "titular": false,
+            "categoriaSuperior": true
+        }
+    ],
+    "eventos": [
+        {
+            "id": "08231bfb-cb9b-4138-8312-f97b28c0a735",
+            "tipo": "GOL",
+            "minuto": 12,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+                "nombre": "Andrés Halcón Prueba"
+            },
+            "entra": null,
+            "observaciones": null
+        },
+        {
+            "id": "867a5a2f-6ccb-4ee7-b775-230526366bd8",
+            "tipo": "TARJETA_AMARILLA",
+            "minuto": 30,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+                "nombre": "Bruno Halcón Prueba"
+            },
+            "entra": null,
+            "observaciones": null
+        },
+        {
+            "id": "5373d4db-427d-4992-81bc-177fcf9c8755",
+            "tipo": "SUSTITUCION",
+            "minuto": 60,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+                "nombre": "Bruno Halcón Prueba"
+            },
+            "entra": {
+                "id": "a3c0b74d-de04-4ce4-83ff-eddcc016668e",
+                "nombre": "Diego Segunda Prueba"
+            },
+            "observaciones": null
+        }
+    ],
+    "incidencias": [
+        {
+            "id": "c4c432f1-ed62-42ad-9f81-68b6c8df762d",
+            "tipo": {
+                "id": 1,
+                "nombre": "Amonestación",
+                "abreExpediente": false
+            },
+            "minuto": 75,
+            "descripcion": "Protesta airada al árbitro.",
+            "involucrados": [
+                {
+                    "personaId": null,
+                    "equipoId": "a1600004-0000-4000-8000-000000000001",
+                    "nombre": "Toros Primera"
+                },
+                {
+                    "personaId": "91600000-0000-4000-8000-000000000007",
+                    "equipoId": null,
+                    "nombre": "Carlos Toro Prueba"
+                }
+            ]
+        }
+    ],
+    "observaciones": null,
+    "enviadaEn": null,
+    "plazoVenceEn": null,
+    "creadoEn": "2026-11-24T21:30:37.175157-06:00",
+    "actualizadoEn": "2026-11-24T21:30:38.64991-06:00"
+}
+
+## C-6 Observaciones del partido
+> PUT /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/observaciones  (cuenta: Capturista de prueba)
+> {"observaciones":"Partido sin contratiempos mayores."}
+< HTTP 200
+{
+    "id": "12b483c5-0b88-464a-949a-14de364b8b26",
+    "partido": {
+        "id": "41600001-0000-4000-8000-000000000001",
+        "equipoLocal": {
+            "id": "a1600001-0000-4000-8000-000000000001",
+            "nombre": "Halcones Primera"
+        },
+        "equipoVisitante": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "inicio": "2026-11-24T21:00:30.676125-06:00",
+        "estado": "EN_CURSO"
+    },
+    "estado": "EN_CAPTURA",
+    "capturista": {
+        "id": "e1600001-0000-4000-8000-000000000001",
+        "nombre": "Capturista de prueba"
+    },
+    "marcador": {
+        "golesLocal": null,
+        "golesVisitante": null,
+        "penalesLocal": null,
+        "penalesVisitante": null,
+        "noPresentado": null,
+        "porDefault": false,
+        "valorDemo": false
+    },
+    "alineaciones": [
+        {
+            "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000001",
+            "personaId": "91600000-0000-4000-8000-000000000001",
+            "nombre": "Andrés Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 1,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000002",
+            "personaId": "91600000-0000-4000-8000-000000000002",
+            "nombre": "Bruno Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 2,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "a3c0b74d-de04-4ce4-83ff-eddcc016668e",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000005",
+            "personaId": "91600000-0000-4000-8000-000000000005",
+            "nombre": "Diego Segunda Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 15,
+            "titular": false,
+            "categoriaSuperior": true
+        },
+        {
+            "id": "0d22e710-8168-4023-9400-aa72350bc6f2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000007",
+            "personaId": "91600000-0000-4000-8000-000000000007",
+            "nombre": "Carlos Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 7,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "1c45d4a6-94eb-42e1-bf88-f24b3c80a9d8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000008",
+            "personaId": "91600000-0000-4000-8000-000000000008",
+            "nombre": "Mario Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 8,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "3398aae4-0d7f-411f-92e2-7114852a80a8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000009",
+            "personaId": "91600000-0000-4000-8000-000000000009",
+            "nombre": "Óscar Torito Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 19,
+            "titular": false,
+            "categoriaSuperior": true
+        }
+    ],
+    "eventos": [
+        {
+            "id": "08231bfb-cb9b-4138-8312-f97b28c0a735",
+            "tipo": "GOL",
+            "minuto": 12,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+                "nombre": "Andrés Halcón Prueba"
+            },
+            "entra": null,
+            "observaciones": null
+        },
+        {
+            "id": "867a5a2f-6ccb-4ee7-b775-230526366bd8",
+            "tipo": "TARJETA_AMARILLA",
+            "minuto": 30,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+                "nombre": "Bruno Halcón Prueba"
+            },
+            "entra": null,
+            "observaciones": null
+        },
+        {
+            "id": "5373d4db-427d-4992-81bc-177fcf9c8755",
+            "tipo": "SUSTITUCION",
+            "minuto": 60,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+                "nombre": "Bruno Halcón Prueba"
+            },
+            "entra": {
+                "id": "a3c0b74d-de04-4ce4-83ff-eddcc016668e",
+                "nombre": "Diego Segunda Prueba"
+            },
+            "observaciones": null
+        }
+    ],
+    "incidencias": [
+        {
+            "id": "c4c432f1-ed62-42ad-9f81-68b6c8df762d",
+            "tipo": {
+                "id": 1,
+                "nombre": "Amonestación",
+                "abreExpediente": false
+            },
+            "minuto": 75,
+            "descripcion": "Protesta airada al árbitro.",
+            "involucrados": [
+                {
+                    "personaId": null,
+                    "equipoId": "a1600004-0000-4000-8000-000000000001",
+                    "nombre": "Toros Primera"
+                },
+                {
+                    "personaId": "91600000-0000-4000-8000-000000000007",
+                    "equipoId": null,
+                    "nombre": "Carlos Toro Prueba"
+                }
+            ]
+        }
+    ],
+    "observaciones": "Partido sin contratiempos mayores.",
+    "enviadaEn": null,
+    "plazoVenceEn": null,
+    "creadoEn": "2026-11-24T21:30:37.175157-06:00",
+    "actualizadoEn": "2026-11-24T21:30:38.761432-06:00"
+}
+
+## C-7 Marcador 2-1
+> PUT /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/marcador  (cuenta: Capturista de prueba)
+> {"golesLocal":2,"golesVisitante":1}
+< HTTP 200
+{
+    "id": "12b483c5-0b88-464a-949a-14de364b8b26",
+    "partido": {
+        "id": "41600001-0000-4000-8000-000000000001",
+        "equipoLocal": {
+            "id": "a1600001-0000-4000-8000-000000000001",
+            "nombre": "Halcones Primera"
+        },
+        "equipoVisitante": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "inicio": "2026-11-24T21:00:30.676125-06:00",
+        "estado": "EN_CURSO"
+    },
+    "estado": "EN_CAPTURA",
+    "capturista": {
+        "id": "e1600001-0000-4000-8000-000000000001",
+        "nombre": "Capturista de prueba"
+    },
+    "marcador": {
+        "golesLocal": 2,
+        "golesVisitante": 1,
+        "penalesLocal": null,
+        "penalesVisitante": null,
+        "noPresentado": null,
+        "porDefault": false,
+        "valorDemo": false
+    },
+    "alineaciones": [
+        {
+            "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000001",
+            "personaId": "91600000-0000-4000-8000-000000000001",
+            "nombre": "Andrés Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 1,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000002",
+            "personaId": "91600000-0000-4000-8000-000000000002",
+            "nombre": "Bruno Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 2,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "a3c0b74d-de04-4ce4-83ff-eddcc016668e",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000005",
+            "personaId": "91600000-0000-4000-8000-000000000005",
+            "nombre": "Diego Segunda Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 15,
+            "titular": false,
+            "categoriaSuperior": true
+        },
+        {
+            "id": "0d22e710-8168-4023-9400-aa72350bc6f2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000007",
+            "personaId": "91600000-0000-4000-8000-000000000007",
+            "nombre": "Carlos Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 7,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "1c45d4a6-94eb-42e1-bf88-f24b3c80a9d8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000008",
+            "personaId": "91600000-0000-4000-8000-000000000008",
+            "nombre": "Mario Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 8,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "3398aae4-0d7f-411f-92e2-7114852a80a8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000009",
+            "personaId": "91600000-0000-4000-8000-000000000009",
+            "nombre": "Óscar Torito Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 19,
+            "titular": false,
+            "categoriaSuperior": true
+        }
+    ],
+    "eventos": [
+        {
+            "id": "08231bfb-cb9b-4138-8312-f97b28c0a735",
+            "tipo": "GOL",
+            "minuto": 12,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+                "nombre": "Andrés Halcón Prueba"
+            },
+            "entra": null,
+            "observaciones": null
+        },
+        {
+            "id": "867a5a2f-6ccb-4ee7-b775-230526366bd8",
+            "tipo": "TARJETA_AMARILLA",
+            "minuto": 30,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+                "nombre": "Bruno Halcón Prueba"
+            },
+            "entra": null,
+            "observaciones": null
+        },
+        {
+            "id": "5373d4db-427d-4992-81bc-177fcf9c8755",
+            "tipo": "SUSTITUCION",
+            "minuto": 60,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+                "nombre": "Bruno Halcón Prueba"
+            },
+            "entra": {
+                "id": "a3c0b74d-de04-4ce4-83ff-eddcc016668e",
+                "nombre": "Diego Segunda Prueba"
+            },
+            "observaciones": null
+        }
+    ],
+    "incidencias": [
+        {
+            "id": "c4c432f1-ed62-42ad-9f81-68b6c8df762d",
+            "tipo": {
+                "id": 1,
+                "nombre": "Amonestación",
+                "abreExpediente": false
+            },
+            "minuto": 75,
+            "descripcion": "Protesta airada al árbitro.",
+            "involucrados": [
+                {
+                    "personaId": null,
+                    "equipoId": "a1600004-0000-4000-8000-000000000001",
+                    "nombre": "Toros Primera"
+                },
+                {
+                    "personaId": "91600000-0000-4000-8000-000000000007",
+                    "equipoId": null,
+                    "nombre": "Carlos Toro Prueba"
+                }
+            ]
+        }
+    ],
+    "observaciones": "Partido sin contratiempos mayores.",
+    "enviadaEn": null,
+    "plazoVenceEn": null,
+    "creadoEn": "2026-11-24T21:30:37.175157-06:00",
+    "actualizadoEn": "2026-11-24T21:30:38.849427-06:00"
+}
+
+## CA-4b Cédula completa: 200 PENDIENTE_VALIDACION con plazo
+> POST /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/envio  (cuenta: Capturista de prueba)
+< HTTP 200
+{
+    "id": "12b483c5-0b88-464a-949a-14de364b8b26",
+    "partido": {
+        "id": "41600001-0000-4000-8000-000000000001",
+        "equipoLocal": {
+            "id": "a1600001-0000-4000-8000-000000000001",
+            "nombre": "Halcones Primera"
+        },
+        "equipoVisitante": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "inicio": "2026-11-24T21:00:30.676125-06:00",
+        "estado": "EN_CURSO"
+    },
+    "estado": "PENDIENTE_VALIDACION",
+    "capturista": {
+        "id": "e1600001-0000-4000-8000-000000000001",
+        "nombre": "Capturista de prueba"
+    },
+    "marcador": {
+        "golesLocal": 2,
+        "golesVisitante": 1,
+        "penalesLocal": null,
+        "penalesVisitante": null,
+        "noPresentado": null,
+        "porDefault": false,
+        "valorDemo": false
+    },
+    "alineaciones": [
+        {
+            "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000001",
+            "personaId": "91600000-0000-4000-8000-000000000001",
+            "nombre": "Andrés Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 1,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000002",
+            "personaId": "91600000-0000-4000-8000-000000000002",
+            "nombre": "Bruno Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 2,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "a3c0b74d-de04-4ce4-83ff-eddcc016668e",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000005",
+            "personaId": "91600000-0000-4000-8000-000000000005",
+            "nombre": "Diego Segunda Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 15,
+            "titular": false,
+            "categoriaSuperior": true
+        },
+        {
+            "id": "0d22e710-8168-4023-9400-aa72350bc6f2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000007",
+            "personaId": "91600000-0000-4000-8000-000000000007",
+            "nombre": "Carlos Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 7,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "1c45d4a6-94eb-42e1-bf88-f24b3c80a9d8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000008",
+            "personaId": "91600000-0000-4000-8000-000000000008",
+            "nombre": "Mario Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 8,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "3398aae4-0d7f-411f-92e2-7114852a80a8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000009",
+            "personaId": "91600000-0000-4000-8000-000000000009",
+            "nombre": "Óscar Torito Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 19,
+            "titular": false,
+            "categoriaSuperior": true
+        }
+    ],
+    "eventos": [
+        {
+            "id": "08231bfb-cb9b-4138-8312-f97b28c0a735",
+            "tipo": "GOL",
+            "minuto": 12,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+                "nombre": "Andrés Halcón Prueba"
+            },
+            "entra": null,
+            "observaciones": null
+        },
+        {
+            "id": "867a5a2f-6ccb-4ee7-b775-230526366bd8",
+            "tipo": "TARJETA_AMARILLA",
+            "minuto": 30,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+                "nombre": "Bruno Halcón Prueba"
+            },
+            "entra": null,
+            "observaciones": null
+        },
+        {
+            "id": "5373d4db-427d-4992-81bc-177fcf9c8755",
+            "tipo": "SUSTITUCION",
+            "minuto": 60,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+                "nombre": "Bruno Halcón Prueba"
+            },
+            "entra": {
+                "id": "a3c0b74d-de04-4ce4-83ff-eddcc016668e",
+                "nombre": "Diego Segunda Prueba"
+            },
+            "observaciones": null
+        }
+    ],
+    "incidencias": [
+        {
+            "id": "c4c432f1-ed62-42ad-9f81-68b6c8df762d",
+            "tipo": {
+                "id": 1,
+                "nombre": "Amonestación",
+                "abreExpediente": false
+            },
+            "minuto": 75,
+            "descripcion": "Protesta airada al árbitro.",
+            "involucrados": [
+                {
+                    "personaId": null,
+                    "equipoId": "a1600004-0000-4000-8000-000000000001",
+                    "nombre": "Toros Primera"
+                },
+                {
+                    "personaId": "91600000-0000-4000-8000-000000000007",
+                    "equipoId": null,
+                    "nombre": "Carlos Toro Prueba"
+                }
+            ]
+        }
+    ],
+    "observaciones": "Partido sin contratiempos mayores.",
+    "enviadaEn": "2026-11-24T21:30:38.960364-06:00",
+    "plazoVenceEn": "2026-11-26T21:30:38.960364-06:00",
+    "creadoEn": "2026-11-24T21:30:37.175157-06:00",
+    "actualizadoEn": "2026-11-24T21:30:38.960364-06:00"
+}
+
+## CA-5a En validación, cambiar la alineación: 409 RF-122
+> PUT /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/alineaciones  (cuenta: Capturista de prueba)
+> {"jugadores":[{"registroJugadorId":"81600000-0000-4000-8000-000000000001","equipoId":"a1600001-0000-4000-8000-000000000001","numeroPlayera":1}]}
+< HTTP 409
+{
+    "detail": "La alineación solo se modifica mientras la cédula está en captura; ahora está pendiente validacion.",
+    "instance": "/api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/alineaciones",
+    "status": 409,
+    "title": "Conflicto con el estado actual",
+    "type": "https://siglim.mx/errores/rf-122",
+    "codigo": "RF-122"
+}
+
+## CA-5b En validación, cambiar el marcador: 409 RF-122
+> PUT /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/marcador  (cuenta: Capturista de prueba)
+> {"golesLocal":3,"golesVisitante":1}
+< HTTP 409
+{
+    "detail": "El marcador solo se modifica mientras la cédula está en captura; ahora está pendiente validacion.",
+    "instance": "/api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/marcador",
+    "status": 409,
+    "title": "Conflicto con el estado actual",
+    "type": "https://siglim.mx/errores/rf-122",
+    "codigo": "RF-122"
+}
+
+## CA-5c En validación, registrar un evento: 409 RF-122
+> POST /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/eventos  (cuenta: Capturista de prueba)
+> {"tipo":"GOL","minuto":80,"alineacionId":"3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2"}
+< HTTP 409
+{
+    "detail": "Los eventos solo se modifica mientras la cédula está en captura; ahora está pendiente validacion.",
+    "instance": "/api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/eventos",
+    "status": 409,
+    "title": "Conflicto con el estado actual",
+    "type": "https://siglim.mx/errores/rf-122",
+    "codigo": "RF-122"
+}
+
+## CA-5d En validación, registrar una incidencia: 409 RF-122
+> POST /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/incidencias  (cuenta: Capturista de prueba)
+> {"tipoIncidenciaId":1,"descripcion":"Otra","involucrados":[{"equipoId":"a1600004-0000-4000-8000-000000000001"}]}
+< HTTP 409
+{
+    "detail": "Las incidencias solo se modifica mientras la cédula está en captura; ahora está pendiente validacion.",
+    "instance": "/api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/incidencias",
+    "status": 409,
+    "title": "Conflicto con el estado actual",
+    "type": "https://siglim.mx/errores/rf-122",
+    "codigo": "RF-122"
+}
+
+## CA-5e En validación, cambiar las observaciones: 409 RF-122
+> PUT /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/observaciones  (cuenta: Capturista de prueba)
+> {"observaciones":"Cambio"}
+< HTTP 409
+{
+    "detail": "Las observaciones solo se modifica mientras la cédula está en captura; ahora está pendiente validacion.",
+    "instance": "/api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/observaciones",
+    "status": 409,
+    "title": "Conflicto con el estado actual",
+    "type": "https://siglim.mx/errores/rf-122",
+    "codigo": "RF-122"
+}
+
+## CA-5f Reenviar: 409 RF-122
+> POST /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/envio  (cuenta: Capturista de prueba)
+< HTTP 409
+{
+    "detail": "El envío solo se modifica mientras la cédula está en captura; ahora está pendiente validacion.",
+    "instance": "/api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/envio",
+    "status": 409,
+    "title": "Conflicto con el estado actual",
+    "type": "https://siglim.mx/errores/rf-122",
+    "codigo": "RF-122"
+}
+
+## CA-3a Capturista abre la cédula de P2 (Pumas Primera vs Toros Primera)
+> POST /api/v1/partidos/41600002-0000-4000-8000-000000000001/cedula  (cuenta: Capturista de prueba)
+< HTTP 201
+{
+    "id": "6746d7a5-8039-4006-bc42-18de680f0725",
+    "partido": {
+        "id": "41600002-0000-4000-8000-000000000001",
+        "equipoLocal": {
+            "id": "a1600006-0000-4000-8000-000000000001",
+            "nombre": "Pumas Primera"
+        },
+        "equipoVisitante": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "inicio": "2026-11-23T21:30:30.676125-06:00",
+        "estado": "EN_CURSO"
+    },
+    "estado": "EN_CAPTURA",
+    "capturista": {
+        "id": "e1600001-0000-4000-8000-000000000001",
+        "nombre": "Capturista de prueba"
+    },
+    "marcador": {
+        "golesLocal": null,
+        "golesVisitante": null,
+        "penalesLocal": null,
+        "penalesVisitante": null,
+        "noPresentado": null,
+        "porDefault": false,
+        "valorDemo": false
+    },
+    "alineaciones": [],
+    "eventos": [],
+    "incidencias": [],
+    "observaciones": null,
+    "enviadaEn": null,
+    "plazoVenceEn": null,
+    "creadoEn": "2026-11-24T21:30:39.434546-06:00",
+    "actualizadoEn": "2026-11-24T21:30:39.434546-06:00"
+}
+
+## CA-4c Cédula vacía: 422 VAL-020 con los tres faltantes
+> POST /api/v1/cedulas/6746d7a5-8039-4006-bc42-18de680f0725/envio  (cuenta: Capturista de prueba)
+< HTTP 422
+{
+    "detail": "La cédula está incompleta y no se puede enviar: Captura el marcador o marca al equipo que no se presentó. Captura la alineación de «Pumas Primera». Captura la alineación de «Toros Primera».",
+    "instance": "/api/v1/cedulas/6746d7a5-8039-4006-bc42-18de680f0725/envio",
+    "status": 422,
+    "title": "No se puede procesar",
+    "type": "https://siglim.mx/errores/val-020",
+    "codigo": "VAL-020",
+    "faltantes": [
+        {
+            "campo": "marcador",
+            "mensaje": "Captura el marcador o marca al equipo que no se presentó."
+        },
+        {
+            "campo": "alineacionLocal",
+            "mensaje": "Captura la alineación de «Pumas Primera»."
+        },
+        {
+            "campo": "alineacionVisitante",
+            "mensaje": "Captura la alineación de «Toros Primera»."
+        }
+    ]
+}
+
+## CA-3b No presentación con goles: 400 VALIDACION
+> PUT /api/v1/cedulas/6746d7a5-8039-4006-bc42-18de680f0725/marcador  (cuenta: Capturista de prueba)
+> {"noPresentadoEquipoId":"a1600004-0000-4000-8000-000000000001","golesLocal":3,"golesVisitante":0}
+< HTTP 400
+{
+    "detail": "Con un equipo no presentado el marcador lo asigna la Liga por default: no envíes goles ni penales.",
+    "instance": "/api/v1/cedulas/6746d7a5-8039-4006-bc42-18de680f0725/marcador",
+    "status": 400,
+    "title": "Solicitud inválida",
+    "type": "https://siglim.mx/errores/validacion",
+    "codigo": "VALIDACION"
+}
+
+## CA-3c No presentación de un equipo que no juega el partido: 422 RF-126
+> PUT /api/v1/cedulas/6746d7a5-8039-4006-bc42-18de680f0725/marcador  (cuenta: Capturista de prueba)
+> {"noPresentadoEquipoId":"a1600001-0000-4000-8000-000000000001"}
+< HTTP 422
+{
+    "detail": "El equipo no presentado debe ser uno de los dos equipos del partido.",
+    "instance": "/api/v1/cedulas/6746d7a5-8039-4006-bc42-18de680f0725/marcador",
+    "status": 422,
+    "title": "No se puede procesar",
+    "type": "https://siglim.mx/errores/rf-126",
+    "codigo": "RF-126"
+}
+
+## CA-3d Toros no se presenta: 200 marcador 2-0 de la versión 2 vigente, porDefault y valorDemo
+> PUT /api/v1/cedulas/6746d7a5-8039-4006-bc42-18de680f0725/marcador  (cuenta: Capturista de prueba)
+> {"noPresentadoEquipoId":"a1600004-0000-4000-8000-000000000001"}
+< HTTP 200
+{
+    "id": "6746d7a5-8039-4006-bc42-18de680f0725",
+    "partido": {
+        "id": "41600002-0000-4000-8000-000000000001",
+        "equipoLocal": {
+            "id": "a1600006-0000-4000-8000-000000000001",
+            "nombre": "Pumas Primera"
+        },
+        "equipoVisitante": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "inicio": "2026-11-23T21:30:30.676125-06:00",
+        "estado": "EN_CURSO"
+    },
+    "estado": "EN_CAPTURA",
+    "capturista": {
+        "id": "e1600001-0000-4000-8000-000000000001",
+        "nombre": "Capturista de prueba"
+    },
+    "marcador": {
+        "golesLocal": 2,
+        "golesVisitante": 0,
+        "penalesLocal": null,
+        "penalesVisitante": null,
+        "noPresentado": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "porDefault": true,
+        "valorDemo": true
+    },
+    "alineaciones": [],
+    "eventos": [],
+    "incidencias": [],
+    "observaciones": null,
+    "enviadaEn": null,
+    "plazoVenceEn": null,
+    "creadoEn": "2026-11-24T21:30:39.434546-06:00",
+    "actualizadoEn": "2026-11-24T21:30:39.726266-06:00"
+}
+
+## CA-4d Falta la alineación de Pumas (la de Toros no se exige): 422 VAL-020
+> POST /api/v1/cedulas/6746d7a5-8039-4006-bc42-18de680f0725/envio  (cuenta: Capturista de prueba)
+< HTTP 422
+{
+    "detail": "La cédula está incompleta y no se puede enviar: Captura la alineación de «Pumas Primera».",
+    "instance": "/api/v1/cedulas/6746d7a5-8039-4006-bc42-18de680f0725/envio",
+    "status": 422,
+    "title": "No se puede procesar",
+    "type": "https://siglim.mx/errores/val-020",
+    "codigo": "VAL-020",
+    "faltantes": [
+        {
+            "campo": "alineacionLocal",
+            "mensaje": "Captura la alineación de «Pumas Primera»."
+        }
+    ]
+}
+
+## CA-3e Alineación de Pumas
+> PUT /api/v1/cedulas/6746d7a5-8039-4006-bc42-18de680f0725/alineaciones  (cuenta: Capturista de prueba)
+> {"jugadores":[{"registroJugadorId":"81600000-0000-4000-8000-000000000010","equipoId":"a1600006-0000-4000-8000-000000000001","numeroPlayera":10},{"registroJugadorId":"81600000-0000-4000-8000-000000000011","equipoId":"a1600006-0000-4000-8000-000000000001","numeroPlayera":11}]}
+< HTTP 200
+{
+    "id": "6746d7a5-8039-4006-bc42-18de680f0725",
+    "partido": {
+        "id": "41600002-0000-4000-8000-000000000001",
+        "equipoLocal": {
+            "id": "a1600006-0000-4000-8000-000000000001",
+            "nombre": "Pumas Primera"
+        },
+        "equipoVisitante": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "inicio": "2026-11-23T21:30:30.676125-06:00",
+        "estado": "EN_CURSO"
+    },
+    "estado": "EN_CAPTURA",
+    "capturista": {
+        "id": "e1600001-0000-4000-8000-000000000001",
+        "nombre": "Capturista de prueba"
+    },
+    "marcador": {
+        "golesLocal": 2,
+        "golesVisitante": 0,
+        "penalesLocal": null,
+        "penalesVisitante": null,
+        "noPresentado": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "porDefault": true,
+        "valorDemo": true
+    },
+    "alineaciones": [
+        {
+            "id": "cc245311-bc9a-460a-8688-a0718126b85d",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000010",
+            "personaId": "91600000-0000-4000-8000-000000000010",
+            "nombre": "Pablo Puma Prueba",
+            "equipoId": "a1600006-0000-4000-8000-000000000001",
+            "numeroPlayera": 10,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "3cddb11f-3e3f-49e4-99d5-bcb0f24ef6a5",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000011",
+            "personaId": "91600000-0000-4000-8000-000000000011",
+            "nombre": "Raúl Puma Prueba",
+            "equipoId": "a1600006-0000-4000-8000-000000000001",
+            "numeroPlayera": 11,
+            "titular": true,
+            "categoriaSuperior": false
+        }
+    ],
+    "eventos": [],
+    "incidencias": [],
+    "observaciones": null,
+    "enviadaEn": null,
+    "plazoVenceEn": null,
+    "creadoEn": "2026-11-24T21:30:39.434546-06:00",
+    "actualizadoEn": "2026-11-24T21:30:39.863404-06:00"
+}
+
+## CA-3f Envío con solo la alineación del equipo presente: 200 PENDIENTE_VALIDACION
+> POST /api/v1/cedulas/6746d7a5-8039-4006-bc42-18de680f0725/envio  (cuenta: Capturista de prueba)
+< HTTP 200
+{
+    "id": "6746d7a5-8039-4006-bc42-18de680f0725",
+    "partido": {
+        "id": "41600002-0000-4000-8000-000000000001",
+        "equipoLocal": {
+            "id": "a1600006-0000-4000-8000-000000000001",
+            "nombre": "Pumas Primera"
+        },
+        "equipoVisitante": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "inicio": "2026-11-23T21:30:30.676125-06:00",
+        "estado": "EN_CURSO"
+    },
+    "estado": "PENDIENTE_VALIDACION",
+    "capturista": {
+        "id": "e1600001-0000-4000-8000-000000000001",
+        "nombre": "Capturista de prueba"
+    },
+    "marcador": {
+        "golesLocal": 2,
+        "golesVisitante": 0,
+        "penalesLocal": null,
+        "penalesVisitante": null,
+        "noPresentado": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "porDefault": true,
+        "valorDemo": true
+    },
+    "alineaciones": [
+        {
+            "id": "cc245311-bc9a-460a-8688-a0718126b85d",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000010",
+            "personaId": "91600000-0000-4000-8000-000000000010",
+            "nombre": "Pablo Puma Prueba",
+            "equipoId": "a1600006-0000-4000-8000-000000000001",
+            "numeroPlayera": 10,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "3cddb11f-3e3f-49e4-99d5-bcb0f24ef6a5",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000011",
+            "personaId": "91600000-0000-4000-8000-000000000011",
+            "nombre": "Raúl Puma Prueba",
+            "equipoId": "a1600006-0000-4000-8000-000000000001",
+            "numeroPlayera": 11,
+            "titular": true,
+            "categoriaSuperior": false
+        }
+    ],
+    "eventos": [],
+    "incidencias": [],
+    "observaciones": null,
+    "enviadaEn": "2026-11-24T21:30:39.947569-06:00",
+    "plazoVenceEn": "2026-11-26T21:30:39.947569-06:00",
+    "creadoEn": "2026-11-24T21:30:39.434546-06:00",
+    "actualizadoEn": "2026-11-24T21:30:39.947569-06:00"
+}
+
+## CA-5g Aprobada, cambiar el marcador: 409 RF-122
+> PUT /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/marcador  (cuenta: Capturista de prueba)
+> {"golesLocal":5,"golesVisitante":0}
+< HTTP 409
+{
+    "detail": "El marcador solo se modifica mientras la cédula está en captura; ahora está aprobada.",
+    "instance": "/api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/marcador",
+    "status": 409,
+    "title": "Conflicto con el estado actual",
+    "type": "https://siglim.mx/errores/rf-122",
+    "codigo": "RF-122"
+}
+
+## CA-5h Aprobada, cambiar la alineación: 409 RF-122
+> PUT /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/alineaciones  (cuenta: Capturista de prueba)
+> {"jugadores":[{"registroJugadorId":"81600000-0000-4000-8000-000000000001","equipoId":"a1600001-0000-4000-8000-000000000001"}]}
+< HTTP 409
+{
+    "detail": "La alineación solo se modifica mientras la cédula está en captura; ahora está aprobada.",
+    "instance": "/api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/alineaciones",
+    "status": 409,
+    "title": "Conflicto con el estado actual",
+    "type": "https://siglim.mx/errores/rf-122",
+    "codigo": "RF-122"
+}
+
+## CA-5i Aprobada, reenviar: 409 RF-122
+> POST /api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/envio  (cuenta: Capturista de prueba)
+< HTTP 409
+{
+    "detail": "El envío solo se modifica mientras la cédula está en captura; ahora está aprobada.",
+    "instance": "/api/v1/cedulas/12b483c5-0b88-464a-949a-14de364b8b26/envio",
+    "status": 409,
+    "title": "Conflicto con el estado actual",
+    "type": "https://siglim.mx/errores/rf-122",
+    "codigo": "RF-122"
+}
+
+## CA-5j La cédula aprobada conserva su contenido
+> GET /api/v1/partidos/41600001-0000-4000-8000-000000000001/cedula  (cuenta: Capturista de prueba)
+< HTTP 200
+{
+    "id": "12b483c5-0b88-464a-949a-14de364b8b26",
+    "partido": {
+        "id": "41600001-0000-4000-8000-000000000001",
+        "equipoLocal": {
+            "id": "a1600001-0000-4000-8000-000000000001",
+            "nombre": "Halcones Primera"
+        },
+        "equipoVisitante": {
+            "id": "a1600004-0000-4000-8000-000000000001",
+            "nombre": "Toros Primera"
+        },
+        "inicio": "2026-11-24T21:00:30.676125-06:00",
+        "estado": "EN_CURSO"
+    },
+    "estado": "APROBADA",
+    "capturista": {
+        "id": "e1600001-0000-4000-8000-000000000001",
+        "nombre": "Capturista de prueba"
+    },
+    "marcador": {
+        "golesLocal": 2,
+        "golesVisitante": 1,
+        "penalesLocal": null,
+        "penalesVisitante": null,
+        "noPresentado": null,
+        "porDefault": false,
+        "valorDemo": false
+    },
+    "alineaciones": [
+        {
+            "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000001",
+            "personaId": "91600000-0000-4000-8000-000000000001",
+            "nombre": "Andrés Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 1,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000002",
+            "personaId": "91600000-0000-4000-8000-000000000002",
+            "nombre": "Bruno Halcón Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 2,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "a3c0b74d-de04-4ce4-83ff-eddcc016668e",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000005",
+            "personaId": "91600000-0000-4000-8000-000000000005",
+            "nombre": "Diego Segunda Prueba",
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "numeroPlayera": 15,
+            "titular": false,
+            "categoriaSuperior": true
+        },
+        {
+            "id": "0d22e710-8168-4023-9400-aa72350bc6f2",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000007",
+            "personaId": "91600000-0000-4000-8000-000000000007",
+            "nombre": "Carlos Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 7,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "1c45d4a6-94eb-42e1-bf88-f24b3c80a9d8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000008",
+            "personaId": "91600000-0000-4000-8000-000000000008",
+            "nombre": "Mario Toro Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 8,
+            "titular": true,
+            "categoriaSuperior": false
+        },
+        {
+            "id": "3398aae4-0d7f-411f-92e2-7114852a80a8",
+            "registroJugadorId": "81600000-0000-4000-8000-000000000009",
+            "personaId": "91600000-0000-4000-8000-000000000009",
+            "nombre": "Óscar Torito Prueba",
+            "equipoId": "a1600004-0000-4000-8000-000000000001",
+            "numeroPlayera": 19,
+            "titular": false,
+            "categoriaSuperior": true
+        }
+    ],
+    "eventos": [
+        {
+            "id": "08231bfb-cb9b-4138-8312-f97b28c0a735",
+            "tipo": "GOL",
+            "minuto": 12,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "3b93096d-f6e1-4481-ac0d-0dfb5b2b39a2",
+                "nombre": "Andrés Halcón Prueba"
+            },
+            "entra": null,
+            "observaciones": null
+        },
+        {
+            "id": "867a5a2f-6ccb-4ee7-b775-230526366bd8",
+            "tipo": "TARJETA_AMARILLA",
+            "minuto": 30,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+                "nombre": "Bruno Halcón Prueba"
+            },
+            "entra": null,
+            "observaciones": null
+        },
+        {
+            "id": "5373d4db-427d-4992-81bc-177fcf9c8755",
+            "tipo": "SUSTITUCION",
+            "minuto": 60,
+            "equipoId": "a1600001-0000-4000-8000-000000000001",
+            "jugador": {
+                "id": "e77048bf-d5a8-40ea-8782-46ad3e15470a",
+                "nombre": "Bruno Halcón Prueba"
+            },
+            "entra": {
+                "id": "a3c0b74d-de04-4ce4-83ff-eddcc016668e",
+                "nombre": "Diego Segunda Prueba"
+            },
+            "observaciones": null
+        }
+    ],
+    "incidencias": [
+        {
+            "id": "c4c432f1-ed62-42ad-9f81-68b6c8df762d",
+            "tipo": {
+                "id": 1,
+                "nombre": "Amonestación",
+                "abreExpediente": false
+            },
+            "minuto": 75,
+            "descripcion": "Protesta airada al árbitro.",
+            "involucrados": [
+                {
+                    "personaId": null,
+                    "equipoId": "a1600004-0000-4000-8000-000000000001",
+                    "nombre": "Toros Primera"
+                },
+                {
+                    "personaId": "91600000-0000-4000-8000-000000000007",
+                    "equipoId": null,
+                    "nombre": "Carlos Toro Prueba"
+                }
+            ]
+        }
+    ],
+    "observaciones": "Partido sin contratiempos mayores.",
+    "enviadaEn": "2026-11-24T21:30:38.960364-06:00",
+    "plazoVenceEn": "2026-11-26T21:30:38.960364-06:00",
+    "creadoEn": "2026-11-24T21:30:37.175157-06:00",
+    "actualizadoEn": "2026-11-24T21:31:01.293196-06:00"
+}
