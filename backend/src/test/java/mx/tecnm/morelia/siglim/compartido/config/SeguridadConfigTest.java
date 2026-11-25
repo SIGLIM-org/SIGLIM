@@ -230,6 +230,16 @@ class SeguridadConfigTest {
         }
 
         @Test
+        @DisplayName("H-25.1: expone X-No-Leidas para que la campana lea el conteo de avisos")
+        void exponeConteoDeAvisos() {
+            assertThat(mvc.get().uri(PROTEGIDO)
+                    .header(HttpHeaders.ORIGIN, SeguridadPrueba.ORIGEN_FRONTEND)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + SeguridadPrueba.tokenValido()))
+                    .hasStatusOk()
+                    .hasHeader(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "X-No-Leidas");
+        }
+
+        @Test
         @DisplayName("Rechaza la petición previa desde un origen no autorizado")
         void rechazaOtroOrigen() {
             assertThat(mvc.options().uri(PROTEGIDO)

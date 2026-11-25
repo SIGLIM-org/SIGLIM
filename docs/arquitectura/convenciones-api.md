@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.26 · 25 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.27 · 25 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -75,6 +75,7 @@ Versión 5.26 · 25 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.24 | 23 de noviembre de 2026 | H-16.2: §6.8 «Eventos, incidencias, observaciones y envío»: `POST /cedulas/{id}/eventos` (`201` con la cédula, equipo tomado de la alineación, sustitución del mismo equipo), `DELETE /cedulas/{id}/eventos/{eventoId}` (`204`), `POST /cedulas/{id}/incidencias` (tipo activo del catálogo e involucrados: jugador alineado o equipo del partido, `422 RF-026`), `PUT /cedulas/{id}/observaciones` (nuevo) y `POST /cedulas/{id}/envio` (`422 VAL-020` con la extensión `faltantes`); fuera de captura todo responde `409 RF-122`; la cédula agrega `eventos`, `incidencias`, `enviadaEn` y `plazoVenceEn`; auditoría y evento `CedulaEnviada` (DEC-170, DEC-171). |
 | 5.25 | 24 de noviembre de 2026 | H-16.3: §6.8 con `GET /cedulas/{id}/jugadores` (candidatos a la alineación de los dos equipos y de la categoría inmediata inferior de cada club, con `elegible` y `causa` de la misma regla del `PUT`) y `GET /cedulas/{id}/tipos-incidencia` (tipos activos), los dos con `partidos.cedula:CAPTURAR`, para que el Capturista arme la cédula en F-26 sin permisos de registros ni del catálogo; la alineación agrega `personaId`, que identifica al jugador como involucrado de una incidencia (DEC-172). |
 | 5.26 | 25 de noviembre de 2026 | H-35.1: §6.7 con la fecha de programación (DEC-175): `GET /fechas?temporadaId=` (paginado, estado derivado de sus jornadas y conteos), `GET /fechas/{id}` con `bloques` por «Categoría – Grupo» (partidos con cancha, horario, árbitro central e insignias; descansos; sin asignar con `codigo` y `causa`), `POST /fechas/{id}/verificacion`, `/envio` y `/resolucion` sobre todas las jornadas en una transacción con la separación de funciones de RF-121, y `emparejamientoId` opcional en `POST /jornadas/{id}/partidos` (DEC-180). |
+| 5.27 | 25 de noviembre de 2026 | H-25.1: §6.14 con el contrato de los avisos: `GET /notificaciones?leida=` paginado (más recientes primero) con `X-No-Leidas` expuesta por CORS y `Cache-Control: no-store`, `POST /notificaciones/{id}/lectura` (`200` con el aviso; conserva la primera lectura; ajeno o inexistente `404`) y `POST /notificaciones/lectura` (`200` con `marcadas`); eventos `CEDULA_PENDIENTE`, `COBRO_VENCIDO` y `PROGRAMACION_PUBLICADA` con sus destinatarios por permiso. |
 
 ## Índice
 
@@ -2977,7 +2978,33 @@ quien consulta (la Directiva de club).
 | `POST /notificaciones/{id}/lectura` · `POST /notificaciones/lectura` | Marcar uno o todos como leídos | `notificaciones.aviso:CONSULTAR` | RF-142 | N |
 
 Sin tiempo real: la interfaz consulta al cargar y cada 60 s **[PROPUESTA]** mientras la pestaña está
-visible. El campo `enlace` es una ruta interna del frontend (`/partidos/{id}`).
+visible. El campo `enlace` es una ruta interna del frontend (`/app/partidos/{id}`).
+
+**Consulta (H-25.1).** `GET /notificaciones` admite `leida` (`true`, `false` o sin filtro), `pagina` y
+`tamano` (§4; sin `orden`: siempre `creadaEn` descendente). Cada aviso trae `id`, `evento`, `titulo`,
+`cuerpo`, `enlace`, `creadaEn` y `leidaEn` (`null` si no se ha leído). La cabecera `X-No-Leidas`
+cuenta todos los avisos sin leer del usuario, sin importar el filtro, y CORS la expone para que la
+campana la lea. Solo se ven los avisos propios: el permiso con cualquier ámbito basta y el SQL filtra
+por el perfil de la sesión (RLS lo repite). Sin el permiso, `403 VAL-015`.
+
+**Lectura.** `POST /notificaciones/{id}/lectura` responde `200` con el aviso; repetirlo conserva la
+primera `leidaEn`. Un aviso de otro usuario o inexistente responde `404`. `POST /notificaciones/lectura`
+marca todos los no leídos y responde `200` con `{ "marcadas": n }`. Leer no se audita **[PROPUESTA]**:
+no cambia ningún trámite y la operación que originó el aviso ya quedó auditada.
+
+**Eventos y destinatarios.** Los avisos se escriben en la transacción del evento (ADR-0010); los
+destinatarios se eligen por permiso, nunca por nombre de rol, y deben tener además
+`notificaciones.aviso:CONSULTAR`. Sin correo mientras RF-143 siga en el backlog.
+
+| `evento` | Evento de dominio | Destinatarios | `enlace` |
+| --- | --- | --- | --- |
+| `CEDULA_PENDIENTE` | `CedulaEnviada` (RF-122) | Perfil activo de la persona del árbitro **central** vigente con `partidos.cedula:APROBAR` | `/app/partidos/{partidoId}` |
+| `COBRO_VENCIDO` | `CobroVencido` (RF-141) | Perfiles con `tesoreria.cobro:CONSULTAR` en ámbito `CLUB` del club deudor | `/app/tesoreria` |
+| `PROGRAMACION_PUBLICADA` | `JornadaPublicada` (RF-121) | Perfiles con `programacion.jornada:CONSULTAR` en ámbito `CLUB` de los clubes con partidos no cancelados en la jornada | `/app/programacion/jornadas` |
+
+**[PROPUESTA]** Los usuarios de ámbito `LIGA` no reciben los avisos de cada club. Los demás eventos de
+RF-142 (cédula devuelta o con plazo vencido, expediente abierto, trámite por aprobar y cobro generado)
+se agregan cuando su módulo publique el evento de dominio.
 
 ## 7. Documentos y archivos (AWS S3)
 
