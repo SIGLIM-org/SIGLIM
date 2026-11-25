@@ -195,17 +195,29 @@ Justificación y alternativas descartadas en [ADR-0015](../arquitectura/adr/0015
 
 ### 4.1 Calendario: método del círculo (H-32)
 
-1. Por grupo, ordenar los equipos `ACTIVO` por `id`. Si N es impar, agregar un DESCANSO.
-2. Fijar `e[0]`; en cada ronda `r = 0 … N−2` rotar los demás una posición y emparejar `e[i]` con `e[N−1−i]`.
-3. Localía: el equipo fijo es local en rondas pares; los demás pares invierten el orden en las impares.
-4. Vuelta `v > 1`: mismas rondas con la localía invertida; número de fecha `(v−1)·(N−1) + r + 1`.
-5. La temporada tiene `F = máx(fechas de cada grupo)`; la fecha `k` lleva sábado y domingo de la
-   semana `k` desde la fecha de inicio que da el Programador.
+1. Por grupo, ordenar los equipos `ACTIVO` por el texto de su `id` (`UUID::toString`, el mismo
+   orden que `ORDER BY id`; DEC-185). Arreglo `a`: con N impar, `[DESCANSO, e0, …, eN−1]` (el
+   descanso es el elemento **fijo**, DEC-184); con N par, `[e0, …, eN−1]`. `M = |a|` (par) y
+   `R = M − 1` rondas por vuelta.
+2. En cada ronda `r = 0 … R−1`, la mesa `i = 0 … M/2−1` empareja `a[i]` con `a[M−1−i]`; si uno es
+   el DESCANSO, el otro descansa (visitante `NULL`, RF-037). Después de la ronda, `a[1..M−1]` rota
+   una posición a la derecha: `a = [a0, a[M−1], a1, …, a[M−2]]`.
+3. Localía (DEC-184): en la mesa 0, `a[0]` es local en las rondas pares y visitante en las impares;
+   en la mesa `i ≥ 1`, `a[i]` es local si `i` es impar y `a[M−1−i]` si es par. (La regla anterior,
+   «los demás pares invierten en las rondas impares», deja con N = 4 a un equipo con sus 3 partidos
+   de visitante.)
+4. Vuelta `v > 1`: mismas rondas; en las vueltas pares se invierte la localía (los descansos no
+   cambian); número de fecha `(v−1)·R + r + 1`.
+5. La temporada tiene `F = máx(fechas de cada grupo)`; la fecha `k` lleva el sábado
+   `primerSábado + 7·(k−1)` y el domingo siguiente, con `primerSábado` el primer sábado en o después
+   de la fecha de inicio que da el Programador (DEC-186).
 
-**Propiedades que se prueban** (jqwik si se agrega la dependencia; si no, JUnit parametrizado con
-N = 2…20 y v = 1…2): cada par se enfrenta exactamente v veces; ningún equipo aparece dos veces en
-una fecha (RN-012); con N impar cada equipo descansa v veces (RF-037); diferencia de localía ≤ 1
-por vuelta; resultado determinista.
+**Propiedades que se prueban** (`GeneradorCalendarioTest`, sin jqwik: DEC-183), con
+`@ParameterizedTest` exhaustivo sobre N = 2…30 y v = 1…4: cada par se enfrenta exactamente v veces
+y cambia de localía en vueltas consecutivas; cada equipo aparece una vez por fecha (RN-012); con N
+impar hay un descanso por fecha y cada equipo descansa v veces (RF-037); diferencia de localía ≤ 1
+por vuelta; fechas sin huecos con N/2 partidos y vueltas pares en espejo; resultado determinista
+ante cualquier orden de entrada. Además, casos dorados con N = 4 y N = 5.
 
 ### 4.2 Cancha y horario: heurística voraz «más restringido primero» (H-33)
 
