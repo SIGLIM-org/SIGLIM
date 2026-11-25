@@ -60,9 +60,11 @@ los conflictos, pero no genera calendarios.
 ## Capabilities and Constraints
 
 - 14 módulos (ERS §2.2). Cada requisito es núcleo (N), backlog (B) o fuera de alcance (F).
-- **Fuera de alcance:** programación automática, pasarela de pago real (el pago es simulado),
+- **Fuera de alcance:** pasarela de pago real (el pago es simulado),
   reconocimiento facial, WhatsApp/SMS, mapas, API pública, inicio de sesión con proveedores
   externos, importación masiva de históricos y varias ligas en operación.
+- **Programación automática:** reabierta por DEC-173 (24-nov-2026); el sistema propone la fecha y
+  el Programador la revisa y ajusta antes de enviarla a aprobación.
 - Las reglas deportivas no aprobadas son **[DEMO]**: se configuran, no se fijan en código, y la
   interfaz las rotula como «no oficial».
 - La interfaz debe: mostrar la causa de cada bloqueo y de cada conflicto de programación;

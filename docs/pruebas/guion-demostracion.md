@@ -74,7 +74,7 @@ pruebas). El Sprint 3 terminó **48 SP**: los 41 comprometidos y los 7 que vení
 - **Disciplina** (expedientes y sanciones, H-27): solo existen los catálogos de H-26.
 - **Competencias (liguilla, ascensos), reportes REP-xxx, avisos y correo** (M-10, M-12, M-14):
   pendientes de sprint.
-- Fuera de alcance por el ERS §2.6: programación automática, pasarela real, reconocimiento facial,
+- Fuera de alcance por el ERS §2.6: pasarela real, reconocimiento facial,
   WhatsApp/SMS, mapas, API pública, login social.
 
 ---
@@ -439,7 +439,7 @@ Añadir, en este orden:
 
 | Pregunta | Respuesta corta |
 | --- | --- |
-| «¿Ya programa partidos?» | Sí, de forma manual (H-12, H-13): el sistema rechaza y explica los conflictos, y la jornada se publica con la aprobación de la Presidencia. La programación automática está fuera de alcance. El cambio de estado del partido (H-15) y la cédula (H-16, H-17) son del Sprint 4. |
+| «¿Ya programa partidos?» | Sí, de forma manual (H-12, H-13): el sistema rechaza y explica los conflictos, y la jornada se publica con la aprobación de la Presidencia. La generación automática de la fecha (cancha, horario y árbitro, que el Programador revisa) se agregó en el Sprint 4 (DEC-173, H-32 a H-35). El cambio de estado del partido (H-15) y la cédula (H-16, H-17) son del Sprint 4. |
 | «¿Y la tabla de posiciones?» | Se calcula con `calcular_tabla()` a partir de resultados oficiales; no se guarda en una tabla. Faltan la captura y la oficialización de resultados (H-16 y H-17) y la pantalla de la tabla (H-18), en el Sprint 4. |
 | «¿Por qué el portal está vacío?» | Es una decisión: el portal solo muestra lo `PUBLICADO` y no usa datos de ejemplo (RF-056, VAL-014). La jornada ya se publica, pero el portal la consultará con H-19 (Sprint 4). |
 | «¿Esto es una pasarela de pago?» | No, es una simulación rotulada (DEC-37): no pide tarjeta ni cobra. La pasarela real está fuera de alcance. |

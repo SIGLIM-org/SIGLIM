@@ -8,7 +8,8 @@ en lo específico, y este aplica a todo.
 ## 1. El proyecto en tres líneas
 
 SIGLIM es la plataforma web de la **Liga Municipal de Futbol Amateur Morelia**: afilia clubes,
-registra y valida jugadores por CURP, programa partidos manualmente, oficializa resultados con una
+registra y valida jugadores por CURP, programa partidos (generación automática que revisa el Programador,
+DEC-173), oficializa resultados con una
 cédula validada por el árbitro, aplica la disciplina, cobra cuotas y publica en un portal de solo
 lectura, con 12 tipos de usuario. Proyecto académico real (ITM, equipo de 3, 8 semanas) con
 requisitos en IEEE 830 **todavía no aprobados por la Liga**.
@@ -55,9 +56,12 @@ menor autoridad: ver los conflictos C-01 a C-08 en
 
 1. **Entrega `N`** (núcleo comprometido): se implementa en los Sprints. **Entrega `B`** (backlog
    priorizado): solo cuando su historia entre a un Sprint. **Entrega `F`** (ERS §2.6): nunca, aunque
-   parezca fácil: programación automática, pasarela de pago real, reconocimiento facial,
+   parezca fácil: pasarela de pago real, reconocimiento facial,
    WhatsApp/SMS, mapas, API pública, login con proveedores externos, importación masiva de
-   históricos, varias ligas en operación, CI/CD y contenedores.
+   históricos, varias ligas en operación, CI/CD y contenedores. **La programación automática ya no
+   es F:** la reabrió DEC-173 (24-nov-2026) y manda sobre el ERS §2.6 hasta su Rev. 0.5; el diseño
+   está en [`docs/planning/programacion-automatica.md`](docs/planning/programacion-automatica.md) y
+   el algoritmo en [ADR-0015](docs/arquitectura/adr/0015-algoritmo-programacion-automatica.md).
 2. **Marca `[PENDIENTE]` → no se implementa.** Detente e informa qué decisión falta (cita el
    `PEN-xxx` o `Q-xx` del ERS, Apéndices A y C).
 3. **Valores `[DEMO]`** (puntos, desempates, duración de juego y bloque de cancha, plazo de cédula,
@@ -141,7 +145,9 @@ Los triggers validan las transiciones y lanzan errores con el código del ERS en
 - **Programación:** un equipo no puede tener dos partidos que se traslapen; una cancha no puede
   estar ocupada dos veces ni usarse si está bloqueada (RF-039, VAL-003 a VAL-005). El servicio lo
   valida **antes** y responde con un mensaje que explique el conflicto; el trigger es la última
-  garantía.
+  garantía. La generación automática (H-32 a H-35) usa el **mismo** `ValidadorConflictos`: no
+  dupliques reglas; lo que no cabe queda sin asignar con su causa y nunca se borra un partido
+  (al regenerar se cancela, DEC-181).
 - **El portal solo muestra lo `PUBLICADO`** y nunca datos personales (RF-056, VAL-014, RNF-012).
 - **Denegación por defecto:** sin permiso explícito, la acción se rechaza (VAL-015, RNF-003).
 - **Identidad única y global por CURP** (RF-010, DEC-10). La Directiva de club solo edita correo y

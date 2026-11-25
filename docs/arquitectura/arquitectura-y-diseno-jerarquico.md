@@ -214,6 +214,12 @@ flowchart TB
 La Tabla 1 vincula cada submódulo con sus requisitos funcionales y su entrega. Cubre los 139 RF
 de entrega N o B del ERS; los seis RF de programación automática (F) no se asignan.
 
+> [!NOTE]
+> DEC-173 (24-nov-2026) reabre la programación automática: RF-034, RF-035, RF-037, RF-041 y RF-042
+> pasan a M-07 como un generador de calendario y un asignador de cancha, horario y árbitro que
+> reutilizan la validación de M-07.2 ([ADR-0015](adr/0015-algoritmo-programacion-automatica.md),
+> [diseño](../planning/programacion-automatica.md)). La tabla se actualiza con la Rev. 0.5 del ERS.
+
 *Tabla 1. Submódulos, requisitos funcionales y entrega.*
 
 | Submódulo | Descripción | RF | Entrega | Proceso |

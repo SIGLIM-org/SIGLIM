@@ -19,6 +19,7 @@ sus consecuencias. Formato basado en Michael Nygard (*Documenting Architecture D
 | [0012](0012-pago-en-linea-simulado.md) | Pago en línea simulado detrás de la interfaz `PasarelaDePago` | Aceptada |
 | [0013](0013-documentos-en-aws-s3.md) | Documentos e imágenes en AWS S3 privado; bucket, clave y URL en Supabase; lectura con URL prefirmada | Aceptada |
 | [0014](0014-esquema-propio-y-roles-de-base-de-datos.md) | Esquema `siglim` no expuesto y roles `siglim_app` y `siglim_publico` | Aceptada |
+| [0015](0015-algoritmo-programacion-automatica.md) | Programación automática: método del círculo, heurística voraz validada con `ValidadorConflictos` y árbitro central equitativo | Aceptada |
 
 Las decisiones abiertas que todavía no tienen ADR (proveedor de correo, PEN-034; ambientes,
 alojamiento y dominio, PEN-036 y PEN-037) se listan en la [arquitectura](../arquitectura-y-diseno-jerarquico.md#9-pendientes-y-riesgos).
