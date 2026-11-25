@@ -213,6 +213,37 @@ class CedulasIT extends BaseDatosPrueba {
         assertThat(alineados(cedula)).isEqualTo(2);
     }
 
+    // ── Jugadores disponibles (H-16.3) ──────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("DEC-172: el Capturista ve los jugadores de los dos equipos y de la categoría inferior, con su elegibilidad")
+    void jugadoresDisponibles() {
+        UUID cedula = abrirCedula(escenario);
+
+        List<JugadorDisponibleDto> jugadores = servicio.jugadoresDisponibles(cedula);
+
+        assertThat(jugadores).extracting(JugadorDisponibleDto::nombre).containsExactly(
+                "Pendiente Halcón Prueba", "Primer Halcón Prueba", "Segundo Halcón Prueba",
+                "Primer Toro Prueba", "Segundo Toro Prueba");
+        assertThat(jugadores.getFirst()).satisfies(pendiente -> {
+            assertThat(pendiente.elegible()).isFalse();
+            assertThat(pendiente.causa().codigo()).isEqualTo("RF-019");
+        });
+        assertThat(jugadores.get(2)).satisfies(deSegunda -> {
+            assertThat(deSegunda.categoriaSuperior()).isTrue();
+            assertThat(deSegunda.equipoId()).isEqualTo(escenario.equipoLocal());
+            assertThat(deSegunda.elegible()).isTrue();
+        });
+        assertThat(jugadores.get(4).equipoId()).isEqualTo(escenario.equipoVisitante());
+
+        assertThat(servicio.tiposIncidencia(cedula)).extracting(CedulaDto.TipoIncidenciaDto::nombre)
+                .contains("Amonestación", "Expulsión", "Riña");
+
+        iniciarSesion(perfilConRol("ARBITRO"));
+        esperarError(() -> servicio.jugadoresDisponibles(cedula), "VAL-015", HttpStatus.FORBIDDEN);
+        esperarError(() -> servicio.tiposIncidencia(cedula), "VAL-015", HttpStatus.FORBIDDEN);
+    }
+
     // ── Eventos, incidencias y envío (H-16.2) ───────────────────────────────────────────────────
 
     @Test

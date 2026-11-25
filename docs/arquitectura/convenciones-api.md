@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.24 · 23 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.25 · 24 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -73,6 +73,7 @@ Versión 5.24 · 23 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.22 | 22 de noviembre de 2026 | H-15.1: §6.8 «Consulta y transiciones del partido» con el listado paginado `GET /partidos?jornadaId=&estado=&desde=&hasta=`, el detalle con jornada, árbitros, cédula, resultado vigente, historial y `accionesPermitidas`, el historial y `POST /partidos/{id}/transiciones` (motivo `400 RN-021`, transición prohibida `409 RF-046` con `estadoActual` y `accionesPermitidas`, jornada sin publicar `409 RF-090`, reprogramación con `inicio` futuro y conflictos `409 VAL-003` a `VAL-006`); visibilidad por ámbito (DEC-160 a DEC-162). |
 | 5.23 | 23 de noviembre de 2026 | H-16.1: §6.8 con la captura de la cédula: `GET` y `POST /partidos/{id}/cedula` (abrir solo con el partido `EN_CURSO`, una vez, `201` con `Location`), `PUT /cedulas/{id}/alineaciones` (reemplazo completo, `422 VAL-002` con un error por jugador: `RF-019`, `RF-020`, `VAL-018`, `RF-025`, `REFERENCIA_INVALIDA`) y `PUT /cedulas/{id}/marcador` (no presentación con el marcador por default de la versión vigente de los parámetros, penales solo con empate); permisos `partidos.cedula:CONSULTAR` y `:CAPTURAR` con ámbito `LIGA`; auditoría `ABRIR_CEDULA`, `CAPTURAR_ALINEACION` y `CAPTURAR_MARCADOR` (DEC-164 a DEC-166). |
 | 5.24 | 23 de noviembre de 2026 | H-16.2: §6.8 «Eventos, incidencias, observaciones y envío»: `POST /cedulas/{id}/eventos` (`201` con la cédula, equipo tomado de la alineación, sustitución del mismo equipo), `DELETE /cedulas/{id}/eventos/{eventoId}` (`204`), `POST /cedulas/{id}/incidencias` (tipo activo del catálogo e involucrados: jugador alineado o equipo del partido, `422 RF-026`), `PUT /cedulas/{id}/observaciones` (nuevo) y `POST /cedulas/{id}/envio` (`422 VAL-020` con la extensión `faltantes`); fuera de captura todo responde `409 RF-122`; la cédula agrega `eventos`, `incidencias`, `enviadaEn` y `plazoVenceEn`; auditoría y evento `CedulaEnviada` (DEC-170, DEC-171). |
+| 5.25 | 24 de noviembre de 2026 | H-16.3: §6.8 con `GET /cedulas/{id}/jugadores` (candidatos a la alineación de los dos equipos y de la categoría inmediata inferior de cada club, con `elegible` y `causa` de la misma regla del `PUT`) y `GET /cedulas/{id}/tipos-incidencia` (tipos activos), los dos con `partidos.cedula:CAPTURAR`, para que el Capturista arme la cédula en F-26 sin permisos de registros ni del catálogo; la alineación agrega `personaId`, que identifica al jugador como involucrado de una incidencia (DEC-172). |
 
 ## Índice
 
@@ -2274,6 +2275,7 @@ paso en `historial_publicacion` con quien lo hizo y su motivo.
 | `GET /partidos/{id}/historial` | Transiciones con usuario y motivo | `partidos.partido:CONSULTAR` | RF-045 | N |
 | `POST /partidos/{id}/transiciones` | Suspender, reprogramar o cancelar | `partidos.partido:CAMBIAR_ESTADO` | RF-043 | N |
 | `GET /partidos/{id}/cedula` · `POST /partidos/{id}/cedula` | Obtener o abrir la cédula (`EN_CAPTURA`); detalle abajo | `partidos.cedula:CONSULTAR` · `partidos.cedula:CAPTURAR` (ámbito `LIGA`) | RF-025, RF-046 | N |
+| `GET /cedulas/{id}/jugadores` · `GET /cedulas/{id}/tipos-incidencia` | Candidatos a la alineación con su elegibilidad y tipos de incidencia activos para capturar (DEC-172) | `partidos.cedula:CAPTURAR` | RF-019, RF-026, RF-110 | N |
 | `PUT /cedulas/{id}/alineaciones` | Alineación de ambos equipos; valida elegibilidad por jugador (`422` con `errores` por jugador) | `partidos.cedula:CAPTURAR` | RF-019, RF-110, VAL-002, VAL-018 | N |
 | `PUT /cedulas/{id}/marcador` | Goles, penales, no presentación (marcador por default de los parámetros) | `partidos.cedula:CAPTURAR` | RF-047, RF-126 | N |
 | `POST /cedulas/{id}/eventos` · `DELETE /cedulas/{id}/eventos/{eventoId}` | Goles, tarjetas, sustituciones | `partidos.cedula:CAPTURAR` | RF-025 | N |
@@ -2370,7 +2372,7 @@ y la misma cédula:
   "marcador": { "golesLocal": 3, "golesVisitante": 0, "penalesLocal": null, "penalesVisitante": null,
                 "noPresentado": { "id": "…", "nombre": "Toros" }, "porDefault": true, "valorDemo": true },
   "alineaciones": [
-    { "id": "…", "registroJugadorId": "…", "nombre": "Juan Pérez López", "equipoId": "…",
+    { "id": "…", "registroJugadorId": "…", "personaId": "…", "nombre": "Juan Pérez López", "equipoId": "…",
       "numeroPlayera": 10, "titular": true, "categoriaSuperior": false }
   ],
   "observaciones": null,
@@ -2421,6 +2423,34 @@ default sale de parámetros de demostración (la interfaz lo rotula «No oficial
   asigna `goles_default_ganador` al equipo que sí se presentó y `goles_default_perdedor` al otro, de la
   versión vigente de los parámetros (3-0 **[DEMO]**, DEC-24, DEC-72). Se audita `CAPTURAR_MARCADOR`
   con los goles, el equipo no presentado y `porDefault`.
+
+#### Lo que consulta el Capturista para armar la cédula (H-16.3, RF-019, RF-026, RF-110, DEC-172)
+
+Los dos exigen `partidos.cedula:CAPTURAR` con ámbito `LIGA` (`403 VAL-015`) y una cédula de la liga
+(`404`); se consultan en cualquier estado y responden con `Cache-Control: no-store`, sin paginar.
+
+- **`GET /cedulas/{id}/jugadores`**: los registros de los dos equipos y los del mismo club en la
+  categoría inmediata inferior, de la temporada del partido, salvo `RECHAZADO` y `BAJA`. Van primero los
+  del local, cada equipo antes que su categoría inferior, y por nombre. `elegible` y `causa` salen de la
+  misma regla del `PUT /cedulas/{id}/alineaciones` (DEC-165), para que la pantalla muestre deshabilitado
+  y con su causa a quien no puede jugar. Nunca lleva la CURP.
+
+  ```json
+  [
+    { "registroJugadorId": "…", "nombre": "Juan Pérez López", "equipoId": "…",
+      "equipoRegistro": { "id": "…", "nombre": "Halcones Segunda" }, "categoriaSuperior": true,
+      "elegible": false,
+      "causa": { "codigo": "RF-020", "mensaje": "«Juan Pérez López» tiene una sanción vigente que le impide jugar." } }
+  ]
+  ```
+
+  `equipoId` es el equipo del partido con el que jugaría; `equipoRegistro`, el de su registro.
+- **`GET /cedulas/{id}/tipos-incidencia`**: `[ { "id", "nombre", "abreExpediente" } ]`, solo los tipos
+  activos de la liga, que son los que admite `POST /cedulas/{id}/incidencias`. El catálogo completo
+  sigue en `GET /tipos-incidencia` (§6.9).
+
+Además, cada jugador de `alineaciones` trae `personaId`, con el que `POST /cedulas/{id}/incidencias`
+nombra al jugador involucrado.
 
 #### Eventos, incidencias, observaciones y envío (H-16.2, RF-025, RF-026, RF-122, VAL-020, DEC-170, DEC-171)
 

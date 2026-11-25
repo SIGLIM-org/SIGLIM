@@ -85,10 +85,12 @@ public record CedulaDto(
     /**
      * Jugador alineado.
      *
+     * @param personaId         persona del registro: identifica al jugador como involucrado de una
+     *                          incidencia (RF-026, DEC-172)
      * @param categoriaSuperior {@code true} si juega en la categoría inmediata superior de su club, en
      *                          un equipo distinto del de su registro (RF-110, DEC-12)
      */
-    public record JugadorAlineadoDto(UUID id, UUID registroJugadorId, String nombre, UUID equipoId,
+    public record JugadorAlineadoDto(UUID id, UUID registroJugadorId, UUID personaId, String nombre, UUID equipoId,
                                      Integer numeroPlayera, boolean titular, boolean categoriaSuperior) {
     }
 }

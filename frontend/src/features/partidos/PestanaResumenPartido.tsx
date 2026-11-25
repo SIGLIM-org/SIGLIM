@@ -1,7 +1,10 @@
-import { ClipboardList, Flag } from 'lucide-react'
+import { Link } from 'react-router'
+import { ClipboardList, Flag, PencilLine } from 'lucide-react'
+import { clasesBoton } from '@/components/ui/estilosBoton'
 import { Insignia } from '@/components/ui/Insignia'
 import { estadoCedula, etiquetaFuncionArbitro } from '@/features/partidos/etiquetas'
 import type { PartidoDetalle } from '@/features/partidos/tipos'
+import { ConPermiso } from '@/features/seguridad/ConPermiso'
 
 type Props = {
   partido: PartidoDetalle
@@ -56,6 +59,14 @@ export function PestanaResumenPartido({ partido }: Props) {
               ? 'La cédula está registrada.'
               : 'La cédula se abre cuando el partido está en curso.'}
           </p>
+        )}
+        {(partido.cedula || partido.estado === 'EN_CURSO') && (
+          <ConPermiso permiso="partidos.cedula:CAPTURAR">
+            <Link to={`/app/partidos/${partido.id}/cedula`} className={`${clasesBoton('secundario')} mt-4 w-full sm:w-auto`}>
+              <PencilLine aria-hidden="true" className="size-4 shrink-0" />
+              {partido.cedula ? 'Abrir la captura' : 'Capturar cédula'}
+            </Link>
+          </ConPermiso>
         )}
       </section>
     </div>

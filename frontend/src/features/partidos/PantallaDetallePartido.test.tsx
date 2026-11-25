@@ -304,6 +304,22 @@ describe('PantallaDetallePartido (F-25, H-15.3)', () => {
     expect(screen.getByRole('tab', { name: /Historial/ })).toHaveFocus()
   })
 
+  it('H-16.3: con el partido en curso, el Capturista ve el enlace para capturar la cédula', async () => {
+    otorgar(CONSULTAR, 'partidos.cedula:CAPTURAR')
+    get.mockResolvedValue(partido({ estado: 'EN_CURSO', acciones: [] }))
+    const { unmount } = montar()
+
+    expect(await screen.findByRole('link', { name: 'Capturar cédula' })).toHaveAttribute('href', '/app/partidos/p1/cedula')
+    unmount()
+
+    otorgar(CONSULTAR)
+    get.mockResolvedValue(partido({ estado: 'EN_CURSO', acciones: [] }))
+    montar()
+
+    expect(await screen.findByRole('heading', { level: 1 })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Capturar cédula' })).not.toBeInTheDocument()
+  })
+
   it('VAL-015: sin permiso de consulta muestra la página 403 sin pedir el partido', () => {
     montar()
 
