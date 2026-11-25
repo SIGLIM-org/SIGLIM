@@ -243,6 +243,10 @@ function responder({
     if (ruta === 'temporadas/t1/parametros') {
       return { vigente: version(1, { temporadaId: 't1' }), historial: [] }
     }
+    // Sin fechas del calendario, F-22 abre la programación por jornada (H-35.2).
+    if (ruta.startsWith('fechas?')) {
+      return pagina([])
+    }
 
     throw new Error(`GET no simulado: ${ruta}`)
   })

@@ -52,3 +52,24 @@ export function etiquetaConflicto(codigo: string): string {
       return 'Conflicto de programación'
   }
 }
+
+/**
+ * Nombre legible de una advertencia de la fecha (H-35): no bloquea el envío. Como en los conflictos,
+ * el código no se muestra (DEC-63).
+ */
+export function etiquetaAdvertenciaFecha(codigo: string): string {
+  switch (codigo) {
+    case 'VAL-027':
+      return 'Localía'
+    case 'RF-023':
+      return 'Sin árbitro'
+    case 'VAL-007':
+      return 'Sin horario libre'
+    case 'VAL-006':
+      return 'Equipo no elegible'
+    case 'RF-033':
+      return 'Pendiente de asignar'
+    default:
+      return 'Advertencia'
+  }
+}
