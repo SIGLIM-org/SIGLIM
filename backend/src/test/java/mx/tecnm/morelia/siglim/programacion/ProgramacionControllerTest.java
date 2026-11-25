@@ -174,6 +174,22 @@ class ProgramacionControllerTest {
         ArgumentCaptor<CrearPartidoRequest> peticion = ArgumentCaptor.forClass(CrearPartidoRequest.class);
         Mockito.verify(servicio).registrarPartido(eq(JORNADA), peticion.capture());
         assertThat(peticion.getValue().canchaId()).isEqualTo(CANCHA);
+        assertThat(peticion.getValue().emparejamientoId()).as("partido manual").isNull();
+    }
+
+    @Test
+    @DisplayName("DEC-180: POST /jornadas/{id}/partidos pasa el emparejamientoId que se asigna a mano")
+    void registrarPartidoDeEmparejamiento() {
+        UUID emparejamiento = UUID.fromString("99999999-9999-4999-8999-999999999999");
+        given(servicio.registrarPartido(eq(JORNADA), any(CrearPartidoRequest.class))).willReturn(PARTIDO_DTO);
+
+        MvcTestResult resultado = post(BASE + "/" + JORNADA + "/partidos",
+                CUERPO_PARTIDO.replace("}", ",\"emparejamientoId\":\"" + emparejamiento + "\"}"));
+
+        assertThat(resultado).hasStatus(HttpStatus.CREATED);
+        ArgumentCaptor<CrearPartidoRequest> peticion = ArgumentCaptor.forClass(CrearPartidoRequest.class);
+        Mockito.verify(servicio).registrarPartido(eq(JORNADA), peticion.capture());
+        assertThat(peticion.getValue().emparejamientoId()).isEqualTo(emparejamiento);
     }
 
     @Test

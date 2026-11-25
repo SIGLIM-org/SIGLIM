@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.25 · 24 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.26 · 25 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -74,6 +74,7 @@ Versión 5.25 · 24 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.23 | 23 de noviembre de 2026 | H-16.1: §6.8 con la captura de la cédula: `GET` y `POST /partidos/{id}/cedula` (abrir solo con el partido `EN_CURSO`, una vez, `201` con `Location`), `PUT /cedulas/{id}/alineaciones` (reemplazo completo, `422 VAL-002` con un error por jugador: `RF-019`, `RF-020`, `VAL-018`, `RF-025`, `REFERENCIA_INVALIDA`) y `PUT /cedulas/{id}/marcador` (no presentación con el marcador por default de la versión vigente de los parámetros, penales solo con empate); permisos `partidos.cedula:CONSULTAR` y `:CAPTURAR` con ámbito `LIGA`; auditoría `ABRIR_CEDULA`, `CAPTURAR_ALINEACION` y `CAPTURAR_MARCADOR` (DEC-164 a DEC-166). |
 | 5.24 | 23 de noviembre de 2026 | H-16.2: §6.8 «Eventos, incidencias, observaciones y envío»: `POST /cedulas/{id}/eventos` (`201` con la cédula, equipo tomado de la alineación, sustitución del mismo equipo), `DELETE /cedulas/{id}/eventos/{eventoId}` (`204`), `POST /cedulas/{id}/incidencias` (tipo activo del catálogo e involucrados: jugador alineado o equipo del partido, `422 RF-026`), `PUT /cedulas/{id}/observaciones` (nuevo) y `POST /cedulas/{id}/envio` (`422 VAL-020` con la extensión `faltantes`); fuera de captura todo responde `409 RF-122`; la cédula agrega `eventos`, `incidencias`, `enviadaEn` y `plazoVenceEn`; auditoría y evento `CedulaEnviada` (DEC-170, DEC-171). |
 | 5.25 | 24 de noviembre de 2026 | H-16.3: §6.8 con `GET /cedulas/{id}/jugadores` (candidatos a la alineación de los dos equipos y de la categoría inmediata inferior de cada club, con `elegible` y `causa` de la misma regla del `PUT`) y `GET /cedulas/{id}/tipos-incidencia` (tipos activos), los dos con `partidos.cedula:CAPTURAR`, para que el Capturista arme la cédula en F-26 sin permisos de registros ni del catálogo; la alineación agrega `personaId`, que identifica al jugador como involucrado de una incidencia (DEC-172). |
+| 5.26 | 25 de noviembre de 2026 | H-35.1: §6.7 con la fecha de programación (DEC-175): `GET /fechas?temporadaId=` (paginado, estado derivado de sus jornadas y conteos), `GET /fechas/{id}` con `bloques` por «Categoría – Grupo» (partidos con cancha, horario, árbitro central e insignias; descansos; sin asignar con `codigo` y `causa`), `POST /fechas/{id}/verificacion`, `/envio` y `/resolucion` sobre todas las jornadas en una transacción con la separación de funciones de RF-121, y `emparejamientoId` opcional en `POST /jornadas/{id}/partidos` (DEC-180). |
 
 ## Índice
 
@@ -2207,6 +2208,9 @@ vaciar la lista.
 | `POST /jornadas/{id}/partidos` · `PATCH /partidos/{id}` | Registrar o ajustar partido (equipos, cancha, inicio); solo con la jornada en `BORRADOR`; ajuste con `motivo`; `motivoAceptacion` para aceptar una advertencia de localía | `programacion.jornada:EDITAR` | RF-033, RF-036, RF-040, RF-120 | N · B |
 | `POST /jornadas/{id}/verificacion` | Revisa todos los partidos sin guardar: `{ conflictos: [ { partidoId, codigo, mensaje } ], advertencias: [...] }` | `programacion.jornada:EDITAR` | RF-039, RF-120 | N · B |
 | `POST /jornadas/{id}/envio` · `/resolucion` | Aprobación y publicación | ver §2.1 | RF-121, RF-090 | N |
+| `GET /fechas?temporadaId=` · `GET /fechas/{id}` | Fechas de la temporada y vista por fecha en bloques «Categoría – Grupo» (F-22, F-23) | `programacion.jornada:CONSULTAR` | RF-033, RF-037, RF-042 | N |
+| `POST /fechas/{id}/verificacion` | Conflictos y advertencias de toda la fecha, sin guardar | `programacion.jornada:CONSULTAR` | RF-039 | N |
+| `POST /fechas/{id}/envio` · `/resolucion` | Envío y dictamen de la fecha completa | `ENVIAR` · `APROBAR` | RF-121, RF-090 | N |
 
 La verificación y el guardado usan las mismas reglas: VAL-003 (equipo duplicado en el bloque),
 VAL-004 (cancha ocupada), VAL-005 (cancha bloqueada o fuera de disponibilidad), VAL-006 (equipo con
@@ -2266,6 +2270,63 @@ paso en `historial_publicacion` con quien lo hizo y su motivo.
   partidos }`), `APROBAR_JORNADA` y `DEVOLVER_JORNADA` (`{ estadoAnterior, estado }`, con las
   observaciones como motivo). Al publicarse, la jornada emite `JornadaPublicada` y `tesoreria` genera
   sus cobros en la misma transacción (B-30, RF-136; ver §6.13 «Cobros automáticos»).
+
+**Fecha de programación (H-35.1, DEC-175, DEC-180).** Una fecha (`fechas_programacion`) agrupa las
+jornadas de todos los grupos de la misma semana (`jornadas.fecha_id`) y los emparejamientos del
+calendario con `numeroFecha` igual a su `numero`. Su `estadoPublicacion` no se guarda: es el de la
+jornada menos avanzada (`BORRADOR` si no tiene jornadas). Los partidos `CANCELADO` no aparecen
+(DEC-181) y su emparejamiento vuelve a contarse como sin asignar.
+
+- `GET /fechas?temporadaId=&pagina=&tamano=` exige `temporadaId` (`400`) de una temporada de la liga
+  (`404`). Cada fila: `id`, `temporadaId`, `numero`, `dias`, `estadoPublicacion`, `jornadas`,
+  `partidos` (vigentes), `sinAsignar` (sin contar descansos) y `generadaEn`; sin `bloques`.
+- `GET /fechas/{id}` agrega los datos de publicación de sus jornadas (`enviadaPor`, `enviadaEn`,
+  `aprobadaPor`, `aprobadaEn`, `publicadaEn`, `observaciones`) y `bloques`, ordenados por el primer día
+  de juego de la categoría, su `orden` y el nombre del grupo:
+
+  ```json
+  { "categoria": { "id": "…", "nombre": "Primera" }, "grupo": { "id": "…", "nombre": "Grupo 1" },
+    "diasJuego": [7], "jornadaId": "…", "estadoPublicacion": "BORRADOR",
+    "partidos": [ { "id": "…", "jornadaId": "…", "emparejamientoId": "…",
+                    "equipoLocal": { "id": "…", "nombre": "Halcones" }, "equipoVisitante": { … },
+                    "cancha": { … }, "inicio": "…", "finBloque": "…", "estado": "PROGRAMADO",
+                    "arbitro": { "id": "…", "nombre": "Juan Pérez" }, "designacionAutomatica": true,
+                    "asignadoAutomaticamente": true, "ajustado": false, "motivoLocalia": "…" } ],
+    "descansos": [ { "emparejamientoId": "…", "equipo": { … } } ],
+    "sinAsignar": [ { "emparejamientoId": "…", "equipoLocal": { … }, "equipoVisitante": { … },
+                      "codigo": "VAL-007", "causa": "Sin horario libre el domingo…" } ] }
+  ```
+
+  `arbitro` se omite si el partido no tiene central vigente («Sin árbitro», DEC-182). `ajustado` es
+  verdadero si el partido se ajustó con motivo (`AJUSTAR_PARTIDO`, RF-040). En `sinAsignar`, `codigo` y
+  `causa` se omiten mientras la asignación automática no haya procesado el emparejamiento.
+- `POST /fechas/{id}/verificacion` responde `{ conflictos, advertencias }` con avisos
+  `{ jornadaId, partidoId?, emparejamientoId?, codigo, mensaje }`. Los conflictos son los de
+  `POST /jornadas/{id}/verificacion` de cada jornada. Las advertencias no bloquean el envío: localía
+  (`VAL-027`), sin árbitro central (`RF-023`) y sin asignar (su `codigo`, o `RF-033` **[PROPUESTA]**
+  si aún no tiene causa).
+- `POST /fechas/{id}/envio`, sin cuerpo, exige `programacion.jornada:ENVIAR`. Orden: permiso (`403`) →
+  fecha de la liga (`404`) → con jornadas (`409 RF-121`) → todas en `BORRADOR` (`409 RF-090`, nombra la
+  primera que no lo está) → al menos un partido vigente (`409 RF-121`, **[PROPUESTA]**) → sin conflictos
+  duros en ninguna jornada (`409 RF-039` con la extensión `conflictos`). Todas pasan a `REVISION` en
+  una transacción; los sin asignar y los sin árbitro no la bloquean.
+- `POST /fechas/{id}/resolucion` lleva `{ "decision": "PUBLICADO"|"BORRADOR", "observaciones"? }` y
+  exige `programacion.jornada:APROBAR`. Orden: permiso → `404` → con jornadas y todas en `REVISION`
+  (`409 RF-090`) → `decision` (`400`) → separación de funciones (`403 RF-121`: quien creó o generó la
+  fecha, quien creó o envió alguna de sus jornadas o quien además tiene `programacion.jornada:EDITAR`)
+  → observaciones de la devolución (`400 RF-121`). Todas las jornadas cambian juntas; al publicar,
+  cada una emite `JornadaPublicada` y sus partidos aparecen en `v_publica_programacion`.
+- Las respuestas de `envio` y `resolucion` son el detalle de la fecha. Se bloquea con `FOR UPDATE` la
+  fila de la fecha y después sus jornadas por `id`.
+- Auditoría en `M-07` sobre `fechas_programacion`: `ENVIAR_FECHA_A_APROBACION` (`{ estadoAnterior,
+  estado, jornadas, partidos, sinAsignar }`), `APROBAR_FECHA` y `DEVOLVER_FECHA` (`{ estadoAnterior,
+  estado, jornadas }`, con las observaciones como motivo). Cada jornada deja su paso en
+  `historial_publicacion`.
+- **Asignar a mano un pendiente.** `POST /jornadas/{id}/partidos` acepta `emparejamientoId` opcional.
+  Debe ser de la misma fecha y grupo que la jornada (`422 REFERENCIA_INVALIDA`), no un descanso
+  (`422 RF-037`), con el mismo local y visitante (`422 REFERENCIA_INVALIDA`) y sin partido vigente
+  (`409 DUPLICADO`; uno cancelado no cuenta). El partido queda ligado y se limpian `codigo` y `causa`;
+  `REGISTRAR_PARTIDO` incluye `emparejamientoId` en su detalle.
 
 ### 6.8 M-08 Partidos, cédula y resultados
 
