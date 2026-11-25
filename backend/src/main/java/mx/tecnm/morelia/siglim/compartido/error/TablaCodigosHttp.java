@@ -29,7 +29,7 @@ public final class TablaCodigosHttp {
                     "VAL-003", "VAL-005", "VAL-017", "VAL-026", "VAL-028",
                     "RF-001", "RF-017", "RF-039", "RF-046", "RF-048", "RF-062", "RF-090", "RF-100",
                     "RF-109", "RF-111", "RF-113", "RF-121", "RF-122", "RF-123", "RF-124", "RF-127",
-                    "RN-024", "RN-039", "RNF-015", "RNF-018"),
+                    "RN-012", "RN-024", "RN-039", "RNF-015", "RNF-018"),
             // 422: el contenido de la petición incumple una regla.
             entradas(HttpStatus.UNPROCESSABLE_CONTENT,
                     "VAL-001", "VAL-018", "VAL-019", "VAL-020", "VAL-025",

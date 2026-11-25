@@ -239,7 +239,7 @@ que el mismo código responda siempre con el mismo estado. `error_negocio` arma 
 | --- | --- | --- |
 | `400` | `RN-021` | Falta el motivo obligatorio |
 | `403` | `VAL-015` (la liga valida documentos y registros); `VAL-021`, `VAL-022` | La persona no puede hacer esa acción aunque tenga el permiso |
-| `409` | `VAL-003`, `VAL-005`, `VAL-017`, `VAL-026`, `VAL-028`; `RF-001`, `RF-017`, `RF-039`, `RF-046`, `RF-048`, `RF-062`, `RF-090`, `RF-100`, `RF-109`, `RF-111`, `RF-113`, `RF-121`, `RF-122`, `RF-123`, `RF-124`, `RF-127`; `RN-024`, `RN-039`; `RNF-015`, `RNF-018` | Transición o cambio no permitido por el estado actual, o choque con otros datos |
+| `409` | `VAL-003`, `VAL-005`, `VAL-017`, `VAL-026`, `VAL-028`; `RF-001`, `RF-017`, `RF-039`, `RF-046`, `RF-048`, `RF-062`, `RF-090`, `RF-100`, `RF-109`, `RF-111`, `RF-113`, `RF-121`, `RF-122`, `RF-123`, `RF-124`, `RF-127`; `RN-012`, `RN-024`, `RN-039`; `RNF-015`, `RNF-018` | Transición o cambio no permitido por el estado actual, o choque con otros datos |
 | `422` | `VAL-001` (activar un registro sin todos sus documentos aprobados); `VAL-018`, `VAL-019`, `VAL-020`, `VAL-025`; `RF-013`, `RF-015`, `RF-016`, `RF-019`, `RF-020`, `RF-025`, `RF-033`; `RF-119` (horario de club o comodato incompatible con la cancha, o traslapado); `RF-139` (pago que no cubre el monto) | El contenido de la petición incumple una regla |
 
 Algunos códigos cubren más de un caso en la base (`RF-121` y `RF-123` también rechazan una
