@@ -1,0 +1,33 @@
+Pruebas automáticas relacionadas con H-16 · develop en 6c53c0c · 24-nov-2026
+
+== Backend: ./mvnw verify (backend/)
+Resultado: BUILD SUCCESS (código de salida 0)
+  Pruebas unitarias y de controlador (surefire): 2305 ejecutadas, 0 fallos, 0 errores, 0 omitidas
+  Pruebas de integración (failsafe):              363 ejecutadas, 0 fallos, 0 errores, 1 omitida
+    (la omitida es AlmacenamientoDocumentosAwsIT, sin credenciales de AWS)
+
+De la cédula (M-08, H-16):
+  CedulaServiceTest      33 pruebas, 0 fallos
+  CedulaControllerTest   72 pruebas, 0 fallos
+  CedulasIT              11 pruebas, 0 fallos
+    abrirCedula · abrirSinPermiso · guardarAlineacion · alineacionNoElegible · triggerDeElegibilidad ·
+    guardarMarcador · soloEnCaptura · jugadoresDisponibles · eventosEIncidencias · enviarCedula ·
+    enviarConNoPresentacion
+
+== Frontend: npx vitest run src/features/partidos/cedula (frontend/)
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+
+ ✓ PantallaCapturaCedula (F-26, H-16.3) > RF-025: sin cédula y con el partido en curso, la abre
+ ✓ PantallaCapturaCedula (F-26, H-16.3) > RF-046: con el partido programado explica que la cédula se abre en curso, sin botón
+ ✓ PantallaCapturaCedula (F-26, H-16.3) > DEC-172: muestra las dos alineaciones; quien no puede jugar está deshabilitado con su causa
+ ✓ PantallaCapturaCedula (F-26, H-16.3) > RF-019: guarda la alineación de los dos equipos con playera y titular
+ ✓ PantallaCapturaCedula (F-26, H-16.3) > VAL-002: el error de un jugador se muestra en su fila
+ ✓ PantallaCapturaCedula (F-26, H-16.3) > RF-126: la no presentación manda solo el equipo; los penales se piden solo con empate
+ ✓ PantallaCapturaCedula (F-26, H-16.3) > DEC-72: el marcador por default de parámetros de demostración se rotula «No oficial»
+ ✓ PantallaCapturaCedula (F-26, H-16.3) > RF-025: registra una sustitución con el que entra y quita un evento
+ ✓ PantallaCapturaCedula (F-26, H-16.3) > RF-026: registra una incidencia con un jugador y un equipo involucrados
+ ✓ PantallaCapturaCedula (F-26, H-16.3) > VAL-020: lista lo que falta y no deja enviar una cédula incompleta
+ ✓ PantallaCapturaCedula (F-26, H-16.3) > RF-122: completa se envía y queda sin edición, con el plazo del árbitro
+ ✓ PantallaCapturaCedula (F-26, H-16.3) > VAL-020: si el backend rechaza el envío muestra sus faltantes
+ ✓ PantallaCapturaCedula (F-26, H-16.3) > VAL-015: sin partidos.cedula:CAPTURAR muestra la página 403 sin pedir la cédula
