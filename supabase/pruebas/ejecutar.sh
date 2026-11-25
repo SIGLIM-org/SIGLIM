@@ -24,4 +24,5 @@ psql -q -d $BD -v ON_ERROR_STOP=1 -f prueba_tabla.sql
 psql -q -d $BD -v ON_ERROR_STOP=1 -f prueba_funciones.sql 2>&1 | sed 's/^psql:[^ ]* //'
 psql -q -d $BD -v ON_ERROR_STOP=1 -f prueba_documentos.sql 2>&1 | sed 's/^psql:[^ ]* //'
 psql -q -d $BD -v ON_ERROR_STOP=1 -f prueba_validacion_registro.sql 2>&1 | sed 's/^psql:[^ ]* //'
+psql -q -d $BD -v ON_ERROR_STOP=1 -f prueba_programacion_automatica.sql 2>&1 | sed 's/^psql:[^ ]* //'
 echo "Pruebas del esquema completadas sin errores."

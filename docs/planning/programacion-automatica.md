@@ -58,8 +58,8 @@ El texto completo está en el [registro de decisiones](../requisitos/decisiones/
 
 ## 3. Modelo de datos (T-06)
 
-Migración `supabase/migrations/20261125100000_programacion_automatica.sql`. Borrador; se ajusta al
-implementar y se refleja en el diccionario de datos en el mismo PR.
+Migración `supabase/migrations/20261125100000_programacion_automatica.sql` (T-06.1) y diccionario de
+datos 2.14. El bloque resume la migración aplicada; los `COMMENT ON` están en el script.
 
 ```sql
 -- M-07 · Programación automática (DEC-173 a DEC-182, ADR-0015; T-06)
@@ -81,7 +81,18 @@ ALTER TABLE siglim.categorias_temporada
   ALTER COLUMN dias_juego SET NOT NULL,
   ADD CONSTRAINT ck_categorias_temporada_dias CHECK (
     cardinality(dias_juego) BETWEEN 1 AND 7 AND dias_juego <@ '{1,2,3,4,5,6,7}'::smallint[]);
--- Trigger BEFORE INSERT: si dias_juego viene NULL, lo llena según categorias.tipo (DEC-177).
+-- Trigger BEFORE INSERT: si dias_juego viene NULL, lo llena con la misma regla (DEC-177).
+CREATE FUNCTION siglim.tg_categorias_temporada_dias_juego() RETURNS trigger
+LANGUAGE plpgsql SET search_path = siglim, pg_temp AS $$
+BEGIN
+  IF NEW.dias_juego IS NULL THEN
+    SELECT CASE c.tipo WHEN 'LIBRE' THEN '{7}'::smallint[] ELSE '{6}'::smallint[] END
+      INTO NEW.dias_juego FROM siglim.categorias c WHERE c.id = NEW.categoria_id;
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER tg_categorias_temporada_dias_juego BEFORE INSERT ON siglim.categorias_temporada
+  FOR EACH ROW EXECUTE FUNCTION siglim.tg_categorias_temporada_dias_juego();
 
 -- 3. Fechas: agrupan las jornadas de todos los grupos de una semana (DEC-175)
 CREATE TABLE siglim.fechas_programacion (
@@ -99,6 +110,10 @@ CREATE TABLE siglim.fechas_programacion (
   CONSTRAINT ck_fechas_numero CHECK (numero > 0),
   CONSTRAINT ck_fechas_dias CHECK (cardinality(dias) BETWEEN 1 AND 7)
 );
+CREATE INDEX ix_fechas_programacion_generada_por ON siglim.fechas_programacion (generada_por) WHERE generada_por IS NOT NULL;
+CREATE INDEX ix_fechas_programacion_creado_por ON siglim.fechas_programacion (creado_por) WHERE creado_por IS NOT NULL;
+CREATE TRIGGER tg_fechas_programacion_actualizado_en BEFORE UPDATE ON siglim.fechas_programacion
+  FOR EACH ROW EXECUTE FUNCTION siglim.tg_actualizado_en();
 ALTER TABLE siglim.jornadas ADD COLUMN fecha_id uuid REFERENCES siglim.fechas_programacion (id);
 CREATE UNIQUE INDEX ux_jornadas_fecha_grupo ON siglim.jornadas (fecha_id, grupo_id) WHERE fecha_id IS NOT NULL;
 
@@ -122,20 +137,55 @@ CREATE TABLE siglim.emparejamientos (
 CREATE UNIQUE INDEX ux_emparejamientos_local ON siglim.emparejamientos (grupo_id, numero_fecha, equipo_local_id);
 CREATE UNIQUE INDEX ux_emparejamientos_visitante ON siglim.emparejamientos (grupo_id, numero_fecha, equipo_visitante_id)
   WHERE equipo_visitante_id IS NOT NULL;
+CREATE INDEX ix_emparejamientos_equipo_local ON siglim.emparejamientos (equipo_local_id);
+CREATE INDEX ix_emparejamientos_equipo_visitante ON siglim.emparejamientos (equipo_visitante_id) WHERE equipo_visitante_id IS NOT NULL;
+CREATE INDEX ix_emparejamientos_creado_por ON siglim.emparejamientos (creado_por) WHERE creado_por IS NOT NULL;
+-- temporada_id, fecha_id, grupo_id y partido_id ya quedan cubiertas por sus índices únicos.
+
+-- RN-012: un equipo, un solo emparejamiento por grupo y fecha en cualquier papel. Los índices únicos
+-- solo cubren el mismo papel y VAL-003 solo el traslape de horario (sábado y domingo no se traslapan).
+CREATE FUNCTION siglim.tg_emparejamientos_equipo_unico() RETURNS trigger
+LANGUAGE plpgsql SET search_path = siglim, pg_temp AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM siglim.emparejamientos e
+     WHERE e.id <> NEW.id AND e.grupo_id = NEW.grupo_id AND e.numero_fecha = NEW.numero_fecha
+       AND (NEW.equipo_local_id IN (e.equipo_local_id, e.equipo_visitante_id)
+            OR (NEW.equipo_visitante_id IS NOT NULL
+                AND NEW.equipo_visitante_id IN (e.equipo_local_id, e.equipo_visitante_id)))) THEN
+    PERFORM siglim.error_negocio('RN-012', 'El equipo ya tiene un emparejamiento en esta fecha del grupo.');
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER tg_emparejamientos_equipo_unico
+  BEFORE INSERT OR UPDATE OF grupo_id, numero_fecha, equipo_local_id, equipo_visitante_id ON siglim.emparejamientos
+  FOR EACH ROW EXECUTE FUNCTION siglim.tg_emparejamientos_equipo_unico();
 
 -- 5. Trazabilidad de lo automático
 ALTER TABLE siglim.partidos      ADD COLUMN asignado_automaticamente boolean NOT NULL DEFAULT false;
 ALTER TABLE siglim.designaciones ADD COLUMN automatica               boolean NOT NULL DEFAULT false;
 
--- 6. Permiso nuevo (DEC-182), con el patrón del seed de la migración inicial
---    'arbitraje.designacion:AUTOMATICA', 'M-05', 'Designar automáticamente al árbitro central (H-34)' → PROGRAMADOR
+-- 6. Permiso nuevo (DEC-182); no entra en pares_incompatibles
+INSERT INTO siglim.permisos (codigo, modulo, descripcion)
+VALUES ('arbitraje.designacion:AUTOMATICA', 'M-05', 'Designar automáticamente al árbitro central (H-34)')
+ON CONFLICT (codigo) DO NOTHING;
+INSERT INTO siglim.rol_permisos (rol_id, permiso_id)
+SELECT r.id, p.id FROM siglim.roles r
+  JOIN siglim.permisos p ON p.codigo = 'arbitraje.designacion:AUTOMATICA'
+ WHERE r.codigo = 'PROGRAMADOR'
+ON CONFLICT DO NOTHING;
 
--- 7. Para cada tabla nueva: ENABLE RLS y políticas como jornadas, GRANT SELECT, INSERT, UPDATE a siglim_app
---    (sin DELETE), índices de FK y COMMENT ON TABLE/COLUMN (diccionario de datos).
+-- 7. Tablas nuevas: RLS como jornadas (el bucle de la §10 inicial solo corrió una vez), sin DELETE
+ALTER TABLE siglim.fechas_programacion ENABLE ROW LEVEL SECURITY;
+ALTER TABLE siglim.emparejamientos     ENABLE ROW LEVEL SECURITY;
+CREATE POLICY app_sin_restriccion ON siglim.fechas_programacion TO siglim_app USING (true) WITH CHECK (true);
+CREATE POLICY app_sin_restriccion ON siglim.emparejamientos     TO siglim_app USING (true) WITH CHECK (true);
+GRANT SELECT, INSERT, UPDATE ON siglim.fechas_programacion, siglim.emparejamientos TO siglim_app;
 ```
 
 Pruebas SQL en `supabase/pruebas/prueba_programacion_automatica.sql`: restricciones CHECK, índices
-únicos, trigger de `dias_juego` y que `siglim_app` no puede borrar en las tablas nuevas.
+únicos, trigger de `dias_juego`, la regla RN-012 de `emparejamientos` (en cualquier papel y al mover de fecha), que `siglim_app` no puede borrar en las tablas nuevas, el permiso del
+PROGRAMADOR y los valores por defecto de `asignado_automaticamente` y `automatica`.
 
 ---
 
