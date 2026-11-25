@@ -205,6 +205,40 @@ class JornadaRepository {
                 .optional();
     }
 
+    /**
+     * Jornadas de una fecha de programación con candado, en orden de {@code id} para que dos
+     * operaciones sobre la misma fecha tomen los candados en el mismo orden (H-35.1, DEC-175).
+     */
+    List<DatosJornada> bloquearJornadasDeFecha(UUID fechaId) {
+        return jdbc.sql("""
+                        SELECT j.id, j.grupo_id, j.fase_id, j.numero, j.estado_publicacion,
+                               j.creado_por, j.enviada_por, j.enviada_en, j.aprobada_por, j.aprobada_en,
+                               j.publicada_en, j.observaciones, j.creado_en, j.actualizado_en
+                          FROM jornadas j
+                         WHERE j.fecha_id = :fechaId
+                         ORDER BY j.id
+                         FOR UPDATE
+                        """)
+                .param("fechaId", fechaId)
+                .query(JornadaRepository::aJornada)
+                .list();
+    }
+
+    /** Jornadas de una fecha de programación, sin candado, en orden de {@code id} (H-35.1). */
+    List<DatosJornada> listarJornadasDeFecha(UUID fechaId) {
+        return jdbc.sql("""
+                        SELECT j.id, j.grupo_id, j.fase_id, j.numero, j.estado_publicacion,
+                               j.creado_por, j.enviada_por, j.enviada_en, j.aprobada_por, j.aprobada_en,
+                               j.publicada_en, j.observaciones, j.creado_en, j.actualizado_en
+                          FROM jornadas j
+                         WHERE j.fecha_id = :fechaId
+                         ORDER BY j.id
+                        """)
+                .param("fechaId", fechaId)
+                .query(JornadaRepository::aJornada)
+                .list();
+    }
+
     /** {@code true} si el grupo ya tiene ese número de jornada en la fase regular o en la fase. */
     boolean existeNumero(UUID grupoId, UUID faseId, int numero) {
         return jdbc.sql("""
@@ -366,7 +400,62 @@ class JornadaRepository {
                 .update();
     }
 
+    // ── Emparejamientos (H-35.1) ────────────────────────────────────────────────────────────────
+
+    /**
+     * Emparejamiento del calendario que corresponde a la jornada: mismo grupo y mismo número que la
+     * fecha a la que la jornada pertenece (DEC-175, DEC-180). Lo lee con candado para que dos altas
+     * manuales no liguen el mismo emparejamiento. Vacío si no existe o es de otro grupo o fecha.
+     */
+    Optional<EmparejamientoDeJornada> bloquearEmparejamiento(UUID jornadaId, UUID emparejamientoId) {
+        return jdbc.sql("""
+                        SELECT e.id, e.equipo_local_id, e.equipo_visitante_id, e.partido_id,
+                               pa.estado AS partido_estado
+                          FROM emparejamientos e
+                          JOIN jornadas j ON j.id = :jornadaId AND j.grupo_id = e.grupo_id
+                          JOIN fechas_programacion f ON f.id = j.fecha_id AND f.numero = e.numero_fecha
+                          LEFT JOIN partidos pa ON pa.id = e.partido_id
+                         WHERE e.id = :id
+                         FOR UPDATE OF e
+                        """)
+                .param("jornadaId", jornadaId)
+                .param("id", emparejamientoId)
+                .query((fila, numero) -> new EmparejamientoDeJornada(
+                        fila.getObject("id", UUID.class),
+                        fila.getObject("equipo_local_id", UUID.class),
+                        fila.getObject("equipo_visitante_id", UUID.class),
+                        fila.getObject("partido_id", UUID.class),
+                        fila.getString("partido_estado") == null ? null
+                                : EstadoPartido.valueOf(fila.getString("partido_estado"))))
+                .optional();
+    }
+
+    /**
+     * Liga el emparejamiento al partido recién registrado y limpia la causa por la que no se asignó
+     * (DEC-180): la fila deja de aparecer como «sin asignar».
+     */
+    void ligarEmparejamiento(UUID emparejamientoId, UUID partidoId) {
+        jdbc.sql("""
+                        UPDATE emparejamientos
+                           SET partido_id = :partidoId,
+                               codigo_no_asignado = NULL,
+                               causa_no_asignado = NULL
+                         WHERE id = :id
+                        """)
+                .param("id", emparejamientoId)
+                .param("partidoId", partidoId)
+                .update();
+    }
+
     // ── Filas ───────────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Emparejamiento de la fecha de una jornada. {@code equipoVisitanteId == null} es un descanso
+     * (RF-037); {@code partidoEstado} es el del partido ligado, si lo hay.
+     */
+    record EmparejamientoDeJornada(UUID id, UUID equipoLocalId, UUID equipoVisitanteId, UUID partidoId,
+                                   EstadoPartido partidoEstado) {
+    }
 
     /** Grupo de la liga con la categoría de temporada a la que pertenece. */
     record GrupoDeLiga(UUID id, UUID categoriaTemporadaId) {

@@ -174,14 +174,15 @@ public class JornadaService {
         autorizacion.exigir(EDITAR, ObjetivoAutorizacion.deLiga());
         jornadas.buscarJornada(ligaId, id).orElseThrow(() -> noExisteJornada(id));
         List<DatosPartido> partidos = jornadas.listarPartidos(id);
-        return new VerificacionJornadaDto(conflictosDe(partidos), advertenciasDe(partidos));
+        return new VerificacionJornadaDto(conflictosDe(validador, partidos), advertenciasDe(localia, partidos));
     }
 
     /**
      * Advertencias de localía de los partidos vigentes (RF-120, VAL-027). Si el partido ya se aceptó
-     * con motivo, el mensaje lo indica para que la pantalla no lo presente como pendiente.
+     * con motivo, el mensaje lo indica para que la pantalla no lo presente como pendiente. También la
+     * usa la verificación de la fecha completa (H-35.1, DEC-175).
      */
-    private List<Aviso> advertenciasDe(List<DatosPartido> partidos) {
+    static List<Aviso> advertenciasDe(ValidadorLocalia localia, List<DatosPartido> partidos) {
         List<Aviso> advertencias = new ArrayList<>();
         for (DatosPartido partido : partidos) {
             if (partido.estado() == EstadoPartido.CANCELADO) {
@@ -199,8 +200,11 @@ public class JornadaService {
         return advertencias;
     }
 
-    /** Conflictos duros de los partidos vigentes, con la misma regla del alta y el ajuste (RF-039). */
-    private List<Aviso> conflictosDe(List<DatosPartido> partidos) {
+    /**
+     * Conflictos duros de los partidos vigentes, con la misma regla del alta y el ajuste (RF-039).
+     * También la usan la verificación y el envío de la fecha completa (H-35.1, DEC-175).
+     */
+    static List<Aviso> conflictosDe(ValidadorConflictos validador, List<DatosPartido> partidos) {
         List<Aviso> conflictos = new ArrayList<>();
         for (DatosPartido partido : partidos) {
             if (partido.estado() == EstadoPartido.CANCELADO) {
@@ -290,7 +294,7 @@ public class JornadaService {
                     "La jornada " + jornada.numero() + " no tiene partidos programados; registra al menos uno "
                             + "antes de enviarla a aprobación.");
         }
-        List<Aviso> conflictos = conflictosDe(partidos);
+        List<Aviso> conflictos = conflictosDe(validador, partidos);
         if (!conflictos.isEmpty()) {
             throw ReglaNegocioException.conflicto("RF-039",
                     "La jornada tiene " + conflictos.size() + (conflictos.size() == 1 ? " conflicto" : " conflictos")
@@ -418,8 +422,11 @@ public class JornadaService {
      *
      * <p>Orden: permiso → jornada existe ({@code 404}) → jornada en borrador ({@code 409 RF-090}) →
      * cuerpo ({@code 400}) → equipos del grupo ({@code 422 RF-033}) → cancha de la liga ({@code 422})
-     * → conflictos duros ({@code 409 VAL-003} a {@code VAL-006}) → localía sin motivo
-     * ({@code 409 VAL-027}).
+     * → emparejamiento pendiente, si viene ({@code 422}/{@code 409}, H-35.1) → conflictos duros
+     * ({@code 409 VAL-003} a {@code VAL-006}) → localía sin motivo ({@code 409 VAL-027}).
+     *
+     * <p>Con {@code emparejamientoId}, el partido queda ligado al emparejamiento y se limpia la causa
+     * por la que no se asignó (DEC-180).
      */
     @Transactional
     public PartidoDto registrarPartido(UUID jornadaId, CrearPartidoRequest peticion) {
@@ -439,6 +446,7 @@ public class JornadaService {
             throw invalida("La fecha y hora de inicio son obligatorias.");
         }
         CanchaDeLiga cancha = bloquearCancha(peticion.canchaId());
+        UUID emparejamientoId = emparejamientoPendiente(jornada, peticion);
 
         validador.validar(jornada.grupoId(), null, local, visitante, cancha, peticion.inicio());
         List<Advertencia> advertencias = localia.evaluar(jornada.grupoId(), jornada.id(), local, cancha.id());
@@ -446,12 +454,18 @@ public class JornadaService {
 
         UUID id = jornadas.insertarPartido(jornada.id(), local.id(), visitante.id(), peticion.canchaId(),
                 peticion.inicio(), motivoLocalia, UsuarioActual.idRequerido());
+        if (emparejamientoId != null) {
+            jornadas.ligarEmparejamiento(emparejamientoId, id);
+        }
 
         Map<String, Object> detalle = new LinkedHashMap<>();
         detalle.put("jornadaId", jornada.id().toString());
         detalle.put("equipoLocalId", local.id().toString());
         detalle.put("equipoVisitanteId", visitante.id().toString());
         detalle.put("canchaId", peticion.canchaId().toString());
+        if (emparejamientoId != null) {
+            detalle.put("emparejamientoId", emparejamientoId.toString());
+        }
         auditar("REGISTRAR_PARTIDO", ENTIDAD_PARTIDO, id, null, detalle);
         auditarLocalia(id, jornada.id(), advertencias, motivoLocalia);
         return aDto(buscarPartido(id));
@@ -582,6 +596,41 @@ public class JornadaService {
                     "Solo se programan partidos de una jornada en borrador; la jornada " + jornada.numero()
                             + " está " + jornada.estadoPublicacion().texto() + ".");
         }
+    }
+
+    /**
+     * Valida el emparejamiento que el alta manual asigna (H-35.1, DEC-180) y lo deja bloqueado.
+     *
+     * <ul>
+     *   <li>Sin {@code emparejamientoId}: {@code null}, es un partido manual fuera del calendario.</li>
+     *   <li>Debe ser de la misma fecha y grupo que la jornada ({@code 422 REFERENCIA_INVALIDA}) y no
+     *       un descanso ({@code 422 RF-037}).</li>
+     *   <li>Los equipos deben ser los del emparejamiento, con la misma localía
+     *       ({@code 422 REFERENCIA_INVALIDA}); invertirla es otro partido, no esta asignación.</li>
+     *   <li>Si ya tiene un partido vigente, {@code 409 DUPLICADO}; uno cancelado (DEC-181) no cuenta.</li>
+     * </ul>
+     */
+    private UUID emparejamientoPendiente(DatosJornada jornada, CrearPartidoRequest peticion) {
+        if (peticion.emparejamientoId() == null) {
+            return null;
+        }
+        JornadaRepository.EmparejamientoDeJornada emparejamiento = jornadas
+                .bloquearEmparejamiento(jornada.id(), peticion.emparejamientoId())
+                .orElseThrow(() -> referenciaInvalida(
+                        "El emparejamiento indicado no pertenece a la fecha ni al grupo de la jornada."));
+        if (emparejamiento.equipoVisitanteId() == null) {
+            throw ReglaNegocioException.noProcesable("RF-037",
+                    "El emparejamiento indicado es un descanso: no lleva partido.");
+        }
+        if (!emparejamiento.equipoLocalId().equals(peticion.equipoLocalId())
+                || !emparejamiento.equipoVisitanteId().equals(peticion.equipoVisitanteId())) {
+            throw referenciaInvalida("Los equipos no coinciden con el local y el visitante del emparejamiento.");
+        }
+        if (emparejamiento.partidoId() != null && emparejamiento.partidoEstado() != EstadoPartido.CANCELADO) {
+            throw ReglaNegocioException.conflicto(ErroresTecnicos.DUPLICADO,
+                    "El emparejamiento ya tiene un partido programado; ajústalo en lugar de registrar otro.");
+        }
+        return emparejamiento.id();
     }
 
     /** El equipo debe existir y pertenecer al grupo de la jornada (RF-033). */
