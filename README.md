@@ -81,8 +81,9 @@ Cada cambio crítico queda registrado con **usuario, fecha y motivo** (auditorí
 | M-14 | Notificaciones | Avisos en el sistema y por correo |
 
 Cada requisito del [ERS Rev. 0.4](docs/requisitos/ERS.md) indica si es núcleo comprometido (N),
-backlog priorizado (B) o fuera del alcance (F, sección 2.6: programación automática, pasarela de
-pago real, integraciones no aprobadas).
+backlog priorizado (B) o fuera del alcance (F, sección 2.6: pasarela de pago real, integraciones no
+aprobadas). La programación automática, que el ERS deja fuera, se reabrió con DEC-173
+([diseño](docs/planning/programacion-automatica.md)).
 
 ## 🏗️ Arquitectura
 

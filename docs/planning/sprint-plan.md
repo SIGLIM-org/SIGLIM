@@ -93,6 +93,18 @@ Las horas de lo B en los Sprints 3 y 4 son estimación gruesa (SP × 3): sus sub
 | B-28 | Generar y exportar reportes REP-001 a REP-014 | 5 |
 | B-32 | Enviar los avisos por correo | 3 |
 
+#### Programación automática (DEC-173, 24-nov-2026)
+
+Aprobada por el PO y agregada al Sprint 4 con prioridad Highest, sin retirar nada. Se crearon directamente en Jira (no están en `backlog-siglim.csv`). Diseño, criterios y API en [`programacion-automatica.md`](programacion-automatica.md).
+
+| Clave | Jira | Elemento | SP |
+| --- | --- | --- | --- |
+| T-06 | SCRUM-497 | Preparar la base de datos y la documentación de la programación automática | 2 |
+| H-32 | SCRUM-498 | Generar el calendario de la temporada | 3 |
+| H-33 | SCRUM-499 | Asignar automáticamente cancha y horario a una fecha | 5 |
+| H-34 | SCRUM-500 | Asignar automáticamente al árbitro central | 2 |
+| H-35 | SCRUM-501 | Revisar la fecha generada y aprobarla completa | 3 |
+
 ## 1. Resumen y supuestos
 
 | Concepto | Valor |
@@ -117,7 +129,7 @@ Excluido de la planificación:
 | Elemento | Referencia | Motivo |
 | --- | --- | --- |
 | 2FA y «Mantener sesión activa» | PEN-044 (nuevo) y PEN-030 | Pendiente por decisión del equipo (20 oct 2026). |
-| Programación automática | RF-034, RF-035, RF-037, RF-038, RF-041, RF-042 | Fuera de alcance (F, DEC-06). |
+| Programación automática | RF-034, RF-035, RF-037, RF-038, RF-041, RF-042 | Fuera de alcance (F, DEC-06). **Reabierta** por DEC-173 el 24-nov-2026: ver «Agregado al Sprint 4». |
 | Despliegue en un ambiente público | PEN-036, PEN-037 | Pendiente; la demo es local. |
 | Respaldo diario y disponibilidad de fin de semana | RNF-010, RNF-001 (B) | Dependen del alojamiento (PEN-037). |
 
