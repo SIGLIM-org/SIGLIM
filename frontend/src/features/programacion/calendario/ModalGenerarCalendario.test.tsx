@@ -24,6 +24,7 @@ const { get, post, patch } = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/api/cliente', () => ({ api: { get, post, patch } }))
+vi.mock('@/features/seguridad/ProveedorSesionActual', () => ({ useSesionActual: () => null }))
 
 const MOTIVO = 'Se sumaron dos equipos al grupo'
 
