@@ -76,6 +76,8 @@ public class SeguridadConfig {
         cors.setAllowedOrigins(propiedades.cors().origenes());
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE));
+        // Cabeceras propias que la interfaz necesita leer: el conteo de avisos de la campana (H-25.1).
+        cors.setExposedHeaders(List.of("X-No-Leidas"));
         // El token va en una cabecera, no en cookies: no se permiten credenciales del navegador.
         cors.setAllowCredentials(false);
         cors.setMaxAge(CORS_CACHE_PREVIA);

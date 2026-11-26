@@ -350,6 +350,59 @@ class CedulasIT extends BaseDatosPrueba {
         assertThat(servicio.enviar(cedula).estado()).isEqualTo(EstadoCedula.PENDIENTE_VALIDACION);
     }
 
+    @Test
+    @DisplayName("RF-122 · H-25 criterio 1: al enviar la cédula, el árbitro central designado recibe el aviso en la misma transacción")
+    void enviarAvisaAlArbitro() {
+        UUID arbitroPerfil = designarCentral(escenario.partido());
+        try {
+            UUID cedula = abrirCedula(escenario);
+            alinearAmbos(cedula);
+            servicio.guardarMarcador(cedula, new GuardarMarcadorRequest(2, 1, null, null, null));
+
+            servicio.enviar(cedula);
+
+            assertThat(jdbc.sql("SELECT evento || ' ' || enlace FROM siglim.notificaciones WHERE perfil_id = :perfil")
+                    .param("perfil", arbitroPerfil).query(String.class).list())
+                    .containsExactly("CEDULA_PENDIENTE /app/partidos/" + escenario.partido());
+        } finally {
+            // Como FechaIT: no deja árbitros que alteren los listados de ArbitrosIT.
+            jdbc.sql("DELETE FROM siglim.designaciones WHERE partido_id = :partido")
+                    .param("partido", escenario.partido()).update();
+            jdbc.sql("""
+                            DELETE FROM siglim.arbitros a USING siglim.perfiles p
+                             WHERE p.id = :perfil AND a.persona_id = p.persona_id
+                            """).param("perfil", arbitroPerfil).update();
+        }
+    }
+
+    /** Árbitro validado de un club ajeno, designado central, con perfil y rol ARBITRO (ámbito propio). */
+    private UUID designarCentral(UUID partido) {
+        UUID persona = jdbc.sql("""
+                        INSERT INTO siglim.personas (curp, nombre, apellido_paterno, apellido_materno, fecha_nacimiento)
+                        VALUES (:curp, 'Árbitro', 'Central', 'Prueba', DATE '1990-01-01') RETURNING id
+                        """)
+                .param("curp", "XEXR" + String.format("%06d", ThreadLocalRandom.current().nextInt(1_000_000))
+                        + "HMNXXX" + String.format("%02d", ThreadLocalRandom.current().nextInt(100)))
+                .query(UUID.class).single();
+        UUID club = jdbc.sql("INSERT INTO siglim.clubes (liga_id, nombre) VALUES (:liga, :nombre) RETURNING id")
+                .param("liga", LIGA).param("nombre", "Club arbitral " + UUID.randomUUID()).query(UUID.class).single();
+        UUID arbitro = jdbc.sql("""
+                        INSERT INTO siglim.arbitros (persona_id, club_id, estado) VALUES (:persona, :club, 'VALIDADO')
+                        RETURNING id
+                        """).param("persona", persona).param("club", club).query(UUID.class).single();
+        jdbc.sql("INSERT INTO siglim.designaciones (partido_id, arbitro_id) VALUES (:partido, :arbitro)")
+                .param("partido", partido).param("arbitro", arbitro).update();
+        UUID perfil = jdbc.sql("""
+                        INSERT INTO siglim.perfiles (persona_id, nombre_mostrado) VALUES (:persona, 'Árbitro central')
+                        RETURNING id
+                        """).param("persona", persona).query(UUID.class).single();
+        jdbc.sql("""
+                        INSERT INTO siglim.asignaciones_rol (perfil_id, rol_id, liga_id, ambito)
+                        SELECT :perfil, r.id, r.liga_id, 'PROPIO' FROM siglim.roles r WHERE r.codigo = 'ARBITRO'
+                        """).param("perfil", perfil).update();
+        return perfil;
+    }
+
     private CedulaDto alinearAmbos(UUID cedula) {
         return servicio.guardarAlineaciones(cedula, new GuardarAlineacionesRequest(List.of(
                 new JugadorRequest(escenario.localPrimera(), escenario.equipoLocal(), 10, true),

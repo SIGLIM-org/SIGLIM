@@ -10,8 +10,8 @@ import mx.tecnm.morelia.siglim.tesoreria.TipoCobro;
  * {@code PENDIENTE} a {@code VENCIDO} (RF-141, ADR-0009).
  *
  * <p>Se publica dentro de la misma transacción que vence el cobro: un oyente síncrono ve el cobro ya
- * vencido y, si falla, se revierte toda la ejecución (RNF-015). Aún no tiene oyentes: el aviso al club
- * es H-25 y la baja por falta de pago es B-22.
+ * vencido y, si falla, se revierte toda la ejecución (RNF-015). Lo escucha {@code notificaciones} para
+ * avisar al club (H-25.1); la baja por falta de pago es B-22.
  *
  * <p>Refs: B-31.1, RF-141, ADR-0006, ADR-0009
  *
