@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.28 · 26 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.29 · 26 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -77,6 +77,7 @@ Versión 5.28 · 26 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.26 | 25 de noviembre de 2026 | H-35.1: §6.7 con la fecha de programación (DEC-175): `GET /fechas?temporadaId=` (paginado, estado derivado de sus jornadas y conteos), `GET /fechas/{id}` con `bloques` por «Categoría – Grupo» (partidos con cancha, horario, árbitro central e insignias; descansos; sin asignar con `codigo` y `causa`), `POST /fechas/{id}/verificacion`, `/envio` y `/resolucion` sobre todas las jornadas en una transacción con la separación de funciones de RF-121, y `emparejamientoId` opcional en `POST /jornadas/{id}/partidos` (DEC-180). |
 | 5.27 | 25 de noviembre de 2026 | H-25.1: §6.14 con el contrato de los avisos: `GET /notificaciones?leida=` paginado (más recientes primero) con `X-No-Leidas` expuesta por CORS y `Cache-Control: no-store`, `POST /notificaciones/{id}/lectura` (`200` con el aviso; conserva la primera lectura; ajeno o inexistente `404`) y `POST /notificaciones/lectura` (`200` con `marcadas`); eventos `CEDULA_PENDIENTE`, `COBRO_VENCIDO` y `PROGRAMACION_PUBLICADA` con sus destinatarios por permiso. |
 | 5.28 | 26 de noviembre de 2026 | H-32.2: §6.7 «Programación automática (H-32.2)» con `POST /temporadas/{id}/calendario` (cuerpo opcional `{ fechaInicio?, grupoIds?, motivo? }`, `201` con `Location`, orden de errores `403` → `400` → `404` → `409 RF-003` → `409 RF-006` → `422 REFERENCIA_INVALIDA` → `400 RN-021` → `409 RN-020` con `grupos` → `422 VALIDACION`; grupos omitidos y advertencias; reemplazo lógico con `vigente`, DEC-187 a DEC-193), `GET /temporadas/{id}/calendario`, el listado de fechas solo hasta la última fecha del calendario vigente y con `descansos`, y `PATCH /fechas/{id}` `{ dias, motivo }`; §6.2 con `PATCH /temporadas/{id}/categorias/{categoriaTemporadaId}` `{ diasJuego }` con `programacion.jornada:EDITAR` (DEC-191) y `diasJuego` en las categorías de la temporada; §3.2 agrega `RN-020` a `409` (migración `20261126090000_emparejamientos_vigentes.sql`). |
+| 5.29 | 26 de noviembre de 2026 | H-32.3: §6.2 «Parámetros deportivos» con `vueltas` (1 a 4), `horaInicioJuego` y `horaFinJuego` (`HH:mm` o `HH:mm:ss`, minutos exactos, las dos o ninguna) opcionales en el `POST`, heredados de la vigente y con 1, 08:00 y 18:00 **[DEMO]** en la primera versión; horario ≥ mayor bloque de cancha, evaluado con los valores efectivos después del `404`; las horas en `camposDemo` y no las vueltas; no retroactivo (DEC-194 a DEC-196). |
 
 ## Índice
 
@@ -868,9 +869,12 @@ reglas de negocio (`409`). No hay `PATCH` ni `DELETE`.
 
 `POST /temporadas/{id}/parametros` lleva el juego **completo** de valores: nada se hereda de la
 versión anterior y todos los campos son obligatorios salvo `equiposPorArbitro`,
-`fechasFaseRegular`, `fechasFinalesUnidadDeportiva`, `esDemo` y `categorias`. `equiposPorArbitro`
-omitido conserva el de la versión vigente y, en la primera versión, vale 4 **[DEMO]** (RF-114); los
-dos de localía se heredan igual y, en la primera versión, valen sin definir y 10 **[DEMO]** (RF-120).
+`fechasFaseRegular`, `fechasFinalesUnidadDeportiva`, `vueltas`, `horaInicioJuego`,
+`horaFinJuego`, `esDemo` y `categorias`. `equiposPorArbitro` omitido conserva el de la versión
+vigente y, en la primera versión, vale 4 **[DEMO]** (RF-114); los dos de localía se heredan igual y,
+en la primera versión, valen sin definir y 10 **[DEMO]** (RF-120). Las vueltas y el horario de juego
+también se heredan y, en la primera versión, valen 1 y de 08:00 a 18:00 **[DEMO]**; las dos horas
+van juntas o ninguna (DEC-194).
 
 ```json
 {
@@ -883,6 +887,7 @@ dos de localía se heredan igual y, en la primera versión, valen sin definir y 
   "equiposAscienden": 2, "equiposDescienden": 2, "permiteCambioClub": true,
   "equiposPorArbitro": 4,
   "fechasFaseRegular": 18, "fechasFinalesUnidadDeportiva": 10,
+  "vueltas": 2, "horaInicioJuego": "08:00", "horaFinJuego": "18:00",
   "esDemo": true,
   "categorias": [ { "categoriaId": "…", "duracionJuegoMin": 70, "bloqueCanchaMin": 90 } ],
   "motivo": "Valores de demostración para la temporada"
@@ -903,6 +908,8 @@ dos de localía se heredan igual y, en la primera versión, valen sin definir y 
 | `equiposPorArbitro` | Entero de 1 a 100; opcional. Omitido conserva el de la versión vigente y, en la primera versión, vale 4 **[DEMO]**. Equipos activos por cada árbitro validado que el club debe presentar (RF-114, DEC-17, DEC-72) |
 | `fechasFaseRegular` | Entero de 1 a 99 **[PROPUESTA]**; opcional. Total de fechas (jornadas) de la fase regular. Omitido conserva el de la versión vigente; en la primera versión queda sin definir y la regla de las últimas fechas no se evalúa (RN-049, B-15.1) |
 | `fechasFinalesUnidadDeportiva` | Entero de 0 a 99 **[PROPUESTA]**; opcional. Últimas fechas de la fase regular en que se advierte una cancha fuera de la unidad deportiva; 0 desactiva la regla. Omitido conserva el de la versión vigente y, en la primera versión, vale 10 **[DEMO]** (RF-120, VAL-027, DEC-34) |
+| `vueltas` | Entero de 1 a 4 (`ck_parametros_vueltas`); opcional. Vueltas del calendario por el método del círculo. Omitido conserva el de la versión vigente y, en la primera versión, vale 1 (DEC-174, DEC-194) |
+| `horaInicioJuego`, `horaFinJuego` | Horas `HH:mm` o `HH:mm:ss` en minutos exactos (segundos en cero, **[PROPUESTA]**); opcionales, pero las dos o ninguna. Horario de juego por defecto de cada día de la fecha. Omitidas conservan las de la versión vigente y, en la primera versión, valen 08:00 y 18:00 **[DEMO]**. Fin > inicio, y el horario debe durar al menos el mayor bloque de cancha (el de la temporada o el de alguna fila de `categorias`) (DEC-176, DEC-194, DEC-195) |
 | `esDemo` | Opcional; omitido vale `true` |
 | `categorias` | Opcional. Duración y bloque propios de una categoría **asignada a esta temporada**, sin repetir categoría y con bloque ≥ duración. Una categoría omitida usa los valores de la temporada |
 | `motivo` | De 10 a 500 caracteres sin espacios en los extremos (RN-021); se guarda en la versión y en la auditoría |
@@ -921,13 +928,14 @@ la misma forma que `GET /temporadas/{id}/parametros/{version}`:
   "equiposAscienden": 2, "equiposDescienden": 2, "permiteCambioClub": true,
   "equiposPorArbitro": 4,
   "fechasFaseRegular": 18, "fechasFinalesUnidadDeportiva": 10,
+  "vueltas": 2, "horaInicioJuego": "08:00:00", "horaFinJuego": "18:00:00",
   "categorias": [ { "categoria": { "id": "…", "nombre": "Veteranos" }, "duracionJuegoMin": 70, "bloqueCanchaMin": 90 } ],
   "esDemo": true,
   "camposDemo": ["puntosVictoria", "puntosEmpate", "puntosDerrota", "criteriosDesempate",
                  "golesDefaultGanador", "golesDefaultPerdedor", "plazoValidacionCedulaHoras", "bloqueCanchaMin",
                  "clasificadosLiguilla", "formatoLiguilla", "empateLiguillaPorPenales",
                  "equiposAscienden", "equiposDescienden", "equiposPorArbitro",
-                 "fechasFinalesUnidadDeportiva"],
+                 "fechasFinalesUnidadDeportiva", "horaInicioJuego", "horaFinJuego"],
   "motivo": "Ajuste de la asamblea de la Liga",
   "creadoPor": { "id": "…", "nombre": "Ana López" },
   "creadoEn": "2026-11-05T10:00:00-06:00"
@@ -935,14 +943,15 @@ la misma forma que `GET /temporadas/{id}/parametros/{version}`:
 ```
 
 `categorias` va por el orden del catálogo y `creadoPor` y `fechasFaseRegular` se omiten si la versión
-no los tiene.
+no los tiene. Las horas se responden siempre en `HH:mm:ss`, también en `predeterminados`.
 
 - **`esDemo` y `camposDemo`.** `esDemo` vale para la versión completa: es `true` mientras la Liga no
   confirme los valores como oficiales (PEN-021). Con `esDemo: true`, `camposDemo` lista los campos
-  **[DEMO]** que la interfaz rotula «No oficial»; con `esDemo: false` va vacío. La lista es fija y no
-  incluye `duracionJuegoMin` (DEC-25 adopta 90 minutos como estándar) ni `permiteCambioClub`
-  (DEC-13). «Oficial» significa que la Liga confirmó los valores; se registra con una versión nueva
-  con `esDemo: false`.
+  **[DEMO]** que la interfaz rotula «No oficial»; con `esDemo: false` va vacío. La lista es fija,
+  incluye las dos horas del horario de juego (DEC-176) y no incluye `duracionJuegoMin` (DEC-25
+  adopta 90 minutos como estándar), `permiteCambioClub` (DEC-13) ni `vueltas` (DEC-174, DEC-194).
+  «Oficial» significa que la Liga confirmó los valores; se registra con una versión nueva con
+  `esDemo: false`.
 - **Criterios de desempate (RF-050).** Ninguno usa el nombre del equipo. Un valor fuera de la lista,
   como `NOMBRE_EQUIPO`, no se puede leer del JSON y responde `400 VALIDACION`.
 - **`GET /temporadas/{id}/parametros`** responde la vigente completa, el historial de la mayor a la
@@ -970,13 +979,18 @@ no los tiene.
   (`calcular_tabla()`, RN-022): un cambio de puntos o de criterios cambia las tablas de toda la
   temporada. **No** cambia lo ya guardado: el `fin_bloque` de los partidos programados, el
   `plazo_vence_en` de las cédulas enviadas, ni las fases y propuestas de movimiento que registraron
-  su `parametros_id`.
+  su `parametros_id`. Cambiar las vueltas o el horario de juego tampoco cambia el calendario ya
+  generado ni los partidos ya programados: las vueltas se aplican al regenerar el calendario y el
+  horario en la siguiente asignación de una fecha. El cambio no se bloquea; F-11 lo avisa (DEC-196).
 - **Errores.** Motivo ausente o de menos de 10 caracteres, `400 RN-021`; motivo de más de 500 o
   cualquier otro campo inválido, `400 VALIDACION` con la extensión `errores` (`campo`, `mensaje`),
   como en §3. El motivo se valida antes que los demás campos. Temporada inexistente o de otra liga,
   `404`; categoría inexistente o no asignada a la temporada, `422 REFERENCIA_INVALIDA` con la
   extensión `categoriasInvalidas`; temporada `CERRADA`, `409 RF-003` (`CONFIGURACION` y `ACTIVA`
-  admiten versiones nuevas). En el `GET` por versión, una versión inexistente responde `404`.
+  admiten versiones nuevas). Al final, con los valores **efectivos** (vueltas y horas ya heredadas),
+  un horario de juego más corto que el mayor bloque de cancha responde `400 VALIDACION` con
+  `errores: [{ "campo": "horaFinJuego", … }]`; por eso puede llegar después del `404`, del `422` y
+  del `409` (DEC-195). En el `GET` por versión, una versión inexistente responde `404`.
 - **Concurrencia.** El backend bloquea la temporada (`FOR UPDATE`, el mismo candado que activación y
   cierre) antes de leer la versión anterior e insertar, así que dos registros simultáneos reciben
   versiones consecutivas.

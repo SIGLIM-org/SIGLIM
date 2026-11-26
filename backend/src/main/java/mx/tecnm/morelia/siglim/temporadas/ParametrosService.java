@@ -1,5 +1,8 @@
 package mx.tecnm.morelia.siglim.temporadas;
 
+import java.time.Duration;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -45,8 +48,15 @@ import org.springframework.transaction.annotation.Transactional;
  *       ({@link #CAMPOS_DEMO}); sin él, la lista va vacía. «Oficial» significa que la Liga confirmó
  *       los valores (PEN-021).</li>
  *   <li><b>Juego completo (D3).</b> Cada versión se registra con todos sus valores; nada se hereda de
- *       la anterior salvo {@code equiposPorArbitro} y los dos parámetros de localía, que si se
- *       omiten conservan los de la versión vigente (RF-114, RF-120). Las versiones no se editan ni se borran (RF-006).</li>
+ *       la anterior salvo {@code equiposPorArbitro}, los dos parámetros de localía, las
+ *       {@code vueltas} y el horario de juego ({@code horaInicioJuego} y {@code horaFinJuego}), que
+ *       si se omiten conservan los de la versión vigente (RF-114, RF-120, DEC-194). Las versiones no
+ *       se editan ni se borran (RF-006).</li>
+ *   <li><b>Horario de juego (DEC-194 a DEC-196).</b> Las vueltas van de 1 a 4 (DEC-174). Las dos
+ *       horas van juntas o ninguna, en horas y minutos exactos, con el fin posterior al inicio; el
+ *       horario debe alcanzar para el mayor bloque de cancha de la versión (el de la temporada y el
+ *       de cada fila por categoría), evaluado con los valores efectivos, ya heredados. La primera
+ *       versión usa 1 vuelta y de 08:00 a 18:00 [DEMO] (DEC-176).</li>
  *   <li><b>Estado (D4).</b> Se registra con la temporada en {@code CONFIGURACION} o {@code ACTIVA};
  *       {@code CERRADA} responde {@code 409 RF-003} (RN-005).</li>
  *   <li><b>Motivo (D5, RN-021).</b> Obligatorio, de 10 a 500 caracteres sin espacios en los extremos:
@@ -75,10 +85,12 @@ import org.springframework.transaction.annotation.Transactional;
  * <p><b>Qué es retroactivo.</b> La tabla de posiciones se calcula con la versión vigente, así que un
  * cambio de puntos o criterios recalcula todas las tablas de la temporada. No cambian
  * {@code fin_bloque} de partidos ya programados, {@code plazo_vence_en} de cédulas ya enviadas ni
- * las fases y propuestas que guardaron su {@code parametros_id}.
+ * las fases y propuestas que guardaron su {@code parametros_id}. Cambiar las vueltas o el horario de
+ * juego no cambia el calendario ya generado ni los partidos ya programados: las vueltas se aplican al
+ * regenerar el calendario y el horario en la siguiente asignación de una fecha (DEC-196).
  *
- * <p>Refs: H-05.2, RF-003, RF-006, RF-050, RF-093, RF-100, RN-021, DEC-25, DEC-26, DEC-27, DEC-28,
- * DEC-29, ADR-0007
+ * <p>Refs: H-05.2, H-32.3, RF-003, RF-006, RF-034, RF-050, RF-093, RF-100, RN-021, DEC-25, DEC-26,
+ * DEC-27, DEC-28, DEC-29, DEC-174, DEC-176, DEC-194, DEC-195, DEC-196, ADR-0007
  */
 @Service
 public class ParametrosService {
@@ -107,6 +119,11 @@ public class ParametrosService {
     private static final int MAXIMO_EQUIPOS_POR_ARBITRO = 100;
     /** [PROPUESTA] Tope de fechas de la fase regular y de las últimas fechas de VAL-027. */
     private static final int MAXIMO_FECHAS = 99;
+    /** {@code ck_parametros_vueltas}: de 1 a 4 vueltas del calendario (DEC-174). */
+    private static final int VUELTAS_MAXIMAS = 4;
+    private static final DateTimeFormatter HORA_MINUTO = DateTimeFormatter.ofPattern("HH:mm");
+    private static final String MENSAJE_UNA_HORA = "Indica la hora de inicio y la de fin del horario de juego, "
+            + "o ninguna para conservar las de la versión vigente.";
     /** {@code ck_parametros_liguilla}. */
     private static final Set<Integer> CLASIFICADOS_VALIDOS = Set.of(2, 4, 8, 16, 32);
     private static final int MAXIMO_CRITERIOS = CriterioDesempate.values().length;
@@ -115,15 +132,18 @@ public class ParametrosService {
      * Campos [DEMO] que la interfaz rotula «No oficial» mientras {@code esDemo} sea {@code true}
      * (D2): puntos (DEC-26), desempates (DEC-27), marcador por default (DEC-24), plazo de la cédula
      * (DEC-20), bloque de cancha (DEC-25), liguilla (DEC-28), ascensos y descensos (DEC-29), la
-     * cuota de árbitros (RF-114) y las últimas fechas sin canchas externas (VAL-027). El total de
-     * fechas de la fase regular no es [DEMO]: es el calendario de la temporada. No incluye {@code duracionJuegoMin}, que DEC-25 adopta como
-     * estándar, ni {@code permiteCambioClub}, que decide DEC-13.
+     * cuota de árbitros (RF-114), las últimas fechas sin canchas externas (VAL-027) y el horario de
+     * juego (DEC-176). El total de fechas de la fase regular no es [DEMO]: es el calendario de la
+     * temporada. No incluye {@code duracionJuegoMin}, que DEC-25 adopta como estándar, ni
+     * {@code permiteCambioClub}, que decide DEC-13, ni {@code vueltas}, que no es [DEMO]: la fija
+     * quien configura los parámetros de la temporada (DEC-174, DEC-194).
      */
     static final List<String> CAMPOS_DEMO = List.of(
             "puntosVictoria", "puntosEmpate", "puntosDerrota", "criteriosDesempate",
             "golesDefaultGanador", "golesDefaultPerdedor", "plazoValidacionCedulaHoras", "bloqueCanchaMin",
             "clasificadosLiguilla", "formatoLiguilla", "empateLiguillaPorPenales",
-            "equiposAscienden", "equiposDescienden", "equiposPorArbitro", "fechasFinalesUnidadDeportiva");
+            "equiposAscienden", "equiposDescienden", "equiposPorArbitro", "fechasFinalesUnidadDeportiva",
+            "horaInicioJuego", "horaFinJuego");
 
     /** Campos de una versión en el orden del contrato, para {@code camposCambiados}. */
     private static final Map<String, Function<ValoresParametros, Object>> CAMPOS = campos();
@@ -190,10 +210,17 @@ public class ParametrosService {
      * <p>Orden: permiso ({@code 403}) → motivo ({@code 400 RN-021} o {@code VALIDACION}) → campos
      * ({@code 400 VALIDACION} con la extensión {@code errores}) → temporada, con candado
      * ({@code 404}) → categorías asignadas ({@code 422 REFERENCIA_INVALIDA}) → temporada cerrada
-     * ({@code 409 RF-003}).
+     * ({@code 409 RF-003}) → horario de juego que no alcanza para el mayor bloque de cancha
+     * ({@code 400 VALIDACION}).
      *
      * <p>Si la petición omite {@code equiposPorArbitro}, la versión nueva conserva el de la versión
-     * vigente; solo la primera versión usa el 4 [DEMO] de la tabla (RF-114).
+     * vigente; solo la primera versión usa el 4 [DEMO] de la tabla (RF-114). Lo mismo con la localía,
+     * las vueltas y el horario de juego (DEC-194).
+     *
+     * <p>La regla del horario contra el bloque de cancha (DEC-195) usa los valores <b>efectivos</b>,
+     * con las vueltas y las horas ya heredadas de la versión vigente; por eso se evalúa con la
+     * temporada bloqueada y puede responder {@code 400} después del {@code 404}, del {@code 422} y
+     * del {@code 409}.
      */
     @Transactional
     public ParametrosDto registrar(UUID temporadaId, RegistrarParametrosRequest peticion) {
@@ -215,6 +242,8 @@ public class ParametrosService {
         FilaVersion vigente = parametros.buscarVigente(temporada.id()).orElse(null);
         valores = heredarEquiposPorArbitro(valores, peticion, vigente);
         valores = heredarLocalia(valores, peticion, vigente);
+        valores = heredarCalendario(valores, peticion, vigente);
+        validarHorarioAlcanzaBloque(valores);
         ValoresParametros anterior = vigente == null ? null
                 : completos(vigente, parametros.categoriasDeVersion(vigente.id()));
 
@@ -263,6 +292,42 @@ public class ParametrosService {
                 : vigente == null ? tabla.fechasFinalesUnidadDeportiva()
                         : vigente.valores().fechasFinalesUnidadDeportiva();
         return valores.conLocalia(fechasFaseRegular, fechasFinales);
+    }
+
+    /**
+     * DEC-194: las vueltas y el horario de juego que se omiten conservan los de la versión vigente;
+     * sin versión vigente valen 1 y de 08:00 a 18:00 [DEMO] (DEC-174, DEC-176). Las dos horas se
+     * heredan juntas: {@link #validar} ya rechazó una sola.
+     */
+    private static ValoresParametros heredarCalendario(ValoresParametros valores,
+            RegistrarParametrosRequest peticion, FilaVersion vigente) {
+        ParametrosPredeterminadosDto tabla = ParametrosPredeterminadosDto.DE_LA_TABLA;
+        int vueltas = peticion.vueltas() != null ? valores.vueltas()
+                : vigente == null ? tabla.vueltas() : vigente.valores().vueltas();
+        if (peticion.horaInicioJuego() != null) {
+            return valores.conCalendario(vueltas, valores.horaInicioJuego(), valores.horaFinJuego());
+        }
+        return vigente == null
+                ? valores.conCalendario(vueltas, tabla.horaInicioJuego(), tabla.horaFinJuego())
+                : valores.conCalendario(vueltas, vigente.valores().horaInicioJuego(),
+                        vigente.valores().horaFinJuego());
+    }
+
+    /**
+     * DEC-195: el horario de juego efectivo debe alcanzar para el mayor bloque de cancha de la
+     * versión, el de la temporada o el de alguna fila por categoría; si no, ningún partido cabría.
+     */
+    private static void validarHorarioAlcanzaBloque(ValoresParametros valores) {
+        int bloque = valores.categorias().stream()
+                .mapToInt(ValorCategoria::bloqueCanchaMin)
+                .reduce(valores.bloqueCanchaMin(), Math::max);
+        long minutos = Duration.between(valores.horaInicioJuego(), valores.horaFinJuego()).toMinutes();
+        if (minutos < bloque) {
+            String mensaje = "El horario de juego (de " + HORA_MINUTO.format(valores.horaInicioJuego()) + " a "
+                    + HORA_MINUTO.format(valores.horaFinJuego()) + ", " + minutos
+                    + " min) no alcanza para un bloque de cancha de " + bloque + " min.";
+            throw invalida(mensaje).con("errores", List.of(Map.of("campo", "horaFinJuego", "mensaje", mensaje)));
+        }
     }
 
     // ── Validación del cuerpo ──────────────────────────────────────────────────────────────────
@@ -347,13 +412,52 @@ public class ParametrosService {
                 : errores.entero("fechasFinalesUnidadDeportiva", p.fechasFinalesUnidadDeportiva(), 0, MAXIMO_FECHAS,
                         "las últimas fechas sin canchas externas (VAL-027)");
 
+        // DEC-174, DEC-194: si se omiten, registrar() las reemplaza por las de la versión vigente.
+        int vueltas = p.vueltas() == null
+                ? ParametrosPredeterminadosDto.DE_LA_TABLA.vueltas()
+                : errores.entero("vueltas", p.vueltas(), 1, VUELTAS_MAXIMAS, "las vueltas del calendario");
+        Horario horario = horarioDeJuego(p.horaInicioJuego(), p.horaFinJuego(), errores);
+
         List<ValorCategoria> categorias = categorias(p.categorias(), errores);
 
         errores.lanzarSiHay();
         return new ValoresParametros(victoria, empate, derrota, criterios, ganador, perdedor, plazo, duracion, bloque,
                 clasificados, p.formatoLiguilla(), p.empateLiguillaPorPenales(), ascienden, descienden,
-                p.permiteCambioClub(), equiposPorArbitro, fechasFaseRegular, fechasFinales,
-                p.esDemo() == null || p.esDemo(), categorias);
+                p.permiteCambioClub(), equiposPorArbitro, fechasFaseRegular, fechasFinales, vueltas, horario.inicio(),
+                horario.fin(), p.esDemo() == null || p.esDemo(), categorias);
+    }
+
+    /**
+     * DEC-194, DEC-195: las dos horas juntas o ninguna, en horas y minutos exactos y con el fin
+     * posterior al inicio. Sin ninguna, devuelve las de la tabla como valor provisional que
+     * {@code registrar()} reemplaza por las de la versión vigente.
+     */
+    private static Horario horarioDeJuego(LocalTime inicio, LocalTime fin, Errores errores) {
+        ParametrosPredeterminadosDto tabla = ParametrosPredeterminadosDto.DE_LA_TABLA;
+        if (inicio == null && fin == null) {
+            return new Horario(tabla.horaInicioJuego(), tabla.horaFinJuego());
+        }
+        if (inicio == null || fin == null) {
+            errores.agregar(inicio == null ? "horaInicioJuego" : "horaFinJuego", MENSAJE_UNA_HORA);
+            return new Horario(tabla.horaInicioJuego(), tabla.horaFinJuego());
+        }
+        boolean exactas = true;
+        for (Map.Entry<String, LocalTime> hora : List.of(Map.entry("horaInicioJuego", inicio),
+                Map.entry("horaFinJuego", fin))) {
+            if (hora.getValue().getSecond() != 0 || hora.getValue().getNano() != 0) {
+                errores.agregar(hora.getKey(), "El horario de juego se indica en horas y minutos.");
+                exactas = false;
+            }
+        }
+        if (exactas && !fin.isAfter(inicio)) {
+            errores.agregar("horaFinJuego", "El fin del horario de juego (" + HORA_MINUTO.format(fin)
+                    + ") debe ser posterior a su inicio (" + HORA_MINUTO.format(inicio) + ").");
+        }
+        return new Horario(inicio, fin);
+    }
+
+    /** Inicio y fin del horario de juego ya validados (DEC-194). */
+    private record Horario(LocalTime inicio, LocalTime fin) {
     }
 
     /** D6: de 1 a 8, el primero PUNTOS, sin repetidos y SORTEO solo al final (RF-050, DEC-27). */
@@ -469,7 +573,7 @@ public class ParametrosService {
                 v.plazoValidacionCedulaHoras(), v.duracionJuegoMin(), v.bloqueCanchaMin(), v.clasificadosLiguilla(),
                 v.formatoLiguilla(), v.empateLiguillaPorPenales(), v.equiposAscienden(), v.equiposDescienden(),
                 v.permiteCambioClub(), v.equiposPorArbitro(), v.fechasFaseRegular(),
-                v.fechasFinalesUnidadDeportiva(),
+                v.fechasFinalesUnidadDeportiva(), v.vueltas(), v.horaInicioJuego(), v.horaFinJuego(),
                 categorias.stream()
                         .map(c -> new ParametrosCategoriaDto(c.categoria(), c.duracionJuegoMin(), c.bloqueCanchaMin()))
                         .toList(),
@@ -519,6 +623,9 @@ public class ParametrosService {
         campos.put("equiposPorArbitro", ValoresParametros::equiposPorArbitro);
         campos.put("fechasFaseRegular", ValoresParametros::fechasFaseRegular);
         campos.put("fechasFinalesUnidadDeportiva", ValoresParametros::fechasFinalesUnidadDeportiva);
+        campos.put("vueltas", ValoresParametros::vueltas);
+        campos.put("horaInicioJuego", ValoresParametros::horaInicioJuego);
+        campos.put("horaFinJuego", ValoresParametros::horaFinJuego);
         campos.put("esDemo", ValoresParametros::esDemo);
         return Collections.unmodifiableMap(campos);
     }

@@ -1,5 +1,6 @@
 package mx.tecnm.morelia.siglim.temporadas;
 
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -51,6 +52,9 @@ final class ParametrosPrueba {
         Integer equiposPorArbitro = 4;
         Integer fechasFaseRegular;
         Integer fechasFinalesUnidadDeportiva;
+        Integer vueltas;
+        LocalTime horaInicioJuego;
+        LocalTime horaFinJuego;
         Boolean esDemo;
         List<CategoriaRequest> categorias;
         String motivo = MOTIVO;
@@ -110,6 +114,19 @@ final class ParametrosPrueba {
             return this;
         }
 
+        /** Vueltas del calendario (DEC-174); {@code null} las hereda de la vigente (DEC-194). */
+        Juego vueltas(Integer valor) {
+            vueltas = valor;
+            return this;
+        }
+
+        /** Horario de juego (DEC-176); con las dos en {@code null} se hereda de la vigente (DEC-194). */
+        Juego horario(LocalTime inicio, LocalTime fin) {
+            horaInicioJuego = inicio;
+            horaFinJuego = fin;
+            return this;
+        }
+
         Juego motivo(String texto) {
             motivo = texto;
             return this;
@@ -121,7 +138,7 @@ final class ParametrosPrueba {
                     golesDefaultPerdedor, plazoValidacionCedulaHoras, duracionJuegoMin, bloqueCanchaMin,
                     clasificadosLiguilla, formatoLiguilla, empateLiguillaPorPenales, equiposAscienden,
                     equiposDescienden, permiteCambioClub, equiposPorArbitro, fechasFaseRegular,
-                    fechasFinalesUnidadDeportiva, esDemo,
+                    fechasFinalesUnidadDeportiva, vueltas, horaInicioJuego, horaFinJuego, esDemo,
                     categorias == null ? null : List.copyOf(categorias), motivo);
         }
     }
