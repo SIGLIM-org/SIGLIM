@@ -23,6 +23,7 @@ import { ModalEnvioJornada } from '@/features/programacion/ModalEnvioJornada'
 import { ModalNuevaJornada } from '@/features/programacion/ModalNuevaJornada'
 import { ModalPartido } from '@/features/programacion/ModalPartido'
 import { ResumenVerificacion } from '@/features/programacion/ResumenVerificacion'
+import { TarjetaCalendario } from '@/features/programacion/calendario/TarjetaCalendario'
 import {
   useAceptarLocalia,
   useJornada,
@@ -311,6 +312,8 @@ export function ProgramacionJornadas() {
 
       {temporada && permisos.editar && grupos.length > 0 && (
         <>
+          <TarjetaCalendario temporada={temporada} categorias={categorias.data ?? []} />
+
           <section
             aria-label="Selección de la jornada"
             className="rounded-lg border border-border bg-surface p-4"

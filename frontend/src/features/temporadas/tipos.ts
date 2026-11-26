@@ -121,7 +121,20 @@ export type GrupoResumen = {
 export type CategoriaTemporada = {
   id: string
   categoria: Pick<Categoria, 'id' | 'nombre' | 'tipo' | 'orden' | 'categoriaSuperior'>
+  /**
+   * Días ISO 8601 en que juega la categoría (1 = lunes … 7 = domingo), ordenados. El valor inicial
+   * depende del tipo de categoría [DEMO] (DEC-177, DEC-191).
+   */
+  diasJuego: number[]
   grupos: GrupoResumen[]
+}
+
+/**
+ * `PATCH /temporadas/{id}/categorias/{categoriaTemporadaId}` (DEC-191): de 1 a 7 días ISO sin
+ * repetir; el backend los guarda ordenados.
+ */
+export type ActualizarDiasJuegoPeticion = {
+  diasJuego: number[]
 }
 
 /** `POST /grupos` (RF-005). */
