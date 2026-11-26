@@ -58,6 +58,7 @@ export const CATEGORIAS_TEMPORADA: CategoriaTemporada[] = [
   {
     id: 'ct-libre',
     categoria: { id: 'cat-libre', nombre: 'Libre', tipo: 'LIBRE', orden: 1 },
+    diasJuego: [7],
     grupos: [
       { id: 'g-a', nombre: 'A', equipos: 8 },
       { id: 'g-b', nombre: 'B', equipos: 6 },
@@ -66,6 +67,7 @@ export const CATEGORIAS_TEMPORADA: CategoriaTemporada[] = [
   {
     id: 'ct-vet',
     categoria: { id: 'cat-vet', nombre: 'Veteranos', tipo: 'VETERANOS', orden: 3 },
+    diasJuego: [5, 7],
     grupos: [{ id: 'g-u', nombre: 'Único', equipos: 5 }],
   },
 ]

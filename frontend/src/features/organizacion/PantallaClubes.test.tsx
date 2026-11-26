@@ -71,6 +71,7 @@ const CATEGORIAS: CategoriaTemporada[] = [
   {
     id: 'ct-libre',
     categoria: { id: 'cat-libre', nombre: 'Libre', tipo: 'LIBRE', orden: 1 },
+    diasJuego: [7],
     grupos: [
       { id: 'g-a', nombre: 'A', equipos: 3 },
       { id: 'g-b', nombre: 'B', equipos: 2 },
@@ -79,6 +80,7 @@ const CATEGORIAS: CategoriaTemporada[] = [
   {
     id: 'ct-infantil',
     categoria: { id: 'cat-infantil', nombre: 'Infantil', tipo: 'INFANTIL', orden: 2 },
+    diasJuego: [6],
     grupos: [{ id: 'g-i', nombre: 'Único', equipos: 0 }],
   },
 ]

@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
   ActualizarCategoriaPeticion,
+  ActualizarDiasJuegoPeticion,
   ActualizarTemporadaPeticion,
   Categoria,
   CategoriaTemporada,
@@ -197,6 +198,27 @@ export function useAsignarCategoria(temporadaId: string) {
   return useMutation({
     mutationFn: (categoriaId: string) =>
       api.post<CategoriaTemporada>(`temporadas/${temporadaId}/categorias`, { categoriaId }),
+    onSuccess: invalidar,
+  })
+}
+
+/**
+ * `PATCH /temporadas/{id}/categorias/{categoriaTemporadaId}` con `{ diasJuego }` (H-32.4, DEC-191).
+ * Exige `programacion.jornada:EDITAR`, no el permiso de M-02: los días solo sirven para programar.
+ * El cambio aplica a las asignaciones futuras; no mueve partidos ya programados.
+ */
+export function useActualizarDiasJuego(temporadaId: string) {
+  const invalidar = useInvalidarTemporadas()
+
+  return useMutation({
+    mutationFn: ({
+      categoriaTemporadaId,
+      ...peticion
+    }: ActualizarDiasJuegoPeticion & { categoriaTemporadaId: string }) =>
+      api.patch<CategoriaTemporada>(
+        `temporadas/${temporadaId}/categorias/${categoriaTemporadaId}`,
+        peticion,
+      ),
     onSuccess: invalidar,
   })
 }

@@ -63,8 +63,8 @@ const TEMPORADAS = [
 ]
 
 const CATEGORIAS: CategoriaTemporada[] = [
-  { id: 'ct-1', categoria: { id: 'cat-libre', nombre: 'Libre', tipo: 'LIBRE', orden: 1 }, grupos: [] },
-  { id: 'ct-2', categoria: { id: 'cat-vet', nombre: 'Veteranos', tipo: 'VETERANOS', orden: 2 }, grupos: [] },
+  { id: 'ct-1', categoria: { id: 'cat-libre', nombre: 'Libre', tipo: 'LIBRE', orden: 1 }, diasJuego: [7], grupos: [] },
+  { id: 'ct-2', categoria: { id: 'cat-vet', nombre: 'Veteranos', tipo: 'VETERANOS', orden: 2 }, diasJuego: [5, 7], grupos: [] },
 ]
 
 const CLUBES: Club[] = [

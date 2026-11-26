@@ -15,6 +15,8 @@ import type { Equipo } from '@/features/organizacion/tipos'
 import type { Permiso } from '@/features/seguridad/tipos'
 import type { CategoriaTemporada, Temporada } from '@/features/temporadas/tipos'
 import type { PublicacionPendiente } from '@/features/publicacion/tipos'
+import type { Calendario } from '@/features/programacion/calendario/tipos'
+import { version } from '@/features/temporadas/datosPruebaEstructura'
 import { ApiError } from '@/lib/api/ApiError'
 import type { Pagina } from '@/lib/api/tipos'
 
@@ -63,6 +65,7 @@ const CATEGORIAS: CategoriaTemporada[] = [
       tipo: 'LIBRE',
       orden: 1,
     },
+    diasJuego: [7],
     grupos: [{ id: 'g1', nombre: 'Grupo A', equipos: 4 }],
   },
 ]
@@ -186,6 +189,20 @@ type Respuestas = {
   equipos?: Pagina<Equipo>
   verificacion?: VerificacionJornada
   pendientes?: PublicacionPendiente[]
+  calendario?: Calendario
+}
+
+const SIN_CALENDARIO: Calendario = {
+  temporadaId: 't1',
+  grupos: [
+    {
+      grupoId: 'g1',
+      nombre: 'Grupo A',
+      categoria: { id: 'cat1', nombre: 'Libre Primera' },
+      generado: false,
+      fechas: [],
+    },
+  ],
 }
 
 function responder({
@@ -196,6 +213,7 @@ function responder({
   equipos = pagina(EQUIPOS),
   verificacion = CONFLICTOS,
   pendientes = [],
+  calendario = SIN_CALENDARIO,
 }: Respuestas = {}) {
   get.mockImplementation(async (ruta: string) => {
     if (ruta.startsWith('temporadas?')) {
@@ -218,6 +236,12 @@ function responder({
     }
     if (ruta.startsWith('publicaciones/pendientes?')) {
       return pagina(pendientes)
+    }
+    if (ruta === 'temporadas/t1/calendario') {
+      return calendario
+    }
+    if (ruta === 'temporadas/t1/parametros') {
+      return { vigente: version(1, { temporadaId: 't1' }), historial: [] }
     }
 
     throw new Error(`GET no simulado: ${ruta}`)
@@ -309,6 +333,16 @@ describe('PantallaProgramacion (F-22, H-12.4)', () => {
 
     expect(await screen.findByRole('heading', { name: 'Jornada 1' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Ver el detalle del partido/ })).not.toBeInTheDocument()
+  })
+
+  it('H-32.4: con EDITAR muestra la tarjeta del calendario y el botón para generarlo', async () => {
+    otorgar(CONSULTAR, EDITAR)
+    responder()
+    montarPantalla()
+
+    const tarjeta = await screen.findByRole('region', { name: 'Calendario de la temporada' })
+    expect(await within(tarjeta).findByText('Sin generar · 1 grupo')).toBeInTheDocument()
+    expect(within(tarjeta).getByRole('button', { name: 'Generar calendario' })).toBeEnabled()
   })
 
   it('habilita el envío cuando la verificación no encuentra conflictos', async () => {
