@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { InsigniaNoOficial } from '@/components/ui/InsigniaNoOficial'
+import { normalizarHora } from '@/features/canchas/horariosClub'
 import {
   etiquetaCampoParametro,
   etiquetaCriterio,
@@ -12,7 +13,16 @@ type Props = {
   version: VersionParametros
 }
 
-type Dato = { campo: CampoParametro; valor: ReactNode }
+/**
+ * Un dato del resumen. `etiqueta` reemplaza la del campo y `camposDemo` lista los campos cuya
+ * marca [DEMO] rotula el dato (el horario de juego junta dos campos en un renglón).
+ */
+type Dato = {
+  campo: CampoParametro
+  valor: ReactNode
+  etiqueta?: string
+  camposDemo?: CampoParametro[]
+}
 
 function siNo(valor: boolean): string {
   return valor ? 'Sí' : 'No'
@@ -51,6 +61,18 @@ export function ResumenParametros({ version }: Props) {
       ],
     },
     {
+      titulo: 'Calendario y horario de juego',
+      datos: [
+        { campo: 'vueltas', valor: version.vueltas },
+        {
+          campo: 'horaInicioJuego',
+          etiqueta: 'Horario de juego',
+          camposDemo: ['horaInicioJuego', 'horaFinJuego'],
+          valor: `${normalizarHora(version.horaInicioJuego)} a ${normalizarHora(version.horaFinJuego)}`,
+        },
+      ],
+    },
+    {
       titulo: 'Liguilla',
       datos: [
         { campo: 'clasificadosLiguilla', valor: version.clasificadosLiguilla },
@@ -74,11 +96,11 @@ export function ResumenParametros({ version }: Props) {
         <section key={titulo} className="flex flex-col gap-2">
           <h3 className="text-headline-sm text-text-main">{titulo}</h3>
           <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-3">
-            {datos.map(({ campo, valor }) => (
+            {datos.map(({ campo, valor, etiqueta, camposDemo = [campo] }) => (
               <div key={campo} className="flex min-w-0 flex-col gap-1">
                 <dt className="flex flex-wrap items-center gap-2 text-body-sm text-text-muted">
-                  {etiquetaCampoParametro[campo]}
-                  {demo.has(campo) && <InsigniaNoOficial />}
+                  {etiqueta ?? etiquetaCampoParametro[campo]}
+                  {camposDemo.some((otro) => demo.has(otro)) && <InsigniaNoOficial />}
                 </dt>
                 <dd className="font-mono text-mono-data text-text-main">{valor}</dd>
               </div>

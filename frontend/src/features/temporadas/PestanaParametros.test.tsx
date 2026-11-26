@@ -78,9 +78,10 @@ describe('PestanaParametros', () => {
         'Aún no hay parámetros. La temporada no podrá activarse hasta guardar la versión 1 (RF-100).',
       ),
     ).toBeInTheDocument()
-    // Los 13 campos [DEMO] de §6.2, con una sola insignia para los criterios de desempate, más el
-    // cambio de club entre temporadas (B-06.2).
-    expect(within(formularioParametros).getAllByText('No oficial')).toHaveLength(14)
+    // Los 13 campos [DEMO] de §6.2 que edita el formulario, con una sola insignia para los
+    // criterios de desempate, las dos horas del horario de juego (DEC-176) y el cambio de club
+    // entre temporadas (B-06.2). Las vueltas no son [DEMO] (DEC-174).
+    expect(within(formularioParametros).getAllByText('No oficial')).toHaveLength(16)
     expect(screen.getByRole('button', { name: 'Guardar la versión 1' })).toBeEnabled()
   })
 
@@ -103,6 +104,8 @@ describe('PestanaParametros', () => {
 
     expect(post).toHaveBeenCalledWith('temporadas/t-1/parametros', {
       ...VALORES,
+      horaInicioJuego: '08:00',
+      horaFinJuego: '18:00',
       esDemo: true,
       categorias: [],
       motivo: MOTIVO,
@@ -313,6 +316,108 @@ describe('PestanaParametros', () => {
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
       'La temporada está cerrada: solo lectura.',
     )
+  })
+
+  describe('vueltas y horario de juego (H-32.3)', () => {
+    it('DEC-194: el formulario precarga las vueltas y el horario de la vigente en HH:mm', async () => {
+      montarEstructura()
+      await formulario()
+
+      expect(screen.getByLabelText('Vueltas del calendario')).toHaveValue(1)
+      expect(screen.getByLabelText('Vueltas del calendario')).toHaveAccessibleDescription(
+        'Cada equipo enfrenta a los demás de su grupo una vez por vuelta.',
+      )
+      expect(screen.getByLabelText('Inicio del horario de juego')).toHaveValue('08:00')
+      expect(screen.getByLabelText('Fin del horario de juego')).toHaveValue('18:00')
+      expect(
+        screen.getByText(
+          'Horario por defecto de cada día de juego. Si una cancha tiene horarios disponibles ese día, se usan esos.',
+        ),
+      ).toBeInTheDocument()
+    })
+
+    it('DEC-196: cambiar las vueltas manda vueltas en el POST y el modal avisa que no es retroactivo', async () => {
+      post.mockResolvedValue(version(3, { vueltas: 2 }))
+      montarEstructura()
+      await formulario()
+
+      const vueltas = screen.getByLabelText('Vueltas del calendario')
+      await userEvent.clear(vueltas)
+      await userEvent.type(vueltas, '2')
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar como nueva versión' }))
+      const dialogo = screen.getByRole('dialog', { name: 'Guardar como versión 3' })
+      expect(
+        within(dialogo).getByText(
+          /Las vueltas nuevas se aplican al regenerar el calendario y el horario, en la siguiente asignación de una fecha\. El calendario ya generado y los partidos ya programados no cambian\./,
+        ),
+      ).toBeInTheDocument()
+
+      await userEvent.type(within(dialogo).getByLabelText(/Motivo/), MOTIVO)
+      await userEvent.click(within(dialogo).getByRole('button', { name: 'Guardar versión' }))
+
+      expect(post).toHaveBeenCalledWith(
+        'temporadas/t-1/parametros',
+        expect.objectContaining({ vueltas: 2, horaInicioJuego: '08:00', horaFinJuego: '18:00' }),
+      )
+    })
+
+    it('DEC-196: sin cambiar vueltas ni horario el modal no muestra el aviso del calendario', async () => {
+      montarEstructura()
+      await formulario()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Subir Goles a favor' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar como nueva versión' }))
+      const dialogo = screen.getByRole('dialog', { name: 'Guardar como versión 3' })
+
+      expect(within(dialogo).queryByText(/Las vueltas nuevas/)).not.toBeInTheDocument()
+    })
+
+    it('DEC-195: un 400 del servidor en horaFinJuego marca ese campo', async () => {
+      const mensaje =
+        'El horario de juego (de 08:00 a 18:00, 600 min) no alcanza para un bloque de cancha de 700 min.'
+      post.mockRejectedValue(
+        errorApi(400, 'VALIDACION', mensaje, { errores: [{ campo: 'horaFinJuego', mensaje }] }),
+      )
+      montarEstructura()
+      await formulario()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Subir Goles a favor' }))
+      await guardarConMotivo('Guardar como nueva versión', 'Guardar como versión 3')
+
+      const fin = screen.getByLabelText('Fin del horario de juego')
+      expect(await screen.findByText(mensaje, { selector: `#${fin.id}-error` })).toBeInTheDocument()
+      expect(fin).toHaveAttribute('aria-invalid', 'true')
+      expect(screen.getByLabelText('Inicio del horario de juego')).not.toHaveAttribute('aria-invalid')
+    })
+
+    it('DEC-176: el resumen muestra las vueltas y el horario con «No oficial» si la versión lo marca', async () => {
+      sesion.yo.permisos = permisos(CONSULTAR, EDITAR)
+      get.mockImplementation(
+        resolverGet(
+          respuestasPorDefecto({
+            'temporadas/t-1/parametros': {
+              vigente: version(2, {
+                vueltas: 2,
+                horaInicioJuego: '09:00:00',
+                horaFinJuego: '17:30:00',
+                camposDemo: ['horaInicioJuego', 'horaFinJuego'],
+              }),
+              historial: [],
+            },
+          }),
+        ),
+      )
+      montarEstructura()
+
+      const seccion = (
+        await screen.findByRole('heading', { name: 'Calendario y horario de juego' })
+      ).closest('section') as HTMLElement
+      expect(within(seccion).getByText('Vueltas del calendario')).toBeInTheDocument()
+      expect(within(seccion).getByText('2')).toBeInTheDocument()
+      expect(within(seccion).getByText('Horario de juego')).toBeInTheDocument()
+      expect(within(seccion).getByText('09:00 a 17:30')).toBeInTheDocument()
+      expect(within(seccion).getAllByText('No oficial')).toHaveLength(1)
+    })
   })
 
   it('RF-006: el historial lista camposCambiados con etiquetas y abre la instantánea', async () => {

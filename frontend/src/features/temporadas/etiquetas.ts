@@ -114,20 +114,38 @@ export const etiquetaCampoParametro: Record<CampoParametro, string> = {
   equiposAscienden: 'Equipos que ascienden',
   equiposDescienden: 'Equipos que descienden',
   permiteCambioClub: 'Permitir cambio de club entre temporadas',
+  vueltas: 'Vueltas del calendario',
+  horaInicioJuego: 'Inicio del horario de juego',
+  horaFinJuego: 'Fin del horario de juego',
   esDemo: 'Oficial / No oficial',
   categorias: 'Duración y bloque por categoría',
 }
 
+/**
+ * Campos que el historial reporta en `camposCambiados` pero que el formulario no edita: se
+ * heredan de la versión vigente (RF-114, RF-120, RN-049).
+ */
+const etiquetaCampoHeredado: Record<string, string> = {
+  equiposPorArbitro: 'Equipos por árbitro',
+  fechasFaseRegular: 'Fechas de la fase regular',
+  fechasFinalesUnidadDeportiva: 'Últimas fechas en la unidad deportiva',
+}
+
 /** Etiqueta legible de un campo; un campo desconocido se muestra tal cual. */
 export function etiquetaDeCampo(campo: string): string {
-  return (etiquetaCampoParametro as Record<string, string>)[campo] ?? campo
+  return (
+    (etiquetaCampoParametro as Record<string, string>)[campo] ??
+    etiquetaCampoHeredado[campo] ??
+    campo
+  )
 }
 
 /**
  * Campos [DEMO] que el formulario editable rotula «No oficial» mientras la versión sea demo.
  * Copia de la lista fija de convenciones de API §6.2 («La lista es fija») y de
- * `ParametrosService.CAMPOS_DEMO`: no incluye `duracionJuegoMin` (DEC-25) ni `permiteCambioClub`
- * (DEC-13). Las vistas de solo lectura usan los `camposDemo` de su propia versión.
+ * `ParametrosService.CAMPOS_DEMO`: no incluye `duracionJuegoMin` (DEC-25), `permiteCambioClub`
+ * (DEC-13) ni `vueltas` (DEC-174, DEC-194); sí el horario de juego (DEC-176). Las vistas de solo
+ * lectura usan los `camposDemo` de su propia versión.
  */
 export const CAMPOS_DEMO: readonly string[] = [
   'puntosVictoria',
@@ -143,4 +161,8 @@ export const CAMPOS_DEMO: readonly string[] = [
   'empateLiguillaPorPenales',
   'equiposAscienden',
   'equiposDescienden',
+  'equiposPorArbitro',
+  'fechasFinalesUnidadDeportiva',
+  'horaInicioJuego',
+  'horaFinJuego',
 ]

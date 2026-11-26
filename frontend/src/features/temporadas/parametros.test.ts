@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   aPeticion,
+  cambioDeCalendario,
   campoFila,
   categoriasInvalidasDe,
   desdePredeterminados,
@@ -29,6 +30,9 @@ const PREDETERMINADOS: ParametrosPredeterminados = {
   equiposAscienden: 2,
   equiposDescienden: 2,
   permiteCambioClub: true,
+  vueltas: 1,
+  horaInicioJuego: '08:00:00',
+  horaFinJuego: '18:00:00',
   esDemo: true,
 }
 
@@ -95,6 +99,9 @@ describe('parametros', () => {
       equiposAscienden: 2,
       equiposDescienden: 2,
       permiteCambioClub: true,
+      vueltas: 1,
+      horaInicioJuego: '08:00',
+      horaFinJuego: '18:00',
       esDemo: true,
       categorias: [{ categoriaId: 'c-vet', duracionJuegoMin: 70, bloqueCanchaMin: 90 }],
       motivo: 'Primera versión de la temporada',
@@ -203,6 +210,85 @@ describe('parametros', () => {
     expect(erroresDeServidor(error, peticion)).toEqual({
       [campoFila('c-vet', 'bloqueCanchaMin')]: 'Bloque inválido',
       puntosVictoria: 'Puntos inválidos',
+    })
+  })
+
+  describe('vueltas y horario de juego (H-32.3, DEC-194 a DEC-196)', () => {
+    it('DEC-194: desdeVersion normaliza las horas HH:mm:ss a HH:mm', () => {
+      const resultado = desdeVersion({ ...VIGENTE, vueltas: 2, horaInicioJuego: '09:30:00' })
+
+      expect(resultado.vueltas).toBe('2')
+      expect(resultado.horaInicioJuego).toBe('09:30')
+      expect(resultado.horaFinJuego).toBe('18:00')
+    })
+
+    it('DEC-194: aPeticion manda las vueltas y las dos horas en HH:mm', () => {
+      const peticion = aPeticion(
+        formulario({ vueltas: '2', horaInicioJuego: '09:00', horaFinJuego: '17:00' }),
+        'Motivo suficiente',
+      )
+
+      expect(peticion).toMatchObject({ vueltas: 2, horaInicioJuego: '09:00', horaFinJuego: '17:00' })
+    })
+
+    it('DEC-194: hayCambios detecta las vueltas y cada hora', () => {
+      const base = desdeVersion(VIGENTE)
+
+      expect(hayCambios({ ...base, vueltas: '2' }, VIGENTE)).toBe(true)
+      expect(hayCambios({ ...base, horaInicioJuego: '09:00' }, VIGENTE)).toBe(true)
+      expect(hayCambios({ ...base, horaFinJuego: '17:00' }, VIGENTE)).toBe(true)
+    })
+
+    it('DEC-195: las vueltas van de 1 a 4', () => {
+      expect(validarFormulario(formulario({ vueltas: '0' })).vueltas).toBe('Debe estar entre 1 y 4.')
+      expect(validarFormulario(formulario({ vueltas: '5' })).vueltas).toBe('Debe estar entre 1 y 4.')
+      expect(validarFormulario(formulario({ vueltas: '4' }))).toEqual({})
+    })
+
+    it('DEC-195: las dos horas son obligatorias', () => {
+      expect(validarFormulario(formulario({ horaInicioJuego: '' }))).toEqual({
+        horaInicioJuego: 'Indica la hora de inicio del horario de juego.',
+      })
+      expect(validarFormulario(formulario({ horaFinJuego: '' }))).toEqual({
+        horaFinJuego: 'Indica la hora de fin del horario de juego.',
+      })
+    })
+
+    it('DEC-195: el fin va después del inicio', () => {
+      const mensaje = 'El fin del horario de juego (08:00) debe ser posterior a su inicio (08:00).'
+
+      expect(validarFormulario(formulario({ horaFinJuego: '08:00' }))).toEqual({ horaFinJuego: mensaje })
+      expect(validarFormulario(formulario({ horaFinJuego: '07:00' }))).toHaveProperty('horaFinJuego')
+    })
+
+    it('DEC-195: el horario alcanza para el bloque de la temporada y el de cada fila', () => {
+      expect(
+        validarFormulario(formulario({ horaInicioJuego: '08:00', horaFinJuego: '09:00' })),
+      ).toEqual({
+        horaFinJuego:
+          'El horario de juego (de 08:00 a 09:00, 60 min) no alcanza para un bloque de cancha de 120 min.',
+      })
+      expect(
+        validarFormulario(
+          formulario({
+            horaFinJuego: '10:00',
+            categorias: { 'c-vet': { duracionJuegoMin: '90', bloqueCanchaMin: '150' } },
+          }),
+        ),
+      ).toEqual({
+        horaFinJuego:
+          'El horario de juego (de 08:00 a 10:00, 120 min) no alcanza para un bloque de cancha de 150 min.',
+      })
+    })
+
+    it('DEC-196: cambioDeCalendario avisa solo si cambian las vueltas o el horario', () => {
+      const base = desdeVersion(VIGENTE)
+
+      expect(cambioDeCalendario(base, null)).toBe(false)
+      expect(cambioDeCalendario(base, VIGENTE)).toBe(false)
+      expect(cambioDeCalendario({ ...base, puntosVictoria: '2' }, VIGENTE)).toBe(false)
+      expect(cambioDeCalendario({ ...base, vueltas: '2' }, VIGENTE)).toBe(true)
+      expect(cambioDeCalendario({ ...base, horaFinJuego: '17:00' }, VIGENTE)).toBe(true)
     })
   })
 

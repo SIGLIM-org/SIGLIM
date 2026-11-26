@@ -86,6 +86,9 @@ export const PREDETERMINADOS: ParametrosPredeterminados = {
   equiposAscienden: 2,
   equiposDescienden: 2,
   permiteCambioClub: true,
+  vueltas: 1,
+  horaInicioJuego: '08:00:00',
+  horaFinJuego: '18:00:00',
   esDemo: true,
 }
 
@@ -93,7 +96,8 @@ export const CAMPOS_DEMO_VERSION = [
   'puntosVictoria', 'puntosEmpate', 'puntosDerrota', 'criteriosDesempate',
   'golesDefaultGanador', 'golesDefaultPerdedor', 'plazoValidacionCedulaHoras', 'bloqueCanchaMin',
   'clasificadosLiguilla', 'formatoLiguilla', 'empateLiguillaPorPenales',
-  'equiposAscienden', 'equiposDescienden',
+  'equiposAscienden', 'equiposDescienden', 'equiposPorArbitro', 'fechasFinalesUnidadDeportiva',
+  'horaInicioJuego', 'horaFinJuego',
 ]
 
 export function version(numero: number, cambios: Partial<VersionParametros> = {}): VersionParametros {
