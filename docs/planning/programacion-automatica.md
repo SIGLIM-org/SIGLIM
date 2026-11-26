@@ -297,7 +297,7 @@ Fecha 3 · sáb 12 y dom 13 dic 2026            [BORRADOR]   [Asignar pendientes
 
 - Bloques ordenados por día y por `orden` de categoría; insignias «Automático», «Ajustado» y «Localía».
 - Editar cancha u horario usa el ajuste con motivo existente (RF-040); el árbitro se edita en F-24 (Comisión).
-- Modal **«Generar calendario»**: fecha de inicio, vueltas (solo lectura, de los parámetros) y días por categoría (Sáb/Dom).
+- Modal **«Generar calendario»**: fecha de inicio, vueltas (solo lectura, de los parámetros) y días por categoría (Sáb/Dom); tarjeta, grupos y regeneración con motivo, días de juego, fecha de inicio y resultado en DEC-197 a DEC-200 (H-32.4).
 - **F-23 · Revisión de la fecha:** el Presidente ve todos los bloques en solo lectura y aprueba o devuelve la fecha completa.
 - **F-11:** vueltas y horario de juego en la versión de parámetros; contrato, reglas y aviso de que el cambio no es retroactivo en DEC-194 a DEC-196 (H-32.3).
 
