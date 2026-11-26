@@ -10,7 +10,9 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.SortedMap;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -25,17 +27,27 @@ import org.springframework.stereotype.Repository;
  * <p>Los partidos {@code CANCELADO} no se muestran (DEC-181): un emparejamiento cuyo partido se
  * canceló vuelve a contarse como sin asignar.
  *
- * <p>Refs: H-35.1, RF-033, RF-037, RF-042, RF-090, RF-121, DEC-175, DEC-180, DEC-181
+ * <p><b>Calendario vigente (H-32.2, DEC-189).</b> Toda consulta a {@code emparejamientos} filtra
+ * {@code e.vigente}: las filas reemplazadas al regenerar son historial y no aparecen ni cuentan. El
+ * listado solo muestra las fechas hasta {@code F}, el mayor {@code numero_fecha} vigente de la
+ * temporada (DEC-193): las fechas de un calendario anterior más largo se conservan, pero no se listan.
+ * Aquí viven también la creación de las fechas al generar el calendario y el cambio de sus días.
+ *
+ * <p>Refs: H-35.1, H-32.2, RF-033, RF-037, RF-042, RF-090, RF-121, DEC-175, DEC-180, DEC-181, DEC-189,
+ * DEC-193
  */
 @Repository
 class FechaRepository {
 
     private static final ZoneId ZONA_DE_NEGOCIO = ZoneId.of("America/Mexico_City");
 
-    /** Conteos por fecha: jornadas por estado, partidos vigentes y emparejamientos sin asignar. */
+    /**
+     * Conteos por fecha: jornadas por estado, partidos vigentes, emparejamientos vigentes sin asignar y
+     * descansos.
+     */
     private static final String SELECCION_FECHA = """
             SELECT f.id, f.temporada_id, f.numero, f.dias, f.generada_por, f.generada_en, f.creado_por,
-                   jj.jornadas, jj.en_borrador, jj.en_revision, pp.partidos, ee.sin_asignar
+                   jj.jornadas, jj.en_borrador, jj.en_revision, pp.partidos, ee.sin_asignar, ee.descansos
               FROM fechas_programacion f
               JOIN temporadas t ON t.id = f.temporada_id
               LEFT JOIN LATERAL (
@@ -50,14 +62,24 @@ class FechaRepository {
                        JOIN jornadas j ON j.id = p.jornada_id
                       WHERE j.fecha_id = f.id AND p.estado <> 'CANCELADO') pp ON true
               LEFT JOIN LATERAL (
-                     SELECT count(*) AS sin_asignar
+                     SELECT count(*) FILTER (WHERE e.equipo_visitante_id IS NOT NULL
+                                               AND (p.id IS NULL OR p.estado = 'CANCELADO')) AS sin_asignar,
+                            count(*) FILTER (WHERE e.equipo_visitante_id IS NULL) AS descansos
                        FROM emparejamientos e
                        JOIN grupos g ON g.id = e.grupo_id
                        JOIN categorias_temporada ct ON ct.id = g.categoria_temporada_id
                        LEFT JOIN partidos p ON p.id = e.partido_id
                       WHERE ct.temporada_id = f.temporada_id AND e.numero_fecha = f.numero
-                        AND e.equipo_visitante_id IS NOT NULL
-                        AND (p.id IS NULL OR p.estado = 'CANCELADO')) ee ON true
+                        AND e.vigente) ee ON true
+            """;
+
+    /** DEC-193: solo las fechas hasta la última del calendario vigente de la temporada. */
+    private static final String HASTA_LA_ULTIMA_VIGENTE = """
+             AND f.numero <= (SELECT max(e.numero_fecha)
+                                FROM emparejamientos e
+                                JOIN grupos g ON g.id = e.grupo_id
+                                JOIN categorias_temporada ct ON ct.id = g.categoria_temporada_id
+                               WHERE ct.temporada_id = f.temporada_id AND e.vigente)
             """;
 
     private final JdbcClient jdbc;
@@ -75,10 +97,21 @@ class FechaRepository {
                 .single();
     }
 
-    /** Fechas de la temporada por número, con sus conteos. */
+    /** {@code true} si la temporada está cerrada (RF-003). */
+    boolean temporadaCerrada(UUID temporadaId) {
+        return jdbc.sql("SELECT estado = 'CERRADA' FROM temporadas WHERE id = :id")
+                .param("id", temporadaId)
+                .query(Boolean.class)
+                .single();
+    }
+
+    /**
+     * Fechas de la temporada por número, con sus conteos; solo hasta la última del calendario vigente
+     * (DEC-193). Sin calendario vigente, ninguna.
+     */
     List<DatosFecha> listar(UUID ligaId, UUID temporadaId, int limite, long desplazamiento) {
-        return jdbc.sql(SELECCION_FECHA + """
-                         WHERE t.liga_id = :ligaId AND f.temporada_id = :temporadaId
+        return jdbc.sql(SELECCION_FECHA + " WHERE t.liga_id = :ligaId AND f.temporada_id = :temporadaId"
+                        + HASTA_LA_ULTIMA_VIGENTE + """
                          ORDER BY f.numero, f.id
                          LIMIT :limite OFFSET :desplazamiento
                         """)
@@ -97,7 +130,7 @@ class FechaRepository {
                           FROM fechas_programacion f
                           JOIN temporadas t ON t.id = f.temporada_id
                          WHERE t.liga_id = :ligaId AND f.temporada_id = :temporadaId
-                        """)
+                        """ + HASTA_LA_ULTIMA_VIGENTE)
                 .param("ligaId", ligaId)
                 .param("temporadaId", temporadaId)
                 .query(Long.class)
@@ -148,7 +181,8 @@ class FechaRepository {
                          WHERE ct.temporada_id = :temporadaId
                            AND (j.id IS NOT NULL
                                 OR EXISTS (SELECT 1 FROM emparejamientos e
-                                            WHERE e.grupo_id = g.id AND e.numero_fecha = :numero))
+                                            WHERE e.grupo_id = g.id AND e.numero_fecha = :numero
+                                              AND e.vigente))
                          ORDER BY (SELECT min(d) FROM unnest(ct.dias_juego) AS d), c.orden, g.nombre, g.id
                         """)
                 .param("fechaId", fechaId)
@@ -189,7 +223,7 @@ class FechaRepository {
                           JOIN equipos l ON l.id = p.equipo_local_id
                           JOIN equipos v ON v.id = p.equipo_visitante_id
                           JOIN canchas c ON c.id = p.cancha_id
-                          LEFT JOIN emparejamientos e ON e.partido_id = p.id
+                          LEFT JOIN emparejamientos e ON e.partido_id = p.id AND e.vigente
                           LEFT JOIN designaciones d ON d.partido_id = p.id AND d.vigente AND d.funcion = 'CENTRAL'
                           LEFT JOIN arbitros ar ON ar.id = d.arbitro_id
                           LEFT JOIN personas pe ON pe.id = ar.persona_id
@@ -238,6 +272,7 @@ class FechaRepository {
                           LEFT JOIN equipos v ON v.id = e.equipo_visitante_id
                           LEFT JOIN partidos p ON p.id = e.partido_id
                          WHERE ct.temporada_id = :temporadaId AND e.numero_fecha = :numero
+                           AND e.vigente
                            AND (p.id IS NULL OR p.estado = 'CANCELADO')
                          ORDER BY l.nombre, e.id
                         """)
@@ -255,6 +290,108 @@ class FechaRepository {
                 .list();
     }
 
+    // ── Días de la fecha y fechas del calendario (H-32.2, DEC-193) ─────────────────────────────
+
+    /**
+     * Número de otra fecha de la temporada que ya usa alguno de los días, la de menor número; vacío si
+     * ninguna se traslapa.
+     */
+    Optional<Integer> fechaQueUsaAlgunDia(UUID temporadaId, UUID excepto, List<LocalDate> dias) {
+        return jdbc.sql("""
+                        SELECT numero FROM fechas_programacion
+                         WHERE temporada_id = :temporadaId AND id <> :excepto
+                           AND dias && CAST(:dias AS date[])
+                         ORDER BY numero
+                         LIMIT 1
+                        """)
+                .param("temporadaId", temporadaId)
+                .param("excepto", excepto)
+                .param("dias", arregloDeFechas(dias))
+                .query(Integer.class)
+                .optional();
+    }
+
+    /**
+     * Partidos no cancelados de las jornadas de la fecha por día calendario en la zona de la liga: un
+     * día que se quita no debe dejar partidos fuera de la fecha (RF-090, DEC-193).
+     */
+    List<PartidosDelDia> partidosPorDia(UUID fechaId) {
+        return jdbc.sql("""
+                        SELECT (p.inicio AT TIME ZONE 'America/Mexico_City')::date AS dia, count(*) AS partidos
+                          FROM partidos p
+                          JOIN jornadas j ON j.id = p.jornada_id
+                         WHERE j.fecha_id = :fechaId AND p.estado <> 'CANCELADO'
+                         GROUP BY 1
+                         ORDER BY 1
+                        """)
+                .param("fechaId", fechaId)
+                .query((fila, n) -> new PartidosDelDia(fila.getObject("dia", LocalDate.class),
+                        fila.getLong("partidos")))
+                .list();
+    }
+
+    /** Guarda los días ya validados y ordenados. */
+    void actualizarDias(UUID fechaId, List<LocalDate> dias) {
+        jdbc.sql("UPDATE fechas_programacion SET dias = CAST(:dias AS date[]) WHERE id = :id")
+                .param("id", fechaId)
+                .param("dias", arregloDeFechas(dias))
+                .update();
+    }
+
+    /** Fechas de la temporada por número, todas (también las mayores que la última vigente). */
+    List<FechaDeTemporada> listarDeTemporada(UUID temporadaId) {
+        return jdbc.sql("""
+                        SELECT id, numero, dias FROM fechas_programacion
+                         WHERE temporada_id = :temporadaId
+                         ORDER BY numero
+                        """)
+                .param("temporadaId", temporadaId)
+                .query((fila, n) -> new FechaDeTemporada(fila.getObject("id", UUID.class), fila.getInt("numero"),
+                        fechas(fila.getArray("dias"))))
+                .list();
+    }
+
+    /** {@code true} si alguna fecha de la temporada ya tiene jornadas (DEC-193). */
+    boolean algunaFechaConJornadas(UUID temporadaId) {
+        return jdbc.sql("""
+                        SELECT EXISTS (SELECT 1 FROM jornadas j
+                                         JOIN fechas_programacion f ON f.id = j.fecha_id
+                                        WHERE f.temporada_id = :temporadaId)
+                        """)
+                .param("temporadaId", temporadaId)
+                .query(Boolean.class)
+                .single();
+    }
+
+    /**
+     * Crea en una sola sentencia las fechas que faltan, con quien generó el calendario como creador
+     * (DEC-192, DEC-193).
+     *
+     * @param dias días de cada fecha nueva, por número
+     */
+    void insertarFechas(UUID temporadaId, SortedMap<Integer, List<LocalDate>> dias, UUID creadoPor) {
+        if (dias.isEmpty()) {
+            return;
+        }
+        jdbc.sql("""
+                        INSERT INTO fechas_programacion (temporada_id, numero, dias, creado_por)
+                        SELECT :temporadaId, x.numero, CAST(x.dias AS date[]), :creadoPor
+                          FROM unnest(CAST(:numeros AS smallint[]), CAST(:dias AS text[])) AS x(numero, dias)
+                        """)
+                .param("temporadaId", temporadaId)
+                .param("creadoPor", creadoPor)
+                .param("numeros", dias.keySet().stream().map(String::valueOf)
+                        .collect(Collectors.joining(",", "{", "}")))
+                .param("dias", dias.values().stream().map(lista -> "\"" + arregloDeFechas(lista) + "\"")
+                        .collect(Collectors.joining(",", "{", "}")))
+                .update();
+    }
+
+    /** Literal de arreglo de PostgreSQL con fechas ISO, por ejemplo {@code {2031-03-08,2031-03-09}}. */
+    private static String arregloDeFechas(List<LocalDate> dias) {
+        return dias.stream().map(LocalDate::toString).collect(Collectors.joining(",", "{", "}"));
+    }
+
     // ── Filas ───────────────────────────────────────────────────────────────────────────────────
 
     /**
@@ -263,7 +400,7 @@ class FechaRepository {
      */
     record DatosFecha(UUID id, UUID temporadaId, int numero, List<LocalDate> dias, UUID generadaPor,
                       OffsetDateTime generadaEn, UUID creadoPor, long jornadas, long enBorrador,
-                      long enRevision, long partidos, long sinAsignar) {
+                      long enRevision, long partidos, long sinAsignar, long descansos) {
 
         /**
          * Estado derivado de sus jornadas (DEC-175): {@code BORRADOR} si no tiene jornadas o alguna
@@ -277,6 +414,14 @@ class FechaRepository {
             }
             return enRevision > 0 ? EstadoJornada.REVISION : EstadoJornada.PUBLICADO;
         }
+    }
+
+    /** Partidos no cancelados de un día de la fecha. */
+    record PartidosDelDia(LocalDate dia, long partidos) {
+    }
+
+    /** Fecha de la temporada con sus días. */
+    record FechaDeTemporada(UUID id, int numero, List<LocalDate> dias) {
     }
 
     /** Grupo de la fecha con su categoría y, si existe, su jornada en la fecha. */
@@ -316,7 +461,8 @@ class FechaRepository {
                 fila.getLong("en_borrador"),
                 fila.getLong("en_revision"),
                 fila.getLong("partidos"),
-                fila.getLong("sin_asignar"));
+                fila.getLong("sin_asignar"),
+                fila.getLong("descansos"));
     }
 
     private static List<LocalDate> fechas(Array arreglo) throws SQLException {

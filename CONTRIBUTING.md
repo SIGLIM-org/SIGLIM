@@ -128,6 +128,8 @@ Una historia está terminada cuando:
 
 - [ ] Cumple los criterios de aceptación de la historia y del ERS (§3.4.3).
 - [ ] Compila sin errores: `./mvnw verify` (backend) y `npm run build && npm run lint` (frontend).
+- [ ] Si cambia la BD: `supabase/pruebas/ejecutar.sh` pasa y `./mvnw verify` corre con Docker
+      encendido (TablaCodigosHttpTest y las *IT leen las migraciones; sin Docker las *IT se omiten).
 - [ ] Tiene pruebas de la regla de negocio principal y del caso de error.
 - [ ] Respeta las convenciones de API y el sistema de diseño.
 - [ ] Las operaciones críticas registran auditoría (RF-093).

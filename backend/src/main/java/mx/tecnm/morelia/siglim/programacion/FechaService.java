@@ -1,10 +1,12 @@
 package mx.tecnm.morelia.siglim.programacion;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
 import mx.tecnm.morelia.siglim.auditoria.EventoAuditoria;
@@ -23,6 +25,7 @@ import mx.tecnm.morelia.siglim.programacion.FechaRepository.DatosFecha;
 import mx.tecnm.morelia.siglim.programacion.FechaRepository.EmparejamientoDeFecha;
 import mx.tecnm.morelia.siglim.programacion.FechaRepository.GrupoDeFecha;
 import mx.tecnm.morelia.siglim.programacion.FechaRepository.PartidoDeFecha;
+import mx.tecnm.morelia.siglim.programacion.FechaRepository.PartidosDelDia;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.DatosJornada;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.DatosPartido;
 import mx.tecnm.morelia.siglim.programacion.PartidoDto.ReferenciaDto;
@@ -60,13 +63,26 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li><b>Candados.</b> La fila de la fecha y luego sus jornadas, en orden de {@code id}, se leen
  *       con {@code FOR UPDATE}: un alta, un ajuste o la asignación automática no se cruzan con el
  *       envío o el dictamen.</li>
- *   <li><b>Auditoría (RF-093).</b> {@code ENVIAR_FECHA_A_APROBACION}, {@code APROBAR_FECHA} y
- *       {@code DEVOLVER_FECHA} sobre {@code fechas_programacion}, con los identificadores de las
- *       jornadas; cada jornada deja además su paso en {@code historial_publicacion} por el trigger.</li>
+ *   <li><b>Días de la fecha (H-32.2, DEC-176, DEC-193).</b> {@code PATCH} con
+ *       {@code programacion.jornada:EDITAR}. Orden: permiso → {@code dias} presente ({@code 400
+ *       VALIDACION}) → motivo de al menos 10 caracteres ({@code 400 RN-021}) → fecha de la liga
+ *       ({@code 404}) → temporada no cerrada ({@code 409 RF-003}) → ninguna jornada de la fecha en
+ *       {@code REVISION} o {@code PUBLICADO} ({@code 409 RF-090}) → de 1 a 7 días, sin repetir y
+ *       dentro de 7 días consecutivos ({@code 422 VALIDACION}) → sin traslape con otra fecha de la
+ *       temporada ({@code 422 VALIDACION}) → no quita un día con partidos no cancelados
+ *       ({@code 409 RF-090}, nombra el día y cuántos). Se guardan ordenados; sin cambios no escribe ni
+ *       audita. La fecha y sus jornadas se bloquean como en el envío.</li>
+ *   <li><b>Calendario vigente (DEC-189).</b> Los conteos, los bloques y la verificación solo usan
+ *       emparejamientos vigentes; el listado llega hasta la última fecha del calendario vigente.</li>
+ *   <li><b>Auditoría (RF-093).</b> {@code ENVIAR_FECHA_A_APROBACION}, {@code APROBAR_FECHA},
+ *       {@code DEVOLVER_FECHA} y {@code CAMBIAR_DIAS_FECHA} (con {@code diasAnteriores} y
+ *       {@code dias}) sobre {@code fechas_programacion}, con los identificadores de las jornadas; cada
+ *       jornada deja además su paso en {@code historial_publicacion} por el trigger.</li>
  * </ul>
  *
- * <p>Refs: H-35.1, RF-023, RF-033, RF-037, RF-039, RF-040, RF-042, RF-090, RF-093, RF-121, RN-053,
- * UI-009, DD-008, DEC-175, DEC-180, DEC-181, DEC-182, ADR-0007
+ * <p>Refs: H-35.1, H-32.2, RF-003, RF-023, RF-033, RF-035, RF-037, RF-039, RF-040, RF-042, RF-090, RF-093,
+ * RF-121, RN-021, RN-053, UI-009, DD-008, DEC-175, DEC-176, DEC-180, DEC-181, DEC-182, DEC-189, DEC-193,
+ * ADR-0007
  */
 @Service
 public class FechaService {
@@ -78,6 +94,8 @@ public class FechaService {
     private static final String MODULO = "M-07";
     private static final String ENTIDAD = "fechas_programacion";
     private static final int TAMANO_MAXIMO = 100;
+    /** Una fecha dura a lo más una semana: el mismo límite que {@code ck_fechas_dias} (DEC-193). */
+    private static final int DIAS_MAXIMOS = 7;
     /** [PROPUESTA] El mismo mínimo de las observaciones de la jornada (H-13.1). */
     private static final int MINIMO_MOTIVO = 10;
     /** Código de la advertencia de partido sin árbitro central (DEC-182): designar árbitros. */
@@ -178,6 +196,101 @@ public class FechaService {
             }
         }
         return new VerificacionFechaDto(conflictosDe(deLaFecha), advertencias);
+    }
+
+    // ── Días de la fecha (H-32.2) ───────────────────────────────────────────────────────────────
+
+    /**
+     * Cambia o agrega días de la fecha mientras todas sus jornadas siguen en borrador (DEC-176,
+     * DEC-193). El orden de validación está en la descripción de la clase.
+     *
+     * @return la fecha con la forma del listado, sin bloques
+     */
+    @Transactional
+    public FechaDto actualizarDias(UUID id, ActualizarFechaRequest peticion) {
+        autorizacion.exigir(EDITAR, ObjetivoAutorizacion.deLiga());
+        if (peticion == null || peticion.dias() == null) {
+            throw invalida("Indica los días de la fecha.");
+        }
+        String motivo = motivoDeCambio(peticion.motivo());
+        List<DatosJornada> deLaFecha = bloquear(id);
+        DatosFecha fecha = buscar(id);
+        if (fechas.temporadaCerrada(fecha.temporadaId())) {
+            throw ReglaNegocioException.conflicto("RF-003",
+                    "La temporada está cerrada: sus fechas son de solo lectura.");
+        }
+        for (DatosJornada jornada : deLaFecha) {
+            if (jornada.estadoPublicacion() != EstadoJornada.BORRADOR) {
+                throw ReglaNegocioException.conflicto("RF-090",
+                        "Los días de la fecha " + fecha.numero() + " solo se cambian en borrador; la jornada "
+                                + jornada.numero() + " está " + jornada.estadoPublicacion().texto() + ".");
+            }
+        }
+        List<LocalDate> dias = diasValidos(peticion.dias());
+        fechas.fechaQueUsaAlgunDia(fecha.temporadaId(), id, dias).ifPresent(otra -> {
+            throw ReglaNegocioException.noProcesable(ErroresTecnicos.VALIDACION,
+                    "Alguno de los días ya pertenece a la fecha " + otra + " de la temporada; elige otros días.");
+        });
+        for (PartidosDelDia delDia : fechas.partidosPorDia(id)) {
+            if (!dias.contains(delDia.dia())) {
+                throw ReglaNegocioException.conflicto("RF-090",
+                        "El " + delDia.dia() + " tiene " + delDia.partidos()
+                                + (delDia.partidos() == 1 ? " partido programado" : " partidos programados")
+                                + " en la fecha " + fecha.numero()
+                                + "; muévelos o cancélalos antes de quitar ese día.");
+            }
+        }
+        if (dias.equals(fecha.dias())) {
+            return aDto(fecha, List.of(), null);
+        }
+
+        motivoOperacion.fijar(motivo);
+        fechas.actualizarDias(id, dias);
+
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("temporadaId", fecha.temporadaId().toString());
+        detalle.put("numero", fecha.numero());
+        detalle.put("diasAnteriores", fecha.dias().stream().map(LocalDate::toString).toList());
+        detalle.put("dias", dias.stream().map(LocalDate::toString).toList());
+        auditar("CAMBIAR_DIAS_FECHA", id, motivo, detalle);
+        return aDto(buscar(id), List.of(), null);
+    }
+
+    /**
+     * De 1 a 7 días distintos que caben en 7 días consecutivos; ordenados (DEC-193).
+     *
+     * @throws ReglaNegocioException 422 {@code VALIDACION} si no cumplen
+     */
+    static List<LocalDate> diasValidos(List<LocalDate> dias) {
+        if (dias.isEmpty() || dias.size() > DIAS_MAXIMOS) {
+            throw ReglaNegocioException.noProcesable(ErroresTecnicos.VALIDACION,
+                    "Una fecha tiene de 1 a " + DIAS_MAXIMOS + " días.");
+        }
+        if (dias.stream().anyMatch(Objects::isNull)) {
+            throw ReglaNegocioException.noProcesable(ErroresTecnicos.VALIDACION, "Hay un día vacío en la lista.");
+        }
+        List<LocalDate> ordenados = dias.stream().sorted().toList();
+        for (int i = 1; i < ordenados.size(); i++) {
+            if (ordenados.get(i).equals(ordenados.get(i - 1))) {
+                throw ReglaNegocioException.noProcesable(ErroresTecnicos.VALIDACION,
+                        "El día " + ordenados.get(i) + " está repetido.");
+            }
+        }
+        if (ordenados.getLast().isAfter(ordenados.getFirst().plusDays(DIAS_MAXIMOS - 1L))) {
+            throw ReglaNegocioException.noProcesable(ErroresTecnicos.VALIDACION,
+                    "Los días de una fecha deben caber en " + DIAS_MAXIMOS + " días consecutivos; del "
+                            + ordenados.getFirst() + " al " + ordenados.getLast() + " hay más.");
+        }
+        return ordenados;
+    }
+
+    private static String motivoDeCambio(String motivo) {
+        String texto = motivo == null ? "" : motivo.strip();
+        if (texto.length() < MINIMO_MOTIVO) {
+            throw ReglaNegocioException.invalida("RN-021",
+                    "Escribe un motivo de al menos " + MINIMO_MOTIVO + " caracteres para cambiar los días de la fecha.");
+        }
+        return texto;
     }
 
     // ── Publicación ─────────────────────────────────────────────────────────────────────────────
@@ -424,7 +537,7 @@ public class FechaService {
                 .max(Comparator.comparing(DatosJornada::actualizadoEn))
                 .orElse(null);
         return new FechaDto(fecha.id(), fecha.temporadaId(), fecha.numero(), fecha.dias(), fecha.estado(),
-                fecha.jornadas(), fecha.partidos(), fecha.sinAsignar(), fecha.generadaEn(),
+                fecha.jornadas(), fecha.partidos(), fecha.sinAsignar(), fecha.descansos(), fecha.generadaEn(),
                 referencia == null ? null : referencia.enviadaPor(),
                 referencia == null ? null : referencia.enviadaEn(),
                 referencia == null ? null : referencia.aprobadaPor(),

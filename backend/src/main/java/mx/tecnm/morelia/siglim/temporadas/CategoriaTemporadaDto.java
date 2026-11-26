@@ -10,14 +10,21 @@ import mx.tecnm.morelia.siglim.temporadas.CategoriaDto.ReferenciaDto;
  * pantalla de estructura de la temporada no haga una petición por categoría (convenciones de API
  * §9.1).
  *
- * <p>Refs: H-05.1, RF-004, RF-005, RF-099
+ * <p>Refs: H-05.1, H-32.2, RF-004, RF-005, RF-035, RF-099, DEC-177, DEC-191
  *
  * @param id        identificador de la fila de {@code categorias_temporada}; es el
  *                  {@code categoriaTemporadaId} de los grupos
  * @param categoria la categoría del catálogo
+ * @param diasJuego días ISO 8601 en que juega la categoría (1 = lunes … 7 = domingo), ordenados;
+ *                  inicial por tipo de categoría [DEMO] (DEC-177)
  * @param grupos    grupos de la categoría en la temporada, por nombre; vacío si no tiene
  */
-public record CategoriaTemporadaDto(UUID id, CategoriaResumenDto categoria, List<GrupoResumenDto> grupos) {
+public record CategoriaTemporadaDto(UUID id, CategoriaResumenDto categoria, List<Integer> diasJuego,
+                                    List<GrupoResumenDto> grupos) {
+
+    public CategoriaTemporadaDto {
+        diasJuego = diasJuego == null ? List.of() : List.copyOf(diasJuego);
+    }
 
     /** La categoría del catálogo; la superior se omite si no tiene. */
     @JsonInclude(JsonInclude.Include.NON_NULL)

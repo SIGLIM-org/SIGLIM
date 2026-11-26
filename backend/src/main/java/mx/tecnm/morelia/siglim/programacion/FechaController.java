@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import java.util.UUID;
 import mx.tecnm.morelia.siglim.compartido.api.Pagina;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -16,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
  * completa (convenciones de API §6.7). Sin reglas de negocio: el permiso, los estados de las jornadas
  * y la separación de funciones los valida el servicio y, en última instancia, el trigger.
  *
- * <p>Refs: H-35.1, RF-033, RF-039, RF-090, RF-121, DEC-175
+ * <p>Refs: H-35.1, H-32.2, RF-033, RF-035, RF-039, RF-090, RF-121, DEC-175, DEC-193
  */
 @RestController
 @RequestMapping("/api/v1/fechas")
@@ -38,6 +39,12 @@ class FechaController {
     @GetMapping("/{id}")
     FechaDto consultar(@PathVariable UUID id) {
         return servicio.consultar(id);
+    }
+
+    /** Cambia o agrega días de la fecha en borrador, con motivo (H-32.2, DEC-193). */
+    @PatchMapping("/{id}")
+    FechaDto actualizarDias(@PathVariable UUID id, @RequestBody ActualizarFechaRequest peticion) {
+        return servicio.actualizarDias(id, peticion);
     }
 
     /** Verifica todas las jornadas de la fecha sin guardar (RF-039). */

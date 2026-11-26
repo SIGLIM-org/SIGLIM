@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.27 · 25 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.28 · 26 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -76,6 +76,7 @@ Versión 5.27 · 25 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.25 | 24 de noviembre de 2026 | H-16.3: §6.8 con `GET /cedulas/{id}/jugadores` (candidatos a la alineación de los dos equipos y de la categoría inmediata inferior de cada club, con `elegible` y `causa` de la misma regla del `PUT`) y `GET /cedulas/{id}/tipos-incidencia` (tipos activos), los dos con `partidos.cedula:CAPTURAR`, para que el Capturista arme la cédula en F-26 sin permisos de registros ni del catálogo; la alineación agrega `personaId`, que identifica al jugador como involucrado de una incidencia (DEC-172). |
 | 5.26 | 25 de noviembre de 2026 | H-35.1: §6.7 con la fecha de programación (DEC-175): `GET /fechas?temporadaId=` (paginado, estado derivado de sus jornadas y conteos), `GET /fechas/{id}` con `bloques` por «Categoría – Grupo» (partidos con cancha, horario, árbitro central e insignias; descansos; sin asignar con `codigo` y `causa`), `POST /fechas/{id}/verificacion`, `/envio` y `/resolucion` sobre todas las jornadas en una transacción con la separación de funciones de RF-121, y `emparejamientoId` opcional en `POST /jornadas/{id}/partidos` (DEC-180). |
 | 5.27 | 25 de noviembre de 2026 | H-25.1: §6.14 con el contrato de los avisos: `GET /notificaciones?leida=` paginado (más recientes primero) con `X-No-Leidas` expuesta por CORS y `Cache-Control: no-store`, `POST /notificaciones/{id}/lectura` (`200` con el aviso; conserva la primera lectura; ajeno o inexistente `404`) y `POST /notificaciones/lectura` (`200` con `marcadas`); eventos `CEDULA_PENDIENTE`, `COBRO_VENCIDO` y `PROGRAMACION_PUBLICADA` con sus destinatarios por permiso. |
+| 5.28 | 26 de noviembre de 2026 | H-32.2: §6.7 «Programación automática (H-32.2)» con `POST /temporadas/{id}/calendario` (cuerpo opcional `{ fechaInicio?, grupoIds?, motivo? }`, `201` con `Location`, orden de errores `403` → `400` → `404` → `409 RF-003` → `409 RF-006` → `422 REFERENCIA_INVALIDA` → `400 RN-021` → `409 RN-020` con `grupos` → `422 VALIDACION`; grupos omitidos y advertencias; reemplazo lógico con `vigente`, DEC-187 a DEC-193), `GET /temporadas/{id}/calendario`, el listado de fechas solo hasta la última fecha del calendario vigente y con `descansos`, y `PATCH /fechas/{id}` `{ dias, motivo }`; §6.2 con `PATCH /temporadas/{id}/categorias/{categoriaTemporadaId}` `{ diasJuego }` con `programacion.jornada:EDITAR` (DEC-191) y `diasJuego` en las categorías de la temporada; §3.2 agrega `RN-020` a `409` (migración `20261126090000_emparejamientos_vigentes.sql`). |
 
 ## Índice
 
@@ -241,7 +242,7 @@ que el mismo código responda siempre con el mismo estado. `error_negocio` arma 
 | --- | --- | --- |
 | `400` | `RN-021` | Falta el motivo obligatorio |
 | `403` | `VAL-015` (la liga valida documentos y registros); `VAL-021`, `VAL-022` | La persona no puede hacer esa acción aunque tenga el permiso |
-| `409` | `VAL-003`, `VAL-005`, `VAL-017`, `VAL-026`, `VAL-028`; `RF-001`, `RF-017`, `RF-039`, `RF-046`, `RF-048`, `RF-062`, `RF-090`, `RF-100`, `RF-109`, `RF-111`, `RF-113`, `RF-121`, `RF-122`, `RF-123`, `RF-124`, `RF-127`; `RN-012`, `RN-024`, `RN-039`; `RNF-015`, `RNF-018` | Transición o cambio no permitido por el estado actual, o choque con otros datos |
+| `409` | `VAL-003`, `VAL-005`, `VAL-017`, `VAL-026`, `VAL-028`; `RF-001`, `RF-017`, `RF-039`, `RF-046`, `RF-048`, `RF-062`, `RF-090`, `RF-100`, `RF-109`, `RF-111`, `RF-113`, `RF-121`, `RF-122`, `RF-123`, `RF-124`, `RF-127`; `RN-012`, `RN-020`, `RN-024`, `RN-039`; `RNF-015`, `RNF-018` | Transición o cambio no permitido por el estado actual, o choque con otros datos |
 | `422` | `VAL-001` (activar un registro sin todos sus documentos aprobados); `VAL-018`, `VAL-019`, `VAL-020`, `VAL-025`; `RF-013`, `RF-015`, `RF-016`, `RF-019`, `RF-020`, `RF-025`, `RF-033`; `RF-119` (horario de club o comodato incompatible con la cancha, o traslapado); `RF-139` (pago que no cubre el monto) | El contenido de la petición incumple una regla |
 
 Algunos códigos cubren más de un caso en la base (`RF-121` y `RF-123` también rechazan una
@@ -650,6 +651,7 @@ permisos agregados y quitados y, en el dictamen, el motivo; nunca datos personal
 | `POST /temporadas/{id}/activacion` · `/cierre` | Activar y cerrar | `temporadas.temporada:EDITAR` | RF-001, RF-003, RF-100, RN-058 | N |
 | `GET /categorias?activa=` · `GET /categorias/{id}` · `POST /categorias` · `PATCH /categorias/{id}` · `POST /categorias/reordenamiento` | Catálogo con orden y categoría superior | `temporadas.temporada:CONSULTAR` en los `GET`; `temporadas.temporada:EDITAR` en `POST` y `PATCH` | RF-099 | N |
 | `GET /temporadas/{id}/categorias` · `GET /temporadas/{id}/categorias/{categoriaTemporadaId}` · `POST /temporadas/{id}/categorias` | Categorías que participan en la temporada, con sus grupos | `temporadas.temporada:CONSULTAR` en los `GET`; `temporadas.temporada:EDITAR` en `POST` | RF-004, RF-005 | N |
+| `PATCH /temporadas/{id}/categorias/{categoriaTemporadaId}` | Días de juego de la categoría en la temporada (`diasJuego`, DEC-177, DEC-191) | `programacion.jornada:EDITAR` | RF-035 | N |
 | `GET /grupos?categoriaTemporadaId=` · `GET /grupos/{id}` · `POST /grupos` · `PATCH /grupos/{id}` | Grupos | `temporadas.temporada:CONSULTAR` en los `GET`; `temporadas.temporada:EDITAR` en `POST` y `PATCH` | RF-005 | N |
 | `GET /temporadas/{id}/parametros` · `GET /temporadas/{id}/parametros/{version}` · `POST /temporadas/{id}/parametros` | Versiones de parámetros; `POST` crea una versión nueva, nunca edita la vigente | `temporadas.temporada:CONSULTAR` en los `GET`; `temporadas.parametros:EDITAR` en `POST` | RF-006, RF-100 | N |
 | `PUT /temporadas/{id}/convocatoria` | Referencia de la convocatoria | `temporadas.convocatoria:EDITAR` | RF-002 | B |
@@ -808,6 +810,7 @@ con el conteo de sus equipos en cualquier estado (§9.1). Una temporada inexiste
       "id": "…", "nombre": "Juvenil", "tipo": "LIBRE", "orden": 2,
       "categoriaSuperior": { "id": "…", "nombre": "Libre" }
     },
+    "diasJuego": [7],
     "grupos": [ { "id": "…", "nombre": "A", "equipos": 8 } ]
   }
 ]
@@ -820,6 +823,17 @@ con `Location` al `GET` anterior y el elemento en el cuerpo. Errores: temporada 
 sin `categoriaId`, `400 VALIDACION`; categoría inexistente, `422 REFERENCIA_INVALIDA`; temporada
 `CERRADA`, `409 RF-003`; temporada `ACTIVA`, `409 RF-004`; categoría inactiva, `409 RF-004`; ya
 asignada, `409 DUPLICADO`. Todavía no hay forma de quitar una categoría de la temporada (§11).
+
+`diasJuego` son los días ISO 8601 en que juega la categoría (1 = lunes … 7 = domingo), ordenados;
+nacen por tipo de categoría **[DEMO]** (DEC-177). **Días de juego (H-32.2, DEC-191).**
+`PATCH /temporadas/{id}/categorias/{categoriaTemporadaId}` lleva `{ "diasJuego": [6, 7] }` y responde
+`200` con el elemento. Exige `programacion.jornada:EDITAR` en `LIGA` (no el permiso de M-02: los días
+solo sirven para programar y el Programador no tiene `temporadas.temporada:EDITAR`). Orden: permiso
+(`403`) → de 1 a 7 valores, cada uno de 1 a 7, sin repetir (`400 VALIDACION`) → temporada de la liga
+(`404`) → categoría de esa temporada (`404`) → temporada `CERRADA` (`409 RF-003`). Procede en
+configuración o activa; se guardan ordenados. Sin cambios no escribe ni audita; si cambian, se audita
+`CAMBIAR_DIAS_JUEGO` en `M-02` sobre `categorias_temporada` con `{ temporadaId, diasAnteriores,
+diasJuego }`. No mueve partidos ya programados: aplica a las asignaciones siguientes.
 
 **Grupos (RF-005).** `GET /grupos?categoriaTemporadaId=` exige el filtro (sin él, `400 VALIDACION`) y
 responde un arreglo sin paginar ordenado por nombre con `{ "id", "nombre", "categoriaTemporadaId",
@@ -2212,6 +2226,8 @@ vaciar la lista.
 | `GET /fechas?temporadaId=` · `GET /fechas/{id}` | Fechas de la temporada y vista por fecha en bloques «Categoría – Grupo» (F-22, F-23) | `programacion.jornada:CONSULTAR` | RF-033, RF-037, RF-042 | N |
 | `POST /fechas/{id}/verificacion` | Conflictos y advertencias de toda la fecha, sin guardar | `programacion.jornada:CONSULTAR` | RF-039 | N |
 | `POST /fechas/{id}/envio` · `/resolucion` | Envío y dictamen de la fecha completa | `ENVIAR` · `APROBAR` | RF-121, RF-090 | N |
+| `POST /temporadas/{id}/calendario` · `GET /temporadas/{id}/calendario` | Generar o regenerar y consultar el calendario de la temporada (H-32.2) | `programacion.jornada:EDITAR` · `CONSULTAR` | RF-034, RF-037 | N |
+| `PATCH /fechas/{id}` | Cambiar o agregar días de la fecha en `BORRADOR`, con motivo (DEC-193) | `programacion.jornada:EDITAR` | RF-035, RF-090 | N |
 
 La verificación y el guardado usan las mismas reglas: VAL-003 (equipo duplicado en el bloque),
 VAL-004 (cancha ocupada), VAL-005 (cancha bloqueada o fuera de disponibilidad), VAL-006 (equipo con
@@ -2280,7 +2296,8 @@ jornada menos avanzada (`BORRADOR` si no tiene jornadas). Los partidos `CANCELAD
 
 - `GET /fechas?temporadaId=&pagina=&tamano=` exige `temporadaId` (`400`) de una temporada de la liga
   (`404`). Cada fila: `id`, `temporadaId`, `numero`, `dias`, `estadoPublicacion`, `jornadas`,
-  `partidos` (vigentes), `sinAsignar` (sin contar descansos) y `generadaEn`; sin `bloques`.
+  `partidos` (vigentes), `sinAsignar` (sin contar descansos), `descansos` (H-32.2) y `generadaEn`; sin
+  `bloques`. Desde H-32.2 solo llega hasta la última fecha del calendario vigente (ver abajo).
 - `GET /fechas/{id}` agrega los datos de publicación de sus jornadas (`enviadaPor`, `enviadaEn`,
   `aprobadaPor`, `aprobadaEn`, `publicadaEn`, `observaciones`) y `bloques`, ordenados por el primer día
   de juego de la categoría, su `orden` y el nombre del grupo:
@@ -2328,6 +2345,81 @@ jornada menos avanzada (`BORRADOR` si no tiene jornadas). Los partidos `CANCELAD
   (`422 RF-037`), con el mismo local y visitante (`422 REFERENCIA_INVALIDA`) y sin partido vigente
   (`409 DUPLICADO`; uno cancelado no cuenta). El partido queda ligado y se limpian `codigo` y `causa`;
   `REGISTRAR_PARTIDO` incluye `emparejamientoId` en su detalle.
+
+**Programación automática (H-32.2, DEC-187 a DEC-193).** El calendario por grupo se guarda en
+`emparejamientos` (método del círculo, DEC-174) y las fechas de la temporada en `fechas_programacion`.
+Toda lectura usa solo el calendario **vigente**: regenerar marca las filas anteriores como
+reemplazadas (`vigente = false`, con quién, cuándo y por qué) y nunca borra (DEC-189). Generar el
+calendario **no crea jornadas**: las crea la asignación automática de H-33 (DEC-188).
+
+- `POST /temporadas/{id}/calendario` exige `programacion.jornada:EDITAR`. Cuerpo opcional:
+
+  ```json
+  { "fechaInicio": "2031-03-05", "grupoIds": ["…"], "motivo": "Se agregó un equipo al grupo" }
+  ```
+
+  `fechaInicio` (por defecto, el inicio de la temporada) fija la fecha 1 en el primer sábado en o
+  después de ella (DEC-186); `grupoIds` (por defecto, todos los grupos de la temporada) elige qué
+  grupos generar; `motivo` es obligatorio si algún grupo elegido ya tiene calendario. Responde `201`
+  con `Location: /api/v1/temporadas/{id}/calendario`:
+
+  ```json
+  { "versionParametros": 3, "vueltas": 2, "totalFechas": 10, "fechasCreadas": 10,
+    "grupos": [ { "grupoId": "…", "nombre": "Grupo 1", "equipos": 5, "fechas": 10, "reemplazado": false } ],
+    "gruposOmitidos": [ { "grupoId": "…", "nombre": "Grupo 2", "equiposActivos": 1,
+                          "causa": "Tiene 1 equipo activo; se necesitan al menos 2 para generar su calendario." } ],
+    "advertencias": [ { "tipo": "JORNADAS_MANUALES", "grupoId": "…", "mensaje": "…" } ] }
+  ```
+
+  Orden de validación: permiso (`403`) → cuerpo (`grupoIds` vacío o con nulos, fecha mal formada:
+  `400 VALIDACION`) → temporada de la liga (`404`) → temporada `CERRADA` (`409 RF-003`) → sin parámetros
+  vigentes (`409 RF-006`, DEC-190) → un `grupoId` que no es de la temporada (`422 REFERENCIA_INVALIDA`)
+  → algún grupo con calendario y sin motivo de al menos 10 caracteres (`400 RN-021`) → algún grupo con un
+  emparejamiento vigente ligado a un partido o con una jornada ligada a una fecha (`409 RN-020`, con la
+  extensión `grupos: [ { grupoId, nombre } ]`; no escribe nada) → ningún grupo con al menos 2 equipos
+  `ACTIVO` (`422 VALIDACION`; los que no llegan se omiten, DEC-187) → `fechaInicio` anterior al inicio de
+  la temporada, o enviada cuando alguna fecha ya tiene jornadas (`422 VALIDACION`).
+
+  Las vueltas salen de los parámetros vigentes (DEC-190) y los equipos `ACTIVO` se ordenan por `id`
+  (DEC-185). `F` (`totalFechas`) es la última fecha del calendario vigente de la temporada; se crean
+  las fechas 1…F que falten (sábado y domingo). Sin jornadas en ninguna fecha, `fechaInicio` recalcula
+  los días de todas; sin `fechaInicio`, las existentes conservan sus días y las nuevas siguen semana a
+  semana desde la última (DEC-193). Las fechas mayores que F se conservan y no se listan. Advertencias
+  que no bloquean: `FECHAS_DESPUES_DEL_FIN` (el último día pasa de `fechaFin` de la temporada) y
+  `JORNADAS_MANUALES` (el grupo tiene jornadas sin fecha ni fase con el número de una de sus fechas).
+  Todo ocurre en una transacción con la temporada bloqueada. Auditoría `GENERAR_CALENDARIO` en `M-07`
+  sobre `temporadas`, con el motivo y `{ versionParametros, vueltas, fechaInicio?, grupos, reemplazados,
+  omitidos, emparejamientos, totalFechas, fechasCreadas, fechasRecalculadas }` (DEC-192).
+- `GET /temporadas/{id}/calendario` exige `programacion.jornada:CONSULTAR` (temporada ajena: `404`).
+  Devuelve todos los grupos por `orden` de la categoría y nombre del grupo:
+
+  ```json
+  { "temporadaId": "…",
+    "grupos": [ { "grupoId": "…", "nombre": "Grupo 1", "categoria": { "id": "…", "nombre": "Libre" },
+                  "generado": true,
+                  "fechas": [ { "numero": 1, "vuelta": 1,
+                                "partidos": [ { "emparejamientoId": "…",
+                                                "local": { "id": "…", "nombre": "Halcones", "estado": "ACTIVO" },
+                                                "visitante": { "id": "…", "nombre": "Toros", "estado": "ACTIVO" },
+                                                "partidoId": "…" } ],
+                                "descansa": { "id": "…", "nombre": "Águilas", "estado": "ACTIVO" } } ] } ] }
+  ```
+
+  `generado` es falso (y `fechas` vacía) en un grupo sin calendario; `descansa` se omite si el grupo es
+  par y `partidoId` mientras el emparejamiento no tiene partido.
+- `GET /fechas?temporadaId=` (H-35.1) solo lista las fechas con `numero ≤ F`; sin calendario vigente
+  no lista ninguna. Sus conteos (`sinAsignar` y el nuevo `descansos`) solo cuentan emparejamientos
+  vigentes, igual que los bloques de `GET /fechas/{id}`, la verificación y el alta manual con
+  `emparejamientoId` (uno reemplazado responde `422 REFERENCIA_INVALIDA`).
+- `PATCH /fechas/{id}` lleva `{ "dias": ["2031-03-07", "2031-03-08"], "motivo": "…" }` y exige
+  `programacion.jornada:EDITAR`. Orden: permiso (`403`) → `dias` presente (`400 VALIDACION`) → motivo de
+  al menos 10 caracteres (`400 RN-021`) → fecha de la liga (`404`) → temporada `CERRADA` (`409 RF-003`)
+  → alguna jornada de la fecha en `REVISION` o `PUBLICADO` (`409 RF-090`) → de 1 a 7 días, sin repetir
+  y dentro de 7 días consecutivos (`422 VALIDACION`) → un día que ya es de otra fecha de la temporada
+  (`422 VALIDACION`, nombra la fecha) → quitar un día con partidos no cancelados (`409 RF-090`, nombra
+  el día y cuántos). Se guardan ordenados; sin cambios no escribe ni audita. Responde `200` con la fecha
+  en la forma del listado (sin `bloques`). Auditoría `CAMBIAR_DIAS_FECHA` sobre `fechas_programacion`
+  con el motivo y `{ temporadaId, numero, diasAnteriores, dias }`.
 
 ### 6.8 M-08 Partidos, cédula y resultados
 

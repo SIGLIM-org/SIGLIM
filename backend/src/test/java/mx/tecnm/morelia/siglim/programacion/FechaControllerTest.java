@@ -42,7 +42,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
  * Contrato HTTP de la fecha de programación (H-35.1, convenciones de API §6.7) con la cadena de
  * seguridad real: caso feliz, 400, 401, 403, 404 y 409 de cada endpoint.
  *
- * <p>Refs: H-35.1, RF-033, RF-039, RF-090, RF-121, DEC-175, DEC-180
+ * <p>Refs: H-35.1, H-32.2, RF-033, RF-039, RF-090, RF-121, DEC-175, DEC-180, DEC-193
  */
 @WebMvcTest(controllers = FechaController.class, properties = {
         "SUPABASE_URL=" + SeguridadPrueba.URL_SUPABASE,
@@ -63,6 +63,8 @@ class FechaControllerTest {
     private static final UUID PROGRAMADOR = UUID.fromString("77777777-7777-4777-8777-777777777777");
     private static final OffsetDateTime INICIO = OffsetDateTime.parse("2031-03-09T08:00:00-06:00");
     private static final String BASE = "/api/v1/fechas";
+    private static final String CUERPO_DIAS = "{\"dias\":[\"2031-03-09\",\"2031-03-07\"],"
+            + "\"motivo\":\"La unidad deportiva cierra el sábado\"}";
     private static final String CUERPO_DEVOLUCION = "{\"decision\":\"BORRADOR\","
             + "\"observaciones\":\"Mover Pumas vs Leones a la cancha 3\"}";
 
@@ -77,9 +79,9 @@ class FechaControllerTest {
                     new ReferenciaDto(UUID.randomUUID(), "Osos"), "VAL-007", "Sin horario libre el domingo")));
     private static final FechaDto DETALLE = new FechaDto(FECHA, TEMPORADA, 3,
             List.of(LocalDate.parse("2031-03-08"), LocalDate.parse("2031-03-09")), EstadoJornada.BORRADOR,
-            1, 1, 1, null, null, null, null, null, null, null, List.of(BLOQUE));
+            1, 1, 1, 1, null, null, null, null, null, null, null, List.of(BLOQUE));
     private static final FechaDto RESUMEN = new FechaDto(FECHA, TEMPORADA, 3, DETALLE.dias(),
-            EstadoJornada.BORRADOR, 1, 1, 1, null, null, null, null, null, null, null, null);
+            EstadoJornada.BORRADOR, 1, 1, 1, 1, null, null, null, null, null, null, null, null);
 
     @Autowired
     private MockMvcTester mvc;
@@ -88,6 +90,11 @@ class FechaControllerTest {
     private FechaService servicio;
 
     private final String autorizacion = "Bearer " + SeguridadPrueba.tokenValido();
+
+    private MvcTestResult patch(String cuerpo) {
+        return mvc.patch().uri(BASE + "/" + FECHA).header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(cuerpo).exchange();
+    }
 
     private MvcTestResult post(String ruta, String cuerpo) {
         var peticion = mvc.post().uri(ruta).header(HttpHeaders.AUTHORIZATION, autorizacion);
@@ -161,7 +168,7 @@ class FechaControllerTest {
     @DisplayName("RF-121: POST /fechas/{id}/envio, sin cuerpo, devuelve la fecha en REVISION")
     void enviar() {
         FechaDto enviada = new FechaDto(FECHA, TEMPORADA, 3, DETALLE.dias(), EstadoJornada.REVISION,
-                1, 1, 0, null, PROGRAMADOR, INICIO.minusDays(2), null, null, null, null, List.of());
+                1, 1, 0, 0, null, PROGRAMADOR, INICIO.minusDays(2), null, null, null, null, List.of());
         given(servicio.enviarAAprobacion(FECHA)).willReturn(enviada);
 
         MvcTestResult resultado = post(BASE + "/" + FECHA + "/envio", null);
@@ -184,6 +191,45 @@ class FechaControllerTest {
         Mockito.verify(servicio).resolver(eq(FECHA), peticion.capture());
         assertThat(peticion.getValue().decision()).isEqualTo(DecisionJornada.BORRADOR);
         assertThat(peticion.getValue().observaciones()).isEqualTo("Mover Pumas vs Leones a la cancha 3");
+    }
+
+    @Test
+    @DisplayName("DEC-193: PATCH /fechas/{id} pasa días y motivo al servicio y responde la fecha sin bloques")
+    void cambiarDias() {
+        given(servicio.actualizarDias(eq(FECHA), any(ActualizarFechaRequest.class))).willReturn(RESUMEN);
+
+        MvcTestResult resultado = patch(CUERPO_DIAS);
+
+        assertThat(resultado).hasStatusOk();
+        assertThat(resultado).bodyJson().extractingPath("$.numero").isEqualTo(3);
+        assertThat(resultado).bodyJson().extractingPath("$.descansos").isEqualTo(1);
+        assertThat(resultado).bodyJson().doesNotHavePath("$.bloques");
+        ArgumentCaptor<ActualizarFechaRequest> peticion = ArgumentCaptor.forClass(ActualizarFechaRequest.class);
+        Mockito.verify(servicio).actualizarDias(eq(FECHA), peticion.capture());
+        assertThat(peticion.getValue().dias())
+                .containsExactly(LocalDate.parse("2031-03-09"), LocalDate.parse("2031-03-07"));
+        assertThat(peticion.getValue().motivo()).isEqualTo("La unidad deportiva cierra el sábado");
+    }
+
+    @Test
+    @DisplayName("RF-090: el 409 de quitar un día con partidos conserva el código")
+    void cambiarDiasConPartidos() {
+        given(servicio.actualizarDias(eq(FECHA), any(ActualizarFechaRequest.class))).willThrow(
+                ReglaNegocioException.conflicto("RF-090", "El 2031-03-08 tiene 3 partidos programados."));
+
+        MvcTestResult resultado = patch(CUERPO_DIAS);
+
+        assertThat(resultado).hasStatus(HttpStatus.CONFLICT);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo("RF-090");
+    }
+
+    @Test
+    @DisplayName("DEC-193: un día con formato inválido responde 400 sin llegar al servicio")
+    void cambiarDiasMalFormados() {
+        MvcTestResult resultado = patch("{\"dias\":[\"9 de marzo\"],\"motivo\":\"La unidad deportiva cierra\"}");
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        Mockito.verifyNoInteractions(servicio);
     }
 
     // ── Errores de regla ────────────────────────────────────────────────────────────────────────
@@ -266,6 +312,18 @@ class FechaControllerTest {
                 .peticion(HttpMethod.GET, BASE + "/{id}", FECHA)
                 .dobles(servicio)
                 .simularDenegacion(error -> given(servicio.consultar(FECHA)).willThrow(error))
+                .pruebas();
+    }
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de PATCH /api/v1/fechas/{id}")
+    Stream<DynamicTest> seguridadCambiarDias() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.PATCH, BASE + "/{id}", FECHA)
+                .cuerpoJson(CUERPO_DIAS)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.actualizarDias(eq(FECHA), any(ActualizarFechaRequest.class)))
+                        .willThrow(error))
                 .pruebas();
     }
 

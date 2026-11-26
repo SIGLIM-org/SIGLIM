@@ -90,7 +90,8 @@ class GrupoServiceTest {
 
     private void categoriaAsignadaConGrupo() {
         given(grupos.listarCategorias(TEMPORADA, CATEGORIA_TEMPORADA)).willReturn(List.of(new CategoriaAsignada(
-                CATEGORIA_TEMPORADA, new CategoriaResumenDto(CATEGORIA, "Libre", TipoCategoria.LIBRE, 1, null))));
+                CATEGORIA_TEMPORADA, new CategoriaResumenDto(CATEGORIA, "Libre", TipoCategoria.LIBRE, 1, null),
+                List.of(7))));
     }
 
     private static Consumer<ReglaNegocioException> error(HttpStatus estado, String codigo) {
@@ -129,9 +130,10 @@ class GrupoServiceTest {
         UUID otraCategoriaTemporada = UUID.randomUUID();
         given(grupos.listarCategorias(TEMPORADA, null)).willReturn(List.of(
                 new CategoriaAsignada(CATEGORIA_TEMPORADA,
-                        new CategoriaResumenDto(CATEGORIA, "Libre", TipoCategoria.LIBRE, 1, null)),
+                        new CategoriaResumenDto(CATEGORIA, "Libre", TipoCategoria.LIBRE, 1, null), List.of(7)),
                 new CategoriaAsignada(otraCategoriaTemporada,
-                        new CategoriaResumenDto(UUID.randomUUID(), "Veteranos", TipoCategoria.VETERANOS, 2, null))));
+                        new CategoriaResumenDto(UUID.randomUUID(), "Veteranos", TipoCategoria.VETERANOS, 2, null),
+                        List.of(6))));
         given(grupos.listarGruposDeTemporada(TEMPORADA, null)).willReturn(List.of(
                 new GrupoDeCategoria(CATEGORIA_TEMPORADA, new GrupoResumenDto(GRUPO, "A", 3))));
 
@@ -411,5 +413,105 @@ class GrupoServiceTest {
         assertThat(servicio.actualizar(GRUPO, new ActualizarGrupoRequest(" A ")).id()).isEqualTo(GRUPO);
         verify(grupos, never()).renombrarGrupo(any(), any());
         verifyNoInteractions(auditoria);
+    }
+
+    // ── Días de juego de la categoría (H-32.2, DEC-191) ─────────────────────────────────────
+
+    private static final String EDITAR_PROGRAMACION = "programacion.jornada:EDITAR";
+
+    private void categoriaParaEditar(EstadoTemporada estado, List<Integer> diasActuales) {
+        existeTemporada(estado);
+        given(grupos.bloquearCategoriaParaEditar(LIGA, CATEGORIA_TEMPORADA)).willReturn(Optional.of(
+                new ContextoCategoriaTemporada(CATEGORIA_TEMPORADA, temporada(estado), new ReferenciaDto(CATEGORIA, "Libre"))));
+        given(grupos.diasJuego(CATEGORIA_TEMPORADA)).willReturn(diasActuales);
+        categoriaAsignadaConGrupo();
+    }
+
+    private void rechazaDias(List<Integer> dias, HttpStatus estado, String codigo) {
+        assertThatThrownBy(() -> servicio.actualizarDiasJuego(TEMPORADA, CATEGORIA_TEMPORADA,
+                new ActualizarDiasJuegoRequest(dias)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(estado, codigo));
+        verify(grupos, never()).actualizarDiasJuego(any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("DEC-191: cambia los días de juego ordenados, exige el permiso de programación y audita antes y después")
+    void cambiarDiasDeJuego() {
+        categoriaParaEditar(EstadoTemporada.ACTIVA, List.of(7));
+
+        servicio.actualizarDiasJuego(TEMPORADA, CATEGORIA_TEMPORADA, new ActualizarDiasJuegoRequest(List.of(7, 6)));
+
+        verify(autorizacion).exigir(EDITAR_PROGRAMACION, ObjetivoAutorizacion.deLiga());
+        verify(grupos).actualizarDiasJuego(CATEGORIA_TEMPORADA, List.of(6, 7));
+        EventoAuditoria evento = eventoAuditado();
+        assertThat(evento.modulo()).isEqualTo("M-02");
+        assertThat(evento.accion()).isEqualTo("CAMBIAR_DIAS_JUEGO");
+        assertThat(evento.entidad()).isEqualTo("categorias_temporada");
+        assertThat(evento.detalle()).containsEntry("diasAnteriores", List.of(7)).containsEntry("diasJuego", List.of(6, 7));
+    }
+
+    @Test
+    @DisplayName("DEC-191: sin cambios no escribe ni audita")
+    void diasSinCambios() {
+        categoriaParaEditar(EstadoTemporada.CONFIGURACION, List.of(6, 7));
+
+        CategoriaTemporadaDto categoria = servicio.actualizarDiasJuego(TEMPORADA, CATEGORIA_TEMPORADA,
+                new ActualizarDiasJuegoRequest(List.of(7, 6)));
+
+        assertThat(categoria.id()).isEqualTo(CATEGORIA_TEMPORADA);
+        verify(grupos, never()).actualizarDiasJuego(any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("DEC-191: días vacíos, de más, fuera de 1 a 7 o repetidos responden 400 VALIDACION")
+    void diasInvalidos() {
+        categoriaParaEditar(EstadoTemporada.CONFIGURACION, List.of(7));
+
+        rechazaDias(null, HttpStatus.BAD_REQUEST, ErroresTecnicos.VALIDACION);
+        rechazaDias(List.of(), HttpStatus.BAD_REQUEST, ErroresTecnicos.VALIDACION);
+        rechazaDias(List.of(1, 2, 3, 4, 5, 6, 7, 1), HttpStatus.BAD_REQUEST, ErroresTecnicos.VALIDACION);
+        rechazaDias(List.of(0), HttpStatus.BAD_REQUEST, ErroresTecnicos.VALIDACION);
+        rechazaDias(List.of(8), HttpStatus.BAD_REQUEST, ErroresTecnicos.VALIDACION);
+        rechazaDias(List.of(6, 6), HttpStatus.BAD_REQUEST, ErroresTecnicos.VALIDACION);
+        rechazaDias(java.util.Arrays.asList(6, null), HttpStatus.BAD_REQUEST, ErroresTecnicos.VALIDACION);
+    }
+
+    @Test
+    @DisplayName("RF-003: en una temporada cerrada los días de juego no cambian (409)")
+    void diasEnTemporadaCerrada() {
+        categoriaParaEditar(EstadoTemporada.CERRADA, List.of(7));
+
+        rechazaDias(List.of(6), HttpStatus.CONFLICT, "RF-003");
+    }
+
+    @Test
+    @DisplayName("DEC-191: una categoría de otra temporada o inexistente responde 404")
+    void diasDeCategoriaAjena() {
+        existeTemporada(EstadoTemporada.CONFIGURACION);
+        TemporadaEstado otra = new TemporadaEstado(INEXISTENTE, "Otra", EstadoTemporada.CONFIGURACION);
+        given(grupos.bloquearCategoriaParaEditar(LIGA, CATEGORIA_TEMPORADA)).willReturn(Optional.of(
+                new ContextoCategoriaTemporada(CATEGORIA_TEMPORADA, otra, new ReferenciaDto(CATEGORIA, "Libre"))));
+
+        assertThatThrownBy(() -> servicio.actualizarDiasJuego(TEMPORADA, CATEGORIA_TEMPORADA,
+                new ActualizarDiasJuegoRequest(List.of(6))))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        assertThatThrownBy(() -> servicio.actualizarDiasJuego(TEMPORADA, INEXISTENTE,
+                new ActualizarDiasJuegoRequest(List.of(6))))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("VAL-015: sin programacion.jornada:EDITAR no valida ni escribe")
+    void diasSinPermiso() {
+        willThrow(ReglaNegocioException.prohibida("VAL-015", "Sin permiso"))
+                .given(autorizacion).exigir(EDITAR_PROGRAMACION, ObjetivoAutorizacion.deLiga());
+
+        assertThatThrownBy(() -> servicio.actualizarDiasJuego(TEMPORADA, CATEGORIA_TEMPORADA,
+                new ActualizarDiasJuegoRequest(List.of(6))))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "VAL-015"));
+        verifyNoInteractions(grupos, auditoria);
     }
 }

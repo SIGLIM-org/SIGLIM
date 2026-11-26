@@ -50,9 +50,10 @@ class CategoriaTemporadaControllerTest {
     private static final UUID GRUPO = UUID.fromString("33333333-3333-4333-8333-333333333333");
     private static final String BASE = "/api/v1/temporadas/" + TEMPORADA + "/categorias";
     private static final String CUERPO_ASIGNAR = "{\"categoriaId\":\"" + CATEGORIA + "\"}";
+    private static final String CUERPO_DIAS = "{\"diasJuego\":[7,6]}";
     private static final CategoriaTemporadaDto ASIGNADA = new CategoriaTemporadaDto(CATEGORIA_TEMPORADA,
             new CategoriaResumenDto(CATEGORIA, "Juvenil", TipoCategoria.LIBRE, 2, new ReferenciaDto(SUPERIOR, "Libre")),
-            List.of(new GrupoResumenDto(GRUPO, "A", 4)));
+            List.of(6, 7), List.of(new GrupoResumenDto(GRUPO, "A", 4)));
 
     @Autowired
     private MockMvcTester mvc;
@@ -130,7 +131,49 @@ class CategoriaTemporadaControllerTest {
         assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo("RF-004");
     }
 
+    @Test
+    @DisplayName("DEC-191: PATCH cambia los días de juego y responde la categoría con diasJuego")
+    void cambiarDiasDeJuego() {
+        given(servicio.actualizarDiasJuego(eq(TEMPORADA), eq(CATEGORIA_TEMPORADA), any(ActualizarDiasJuegoRequest.class)))
+                .willReturn(ASIGNADA);
+
+        MvcTestResult resultado = mvc.patch().uri(BASE + "/" + CATEGORIA_TEMPORADA)
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content(CUERPO_DIAS).exchange();
+
+        assertThat(resultado).hasStatusOk();
+        assertThat(resultado).bodyJson().extractingPath("$.diasJuego").isEqualTo(List.of(6, 7));
+        Mockito.verify(servicio).actualizarDiasJuego(TEMPORADA, CATEGORIA_TEMPORADA,
+                new ActualizarDiasJuegoRequest(List.of(7, 6)));
+    }
+
+    @Test
+    @DisplayName("DEC-191: el 400 de días inválidos conserva el código VALIDACION")
+    void diasInvalidos() {
+        given(servicio.actualizarDiasJuego(eq(TEMPORADA), eq(CATEGORIA_TEMPORADA), any(ActualizarDiasJuegoRequest.class)))
+                .willThrow(ReglaNegocioException.invalida(ErroresTecnicos.VALIDACION, "El día 6 está repetido."));
+
+        MvcTestResult resultado = mvc.patch().uri(BASE + "/" + CATEGORIA_TEMPORADA)
+                .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"diasJuego\":[6,6]}").exchange();
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.VALIDACION);
+    }
+
     // ── 401, 403 y 404 de cada endpoint (convenciones de API §10) ───────────────────────────────
+
+    @TestFactory
+    @DisplayName("RNF-003: seguridad de PATCH /api/v1/temporadas/{id}/categorias/{categoriaTemporadaId}")
+    Stream<DynamicTest> seguridadCambiarDias() {
+        return ArnesAutorizacionEndpoint.para(mvc)
+                .peticion(HttpMethod.PATCH, BASE + "/{id}", CATEGORIA_TEMPORADA)
+                .cuerpoJson(CUERPO_DIAS)
+                .dobles(servicio)
+                .simularDenegacion(error -> given(servicio.actualizarDiasJuego(eq(TEMPORADA), eq(CATEGORIA_TEMPORADA),
+                        any(ActualizarDiasJuegoRequest.class))).willThrow(error))
+                .pruebas();
+    }
 
     @TestFactory
     @DisplayName("RNF-003: seguridad de GET /api/v1/temporadas/{id}/categorias")

@@ -258,9 +258,9 @@ Sigue [convenciones-api.md](../arquitectura/convenciones-api.md); permisos por A
 
 | Método y ruta | Uso | Permiso |
 | --- | --- | --- |
-| `POST /api/v1/temporadas/{id}/calendario` `{fechaInicio}` | Genera emparejamientos y fechas; `409 RN-020` si un grupo ya tiene partidos ligados | `programacion.jornada:EDITAR` |
+| `POST /api/v1/temporadas/{id}/calendario` `{fechaInicio?, grupoIds?, motivo?}` | Genera emparejamientos y fechas (no jornadas, DEC-188); regenerar exige motivo y reemplaza el calendario vigente (DEC-189); `409 RN-020` si un grupo ya tiene partidos ligados o jornadas de fecha | `programacion.jornada:EDITAR` |
 | `GET /api/v1/temporadas/{id}/calendario` | Calendario por grupo y fecha | `programacion.jornada:CONSULTAR` |
-| `PATCH /api/v1/categorias-temporada/{id}` `{diasJuego}` | Días de juego de la categoría | `programacion.jornada:EDITAR` |
+| `PATCH /api/v1/temporadas/{temporadaId}/categorias/{categoriaTemporadaId}` `{diasJuego}` | Días de juego de la categoría (sub-recurso de la temporada, DEC-191) | `programacion.jornada:EDITAR` |
 | `GET /api/v1/fechas?temporadaId=` | Fechas con estado derivado de sus jornadas | `programacion.jornada:CONSULTAR` |
 | `GET /api/v1/fechas/{id}` | Vista por fecha: bloques por categoría y grupo con partidos, descansos, sin asignar y árbitro | `programacion.jornada:CONSULTAR` |
 | `PATCH /api/v1/fechas/{id}` `{dias, motivo}` | Cambiar o agregar días (solo en `BORRADOR`) | `programacion.jornada:EDITAR` |
@@ -272,6 +272,11 @@ Sigue [convenciones-api.md](../arquitectura/convenciones-api.md); permisos por A
 
 Los listados de partidos de una jornada deben **excluir `CANCELADO`** (DEC-181); hoy
 `JornadaRepository` no los filtra.
+
+Generar el calendario crea los emparejamientos y las fechas de programación, pero **ninguna
+jornada**: hasta H-33 la fecha no tiene jornadas y su estado derivado es `BORRADOR` (DEC-188). El
+contrato detallado de H-32.2 (orden de errores, advertencias y reglas de los días) está en
+[convenciones-api.md](../arquitectura/convenciones-api.md) §6.7 y en DEC-187 a DEC-193.
 
 ---
 

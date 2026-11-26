@@ -1,8 +1,11 @@
 package mx.tecnm.morelia.siglim.temporadas;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
@@ -38,19 +41,32 @@ import org.springframework.transaction.annotation.Transactional;
  *       inactiva responde {@code 409 RF-004}; inexistente, {@code 422 REFERENCIA_INVALIDA}.</li>
  *   <li><b>Sin borrado (D7).</b> No se quita una categoría de la temporada ni se borra un grupo: el
  *       rol {@code siglim_app} no tiene {@code DELETE} sobre esas tablas.</li>
- *   <li><b>Auditoría (RF-093, D9).</b> {@code ASIGNAR_CATEGORIA_TEMPORADA}, {@code REGISTRAR_GRUPO}
- *       y {@code EDITAR_GRUPO} en el módulo M-02, sin motivo; el detalle lleva solo
- *       identificadores. Un renombre sin cambios no se audita.</li>
+ *   <li><b>Días de juego (H-32.2, DEC-177, DEC-191).</b> {@code PATCH} de la categoría de la
+ *       temporada con {@code diasJuego}: de 1 a 7 valores ISO (1 = lunes … 7 = domingo), sin repetir
+ *       ({@code 400 VALIDACION}); se guardan ordenados. Procede en configuración o activa; cerrada
+ *       responde {@code 409 RF-003}. Exige {@code programacion.jornada:EDITAR}, no el permiso de
+ *       M-02: los días solo sirven para programar (DEC-177) y quien los ajusta es el Programador,
+ *       que no tiene {@code temporadas.temporada:EDITAR} en la matriz del Apéndice E (DEC-191). El
+ *       permiso es un texto; el paquete no depende de {@code programacion} (ADR-0006).</li>
+ *   <li><b>Auditoría (RF-093, D9).</b> {@code ASIGNAR_CATEGORIA_TEMPORADA}, {@code REGISTRAR_GRUPO},
+ *       {@code EDITAR_GRUPO} y {@code CAMBIAR_DIAS_JUEGO} (con {@code diasAnteriores} y
+ *       {@code diasJuego}) en el módulo M-02, sin motivo; el detalle lleva solo identificadores y
+ *       valores. Un renombre o un cambio de días sin cambios no escribe ni se audita.</li>
  * </ul>
  *
- * <p>Refs: H-05.1, RF-003, RF-004, RF-005, RF-093, RN-005, ADR-0007, ADR-0011
+ * <p>Refs: H-05.1, H-32.2, RF-003, RF-004, RF-005, RF-035, RF-093, RN-005, DEC-177, DEC-191, ADR-0007,
+ * ADR-0011
  */
 @Service
 public class GrupoService {
 
     private static final String CONSULTAR = "temporadas.temporada:CONSULTAR";
     private static final String EDITAR = "temporadas.temporada:EDITAR";
+    /** DEC-191: los días de juego los ajusta el Programador con el permiso de M-07. */
+    private static final String EDITAR_PROGRAMACION = "programacion.jornada:EDITAR";
     private static final String MODULO = "M-02";
+    private static final int DIA_MINIMO = 1;
+    private static final int DIA_MAXIMO = 7;
     private static final int LONGITUD_NOMBRE = 60;
 
     private final GrupoRepository grupos;
@@ -123,6 +139,58 @@ public class GrupoService {
         detalle.put("categoriaId", categoria.id().toString());
         auditar("ASIGNAR_CATEGORIA_TEMPORADA", "categorias_temporada", id, detalle);
         return categoriaDeTemporada(temporada.id(), id);
+    }
+
+    /**
+     * Cambia los días de juego de la categoría en la temporada (H-32.2, RF-035, DEC-177, DEC-191).
+     *
+     * <p>Orden: permiso {@code programacion.jornada:EDITAR} ({@code 403}) → días ({@code 400
+     * VALIDACION}) → temporada de la liga ({@code 404}) → categoría de esa temporada ({@code 404}) →
+     * temporada cerrada ({@code 409 RF-003}). Sin cambios responde la categoría sin escribir ni auditar.
+     * El cambio aplica a las asignaciones futuras; no mueve partidos ya programados.
+     */
+    @Transactional
+    public CategoriaTemporadaDto actualizarDiasJuego(UUID temporadaId, UUID categoriaTemporadaId,
+            ActualizarDiasJuegoRequest peticion) {
+        autorizacion.exigir(EDITAR_PROGRAMACION, ObjetivoAutorizacion.deLiga());
+        List<Integer> dias = diasValidos(peticion == null ? null : peticion.diasJuego());
+        buscarTemporada(temporadaId);
+        ContextoCategoriaTemporada contexto = grupos.bloquearCategoriaParaEditar(ligaId, categoriaTemporadaId)
+                .filter(encontrada -> encontrada.temporada().id().equals(temporadaId))
+                .orElseThrow(() -> new RecursoNoEncontradoException("Categoría de la temporada " + categoriaTemporadaId));
+        exigirNoCerrada(contexto.temporada());
+        List<Integer> anteriores = grupos.diasJuego(contexto.id());
+        if (anteriores.equals(dias)) {
+            return categoriaDeTemporada(temporadaId, contexto.id());
+        }
+
+        grupos.actualizarDiasJuego(contexto.id(), dias);
+
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("temporadaId", temporadaId.toString());
+        detalle.put("diasAnteriores", anteriores);
+        detalle.put("diasJuego", dias);
+        auditar("CAMBIAR_DIAS_JUEGO", "categorias_temporada", contexto.id(), detalle);
+        return categoriaDeTemporada(temporadaId, contexto.id());
+    }
+
+    /** De 1 a 7 días ISO distintos, cada uno de 1 a 7; los devuelve ordenados (DEC-191). */
+    static List<Integer> diasValidos(List<Integer> dias) {
+        if (dias == null || dias.isEmpty() || dias.size() > DIA_MAXIMO) {
+            throw invalida("Indica de 1 a 7 días de juego (1 = lunes … 7 = domingo).");
+        }
+        Set<Integer> vistos = new HashSet<>();
+        for (Integer dia : dias) {
+            if (dia == null || dia < DIA_MINIMO || dia > DIA_MAXIMO) {
+                throw invalida("Cada día de juego va de 1 (lunes) a 7 (domingo).");
+            }
+            if (!vistos.add(dia)) {
+                throw invalida("El día " + dia + " está repetido en los días de juego.");
+            }
+        }
+        List<Integer> ordenados = new ArrayList<>(vistos);
+        ordenados.sort(null);
+        return List.copyOf(ordenados);
     }
 
     // ── Grupos ─────────────────────────────────────────────────────────────────────────────────
@@ -246,7 +314,7 @@ public class GrupoService {
                 .collect(Collectors.groupingBy(GrupoDeCategoria::categoriaTemporadaId, LinkedHashMap::new,
                         Collectors.mapping(GrupoDeCategoria::grupo, Collectors.toList())));
         return asignadas.stream()
-                .map(asignada -> new CategoriaTemporadaDto(asignada.id(), asignada.categoria(),
+                .map(asignada -> new CategoriaTemporadaDto(asignada.id(), asignada.categoria(), asignada.diasJuego(),
                         porCategoria.getOrDefault(asignada.id(), List.of())))
                 .toList();
     }

@@ -16,12 +16,16 @@ import mx.tecnm.morelia.siglim.programacion.PartidoDto.ReferenciaDto;
  * emparejamientos sin asignar con su causa. El estado se deriva de las jornadas; los datos del flujo
  * de publicación salen de ellas y se omiten mientras están vacíos.
  *
- * <p>Refs: H-35.1, RF-033, RF-037, RF-042, RF-090, RF-121, UI-009, DEC-175, DEC-180
+ * <p>Los conteos salen solo del calendario vigente (DEC-189). {@code PATCH /fechas/{id}} responde
+ * con la misma forma que el listado, sin {@code bloques} (H-32.2).
+ *
+ * <p>Refs: H-35.1, H-32.2, RF-033, RF-037, RF-042, RF-090, RF-121, UI-009, DEC-175, DEC-180, DEC-189
  *
  * @param estadoPublicacion estado derivado de sus jornadas: el menos avanzado
  * @param jornadas          jornadas ligadas a la fecha
  * @param partidos          partidos vigentes (sin los cancelados)
  * @param sinAsignar        emparejamientos con partido pendiente, sin contar descansos
+ * @param descansos         equipos que descansan en la fecha (RF-037; H-32.2)
  * @param enviadaPor        quien envió la fecha a aprobación por última vez
  * @param aprobadaPor       Presidente que la aprobó; solo en {@code PUBLICADO}
  * @param observaciones     observaciones del último dictamen (las de una devolución, en {@code BORRADOR})
@@ -37,6 +41,7 @@ public record FechaDto(
         long jornadas,
         long partidos,
         long sinAsignar,
+        long descansos,
         OffsetDateTime generadaEn,
         UUID enviadaPor,
         OffsetDateTime enviadaEn,
