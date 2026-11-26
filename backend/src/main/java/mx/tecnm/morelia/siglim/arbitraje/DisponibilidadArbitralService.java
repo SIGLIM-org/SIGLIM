@@ -42,7 +42,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       {@code disponible}; sin nombres, CURP ni datos de contacto.</li>
  * </ul>
  *
- * <p>La usará H-14 (Sprint 4) para filtrar designaciones por disponibilidad.
+ * <p>En la designación solo advierte: {@link ElegibilidadArbitral} la muestra como {@code RF-022} en
+ * los candidatos, sin filtrar ni bloquear (DEC-204).
  *
  * <p>Refs: B-09.1, RF-022, RF-093, ADR-0007
  */
