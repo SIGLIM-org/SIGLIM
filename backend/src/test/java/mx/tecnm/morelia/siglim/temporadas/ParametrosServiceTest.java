@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -63,12 +64,13 @@ class ParametrosServiceTest {
     private static final OffsetDateTime CREADO_EN = OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC);
     private static final String MOTIVO = ParametrosPrueba.MOTIVO;
 
-    /** Los 19 campos de una versión, sin {@code categorias}: los de la versión 1 sin filas propias. */
+    /** Los 22 campos de una versión, sin {@code categorias}: los de la versión 1 sin filas propias. */
     private static final List<String> TODOS = List.of("puntosVictoria", "puntosEmpate", "puntosDerrota",
             "criteriosDesempate", "golesDefaultGanador", "golesDefaultPerdedor", "plazoValidacionCedulaHoras",
             "duracionJuegoMin", "bloqueCanchaMin", "clasificadosLiguilla", "formatoLiguilla",
             "empateLiguillaPorPenales", "equiposAscienden", "equiposDescienden", "permiteCambioClub",
-            "equiposPorArbitro", "fechasFaseRegular", "fechasFinalesUnidadDeportiva", "esDemo");
+            "equiposPorArbitro", "fechasFaseRegular", "fechasFinalesUnidadDeportiva", "vueltas", "horaInicioJuego",
+            "horaFinJuego", "esDemo");
 
     private final ParametrosRepository parametros = mock(ParametrosRepository.class);
     private final Autorizacion autorizacion = mock(Autorizacion.class);
@@ -102,7 +104,8 @@ class ParametrosServiceTest {
                 d.golesDefaultGanador(), d.golesDefaultPerdedor(), d.plazoValidacionCedulaHoras(),
                 d.duracionJuegoMin(), d.bloqueCanchaMin(), d.clasificadosLiguilla(), d.formatoLiguilla(),
                 d.empateLiguillaPorPenales(), d.equiposAscienden(), d.equiposDescienden(), d.permiteCambioClub(),
-                d.equiposPorArbitro(), d.fechasFaseRegular(), d.fechasFinalesUnidadDeportiva(), esDemo, List.of());
+                d.equiposPorArbitro(), d.fechasFaseRegular(), d.fechasFinalesUnidadDeportiva(), d.vueltas(),
+                d.horaInicioJuego(), d.horaFinJuego(), esDemo, List.of());
     }
 
     private static FilaVersion fila(UUID id, int version, ValoresParametros valores) {
@@ -539,6 +542,172 @@ class ParametrosServiceTest {
                 ErroresTecnicos.VALIDACION, "repetida");
     }
 
+    // ── Registro: vueltas y horario de juego (H-32.3, DEC-194 a DEC-196) ─────────────────────
+
+    private static final LocalTime OCHO = LocalTime.of(8, 0);
+    private static final LocalTime NUEVE = LocalTime.of(9, 0);
+    private static final LocalTime DIEZ = LocalTime.of(10, 0);
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, String>> errores(ReglaNegocioException excepcion) {
+        return (List<Map<String, String>>) excepcion.propiedades().get("errores");
+    }
+
+    /** El cuerpo se rechaza con {@code 400 VALIDACION} y un error en {@code campo}, sin tocar la base. */
+    private void rechazaCampo(ParametrosPrueba.Juego juego, String campo, String fragmento) {
+        assertThatThrownBy(() -> servicio.registrar(TEMPORADA, juego.peticion()))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
+                    error(HttpStatus.BAD_REQUEST, ErroresTecnicos.VALIDACION).accept(excepcion);
+                    assertThat(errores(excepcion)).anySatisfy(e -> {
+                        assertThat(e.get("campo")).isEqualTo(campo);
+                        assertThat(e.get("mensaje")).contains(fragmento);
+                    });
+                });
+        verifyNoInteractions(parametros, auditoria);
+    }
+
+    @Test
+    @DisplayName("DEC-174, DEC-195: vueltas 0 o 5 responden 400 VALIDACION en vueltas")
+    void vueltasFueraDeRango() {
+        rechazaCampo(ParametrosPrueba.juego().vueltas(0), "vueltas", "entre 1 y 4");
+        rechazaCampo(ParametrosPrueba.juego().vueltas(5), "vueltas", "entre 1 y 4");
+    }
+
+    @Test
+    @DisplayName("DEC-194: una sola hora del horario de juego responde 400 en la que falta")
+    void unaSolaHora() {
+        rechazaCampo(ParametrosPrueba.juego().horario(OCHO, null), "horaFinJuego", "o ninguna");
+        rechazaCampo(ParametrosPrueba.juego().horario(null, DIEZ), "horaInicioJuego", "o ninguna");
+    }
+
+    @Test
+    @DisplayName("DEC-195: una hora con segundos responde 400 VALIDACION")
+    void horaConSegundos() {
+        rechazaCampo(ParametrosPrueba.juego().horario(LocalTime.of(8, 0, 30), DIEZ.plusHours(8)), "horaInicioJuego",
+                "horas y minutos");
+    }
+
+    @Test
+    @DisplayName("DEC-195: un fin igual o anterior al inicio responde 400 en horaFinJuego")
+    void finNoPosteriorAlInicio() {
+        rechazaCampo(ParametrosPrueba.juego().horario(DIEZ, DIEZ), "horaFinJuego", "posterior");
+        rechazaCampo(ParametrosPrueba.juego().horario(DIEZ, OCHO), "horaFinJuego", "posterior");
+    }
+
+    /** El horario efectivo no alcanza: {@code 400} en {@code horaFinJuego}, después del candado y sin insertar. */
+    private void rechazaHorarioCorto(ParametrosPrueba.Juego juego, String mensaje) {
+        assertThatThrownBy(() -> servicio.registrar(TEMPORADA, juego.peticion()))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, excepcion -> {
+                    error(HttpStatus.BAD_REQUEST, ErroresTecnicos.VALIDACION).accept(excepcion);
+                    assertThat(excepcion).hasMessage(mensaje);
+                    assertThat(errores(excepcion)).containsExactly(Map.of("campo", "horaFinJuego", "mensaje", mensaje));
+                });
+        verify(parametros).bloquearTemporada(LIGA, TEMPORADA);
+        verify(parametros, never()).insertar(any(), any(), any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("DEC-195: un horario de 60 min con bloque de cancha de 120 responde 400 en horaFinJuego")
+    void horarioNoAlcanzaElBloqueDeLaTemporada() {
+        existeTemporada(EstadoTemporada.CONFIGURACION);
+
+        rechazaHorarioCorto(ParametrosPrueba.juego().horario(OCHO, NUEVE),
+                "El horario de juego (de 08:00 a 09:00, 60 min) no alcanza para un bloque de cancha de 120 min.");
+    }
+
+    @Test
+    @DisplayName("DEC-195: el horario debe alcanzar también para el bloque de una fila por categoría")
+    void horarioNoAlcanzaElBloqueDeUnaCategoria() {
+        existeTemporada(EstadoTemporada.CONFIGURACION);
+        given(parametros.categoriasAsignadas(TEMPORADA)).willReturn(Set.of(CATEGORIA));
+
+        rechazaHorarioCorto(ParametrosPrueba.juego().horario(OCHO, DIEZ).categoria(CATEGORIA, 90, 150),
+                "El horario de juego (de 08:00 a 10:00, 120 min) no alcanza para un bloque de cancha de 150 min.");
+    }
+
+    @Test
+    @DisplayName("DEC-195: la regla usa el horario heredado de la vigente (valores efectivos)")
+    void horarioHeredadoNoAlcanzaElBloqueNuevo() {
+        existeTemporada(EstadoTemporada.ACTIVA);
+        ValoresParametros vigentes = predeterminados(true).conCalendario(1, OCHO, DIEZ);
+        given(parametros.buscarVigente(TEMPORADA)).willReturn(Optional.of(fila(VERSION_1, 1, vigentes)));
+
+        rechazaHorarioCorto(ParametrosPrueba.juego().tiempos(90, 150),
+                "El horario de juego (de 08:00 a 10:00, 120 min) no alcanza para un bloque de cancha de 150 min.");
+    }
+
+    @Test
+    @DisplayName("DEC-194: versión nueva sin vueltas ni horario conserva los de la vigente")
+    void versionNuevaSinCalendarioConservaLosValoresAnteriores() {
+        existeTemporada(EstadoTemporada.ACTIVA);
+        ValoresParametros vigentes = predeterminados(true).conCalendario(3, NUEVE, LocalTime.of(17, 0));
+        given(parametros.buscarVigente(TEMPORADA)).willReturn(Optional.of(fila(VERSION_1, 1, vigentes)));
+        given(parametros.categoriasDeVersion(VERSION_1)).willReturn(List.of());
+        seInserta(VERSION_2, 2, vigentes, List.of());
+
+        ParametrosDto creada = servicio.registrar(TEMPORADA, ParametrosPrueba.juego().peticion());
+
+        ValoresParametros insertados = valoresInsertados();
+        assertThat(insertados.vueltas()).isEqualTo(3);
+        assertThat(insertados.horaInicioJuego()).isEqualTo(NUEVE);
+        assertThat(insertados.horaFinJuego()).isEqualTo(LocalTime.of(17, 0));
+        assertThat(creada.vueltas()).isEqualTo(3);
+        assertThat(eventoAuditado().detalle()).containsEntry("campos", List.of());
+    }
+
+    @Test
+    @DisplayName("DEC-174, DEC-176: la primera versión sin vueltas ni horario usa 1 y de 08:00 a 18:00")
+    void primeraVersionSinCalendarioUsaLosValoresDeLaTabla() {
+        existeTemporada(EstadoTemporada.CONFIGURACION);
+        seInserta(VERSION_1, 1, predeterminados(true), List.of());
+
+        servicio.registrar(TEMPORADA, ParametrosPrueba.valido());
+
+        ValoresParametros insertados = valoresInsertados();
+        assertThat(insertados.vueltas()).isEqualTo(1);
+        assertThat(insertados.horaInicioJuego()).isEqualTo(OCHO);
+        assertThat(insertados.horaFinJuego()).isEqualTo(LocalTime.of(18, 0));
+    }
+
+    @Test
+    @DisplayName("DEC-194: las vueltas y el horario enviados se guardan")
+    void registrarVueltasYHorario() {
+        existeTemporada(EstadoTemporada.ACTIVA);
+        given(parametros.buscarVigente(TEMPORADA)).willReturn(Optional.of(fila(VERSION_1, 1, predeterminados(true))));
+        given(parametros.categoriasDeVersion(VERSION_1)).willReturn(List.of());
+        seInserta(VERSION_2, 2, predeterminados(true).conCalendario(2, NUEVE, LocalTime.of(17, 0)), List.of());
+
+        servicio.registrar(TEMPORADA, ParametrosPrueba.juego().vueltas(2).horario(NUEVE, LocalTime.of(17, 0))
+                .peticion());
+
+        assertThat(valoresInsertados()).isEqualTo(
+                predeterminados(true).conCalendario(2, NUEVE, LocalTime.of(17, 0)));
+        assertThat(eventoAuditado().detalle()).containsEntry("campos",
+                List.of("vueltas", "horaInicioJuego", "horaFinJuego"));
+    }
+
+    @Test
+    @DisplayName("DEC-194: camposCambiados incluye vueltas y las horas solo si cambiaron")
+    void camposCambiadosDelCalendario() {
+        ValoresParametros base = predeterminados(true);
+
+        assertThat(ParametrosService.camposCambiados(base, base)).isEmpty();
+        assertThat(ParametrosService.camposCambiados(base, base.conCalendario(2, OCHO, LocalTime.of(18, 0))))
+                .containsExactly("vueltas");
+        assertThat(ParametrosService.camposCambiados(base, base.conCalendario(1, NUEVE, LocalTime.of(18, 0))))
+                .containsExactly("horaInicioJuego");
+        assertThat(ParametrosService.camposCambiados(base, base.conCalendario(1, NUEVE, LocalTime.of(17, 0))))
+                .containsExactly("horaInicioJuego", "horaFinJuego");
+    }
+
+    @Test
+    @DisplayName("DEC-174, DEC-176: camposDemo incluye las dos horas y no las vueltas")
+    void camposDemoDelCalendario() {
+        assertThat(ParametrosService.CAMPOS_DEMO).contains("horaInicioJuego", "horaFinJuego")
+                .doesNotContain("vueltas");
+    }
+
     // ── Consultas ────────────────────────────────────────────────────────────────────────────
 
     @Test
@@ -561,7 +730,8 @@ class ParametrosServiceTest {
     void consultarHistorial() {
         existeTemporada(EstadoTemporada.ACTIVA);
         ValoresParametros segunda = new ValoresParametros(2, 1, 0, List.of(CriterioDesempate.PUNTOS), 3, 0, 48, 90,
-                120, 8, FormatoLiguilla.PARTIDO_UNICO, true, 2, 2, true, 4, null, 10, false, List.of());
+                120, 8, FormatoLiguilla.PARTIDO_UNICO, true, 2, 2, true, 4, null, 10, 1, LocalTime.of(8, 0),
+                LocalTime.of(18, 0), false, List.of());
         given(parametros.listarVersiones(TEMPORADA)).willReturn(List.of(
                 fila(VERSION_1, 1, predeterminados(true)), fila(VERSION_2, 2, segunda)));
         given(parametros.categoriasDeTemporada(TEMPORADA)).willReturn(List.of(filaCategoria(VERSION_2, 70, 90)));

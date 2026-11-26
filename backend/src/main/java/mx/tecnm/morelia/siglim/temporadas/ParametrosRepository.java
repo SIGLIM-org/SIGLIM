@@ -2,6 +2,7 @@ package mx.tecnm.morelia.siglim.temporadas;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Arrays;
@@ -27,7 +28,7 @@ import org.springframework.stereotype.Repository;
  * de la misma temporada se serializan y el trigger no calcula dos veces la misma versión; un cierre
  * en curso termina antes de que se evalúe el estado.
  *
- * <p>Refs: H-05.2, RF-006, RF-100, DEC-25 a DEC-29
+ * <p>Refs: H-05.2, H-32.3, RF-006, RF-100, DEC-25 a DEC-29, DEC-174, DEC-176
  */
 @Repository
 class ParametrosRepository {
@@ -42,7 +43,8 @@ class ParametrosRepository {
                    p.duracion_juego_min, p.bloque_cancha_min, p.clasificados_liguilla,
                    p.formato_liguilla::text AS formato_liguilla, p.empate_liguilla_por_penales,
                    p.equipos_ascienden, p.equipos_descienden, p.permite_cambio_club,
-                   p.equipos_por_arbitro, p.fechas_fase_regular, p.fechas_finales_unidad_deportiva, p.es_demo,
+                   p.equipos_por_arbitro, p.fechas_fase_regular, p.fechas_finales_unidad_deportiva,
+                   p.vueltas, p.hora_inicio_juego, p.hora_fin_juego, p.es_demo,
                    p.motivo, p.creado_por, pf.nombre_mostrado AS creado_por_nombre, p.creado_en
               FROM parametros_temporada p
               LEFT JOIN perfiles pf ON pf.id = p.creado_por
@@ -147,13 +149,15 @@ class ParametrosRepository {
                                duracion_juego_min, bloque_cancha_min, clasificados_liguilla, formato_liguilla,
                                empate_liguilla_por_penales, equipos_ascienden, equipos_descienden,
                                permite_cambio_club, equipos_por_arbitro, fechas_fase_regular,
-                               fechas_finales_unidad_deportiva, es_demo, motivo, creado_por)
+                               fechas_finales_unidad_deportiva, vueltas, hora_inicio_juego, hora_fin_juego,
+                               es_demo, motivo, creado_por)
                         VALUES (:temporadaId, :puntosVictoria, :puntosEmpate, :puntosDerrota,
                                 CAST(:criterios AS criterio_desempate[]),
                                 :golesGanador, :golesPerdedor, make_interval(hours => :plazoHoras),
                                 :duracion, :bloque, :clasificados, CAST(:formato AS formato_eliminatoria),
                                 :penales, :ascienden, :descienden, :cambioClub, :equiposPorArbitro,
-                                :fechasFaseRegular, :fechasFinales, :esDemo,
+                                :fechasFaseRegular, :fechasFinales, :vueltas,
+                                CAST(:horaInicio AS time), CAST(:horaFin AS time), :esDemo,
                                 :motivo, :creadoPor)
                         RETURNING id, version
                         """)
@@ -176,6 +180,9 @@ class ParametrosRepository {
                 .param("equiposPorArbitro", valores.equiposPorArbitro())
                 .param("fechasFaseRegular", valores.fechasFaseRegular(), java.sql.Types.SMALLINT)
                 .param("fechasFinales", valores.fechasFinalesUnidadDeportiva())
+                .param("vueltas", valores.vueltas())
+                .param("horaInicio", valores.horaInicioJuego().toString())
+                .param("horaFin", valores.horaFinJuego().toString())
                 .param("esDemo", valores.esDemo())
                 .param("motivo", motivo)
                 .param("creadoPor", creadoPor)
@@ -233,6 +240,9 @@ class ParametrosRepository {
                 fila.getInt("equipos_por_arbitro"),
                 fila.getObject("fechas_fase_regular", Integer.class),
                 fila.getInt("fechas_finales_unidad_deportiva"),
+                fila.getInt("vueltas"),
+                fila.getObject("hora_inicio_juego", LocalTime.class),
+                fila.getObject("hora_fin_juego", LocalTime.class),
                 fila.getBoolean("es_demo"),
                 List.of());
         return new FilaVersion(

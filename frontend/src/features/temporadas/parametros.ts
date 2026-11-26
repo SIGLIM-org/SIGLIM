@@ -1,3 +1,4 @@
+import { normalizarHora } from '@/features/canchas/horariosClub'
 import type { ApiError } from '@/lib/api/ApiError'
 import type {
   ClasificadosLiguilla,
@@ -22,6 +23,7 @@ export type CampoNumerico =
   | 'bloqueCanchaMin'
   | 'equiposAscienden'
   | 'equiposDescienden'
+  | 'vueltas'
 
 /** Duración y bloque propios de una categoría; vacío = usa los de la temporada (DEC-25). */
 export type FilaCategoriaFormulario = {
@@ -39,6 +41,9 @@ export type FormularioParametros = Record<CampoNumerico, string> & {
   formatoLiguilla: FormatoLiguilla
   empateLiguillaPorPenales: boolean
   permiteCambioClub: boolean
+  /** Horario de juego en `HH:mm`, el formato de `<input type="time">` (DEC-176, DEC-194). */
+  horaInicioJuego: string
+  horaFinJuego: string
   /** «Valores confirmados por la Liga»: se envía como `esDemo = !oficial` (PEN-021). */
   oficial: boolean
   /** Filas por categoría, por `categoriaId`. */
@@ -56,11 +61,13 @@ export const CAMPOS_NUMERICOS: readonly CampoNumerico[] = [
   'bloqueCanchaMin',
   'equiposAscienden',
   'equiposDescienden',
+  'vueltas',
 ]
 
 /**
  * Rangos de convenciones de API §6.2. Los de puntos, plazo, duración, bloque y ascensos son
- * [PROPUESTA] del contrato; aquí solo se copian para avisar antes de enviar.
+ * [PROPUESTA] del contrato; el de vueltas es `ck_parametros_vueltas` (DEC-174). Aquí solo se copian
+ * para avisar antes de enviar.
  */
 export const RANGOS: Record<CampoNumerico, { minimo: number; maximo: number }> = {
   puntosVictoria: { minimo: 0, maximo: 100 },
@@ -73,6 +80,7 @@ export const RANGOS: Record<CampoNumerico, { minimo: number; maximo: number }> =
   bloqueCanchaMin: { minimo: 1, maximo: 600 },
   equiposAscienden: { minimo: 0, maximo: 32 },
   equiposDescienden: { minimo: 0, maximo: 32 },
+  vueltas: { minimo: 1, maximo: 4 },
 }
 
 /** Clave del error de una fila por categoría en el formulario. */
@@ -95,6 +103,9 @@ function desdeValores(valores: ValoresParametros, oficial: boolean): FormularioP
     bloqueCanchaMin: String(valores.bloqueCanchaMin),
     equiposAscienden: String(valores.equiposAscienden),
     equiposDescienden: String(valores.equiposDescienden),
+    vueltas: String(valores.vueltas),
+    horaInicioJuego: normalizarHora(valores.horaInicioJuego),
+    horaFinJuego: normalizarHora(valores.horaFinJuego),
     criteriosDesempate: [...valores.criteriosDesempate],
     clasificadosLiguilla: valores.clasificadosLiguilla,
     formatoLiguilla: valores.formatoLiguilla,
@@ -143,7 +154,8 @@ function filasCompletas(formulario: FormularioParametros): ParametrosCategoriaPe
 
 /**
  * Cuerpo de `POST /temporadas/{id}/parametros`: el juego completo, `esDemo` y solo las filas por
- * categoría con ambos valores (RF-006, RF-100, convenciones §6.2).
+ * categoría con ambos valores (RF-006, RF-100, convenciones §6.2). Las vueltas y las dos horas
+ * (`HH:mm`) van siempre, aunque el servidor las heredaría si se omitieran (DEC-194).
  */
 export function aPeticion(
   formulario: FormularioParametros,
@@ -165,6 +177,9 @@ export function aPeticion(
     equiposAscienden: entero(formulario.equiposAscienden),
     equiposDescienden: entero(formulario.equiposDescienden),
     permiteCambioClub: formulario.permiteCambioClub,
+    vueltas: entero(formulario.vueltas),
+    horaInicioJuego: formulario.horaInicioJuego,
+    horaFinJuego: formulario.horaFinJuego,
     esDemo: !formulario.oficial,
     categorias: filasCompletas(formulario),
     motivo,
@@ -210,7 +225,34 @@ export function hayCambios(
     formulario.formatoLiguilla !== vigente.formatoLiguilla ||
     formulario.empateLiguillaPorPenales !== vigente.empateLiguillaPorPenales ||
     formulario.permiteCambioClub !== vigente.permiteCambioClub ||
+    horarioDistinto(formulario, vigente) ||
     formulario.oficial === vigente.esDemo
+  )
+}
+
+function horarioDistinto(formulario: FormularioParametros, vigente: VersionParametros): boolean {
+  return (
+    formulario.horaInicioJuego !== normalizarHora(vigente.horaInicioJuego) ||
+    formulario.horaFinJuego !== normalizarHora(vigente.horaFinJuego)
+  )
+}
+
+/**
+ * ¿El borrador cambia las vueltas o el horario de juego de la vigente? Para el aviso del modal: el
+ * cambio no es retroactivo (DEC-196). Sin vigente no hay nada que avisar.
+ */
+export function cambioDeCalendario(
+  formulario: FormularioParametros,
+  vigente: VersionParametros | null,
+): boolean {
+  if (!vigente) {
+    return false
+  }
+
+  return (
+    formulario.vueltas.trim() === '' ||
+    entero(formulario.vueltas) !== vigente.vueltas ||
+    horarioDistinto(formulario, vigente)
   )
 }
 
@@ -234,11 +276,23 @@ function errorDeEntero(texto: string, minimo: number, maximo: number): string | 
 }
 
 const MENSAJE_FILA_INCOMPLETA = 'Indica duración y bloque, o deja ambos vacíos.'
+const PATRON_HORA = /^([01]\d|2[0-3]):[0-5]\d$/
+
+/** `HH:mm` → minutos desde la medianoche, o `undefined` si no es una hora válida. */
+function minutosDelDia(hora: string): number | undefined {
+  if (!PATRON_HORA.test(hora)) {
+    return undefined
+  }
+
+  const [horas, minutos] = hora.split(':').map(Number)
+  return horas * 60 + minutos
+}
 const MENSAJE_BLOQUE = 'El bloque de cancha no puede ser menor que la duración del juego.'
 
 /**
- * Valida el borrador antes de abrir el modal (RF-006, RF-050, DEC-24, DEC-25). Devuelve un mensaje
- * por campo; las filas usan `campoFila`. Es solo ayuda: el servidor vuelve a validar y manda.
+ * Valida el borrador antes de abrir el modal (RF-006, RF-050, DEC-24, DEC-25, DEC-195). Devuelve un
+ * mensaje por campo; las filas usan `campoFila`. Es solo ayuda: el servidor vuelve a validar y
+ * manda.
  */
 export function validarFormulario(formulario: FormularioParametros): Record<string, string> {
   const errores: Record<string, string> = {}
@@ -312,7 +366,53 @@ export function validarFormulario(formulario: FormularioParametros): Record<stri
     }
   }
 
+  validarHorario(formulario, errores)
+
   return errores
+}
+
+/**
+ * DEC-195: las dos horas son obligatorias en el formulario, el fin va después del inicio y el
+ * horario alcanza para el mayor bloque de cancha (el de la temporada y el de cada fila completa y
+ * válida). Mismos textos que el servidor.
+ */
+function validarHorario(formulario: FormularioParametros, errores: Record<string, string>) {
+  const inicio = minutosDelDia(formulario.horaInicioJuego)
+  const fin = minutosDelDia(formulario.horaFinJuego)
+
+  if (inicio === undefined) {
+    errores.horaInicioJuego = 'Indica la hora de inicio del horario de juego.'
+  }
+  if (fin === undefined) {
+    errores.horaFinJuego = 'Indica la hora de fin del horario de juego.'
+  }
+  if (inicio === undefined || fin === undefined) {
+    return
+  }
+
+  if (fin <= inicio) {
+    errores.horaFinJuego = `El fin del horario de juego (${formulario.horaFinJuego}) debe ser posterior a su inicio (${formulario.horaInicioJuego}).`
+    return
+  }
+
+  const bloques = [
+    ...(errores.bloqueCanchaMin ? [] : [entero(formulario.bloqueCanchaMin)]),
+    ...Object.entries(formulario.categorias)
+      .filter(
+        ([categoriaId, fila]) =>
+          fila.bloqueCanchaMin.trim() !== '' &&
+          fila.duracionJuegoMin.trim() !== '' &&
+          !errores[campoFila(categoriaId, 'bloqueCanchaMin')] &&
+          !errores[campoFila(categoriaId, 'duracionJuegoMin')],
+      )
+      .map(([, fila]) => entero(fila.bloqueCanchaMin)),
+  ]
+  const bloque = Math.max(0, ...bloques)
+  const minutos = fin - inicio
+
+  if (minutos < bloque) {
+    errores.horaFinJuego = `El horario de juego (de ${formulario.horaInicioJuego} a ${formulario.horaFinJuego}, ${minutos} min) no alcanza para un bloque de cancha de ${bloque} min.`
+  }
 }
 
 const PATRON_FILA = /^categorias\[(\d+)\]\.(duracionJuegoMin|bloqueCanchaMin)$/

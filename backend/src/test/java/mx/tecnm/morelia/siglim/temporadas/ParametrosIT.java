@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -73,7 +74,7 @@ class ParametrosIT extends BaseDatosPrueba {
         assertThat(consulta.historial()).extracting(VersionParametrosResumenDto::version).containsExactly(2, 1);
         assertThat(consulta.historial().getFirst().camposCambiados())
                 .containsExactly("puntosVictoria", "plazoValidacionCedulaHoras", "esDemo", "categorias");
-        assertThat(consulta.historial().getLast().camposCambiados()).hasSize(19).doesNotContain("categorias");
+        assertThat(consulta.historial().getLast().camposCambiados()).hasSize(22).doesNotContain("categorias");
         assertThat(temporadas.consultar(temporada.id()).versionParametros()).isEqualTo(2);
 
         assertThat(bloqueCancha(temporada.id(), conBloquePropio)).as("fila propia de la categoría").isEqualTo(90);
@@ -114,8 +115,38 @@ class ParametrosIT extends BaseDatosPrueba {
                 tabla.clasificadosLiguilla(), tabla.formatoLiguilla(), tabla.empateLiguillaPorPenales(),
                 tabla.equiposAscienden(), tabla.equiposDescienden(), tabla.permiteCambioClub(),
                 tabla.equiposPorArbitro(), tabla.fechasFaseRegular(), tabla.fechasFinalesUnidadDeportiva(),
-                tabla.esDemo()))
+                tabla.vueltas(), tabla.horaInicioJuego(), tabla.horaFinJuego(), tabla.esDemo()))
                 .isEqualTo(ParametrosPredeterminadosDto.DE_LA_TABLA);
+    }
+
+    @Test
+    @DisplayName("DEC-194: las vueltas y el horario se guardan, se heredan si se omiten y los lee parametros_vigentes")
+    void vueltasYHorarioDeJuego() {
+        iniciarSesionComoAdministrador();
+        TemporadaDto temporada = nuevaTemporada();
+        LocalTime nueve = LocalTime.of(9, 0);
+        LocalTime cinco = LocalTime.of(17, 0);
+
+        ParametrosDto primera = parametros.registrar(temporada.id(), ParametrosPrueba.juego().vueltas(2)
+                .horario(nueve, cinco).peticion());
+        ParametrosDto segunda = parametros.registrar(temporada.id(), ParametrosPrueba.juego().puntos(2, 1, 0)
+                .peticion());
+
+        assertThat(primera.vueltas()).isEqualTo(2);
+        assertThat(primera.horaInicioJuego()).isEqualTo(nueve);
+        assertThat(primera.horaFinJuego()).isEqualTo(cinco);
+        assertThat(segunda.vueltas()).as("DEC-194: heredadas de la versión 1").isEqualTo(2);
+        assertThat(segunda.horaInicioJuego()).isEqualTo(nueve);
+        assertThat(segunda.horaFinJuego()).isEqualTo(cinco);
+        assertThat(parametros.consultar(temporada.id()).historial().getFirst().camposCambiados())
+                .containsExactly("puntosVictoria");
+
+        String vigentes = jdbc.sql("""
+                        SELECT p.version || ' ' || p.vueltas || ' ' || p.hora_inicio_juego || ' ' || p.hora_fin_juego
+                          FROM siglim.parametros_vigentes(:t) p
+                        """)
+                .param("t", temporada.id()).query(String.class).single();
+        assertThat(vigentes).isEqualTo("2 2 09:00:00 17:00:00");
     }
 
     @Test

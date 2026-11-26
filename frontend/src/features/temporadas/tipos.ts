@@ -152,7 +152,11 @@ export type FormatoLiguilla = 'PARTIDO_UNICO' | 'IDA_Y_VUELTA'
 /** Clasificados a la liguilla (DEC-28). */
 export type ClasificadosLiguilla = 2 | 4 | 8 | 16 | 32
 
-/** Juego completo de valores de una versión de parámetros (RF-006, RF-100, DEC-24 a DEC-29). */
+/**
+ * Juego completo de valores de una versión de parámetros (RF-006, RF-100, DEC-24 a DEC-29). Las
+ * vueltas y el horario de juego son de la programación automática (H-32.3, DEC-174, DEC-176,
+ * DEC-194); el API responde las horas en `HH:mm:ss`.
+ */
 export type ValoresParametros = {
   puntosVictoria: number
   puntosEmpate: number
@@ -169,6 +173,12 @@ export type ValoresParametros = {
   equiposAscienden: number
   equiposDescienden: number
   permiteCambioClub: boolean
+  /** Vueltas del calendario, de 1 a 4 (DEC-174). */
+  vueltas: number
+  /** Inicio del horario de juego por defecto, `HH:mm:ss` [DEMO] (DEC-176). */
+  horaInicioJuego: string
+  /** Fin del horario de juego por defecto, `HH:mm:ss` [DEMO] (DEC-176). */
+  horaFinJuego: string
 }
 
 /** Fila propia de una categoría en una versión de parámetros (RF-100, DEC-25). */

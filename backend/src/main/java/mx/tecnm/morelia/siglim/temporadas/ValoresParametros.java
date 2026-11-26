@@ -1,5 +1,6 @@
 package mx.tecnm.morelia.siglim.temporadas;
 
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -8,11 +9,14 @@ import java.util.UUID;
  * la que {@link ParametrosService} compara la versión nueva con la anterior ({@code camposCambiados})
  * y con la que {@link ParametrosRepository} la inserta.
  *
- * <p>Refs: H-05.2, RF-006, RF-100
+ * <p>Refs: H-05.2, H-32.3, RF-006, RF-100, DEC-174, DEC-176
  *
  * @param fechasFaseRegular            total de fechas de la fase regular; {@code null} si no se
  *                                     definió (RN-049)
  * @param fechasFinalesUnidadDeportiva últimas fechas sin canchas externas, 10 [DEMO] (VAL-027)
+ * @param vueltas                      vueltas del calendario, de 1 a 4 (DEC-174)
+ * @param horaInicioJuego              inicio del horario de juego por defecto (DEC-176)
+ * @param horaFinJuego                 fin del horario de juego por defecto (DEC-176)
  * @param categorias filas propias por categoría; vacía si todas usan los valores de la temporada
  */
 record ValoresParametros(
@@ -34,6 +38,9 @@ record ValoresParametros(
         int equiposPorArbitro,
         Integer fechasFaseRegular,
         int fechasFinalesUnidadDeportiva,
+        int vueltas,
+        LocalTime horaInicioJuego,
+        LocalTime horaFinJuego,
         boolean esDemo,
         List<ValorCategoria> categorias) {
 
@@ -48,7 +55,7 @@ record ValoresParametros(
                 golesDefaultGanador, golesDefaultPerdedor, plazoValidacionCedulaHoras, duracionJuegoMin,
                 bloqueCanchaMin, clasificadosLiguilla, formatoLiguilla, empateLiguillaPorPenales, equiposAscienden,
                 equiposDescienden, permiteCambioClub, equiposPorArbitro, fechasFaseRegular,
-                fechasFinalesUnidadDeportiva, esDemo, otras);
+                fechasFinalesUnidadDeportiva, vueltas, horaInicioJuego, horaFinJuego, esDemo, otras);
     }
 
     /** Los mismos valores con otro divisor de la cuota de árbitros (RF-114). */
@@ -56,8 +63,8 @@ record ValoresParametros(
         return new ValoresParametros(puntosVictoria, puntosEmpate, puntosDerrota, criteriosDesempate,
                 golesDefaultGanador, golesDefaultPerdedor, plazoValidacionCedulaHoras, duracionJuegoMin,
                 bloqueCanchaMin, clasificadosLiguilla, formatoLiguilla, empateLiguillaPorPenales, equiposAscienden,
-                equiposDescienden, permiteCambioClub, otro, fechasFaseRegular, fechasFinalesUnidadDeportiva, esDemo,
-                categorias);
+                equiposDescienden, permiteCambioClub, otro, fechasFaseRegular, fechasFinalesUnidadDeportiva, vueltas,
+                horaInicioJuego, horaFinJuego, esDemo, categorias);
     }
 
     /** Los mismos valores con otros parámetros de localía (RF-120, RN-049). */
@@ -66,7 +73,16 @@ record ValoresParametros(
                 golesDefaultGanador, golesDefaultPerdedor, plazoValidacionCedulaHoras, duracionJuegoMin,
                 bloqueCanchaMin, clasificadosLiguilla, formatoLiguilla, empateLiguillaPorPenales, equiposAscienden,
                 equiposDescienden, permiteCambioClub, equiposPorArbitro, otrasFechasFaseRegular, otrasFechasFinales,
-                esDemo, categorias);
+                vueltas, horaInicioJuego, horaFinJuego, esDemo, categorias);
+    }
+
+    /** Los mismos valores con otras vueltas y otro horario de juego (DEC-174, DEC-176). */
+    ValoresParametros conCalendario(int otrasVueltas, LocalTime inicio, LocalTime fin) {
+        return new ValoresParametros(puntosVictoria, puntosEmpate, puntosDerrota, criteriosDesempate,
+                golesDefaultGanador, golesDefaultPerdedor, plazoValidacionCedulaHoras, duracionJuegoMin,
+                bloqueCanchaMin, clasificadosLiguilla, formatoLiguilla, empateLiguillaPorPenales, equiposAscienden,
+                equiposDescienden, permiteCambioClub, equiposPorArbitro, fechasFaseRegular,
+                fechasFinalesUnidadDeportiva, otrasVueltas, inicio, fin, esDemo, categorias);
     }
 
     /** Duración de juego y bloque de cancha de una categoría (D7). */

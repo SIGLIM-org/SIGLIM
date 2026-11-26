@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { InsigniaNoOficial } from '@/components/ui/InsigniaNoOficial'
 import { ModalMotivo } from '@/components/ui/ModalMotivo'
 import { useRegistrarParametros } from '@/features/temporadas/api'
+import { CampoHoraParametro } from '@/features/temporadas/CampoHoraParametro'
 import { CampoParametro } from '@/features/temporadas/CampoParametro'
 import { CasillaParametro } from '@/features/temporadas/CasillaParametro'
 import { EditorDesempates } from '@/features/temporadas/EditorDesempates'
@@ -14,6 +15,7 @@ import {
 } from '@/features/temporadas/etiquetas'
 import {
   aPeticion,
+  cambioDeCalendario,
   categoriasInvalidasDe,
   erroresDeServidor,
   hayCambios,
@@ -49,6 +51,8 @@ const CLASIFICADOS: readonly ClasificadosLiguilla[] = [2, 4, 8, 16, 32]
 const AVISO_NO_RETROACTIVO =
   'No cambian los bloques de los partidos ya programados, los plazos de las cédulas ya enviadas ni las fases y propuestas ya registradas.'
 const AVISO_OFICIAL = 'La Liga confirmó estos valores (PEN-021).'
+const AVISO_CALENDARIO =
+  'Las vueltas nuevas se aplican al regenerar el calendario y el horario, en la siguiente asignación de una fecha. El calendario ya generado y los partidos ya programados no cambian.'
 
 /**
  * Formulario de una versión nueva de parámetros (F-11, RF-006, RF-050, RF-100, DEC-24 a DEC-29).
@@ -85,6 +89,12 @@ export function FormularioParametros({
   const cambiarNumero = (campo: CampoNumerico, valor: string) => {
     setBorrador((actual) => ({ ...actual, [campo]: valor }))
     quitarError(campo)
+  }
+
+  const cambiarHora = (campo: 'horaInicioJuego' | 'horaFinJuego', valor: string) => {
+    setBorrador((actual) => ({ ...actual, [campo]: valor }))
+    // La regla del horario relaciona las dos horas: un cambio en una limpia el error de ambas.
+    setErrores(({ horaInicioJuego: _inicio, horaFinJuego: _fin, ...resto }) => resto)
   }
 
   const cambiarFila = (
@@ -195,6 +205,7 @@ export function FormularioParametros({
     : `La versión ${vigente.version} se conserva en el historial. La tabla de posiciones de toda la temporada se recalculará con los puntos y criterios de la versión nueva.`
   const textosAviso = [
     ...(primera ? [] : [AVISO_NO_RETROACTIVO]),
+    ...(cambioDeCalendario(borrador, vigente) ? [AVISO_CALENDARIO] : []),
     ...(borrador.oficial ? [AVISO_OFICIAL] : []),
   ]
   const idTituloDesempates = `${id}-titulo-desempates`
@@ -283,6 +294,35 @@ export function FormularioParametros({
             invalidas={invalidas}
             onCambiar={cambiarFila}
           />
+        </SeccionParametros>
+
+        <SeccionParametros
+          titulo="Calendario y horario de juego"
+          descripcion="Horario por defecto de cada día de juego. Si una cancha tiene horarios disponibles ese día, se usan esos."
+        >
+          <div className="grid gap-4 sm:grid-cols-3">
+            {campo(
+              'vueltas',
+              etiquetaCampoParametro.vueltas,
+              'Cada equipo enfrenta a los demás de su grupo una vez por vuelta.',
+            )}
+            <CampoHoraParametro
+              id={`${id}-horaInicioJuego`}
+              etiqueta={etiquetaCampoParametro.horaInicioJuego}
+              valor={borrador.horaInicioJuego}
+              onCambiar={(valor) => cambiarHora('horaInicioJuego', valor)}
+              noOficial={noOficial('horaInicioJuego')}
+              error={errores.horaInicioJuego}
+            />
+            <CampoHoraParametro
+              id={`${id}-horaFinJuego`}
+              etiqueta={etiquetaCampoParametro.horaFinJuego}
+              valor={borrador.horaFinJuego}
+              onCambiar={(valor) => cambiarHora('horaFinJuego', valor)}
+              noOficial={noOficial('horaFinJuego')}
+              error={errores.horaFinJuego}
+            />
+          </div>
         </SeccionParametros>
 
         <SeccionParametros titulo="Liguilla">

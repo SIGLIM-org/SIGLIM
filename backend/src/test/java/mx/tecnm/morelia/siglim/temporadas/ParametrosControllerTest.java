@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -55,12 +56,14 @@ class ParametrosControllerTest {
              "formatoLiguilla":"IDA_Y_VUELTA","empateLiguillaPorPenales":true,
              "equiposAscienden":2,"equiposDescienden":2,"permiteCambioClub":false,
              "equiposPorArbitro":4,
+             "vueltas":2,"horaInicioJuego":"08:00","horaFinJuego":"18:00:00",
              "categorias":[{"categoriaId":"%s","duracionJuegoMin":70,"bloqueCanchaMin":90}],
              "motivo":"Valores de demostración iniciales"}
             """.formatted(CATEGORIA);
     private static final ParametrosDto VERSION_1 = new ParametrosDto(VERSION, TEMPORADA, 1, 3, 1, 0,
             List.of(CriterioDesempate.PUNTOS, CriterioDesempate.DIFERENCIA_GOLES, CriterioDesempate.SORTEO), 3, 0, 36,
-            90, 120, 8, FormatoLiguilla.IDA_Y_VUELTA, true, 2, 2, false, 4, null, 10,
+            90, 120, 8, FormatoLiguilla.IDA_Y_VUELTA, true, 2, 2, false, 4, null, 10, 2, LocalTime.of(8, 0),
+            LocalTime.of(18, 0),
             List.of(new ParametrosCategoriaDto(new ReferenciaDto(CATEGORIA, "Veteranos"), 70, 90)),
             true, ParametrosService.CAMPOS_DEMO, "Valores de demostración iniciales",
             new ReferenciaDto(PERFIL, "Administrador"), OffsetDateTime.parse("2030-03-01T06:00:00-06:00"));
@@ -99,6 +102,34 @@ class ParametrosControllerTest {
                 CriterioDesempate.DIFERENCIA_GOLES, CriterioDesempate.SORTEO);
         assertThat(peticion.getValue().categorias()).singleElement()
                 .satisfies(fila -> assertThat(fila.categoriaId()).isEqualTo(CATEGORIA));
+    }
+
+    @Test
+    @DisplayName("DEC-194: el POST acepta las horas en HH:mm y HH:mm:ss y responde HH:mm:ss")
+    void registrarVueltasYHorario() {
+        given(servicio.registrar(eq(TEMPORADA), any(RegistrarParametrosRequest.class))).willReturn(VERSION_1);
+
+        MvcTestResult resultado = registrar(CUERPO);
+
+        assertThat(resultado).hasStatus(HttpStatus.CREATED);
+        assertThat(resultado).bodyJson().extractingPath("$.vueltas").isEqualTo(2);
+        assertThat(resultado).bodyJson().extractingPath("$.horaInicioJuego").isEqualTo("08:00:00");
+        assertThat(resultado).bodyJson().extractingPath("$.horaFinJuego").isEqualTo("18:00:00");
+        ArgumentCaptor<RegistrarParametrosRequest> peticion = ArgumentCaptor.forClass(RegistrarParametrosRequest.class);
+        Mockito.verify(servicio).registrar(eq(TEMPORADA), peticion.capture());
+        assertThat(peticion.getValue().vueltas()).isEqualTo(2);
+        assertThat(peticion.getValue().horaInicioJuego()).as("llegó como 08:00").isEqualTo(LocalTime.of(8, 0));
+        assertThat(peticion.getValue().horaFinJuego()).as("llegó como 18:00:00").isEqualTo(LocalTime.of(18, 0));
+    }
+
+    @Test
+    @DisplayName("DEC-194: una hora inválida como 25:00 responde 400 VALIDACION y no llega al servicio")
+    void horaInvalida() {
+        MvcTestResult resultado = registrar(CUERPO.replace("\"08:00\"", "\"25:00\""));
+
+        assertThat(resultado).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(resultado).bodyJson().extractingPath("$.codigo").isEqualTo(ErroresTecnicos.VALIDACION);
+        Mockito.verifyNoInteractions(servicio);
     }
 
     @Test
@@ -149,6 +180,9 @@ class ParametrosControllerTest {
         assertThat(resultado).bodyJson().extractingPath("$.predeterminados.puntosVictoria").isEqualTo(3);
         assertThat(resultado).bodyJson().extractingPath("$.predeterminados.plazoValidacionCedulaHoras").isEqualTo(48);
         assertThat(resultado).bodyJson().extractingPath("$.predeterminados.esDemo").isEqualTo(true);
+        assertThat(resultado).bodyJson().extractingPath("$.predeterminados.vueltas").isEqualTo(1);
+        assertThat(resultado).bodyJson().extractingPath("$.predeterminados.horaInicioJuego").isEqualTo("08:00:00");
+        assertThat(resultado).bodyJson().extractingPath("$.predeterminados.horaFinJuego").isEqualTo("18:00:00");
     }
 
     @Test
