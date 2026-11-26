@@ -1,5 +1,6 @@
 -- Programación automática (T-06.2, DEC-174 a DEC-182): restricciones, índices únicos, el trigger de
--- dias_juego, la regla RN-012 de emparejamientos, privilegios y el permiso de la migración 20261125100000_programacion_automatica.sql.
+-- dias_juego, la regla RN-012 de emparejamientos, privilegios y el permiso de la migración 20261125100000_programacion_automatica.sql,
+-- y el reemplazo lógico del calendario (vigente, RN-020, DEC-189) de 20261126090000_emparejamientos_vigentes.sql.
 -- Usa los datos de prueba_flujo.sql: la temporada 50...01 (con parámetros versión 1), las categorías
 -- LIBRE «Primera Fuerza» y «Segunda» (categorias_temporada 51...01 y 51...02), el grupo de Segunda
 -- 52...02 con los equipos 60...0a, 60...0b, 60...0c y 60...cc, el partido a2...01 con su designación
@@ -138,6 +139,64 @@ SET LOCAL ROLE siglim_app;
 -- DEC-181, RN-005: siglim_app no borra fechas ni emparejamientos ----------------------------------------
 SELECT prueba.espera_error($$DELETE FROM siglim.fechas_programacion$$, 'permission denied');
 SELECT prueba.espera_error($$DELETE FROM siglim.emparejamientos$$, 'permission denied');
+
+-- DEC-189 (migración 20261126090000): reemplazo lógico del calendario ---------------------------------
+SELECT prueba.verifica(
+  (SELECT bool_and(vigente) FROM siglim.emparejamientos),
+  'DEC-189: los emparejamientos nacen vigentes');
+
+-- CHECK: una fila no vigente dice cuándo y por qué, y nunca tiene partido.
+SELECT prueba.espera_error($$INSERT INTO siglim.emparejamientos (grupo_id, vuelta, numero_fecha, equipo_local_id, equipo_visitante_id, vigente)
+  VALUES ('52000000-0000-4000-8000-000000000002', 1, 5, '60000000-0000-4000-8000-00000000000a', '60000000-0000-4000-8000-00000000000b', false)$$,
+  'ck_emparejamientos_reemplazo');
+SELECT prueba.espera_error($$INSERT INTO siglim.emparejamientos (grupo_id, vuelta, numero_fecha, equipo_local_id, equipo_visitante_id, vigente,
+                                                       reemplazado_en)
+  VALUES ('52000000-0000-4000-8000-000000000002', 1, 5, '60000000-0000-4000-8000-00000000000a', '60000000-0000-4000-8000-00000000000b', false,
+          now())$$, 'ck_emparejamientos_reemplazo');   -- sin motivo
+SELECT prueba.espera_error($$INSERT INTO siglim.emparejamientos (grupo_id, vuelta, numero_fecha, equipo_local_id, equipo_visitante_id, vigente,
+                                                       reemplazado_en, motivo_reemplazo, partido_id)
+  VALUES ('52000000-0000-4000-8000-000000000002', 1, 5, '60000000-0000-4000-8000-00000000000a', '60000000-0000-4000-8000-00000000000b', false,
+          now(), 'Calendario regenerado en prueba', 'a2000000-0000-4000-8000-000000000001')$$,
+  'ck_emparejamientos_reemplazo_sin_partido');
+
+-- Reemplazar la fecha 1 del grupo (0a vs 0b y descansa 0c) libera los índices únicos y RN-012: el
+-- calendario nuevo vuelve a usar los mismos equipos en la misma fecha.
+UPDATE siglim.emparejamientos
+   SET vigente = false, reemplazado_por = '30000000-0000-4000-8000-000000000002', reemplazado_en = now(),
+       motivo_reemplazo = 'Se agregó un equipo al grupo'
+ WHERE grupo_id = '52000000-0000-4000-8000-000000000002' AND numero_fecha = 1 AND vigente;
+INSERT INTO siglim.emparejamientos (grupo_id, vuelta, numero_fecha, equipo_local_id, equipo_visitante_id, creado_por) VALUES
+  ('52000000-0000-4000-8000-000000000002', 1, 1, '60000000-0000-4000-8000-00000000000a', '60000000-0000-4000-8000-0000000000cc',
+   '30000000-0000-4000-8000-000000000002'),
+  ('52000000-0000-4000-8000-000000000002', 1, 1, '60000000-0000-4000-8000-00000000000c', '60000000-0000-4000-8000-00000000000b',
+   '30000000-0000-4000-8000-000000000002');
+SELECT prueba.verifica(
+  (SELECT count(*) FILTER (WHERE vigente) = 2 AND count(*) FILTER (WHERE NOT vigente) = 2
+     FROM siglim.emparejamientos
+    WHERE grupo_id = '52000000-0000-4000-8000-000000000002' AND numero_fecha = 1),
+  'DEC-189: reemplazar conserva 2 filas como historial y libera los índices únicos para 2 nuevas');
+-- RN-012 sigue entre las vigentes: 0a ya juega en el calendario nuevo de la fecha 1.
+SELECT prueba.espera_error($$INSERT INTO siglim.emparejamientos (grupo_id, vuelta, numero_fecha, equipo_local_id, equipo_visitante_id)
+  VALUES ('52000000-0000-4000-8000-000000000002', 1, 1, '60000000-0000-4000-8000-00000000000a', NULL)$$, 'RN-012');
+-- Y no se puede revivir una fila reemplazada.
+SELECT prueba.espera_error($$UPDATE siglim.emparejamientos SET vigente = true
+  WHERE grupo_id = '52000000-0000-4000-8000-000000000002' AND numero_fecha = 1 AND NOT vigente$$, 'RN-020');
+
+-- RN-020: una fila reemplazada es historial inalterable.
+SELECT prueba.espera_error($$UPDATE siglim.emparejamientos SET codigo_no_asignado = 'VAL-007'
+  WHERE grupo_id = '52000000-0000-4000-8000-000000000002' AND numero_fecha = 1 AND NOT vigente$$, 'RN-020');
+SELECT prueba.espera_error($$UPDATE siglim.emparejamientos SET motivo_reemplazo = 'Otro motivo cualquiera'
+  WHERE grupo_id = '52000000-0000-4000-8000-000000000002' AND numero_fecha = 1 AND NOT vigente$$, 'RN-020');
+
+-- RN-020: un emparejamiento con partido no se reemplaza (la fecha 3 tiene e...01).
+UPDATE siglim.emparejamientos SET partido_id = 'a2000000-0000-4000-8000-000000000001'
+ WHERE id = 'e0000000-0000-4000-8000-000000000001';
+SELECT prueba.espera_error($$UPDATE siglim.emparejamientos
+   SET vigente = false, reemplazado_en = now(), motivo_reemplazo = 'Regenerar con partido ligado'
+ WHERE id = 'e0000000-0000-4000-8000-000000000001'$$, 'RN-020');
+SELECT prueba.verifica(
+  (SELECT vigente AND partido_id IS NOT NULL FROM siglim.emparejamientos WHERE id = 'e0000000-0000-4000-8000-000000000001'),
+  'RN-020: el emparejamiento con partido sigue vigente y ligado');
 
 -- DEC-182: permiso de la designación automática ---------------------------------------------------------
 SELECT prueba.verifica(EXISTS (

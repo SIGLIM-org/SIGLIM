@@ -1,10 +1,13 @@
 package mx.tecnm.morelia.siglim.temporadas;
 
+import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import mx.tecnm.morelia.siglim.temporadas.CategoriaDto.ReferenciaDto;
 import mx.tecnm.morelia.siglim.temporadas.CategoriaTemporadaDto.CategoriaResumenDto;
 import mx.tecnm.morelia.siglim.temporadas.CategoriaTemporadaDto.GrupoResumenDto;
@@ -79,7 +82,7 @@ class GrupoRepository {
      */
     List<CategoriaAsignada> listarCategorias(UUID temporadaId, UUID categoriaTemporadaId) {
         return jdbc.sql("""
-                        SELECT ct.id, c.id AS categoria_id, c.nombre, c.tipo, c.orden,
+                        SELECT ct.id, ct.dias_juego, c.id AS categoria_id, c.nombre, c.tipo, c.orden,
                                s.id AS superior_id, s.nombre AS superior_nombre
                           FROM categorias_temporada ct
                           JOIN categorias c ON c.id = ct.categoria_id
@@ -145,6 +148,14 @@ class GrupoRepository {
     /** Como {@link #buscarCategoriaTemporada}, con candado compartido sobre la temporada. */
     Optional<ContextoCategoriaTemporada> bloquearCategoriaTemporada(UUID ligaId, UUID id) {
         return contexto(CONTEXTO_CATEGORIA_TEMPORADA + " FOR SHARE OF t", ligaId, id);
+    }
+
+    /**
+     * Como {@link #buscarCategoriaTemporada}, con la fila de la categoría bloqueada para escribir y la
+     * temporada con candado compartido: un cambio de días no se cruza con el cierre (RF-003, DEC-191).
+     */
+    Optional<ContextoCategoriaTemporada> bloquearCategoriaParaEditar(UUID ligaId, UUID id) {
+        return contexto(CONTEXTO_CATEGORIA_TEMPORADA + " FOR UPDATE OF ct FOR SHARE OF t", ligaId, id);
     }
 
     private Optional<ContextoCategoriaTemporada> contexto(String sql, UUID ligaId, UUID id) {
@@ -235,6 +246,23 @@ class GrupoRepository {
                 .single();
     }
 
+    /** Días de juego actuales de la categoría de la temporada, ordenados (DEC-177). */
+    List<Integer> diasJuego(UUID categoriaTemporadaId) {
+        return jdbc.sql("SELECT dias_juego FROM categorias_temporada WHERE id = :id")
+                .param("id", categoriaTemporadaId)
+                .query((fila, numero) -> enteros(fila.getArray("dias_juego")))
+                .single();
+    }
+
+    /** Guarda los días de juego, ya validados y ordenados (DEC-191). */
+    void actualizarDiasJuego(UUID categoriaTemporadaId, List<Integer> diasJuego) {
+        jdbc.sql("UPDATE categorias_temporada SET dias_juego = CAST(:dias AS smallint[]) WHERE id = :id")
+                .param("id", categoriaTemporadaId)
+                .param("dias", diasJuego.stream().map(String::valueOf)
+                        .collect(Collectors.joining(",", "{", "}")))
+                .update();
+    }
+
     void renombrarGrupo(UUID id, String nombre) {
         jdbc.sql("UPDATE grupos SET nombre = :nombre WHERE id = :id")
                 .param("id", id)
@@ -248,8 +276,8 @@ class GrupoRepository {
     record TemporadaEstado(UUID id, String nombre, EstadoTemporada estado) {
     }
 
-    /** Fila de {@code categorias_temporada} con su categoría del catálogo, sin grupos. */
-    record CategoriaAsignada(UUID id, CategoriaResumenDto categoria) {
+    /** Fila de {@code categorias_temporada} con su categoría del catálogo y sus días de juego, sin grupos. */
+    record CategoriaAsignada(UUID id, CategoriaResumenDto categoria, List<Integer> diasJuego) {
     }
 
     /** Grupo de una categoría de la temporada, para anidarlo en ella. */
@@ -274,6 +302,19 @@ class GrupoRepository {
                         TipoCategoria.valueOf(fila.getString("tipo")),
                         fila.getInt("orden"),
                         superiorId == null ? null
-                                : new ReferenciaDto(superiorId, fila.getString("superior_nombre"))));
+                                : new ReferenciaDto(superiorId, fila.getString("superior_nombre"))),
+                enteros(fila.getArray("dias_juego")));
+    }
+
+    /** {@code smallint[]} a lista ordenada (los días se guardan ordenados, pero no se supone). */
+    private static List<Integer> enteros(Array arreglo) throws SQLException {
+        List<Integer> valores = new ArrayList<>();
+        if (arreglo != null) {
+            for (Object valor : (Object[]) arreglo.getArray()) {
+                valores.add(((Number) valor).intValue());
+            }
+        }
+        valores.sort(null);
+        return List.copyOf(valores);
     }
 }

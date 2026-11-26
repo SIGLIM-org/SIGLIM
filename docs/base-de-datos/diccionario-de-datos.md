@@ -1,7 +1,7 @@
 # Diccionario de datos
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 2.14 · 25 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
+Versión 2.15 · 26 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md) y la [arquitectura v2.1](../arquitectura/arquitectura-y-diseno-jerarquico.md)
 
 > [!NOTE]
 > Este diccionario describe la migración
@@ -31,6 +31,7 @@ Versión 2.14 · 25 de noviembre de 2026 · PostgreSQL 15+ en Supabase · Alinea
 | 2.12 | 17 de noviembre de 2026 | Migración `20261117190000_renovacion_transferencia_registros.sql` (B-06.1, RF-015, RF-016, RF-111, VAL-026, DEC-146): función `SECURITY DEFINER` de lectura mínima `registro_anterior(uuid, uuid)` (registro no rechazado más reciente de la persona en una temporada anterior, con club, equipo y temporada) e índice `ix_registros_anterior`; `tg_registros_validar` valida `registro_anterior_id` (misma persona, temporada anterior, mismo club o cambio permitido por `permite_cambio_club` de la temporada destino) y, al activar, VAL-001 cuenta también los documentos aprobados de los registros anteriores del mismo club (renovación). Sin cambios en columnas. |
 | 2.13 | 17 de noviembre de 2026 | Migración `20261117220000_alta_normal_cambio_club.sql` (B-06, RF-111, DEC-154): `tg_registros_validar` conserva sus reglas y, en un alta sin `registro_anterior_id`, rechaza con `RF-111` el cambio de club entre temporadas si el registro anterior más reciente de la persona es de otro club y la versión vigente de parámetros de la temporada destino no lo permite. Sin cambios en columnas. |
 | 2.14 | 25 de noviembre de 2026 | Migración `20261125100000_programacion_automatica.sql` (T-06, DEC-173 a DEC-182, ADR-0015): `parametros_temporada` agrega `vueltas` (`smallint`, no nulo, default 1) con `ck_parametros_vueltas` (1 a 4) y `hora_inicio_juego` y `hora_fin_juego` (`time`, no nulos, default 08:00 y 18:00 **[DEMO]**) con `ck_parametros_horario_juego` (fin > inicio); las versiones existentes reciben los valores por default. `categorias_temporada` agrega `dias_juego` (`smallint[]`, no nulo, ISO 8601) con `ck_categorias_temporada_dias` (1 a 7 elementos, valores 1 a 7); las filas existentes se llenan por tipo de categoría (LIBRE → {7}; INFANTIL y VETERANOS → {6} **[DEMO]**) y el trigger `tg_categorias_temporada_dias_juego` aplica la misma regla al insertar con nulo. Tablas nuevas `fechas_programacion` (la fecha agrupa las jornadas de todos los grupos de una semana, DEC-175) y `emparejamientos` (calendario por grupo y fecha con descansos y causa de lo no asignado, DEC-174, DEC-180; el trigger `tg_emparejamientos_equipo_unico` rechaza con `RN-012` un equipo que ya tiene emparejamiento en la misma fecha del grupo, como local, visitante o descanso), con RLS `app_sin_restriccion` y `SELECT`, `INSERT` y `UPDATE` a `siglim_app` (sin `DELETE`). `jornadas` agrega `fecha_id` con el índice único parcial `ux_jornadas_fecha_grupo`; `partidos` agrega `asignado_automaticamente` y `designaciones` agrega `automatica` (`boolean`, no nulos, default false). Permiso nuevo `arbitraje.designacion:AUTOMATICA` (M-05) asignado a `PROGRAMADOR` (DEC-182), fuera de los pares incompatibles. Pruebas nuevas en `supabase/pruebas/prueba_programacion_automatica.sql`. |
+| 2.15 | 26 de noviembre de 2026 | Migración `20261126090000_emparejamientos_vigentes.sql` (H-32.2, DEC-189): `emparejamientos` agrega el reemplazo lógico del calendario: `vigente` (`boolean`, no nulo, default true), `reemplazado_por` (FK → perfiles, con el índice parcial `ix_emparejamientos_reemplazado_por`), `reemplazado_en` (`timestamptz`) y `motivo_reemplazo` (`text`), con `ck_emparejamientos_reemplazo` (una fila no vigente lleva `reemplazado_en` y `motivo_reemplazo`) y `ck_emparejamientos_reemplazo_sin_partido` (una fila no vigente no tiene partido). `ux_emparejamientos_local` y `ux_emparejamientos_visitante` se recrean con `WHERE vigente`, e `ix_emparejamientos_grupo (grupo_id, numero_fecha)` cubre la FK `grupo_id` ahora que los únicos son parciales. `tg_emparejamientos_equipo_unico` (RN-012) solo compara filas vigentes, se dispara también con `UPDATE OF vigente` y no evalúa una fila que ya era historial. Trigger nuevo `tg_emparejamientos_reemplazo` (`BEFORE UPDATE`): una fila no vigente no se modifica y una fila con partido no se reemplaza (`RN-020`, ahora en `TablaCodigosHttp` como `409`). Las filas existentes quedan vigentes. Pruebas nuevas en `supabase/pruebas/prueba_programacion_automatica.sql`. |
 
 ## 1. Propósito y alcance
 
@@ -1107,7 +1108,7 @@ Restricciones, índices y triggers:
 
 #### `emparejamientos`
 
-Calendario por grupo: quién juega contra quién en cada fecha y vuelta, con descansos (método del círculo; DEC-174, RF-034, RF-037). Lo que no cabe queda sin partido, con código y causa (DEC-180, VAL-007). Nunca se borra (DEC-181).
+Calendario por grupo: quién juega contra quién en cada fecha y vuelta, con descansos (método del círculo; DEC-174, RF-034, RF-037). Lo que no cabe queda sin partido, con código y causa (DEC-180, VAL-007). Nunca se borra (DEC-181): regenerar el calendario de un grupo sin partidos marca las filas anteriores `vigente = false` con quién, cuándo y por qué (reemplazo lógico, DEC-189); solo las vigentes cuentan para los índices únicos, RN-012 y las consultas.
 
 | Columna | Tipo | Nulo | Predeterminado | Llave | Descripción |
 | --- | --- | --- | --- | --- | --- |
@@ -1122,19 +1123,28 @@ Calendario por grupo: quién juega contra quién en cada fecha y vuelta, con des
 | `causa_no_asignado` | text | Sí |  |  | Explicación legible de por qué quedó sin partido (DEC-180). |
 | `creado_por` | uuid | Sí |  | FK → perfiles.id | Programador que generó el calendario (DEC-174). |
 | `creado_en` | timestamptz | No | now() |  | Fecha y hora de creación. |
+| `vigente` | boolean | No | true |  | true mientras la fila pertenece al calendario actual del grupo; false cuando se reemplazó al regenerar (DEC-189). |
+| `reemplazado_por` | uuid | Sí |  | FK → perfiles.id | Programador que regeneró el calendario y reemplazó la fila (DEC-189). |
+| `reemplazado_en` | timestamptz | Sí |  |  | Fecha y hora del reemplazo; obligatoria si la fila no es vigente (DEC-189). |
+| `motivo_reemplazo` | text | Sí |  |  | Motivo con que se regeneró el calendario (al menos 10 caracteres en el servicio, RN-021); obligatorio si la fila no es vigente (DEC-189). |
 
 Restricciones, índices y triggers:
 
 - `ck_emparejamientos_descanso`: `CHECK (((equipo_visitante_id IS NOT NULL) OR (partido_id IS NULL)))`
 - `ck_emparejamientos_equipos`: `CHECK (((equipo_visitante_id IS NULL) OR (equipo_visitante_id <> equipo_local_id)))`
 - `ck_emparejamientos_numeros`: `CHECK (((vuelta > 0) AND (numero_fecha > 0)))`
+- `ck_emparejamientos_reemplazo`: `CHECK ((vigente OR ((reemplazado_en IS NOT NULL) AND (motivo_reemplazo IS NOT NULL))))` — una fila reemplazada dice cuándo y por qué (DEC-189).
+- `ck_emparejamientos_reemplazo_sin_partido`: `CHECK ((vigente OR (partido_id IS NULL)))` — una fila con partido no se reemplaza (RN-020, DEC-189).
 - `emparejamientos_partido_id_key`: `UNIQUE (partido_id)`
 - Índice `ix_emparejamientos_creado_por`: `USING btree (creado_por) WHERE (creado_por IS NOT NULL)`
 - Índice `ix_emparejamientos_equipo_local`: `USING btree (equipo_local_id)`
 - Índice `ix_emparejamientos_equipo_visitante`: `USING btree (equipo_visitante_id) WHERE (equipo_visitante_id IS NOT NULL)`
-- Índice único `ux_emparejamientos_local`: `USING btree (grupo_id, numero_fecha, equipo_local_id)` — un equipo juega o descansa una vez por grupo y fecha como local.
-- Índice único `ux_emparejamientos_visitante`: `USING btree (grupo_id, numero_fecha, equipo_visitante_id) WHERE (equipo_visitante_id IS NOT NULL)` — un equipo juega una vez por grupo y fecha como visitante.
-- Trigger `tg_emparejamientos_equipo_unico` (before insert or update of grupo_id, numero_fecha, equipo_local_id, equipo_visitante_id) → `tg_emparejamientos_equipo_unico()` — RN-012: un equipo tiene un solo emparejamiento por grupo y fecha en cualquier papel (local, visitante o descanso); los índices únicos solo cubren el mismo papel y quedan como última garantía (DEC-174).
+- Índice `ix_emparejamientos_grupo`: `USING btree (grupo_id, numero_fecha)` — calendario de un grupo por fecha, vigente o reemplazado; cubre la FK `grupo_id` (DEC-189).
+- Índice `ix_emparejamientos_reemplazado_por`: `USING btree (reemplazado_por) WHERE (reemplazado_por IS NOT NULL)`
+- Índice único `ux_emparejamientos_local`: `USING btree (grupo_id, numero_fecha, equipo_local_id) WHERE vigente` — un equipo juega o descansa una vez por grupo y fecha como local en el calendario vigente.
+- Índice único `ux_emparejamientos_visitante`: `USING btree (grupo_id, numero_fecha, equipo_visitante_id) WHERE (vigente AND (equipo_visitante_id IS NOT NULL))` — un equipo juega una vez por grupo y fecha como visitante en el calendario vigente.
+- Trigger `tg_emparejamientos_equipo_unico` (before insert or update of grupo_id, numero_fecha, equipo_local_id, equipo_visitante_id, vigente) → `tg_emparejamientos_equipo_unico()` — RN-012: un equipo tiene un solo emparejamiento vigente por grupo y fecha en cualquier papel (local, visitante o descanso); las filas reemplazadas no cuentan y una fila que ya era historial no se evalúa (la rechaza el trigger siguiente). Los índices únicos solo cubren el mismo papel y quedan como última garantía (DEC-174, DEC-189).
+- Trigger `tg_emparejamientos_reemplazo` (before update) → `tg_emparejamientos_reemplazo()` — RN-020: una fila reemplazada (`vigente = false`) no se modifica, y una fila vigente con partido no se marca como reemplazada (DEC-189).
 
 #### `fechas_programacion`
 
@@ -2239,7 +2249,7 @@ recorren P-01, P-02, P-03, P-05, P-06 y P-11 con el rol `siglim_app` y verifican
 separación de funciones, RLS por ámbito, inmutabilidad, desempates). Desde la versión 2.2 también
 comprueban que las tablas inmutables no se vacían con `TRUNCATE`, directo ni por cascada, y desde la 2.14
 `prueba_programacion_automatica.sql` verifica las restricciones, los índices únicos, el trigger de
-`dias_juego`, la regla RN-012 de `emparejamientos`, los privilegios y el permiso de la programación automática. Se ejecutan con
+`dias_juego`, la regla RN-012 de `emparejamientos`, su reemplazo lógico (`vigente`, RN-020, DEC-189), los privilegios y el permiso de la programación automática. Se ejecutan con
 `supabase/pruebas/ejecutar.sh` contra un PostgreSQL local.
 
 ## 13. Cambios respecto a la versión 1.0

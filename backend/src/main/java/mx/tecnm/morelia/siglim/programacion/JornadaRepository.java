@@ -405,7 +405,8 @@ class JornadaRepository {
     /**
      * Emparejamiento del calendario que corresponde a la jornada: mismo grupo y mismo número que la
      * fecha a la que la jornada pertenece (DEC-175, DEC-180). Lo lee con candado para que dos altas
-     * manuales no liguen el mismo emparejamiento. Vacío si no existe o es de otro grupo o fecha.
+     * manuales no liguen el mismo emparejamiento. Vacío si no existe, es de otro grupo o fecha, o es
+     * historial de un calendario reemplazado (DEC-189).
      */
     Optional<EmparejamientoDeJornada> bloquearEmparejamiento(UUID jornadaId, UUID emparejamientoId) {
         return jdbc.sql("""
@@ -415,7 +416,7 @@ class JornadaRepository {
                           JOIN jornadas j ON j.id = :jornadaId AND j.grupo_id = e.grupo_id
                           JOIN fechas_programacion f ON f.id = j.fecha_id AND f.numero = e.numero_fecha
                           LEFT JOIN partidos pa ON pa.id = e.partido_id
-                         WHERE e.id = :id
+                         WHERE e.id = :id AND e.vigente
                          FOR UPDATE OF e
                         """)
                 .param("jornadaId", jornadaId)
@@ -440,7 +441,7 @@ class JornadaRepository {
                            SET partido_id = :partidoId,
                                codigo_no_asignado = NULL,
                                causa_no_asignado = NULL
-                         WHERE id = :id
+                         WHERE id = :id AND vigente
                         """)
                 .param("id", emparejamientoId)
                 .param("partidoId", partidoId)

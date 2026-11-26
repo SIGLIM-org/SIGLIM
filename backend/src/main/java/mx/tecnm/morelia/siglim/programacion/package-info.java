@@ -12,7 +12,10 @@
  * <p>Programación automática (DEC-173): en H-32.1, el generador del calendario por el método del
  * círculo ({@code GeneradorCalendario}) y los días de cada fecha ({@code DiasDeFecha}), como dominio
  * puro sin Spring ni base de datos; en H-35.1, la vista por fecha y su verificación, envío y dictamen
- * completos ({@code FechaService}, DEC-175) y el alta manual de un emparejamiento pendiente (DEC-180).
+ * completos ({@code FechaService}, DEC-175) y el alta manual de un emparejamiento pendiente (DEC-180);
+ * en H-32.2, la generación y consulta del calendario de la temporada ({@code CalendarioService}) con
+ * reemplazo lógico al regenerar (DEC-189), las fechas de programación que le corresponden y el cambio
+ * de sus días (DEC-193). Las jornadas de la fecha las crea la asignación de H-33 (DEC-188).
  *
  * <p>Nivel 5 de dependencias (ADR-0006): solo puede usar los paquetes de los niveles 0 a 4. Si
  * necesita información de un módulo de nivel superior, lo hace con una interfaz definida en este
