@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.29 · 26 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.30 · 26 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -78,6 +78,7 @@ Versión 5.29 · 26 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.27 | 25 de noviembre de 2026 | H-25.1: §6.14 con el contrato de los avisos: `GET /notificaciones?leida=` paginado (más recientes primero) con `X-No-Leidas` expuesta por CORS y `Cache-Control: no-store`, `POST /notificaciones/{id}/lectura` (`200` con el aviso; conserva la primera lectura; ajeno o inexistente `404`) y `POST /notificaciones/lectura` (`200` con `marcadas`); eventos `CEDULA_PENDIENTE`, `COBRO_VENCIDO` y `PROGRAMACION_PUBLICADA` con sus destinatarios por permiso. |
 | 5.28 | 26 de noviembre de 2026 | H-32.2: §6.7 «Programación automática (H-32.2)» con `POST /temporadas/{id}/calendario` (cuerpo opcional `{ fechaInicio?, grupoIds?, motivo? }`, `201` con `Location`, orden de errores `403` → `400` → `404` → `409 RF-003` → `409 RF-006` → `422 REFERENCIA_INVALIDA` → `400 RN-021` → `409 RN-020` con `grupos` → `422 VALIDACION`; grupos omitidos y advertencias; reemplazo lógico con `vigente`, DEC-187 a DEC-193), `GET /temporadas/{id}/calendario`, el listado de fechas solo hasta la última fecha del calendario vigente y con `descansos`, y `PATCH /fechas/{id}` `{ dias, motivo }`; §6.2 con `PATCH /temporadas/{id}/categorias/{categoriaTemporadaId}` `{ diasJuego }` con `programacion.jornada:EDITAR` (DEC-191) y `diasJuego` en las categorías de la temporada; §3.2 agrega `RN-020` a `409` (migración `20261126090000_emparejamientos_vigentes.sql`). |
 | 5.29 | 26 de noviembre de 2026 | H-32.3: §6.2 «Parámetros deportivos» con `vueltas` (1 a 4), `horaInicioJuego` y `horaFinJuego` (`HH:mm` o `HH:mm:ss`, minutos exactos, las dos o ninguna) opcionales en el `POST`, heredados de la vigente y con 1, 08:00 y 18:00 **[DEMO]** en la primera versión; horario ≥ mayor bloque de cancha, evaluado con los valores efectivos después del `404`; las horas en `camposDemo` y no las vueltas; no retroactivo (DEC-194 a DEC-196). |
+| 5.30 | 26 de noviembre de 2026 | H-14.1: §6.5 «Designaciones» con `GET /designaciones?jornadaId=` (jornada, avance y partidos no cancelados con el central y los asistentes vigentes), `GET /partidos/{id}/arbitros-candidatos` (árbitros `VALIDADO` con `elegible`, `causas` `VAL-019`, `RF-039` y `YA_DESIGNADO`, la advertencia `RF-022` y `carga`), `POST /partidos/{id}/designaciones` (`201` sin `Location`; partido `PROGRAMADO` o `REPROGRAMADO`, árbitro repetido y tercer asistente `409 RF-023`; sustitución del central con motivo `400 RN-021`), `POST /designaciones/{id}/retiro` y `GET /mis-designaciones` (vigentes en jornadas `PUBLICADO`, siempre del titular); auditoría `DESIGNAR_ARBITRO`, `SUSTITUIR_ARBITRO` y `RETIRAR_DESIGNACION`; §3.1 agrega `RF-023` a `409` (DEC-201 a DEC-205). |
 
 ## Índice
 
@@ -204,7 +205,7 @@ propiedades de extensión: `codigo` (siempre) y `errores` (cuando hay campos se�
 | `404` | El recurso no existe **o** está fuera del ámbito del usuario (no se revela cuál de los dos) | `NO_ENCONTRADO` (VAL-024) |
 | `405` | El recurso existe pero no admite ese método (la respuesta incluye la cabecera `Allow`) | `METODO_NO_PERMITIDO` |
 | `406`, `415` | La petición no envía o no acepta JSON (`Content-Type`, `Accept`) | `FORMATO_NO_SOPORTADO` |
-| `409` | Conflicto con el estado actual de otros datos: programación, unicidad, estado que no admite la acción, cobro ya pagado | `VAL-003` a `VAL-006`, `VAL-008`, `VAL-017`, `VAL-026`, `VAL-028`, `RF-046`, `RN-021`… |
+| `409` | Conflicto con el estado actual de otros datos: programación, unicidad, estado que no admite la acción, cobro ya pagado | `VAL-003` a `VAL-006`, `VAL-008`, `VAL-017`, `VAL-026`, `VAL-028`, `RF-023`, `RF-046`, `RN-021`… |
 | `413` | Archivo mayor que el límite (§7) | `ARCHIVO_DEMASIADO_GRANDE` |
 | `415` | Tipo de archivo no permitido por su firma binaria (§7) | `TIPO_ARCHIVO_NO_PERMITIDO` |
 | `422` | La petición está bien formada pero incumple una regla sobre su propio contenido: documentos faltantes, elegibilidad, categoría superior, árbitro del mismo club, cédula incompleta, menor sin consentimiento | `VAL-001`, `VAL-002`, `VAL-018`, `VAL-019`, `VAL-020`, `VAL-025`, `RF-019`, `RF-020`… |
@@ -2005,8 +2006,11 @@ club, el equipo, el estado ni los ids de ese registro (DEC-88, DEC-90).
 | `POST /arbitros/{id}/validacion` | Validar o rechazar | `arbitraje.arbitro:VALIDAR` | RF-113 | N |
 | `GET /clubes/{id}/cuota-arbitros` | Árbitros presentados frente a los requeridos | `arbitraje.arbitro:CONSULTAR` | RF-114 | B |
 | `GET /arbitros/{id}/disponibilidad?desde=&hasta=` · `POST` · `DELETE …/{disponibilidadId}` | Disponibilidad por fecha y horario; el `POST` responde `201` sin `Location` y el `DELETE`, `204` | `arbitraje.disponibilidad:EDITAR` | RF-022 | B |
-| `GET /designaciones?jornadaId=&arbitroId=` · `POST /partidos/{id}/designaciones` | Designar; `422 VAL-019` si el árbitro es de un club del partido | `arbitraje.designacion:*` | RF-023, RF-115 | N |
-| `GET /mis-designaciones` | Partidos asignados al árbitro | ámbito `PROPIO` | RF-123 | N |
+| `GET /designaciones?jornadaId=` | Partidos de la jornada con sus designaciones vigentes y el avance; el filtro `arbitroId` llega con B-10 | `arbitraje.designacion:CONSULTAR` | RF-023 | N |
+| `GET /partidos/{id}/arbitros-candidatos` | Árbitros validados con su elegibilidad, advertencias y carga (DEC-204) | `arbitraje.designacion:EDITAR` | RF-023, RF-039, RF-115 | N |
+| `POST /partidos/{id}/designaciones` | Designar central o asistente; sustituir al central con motivo; `422 VAL-019` si el árbitro es de un club del partido | `arbitraje.designacion:EDITAR` | RF-023, RF-115, RF-039 | N |
+| `POST /designaciones/{id}/retiro` | Retirar una designación con motivo (DEC-203) | `arbitraje.designacion:EDITAR` | RF-023 | N |
+| `GET /mis-designaciones?desde=&hasta=` | Partidos asignados al árbitro de la sesión en jornadas publicadas (DEC-205) | `arbitraje.designacion:CONSULTAR`, siempre del titular | RF-023, RF-123 | N |
 
 **Árbitros del club (H-11.1, RF-021, RF-112, RF-113, DEC-17).** `GET /arbitros?estado=&clubId=&pagina=&tamano=`
 responde la envoltura de paginación; cada elemento trae `persona` con `{ id, nombreCompleto }` (sin
@@ -2060,7 +2064,102 @@ Comisión de Arbitraje (ámbito `LIGA`) opera con cualquiera y el árbitro (ámb
 suya; un ámbito de club no la alcanza y responde `404` (VAL-024, ADR-0007). El alta y el borrado se
 auditan en `M-05` sobre `disponibilidad_arbitral` como `REGISTRAR_DISPONIBILIDAD_ARBITRAL` y
 `ELIMINAR_DISPONIBILIDAD_ARBITRAL`, con `{ "arbitroId", "desde", "hasta", "disponible" }` y sin
-nombres, CURP ni datos de contacto. La usará H-14 (Sprint 4) para filtrar designaciones.
+nombres, CURP ni datos de contacto. En la designación solo **advierte** (`RF-022` en los candidatos):
+no filtra ni bloquea (DEC-204).
+
+**Designaciones (H-14.1, RF-023, RF-115, RF-039, DEC-201 a DEC-205).** Las designa la Comisión de
+Arbitraje con ámbito `LIGA` (`ObjetivoAutorizacion.deLiga()`); las fechas van en
+`America/Mexico_City` y el nombre del árbitro va `null` si la política de `personas` no deja verlo
+(DEC-78). Nunca se exponen CURP ni datos de contacto.
+
+`GET /api/v1/designaciones?jornadaId=` exige `arbitraje.designacion:CONSULTAR`. `jornadaId` es
+obligatorio (`400 VALIDACION`); una jornada inexistente o de otra liga responde `404`. Responde
+`200` con `Cache-Control: no-store`:
+
+```json
+{
+  "jornada": { "id": "…", "numero": 3, "estadoPublicacion": "BORRADOR",
+               "grupo": { "id": "…", "nombre": "A" }, "categoria": { "id": "…", "nombre": "Libre" } },
+  "avance": { "partidos": 6, "conCentral": 4, "asistentesCompletos": 1 },
+  "partidos": [
+    { "id": "…", "inicio": "2030-08-10T10:00:00-06:00", "finBloque": "2030-08-10T12:00:00-06:00",
+      "estado": "PROGRAMADO", "cancha": { "id": "…", "nombre": "…" },
+      "equipoLocal": { "id": "…", "nombre": "…" }, "equipoVisitante": { "id": "…", "nombre": "…" },
+      "designable": true,
+      "central": { "id": "…", "arbitro": { "id": "…", "nombre": "…", "club": { "id": "…", "nombre": "…" } },
+                   "funcion": "CENTRAL", "automatica": false, "designadoEn": "…" },
+      "asistentes": [] }
+  ]
+}
+```
+
+Los partidos van por `inicio` e `id` y **excluyen** los `CANCELADO` (DEC-181); solo se muestran las
+designaciones vigentes. `central` es `null` si no hay. `designable` es verdadero si el partido está
+`PROGRAMADO` o `REPROGRAMADO`. `asistentesCompletos` cuenta los partidos con sus dos asistentes. El
+filtro `arbitroId` y el historial de designaciones (RF-024) llegan con B-10.
+
+`GET /api/v1/partidos/{id}/arbitros-candidatos` exige `arbitraje.designacion:EDITAR` después del
+`404` del partido (otra liga o inexistente). Responde `200` con los árbitros `VALIDADO` de la liga
+por nombre: `[{ "arbitro": { "id", "nombre", "club" }, "elegible", "causas": [{ "codigo", "mensaje" }],
+"advertencias": [{ "codigo", "mensaje" }], "carga" }]`. Las **causas** usan las mismas condiciones
+que el trigger `tg_designaciones_validar`, así que `elegible` (sin causas) coincide con lo que acepta
+el `POST`:
+
+| `codigo` | Mensaje | Cuándo |
+| --- | --- | --- |
+| `VAL-019` | «Pertenece a &lt;club&gt;, que juega este partido.» | Su club es el de uno de los equipos (RF-115) |
+| `RF-039` | «Ya está designado en &lt;local&gt; vs &lt;visitante&gt; a las HH:mm (&lt;cancha&gt;).» | Tiene una designación vigente en otro partido no `CANCELADO` cuyo `tstzrange(inicio, fin_bloque)` se traslapa; se nombra el primero por inicio |
+| `YA_DESIGNADO` | «Ya está designado en este partido como central» (o «asistente») | Ya tiene una designación vigente en el partido |
+
+La única **advertencia** es `RF-022`, «Declaró que no está disponible en ese horario.», si un periodo
+`disponible = false` de su disponibilidad se traslapa con el bloque del partido: **no bloquea**; la
+disponibilidad solo informa (DEC-204). `carga` cuenta las designaciones vigentes del árbitro en
+partidos no `CANCELADO` de la temporada del partido. La consulta es una sola sentencia SQL en el
+componente `arbitraje.ElegibilidadArbitral`, que reutilizará la asignación automática del central
+(H-34.1, DEC-182).
+
+`POST /api/v1/partidos/{id}/designaciones` lleva `{ "arbitroId", "funcion": "CENTRAL"|"ASISTENTE",
+"motivo"? }` y exige `arbitraje.designacion:EDITAR`. Responde `201` **sin** `Location` (no hay
+`GET /designaciones/{id}`) con la designación de arriba más `partidoId` y `vigente: true`. Orden de
+los errores (DEC-201):
+
+1. `400 VALIDACION` si faltan `arbitroId` o `funcion`, o la función no existe.
+2. Partido de la liga, bloqueado (`404`).
+3. Permiso (`403 VAL-015`), después del `404` como en la disponibilidad.
+4. Árbitro de la liga, bloqueado después del partido (`422 REFERENCIA_INVALIDA` si no existe).
+5. `409 RF-023` si el partido no está `PROGRAMADO` ni `REPROGRAMADO`: «Solo se designan árbitros a
+   partidos programados o reprogramados; este está &lt;estado&gt;.» **[PROPUESTA]**
+6. `409 RF-023` si el árbitro ya tiene una designación vigente en el partido, con cualquier función.
+7. `409 RF-023` si es `ASISTENTE` y el partido ya tiene **dos** asistentes vigentes **[PROPUESTA]**.
+8. **Sustitución del central (DEC-202).** Si es `CENTRAL` y ya hay central vigente, `motivo` es
+   obligatorio, de 10 a 500 caracteres tras recortarlo (`400 RN-021`); la anterior queda
+   `vigente = false` con `motivo_cambio` y después se inserta la nueva. Sin central vigente, el
+   motivo se ignora.
+9. Alta con `designado_por` = perfil de la sesión y `automatica = false`. El trigger aplica RF-113
+   (`409 RF-113`, solo validados), VAL-019 (`422 VAL-019`) y RF-039 (`409 RF-039`); el servicio no
+   las repite.
+
+`POST /api/v1/designaciones/{id}/retiro` lleva `{ "motivo" }` (10 a 500 caracteres, `400 RN-021`) y
+exige `arbitraje.designacion:EDITAR` (DEC-203). Una designación inexistente o de otra liga responde
+`404`; bloquea el partido y responde `409 RF-023` si la designación ya no está vigente o el partido
+no está `PROGRAMADO` ni `REPROGRAMADO`. Deja `vigente = false` y `motivo_cambio`: nada se borra
+(RN-005). Responde `200` con la designación, `vigente: false` y `motivoCambio`.
+
+La designación, la sustitución y el retiro se auditan en `M-05` sobre `designaciones` como
+`DESIGNAR_ARBITRO`, `SUSTITUIR_ARBITRO` y `RETIRAR_DESIGNACION` con
+`{ "partidoId", "arbitroId", "funcion", "designacionAnteriorId"?, "motivo"? }`, sin nombres ni CURP.
+
+`GET /api/v1/mis-designaciones?desde=&hasta=&pagina=&tamano=` (DEC-205) exige que alguna asignación
+otorgue `arbitraje.designacion:CONSULTAR` (`403 VAL-015` si ninguna) y filtra **siempre** por
+`es_titular` de la persona del árbitro, sea cual sea el ámbito: es «mis». Solo designaciones vigentes
+en jornadas `PUBLICADO`. Incluye los partidos `CANCELADO` cuya designación siga vigente, con su
+estado, para que el árbitro sepa que no se juega (al regenerar una fecha, DEC-181 deja sus
+designaciones sin vigencia y ya no aparecen). `desde` y `hasta` son opcionales sobre `inicio`
+(`[desde, hasta)`, `400 VALIDACION` si el orden es inválido). Responde la envoltura de paginación
+(§4), por `inicio`, con la misma condición en el `COUNT`; cada elemento es
+`{ "designacionId", "funcion", "partido": { "id", "inicio", "finBloque", "estado", "cancha",
+"equipoLocal", "equipoVisitante", "categoria", "grupo", "jornada": { "id", "numero" } },
+"cedula": { "id", "estado" } | null }`.
 
 **Cuota de árbitros del club (B-08.1, RF-114, RN-042, DEC-17, DEC-72).**
 `GET /clubes/{id}/cuota-arbitros?temporadaId=` exige `arbitraje.arbitro:CONSULTAR` sobre el club
