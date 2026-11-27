@@ -808,6 +808,35 @@ class JornadaServiceTest {
     }
 
     @Test
+    @DisplayName("DEC-175: la jornada de una fecha de programación no se envía sola (409 RF-090)")
+    void enviarJornadaDeFecha() {
+        given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.BORRADOR, PERFIL, null)));
+        given(jornadas.numeroDeFecha(JORNADA)).willReturn(Optional.of(4));
+
+        assertThatThrownBy(() -> servicio.enviarAAprobacion(JORNADA))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-090"))
+                .hasMessageContaining("fecha 4");
+        verify(jornadas, never()).enviarAAprobacion(any(), any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    @DisplayName("DEC-175: la jornada de una fecha de programación no se dictamina sola (409 RF-090)")
+    void resolverJornadaDeFecha() {
+        given(jornadas.buscarJornadaParaActualizar(LIGA, JORNADA))
+                .willReturn(Optional.of(jornada(EstadoJornada.REVISION, PROGRAMADOR, PROGRAMADOR)));
+        given(jornadas.numeroDeFecha(JORNADA)).willReturn(Optional.of(4));
+
+        assertThatThrownBy(() -> servicio.resolver(JORNADA,
+                new ResolverJornadaRequest(DecisionJornada.PUBLICADO, null)))
+                .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-090"))
+                .hasMessageContaining("fecha 4");
+        verify(jornadas, never()).resolver(any(), any(), any(), any());
+        verifyNoInteractions(auditoria, eventos);
+    }
+
+    @Test
     @DisplayName("VAL-015: sin permiso de enviar no se lee ni se escribe la jornada")
     void enviarSinPermiso() {
         willThrow(Autorizacion.sinPermiso()).given(autorizacion).exigir(ENVIAR, ObjetivoAutorizacion.deLiga());

@@ -269,7 +269,8 @@ public class JornadaService {
     /**
      * Envía a aprobación del Presidente una jornada en {@code BORRADOR} (RF-121, RF-090).
      *
-     * <p>Orden: permiso → jornada existe ({@code 404}) → en borrador ({@code 409 RF-090}) → con al
+     * <p>Orden: permiso → jornada existe ({@code 404}) → no es de una fecha de programación
+     * ({@code 409 RF-090}, DEC-175) → en borrador ({@code 409 RF-090}) → con al
      * menos un partido vigente ({@code 409 RF-121}) → sin conflictos duros ({@code 409 RF-039} con la
      * extensión {@code conflictos}, como la verificación). La jornada queda bloqueada para que ningún
      * alta o ajuste se cruce con el envío.
@@ -281,6 +282,7 @@ public class JornadaService {
         autorizacion.exigir(ENVIAR, ObjetivoAutorizacion.deLiga());
         DatosJornada jornada = jornadas.buscarJornadaParaActualizar(ligaId, id)
                 .orElseThrow(() -> noExisteJornada(id));
+        exigirJornadaSinFecha(jornada, "se envía a aprobación");
         if (jornada.estadoPublicacion() != EstadoJornada.BORRADOR) {
             throw ReglaNegocioException.conflicto("RF-090",
                     "Solo una jornada en borrador se envía a aprobación; la jornada " + jornada.numero()
@@ -317,7 +319,8 @@ public class JornadaService {
     /**
      * Aplica el dictamen del Presidente sobre una jornada en {@code REVISION} (RF-121, CU-007).
      *
-     * <p>Orden: permiso → jornada existe ({@code 404}) → en revisión ({@code 409 RF-090}) →
+     * <p>Orden: permiso → jornada existe ({@code 404}) → no es de una fecha de programación
+     * ({@code 409 RF-090}, DEC-175) → en revisión ({@code 409 RF-090}) →
      * decisión presente ({@code 400}) → separación de funciones ({@code 403 RF-121}) → observaciones
      * de la devolución ({@code 400 RF-121}).
      *
@@ -336,6 +339,7 @@ public class JornadaService {
         autorizacion.exigir(APROBAR, ObjetivoAutorizacion.deLiga());
         DatosJornada jornada = jornadas.buscarJornadaParaActualizar(ligaId, id)
                 .orElseThrow(() -> noExisteJornada(id));
+        exigirJornadaSinFecha(jornada, "se aprueba o se devuelve");
         if (jornada.estadoPublicacion() != EstadoJornada.REVISION) {
             throw ReglaNegocioException.conflicto("RF-090",
                     "Solo una jornada en revisión se aprueba o se devuelve; la jornada " + jornada.numero()
@@ -367,6 +371,20 @@ public class JornadaService {
             auditarDictamen("DEVOLVER_JORNADA", id, EstadoJornada.BORRADOR, motivo);
         }
         return conPartidos(buscarJornada(id));
+    }
+
+    /**
+     * Una jornada de una fecha de programación cambia de estado solo con su fecha completa (DEC-175):
+     * {@code POST /fechas/{id}/envio} y {@code /resolucion}. Los endpoints por jornada quedan para las
+     * fases finales y las jornadas manuales. [PROPUESTA] Se responde {@code 409 RF-090}, como las demás
+     * transiciones de publicación que el estado no admite.
+     */
+    private void exigirJornadaSinFecha(DatosJornada jornada, String accion) {
+        jornadas.numeroDeFecha(jornada.id()).ifPresent(numero -> {
+            throw ReglaNegocioException.conflicto("RF-090",
+                    "La jornada " + jornada.numero() + " es parte de la fecha " + numero
+                            + ": la fecha completa " + accion + " desde la vista por fecha.");
+        });
     }
 
     /**
