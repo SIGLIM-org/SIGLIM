@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.32 · 27 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.33 · 27 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -81,6 +81,7 @@ Versión 5.32 · 27 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.30 | 26 de noviembre de 2026 | H-14.1: §6.5 «Designaciones» con `GET /designaciones?jornadaId=` (jornada, avance y partidos no cancelados con el central y los asistentes vigentes), `GET /partidos/{id}/arbitros-candidatos` (árbitros `VALIDADO` con `elegible`, `causas` `VAL-019`, `RF-039` y `YA_DESIGNADO`, la advertencia `RF-022` y `carga`), `POST /partidos/{id}/designaciones` (`201` sin `Location`; partido `PROGRAMADO` o `REPROGRAMADO`, árbitro repetido y tercer asistente `409 RF-023`; sustitución del central con motivo `400 RN-021`), `POST /designaciones/{id}/retiro` y `GET /mis-designaciones` (vigentes en jornadas `PUBLICADO`, siempre del titular); auditoría `DESIGNAR_ARBITRO`, `SUSTITUIR_ARBITRO` y `RETIRAR_DESIGNACION`; §3.1 agrega `RF-023` a `409` (DEC-201 a DEC-205). |
 | 5.31 | 26 de noviembre de 2026 | H-33.2: §6.7 «Asignación automática de la fecha» con `POST /fechas/{id}/asignacion` (`{ modo: PENDIENTES\|REGENERAR, motivo? }`, orden de errores de DEC-206, respuesta `{ fecha, totales, noAsignados, advertencias, resumen }`), la confirmación con el validador de H-12 y el motivo de localía automático (DEC-207) y la jornada de la fecha, la jornada manual duplicada y los partidos que no se pueden cancelar (DEC-208). `GET /jornadas/{id}` ya no lista los partidos `CANCELADO` (DEC-181). |
 | 5.32 | 27 de noviembre de 2026 | H-34.2: §6.7 «Asignación automática de la fecha» con el árbitro central automático: con `arbitraje.designacion:AUTOMATICA` designa el central de los existentes (en `PENDIENTES`) y de los insertados, con el orden de candados fecha → jornadas → partidos → canchas → árbitros (DEC-217); sin el permiso asigna igual y lo advierte (DEC-218); `totales.centrales`, `totales.sinArbitro`, la lista `sinArbitro`, la advertencia `RF-022` y los campos nuevos de `parametros_generacion` y `GENERAR_FECHA` (DEC-219); la verificación de la fecha agrega la causa al aviso `RF-023` (DEC-220). |
+| 5.33 | 27 de noviembre de 2026 | H-35.1 (corrección): §6.7 indica que `POST /jornadas/{id}/envio` y `/resolucion` responden `409 RF-090` **[PROPUESTA]** con una jornada que pertenece a una fecha de programación (`jornadas.fecha_id`, creada por la asignación de H-33, DEC-188): se envía y se dictamina con la fecha completa (DEC-175). Los endpoints por jornada quedan para fases finales y jornadas manuales. |
 
 ## Índice
 
@@ -2382,14 +2383,15 @@ se omiten). El trigger `tg_jornadas_publicacion` valida la misma máquina de est
 paso en `historial_publicacion` con quien lo hizo y su motivo.
 
 - `POST /jornadas/{id}/envio` no lleva cuerpo y exige `programacion.jornada:ENVIAR`. Orden de
-  errores: permiso (`403`) → jornada de la liga (`404`) → en `BORRADOR` (`409 RF-090`) → al menos un
+  errores: permiso (`403`) → jornada de la liga (`404`) → no es de una fecha de programación
+  (`409 RF-090`, ver abajo) → en `BORRADOR` (`409 RF-090`) → al menos un
   partido no cancelado (`409 RF-121`, **[PROPUESTA]**) → sin conflictos duros (`409 RF-039`, con la
   extensión `conflictos: [ { partidoId, codigo, mensaje } ]` igual que la verificación). Fija
   `enviadaPor` con el perfil de la sesión y `enviadaEn`, y responde `200` con la jornada en
   `REVISION` y sus partidos.
 - `POST /jornadas/{id}/resolucion` lleva `{ "decision": "PUBLICADO"|"BORRADOR", "observaciones"? }` y
-  exige `programacion.jornada:APROBAR`. Orden: permiso (`403`) → `404` → en `REVISION`
-  (`409 RF-090`) → `decision` presente (`400`) → separación de funciones (`403 RF-121`) →
+  exige `programacion.jornada:APROBAR`. Orden: permiso (`403`) → `404` → no es de una fecha de
+  programación (`409 RF-090`) → en `REVISION` (`409 RF-090`) → `decision` presente (`400`) → separación de funciones (`403 RF-121`) →
   observaciones de la devolución (`400 RF-121`). **Quien programa no aprueba:** se rechaza si quien
   dictamina creó o envió la jornada, o si alguna de sus asignaciones le da también
   `programacion.jornada:EDITAR` (par incompatible del Apéndice E); `ck_jornadas_aprobacion` es la
@@ -2403,6 +2405,12 @@ paso en `historial_publicacion` con quien lo hizo y su motivo.
   partidos }`), `APROBAR_JORNADA` y `DEVOLVER_JORNADA` (`{ estadoAnterior, estado }`, con las
   observaciones como motivo). Al publicarse, la jornada emite `JornadaPublicada` y `tesoreria` genera
   sus cobros en la misma transacción (B-30, RF-136; ver §6.13 «Cobros automáticos»).
+
+**Jornadas de una fecha (DEC-175, DEC-188).** Una jornada con `fecha_id` (la crea la asignación de
+la fecha, H-33) no se envía ni se dictamina sola: `POST /jornadas/{id}/envio` y `/resolucion`
+responden `409 RF-090` **[PROPUESTA]** con un `detail` que nombra la fecha y pide hacerlo con
+`POST /fechas/{id}/envio` o `/resolucion`. Así todas las jornadas de la fecha cambian juntas. El alta,
+el ajuste y la verificación por jornada no cambian.
 
 **Fecha de programación (H-35.1, DEC-175, DEC-180).** Una fecha (`fechas_programacion`) agrupa las
 jornadas de todos los grupos de la misma semana (`jornadas.fecha_id`) y los emparejamientos del

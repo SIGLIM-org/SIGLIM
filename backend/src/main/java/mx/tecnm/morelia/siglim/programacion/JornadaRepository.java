@@ -239,6 +239,22 @@ class JornadaRepository {
                 .list();
     }
 
+    /**
+     * Número de la fecha de programación a la que pertenece la jornada; vacío si es una jornada manual
+     * o de fase final (DEC-175). Una jornada de fecha se envía y se dictamina con la fecha completa.
+     */
+    Optional<Integer> numeroDeFecha(UUID jornadaId) {
+        return jdbc.sql("""
+                        SELECT f.numero
+                          FROM jornadas j
+                          JOIN fechas_programacion f ON f.id = j.fecha_id
+                         WHERE j.id = :id
+                        """)
+                .param("id", jornadaId)
+                .query(Integer.class)
+                .optional();
+    }
+
     /** {@code true} si el grupo ya tiene ese número de jornada en la fase regular o en la fase. */
     boolean existeNumero(UUID grupoId, UUID faseId, int numero) {
         return jdbc.sql("""

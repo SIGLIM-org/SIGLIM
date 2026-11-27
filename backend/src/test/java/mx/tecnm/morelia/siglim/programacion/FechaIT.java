@@ -237,7 +237,9 @@ class FechaIT extends BaseDatosPrueba {
     @DisplayName("RF-090: si una jornada de la fecha ya no está en borrador, la fecha no se envía")
     void envioConJornadaFueraDeBorrador() {
         Escenario e = escenario();
-        jornadas.enviarAAprobacion(e.jornadaA());
+        // Un estado mezclado ya no se produce por el API (DEC-175): se simula en la base.
+        jdbc.sql("UPDATE siglim.jornadas SET estado_publicacion = 'REVISION', enviada_por = :perfil WHERE id = :id")
+                .param("perfil", e.programador()).param("id", e.jornadaA()).update();
 
         assertThatThrownBy(() -> fechas.enviarAAprobacion(e.fecha()))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-090"));
