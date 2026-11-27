@@ -1,7 +1,9 @@
 import { Link } from 'react-router'
-import { ClipboardList, Flag, PencilLine } from 'lucide-react'
+import { ClipboardList, Flag, PencilLine, UserCheck } from 'lucide-react'
 import { clasesBoton } from '@/components/ui/estilosBoton'
 import { Insignia } from '@/components/ui/Insignia'
+import { EDITAR_DESIGNACION } from '@/features/arbitraje/designaciones/permisos'
+import { rutaJornadaDesignaciones } from '@/features/arbitraje/designaciones/rutas'
 import { estadoCedula, etiquetaFuncionArbitro } from '@/features/partidos/etiquetas'
 import type { PartidoDetalle } from '@/features/partidos/tipos'
 import { ConPermiso } from '@/features/seguridad/ConPermiso'
@@ -12,7 +14,8 @@ type Props = {
 
 /**
  * Árbitros designados y estado de la cédula (F-25, UI-010). Solo lo que guarda el sistema: el club
- * que presenta a cada árbitro y su designación son de H-14 (D-02), y la captura, de F-26.
+ * que presenta a cada árbitro y su designación son de H-14 (D-02), y la captura, de F-26. Con
+ * `arbitraje.designacion:EDITAR`, «Designar árbitros» abre la jornada del partido en F-24 (DEC-211).
  */
 export function PestanaResumenPartido({ partido }: Props) {
   const cedula = partido.cedula ? (estadoCedula[partido.cedula.estado] ?? null) : null
@@ -42,6 +45,15 @@ export function PestanaResumenPartido({ partido }: Props) {
             ))}
           </ul>
         )}
+        <ConPermiso permiso={EDITAR_DESIGNACION}>
+          <Link
+            to={rutaJornadaDesignaciones(partido.jornada.id)}
+            className={`${clasesBoton('secundario')} mt-4 w-full sm:w-auto`}
+          >
+            <UserCheck aria-hidden="true" className="size-4 shrink-0" />
+            Designar árbitros
+          </Link>
+        </ConPermiso>
       </section>
 
       <section aria-labelledby="titulo-cedula" className="rounded-lg border border-border bg-surface p-4 sm:p-5">

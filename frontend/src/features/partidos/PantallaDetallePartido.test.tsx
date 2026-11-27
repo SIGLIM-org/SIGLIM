@@ -320,6 +320,25 @@ describe('PantallaDetallePartido (F-25, H-15.3)', () => {
     expect(screen.queryByRole('link', { name: 'Capturar cédula' })).not.toBeInTheDocument()
   })
 
+  it('H-14.2 · DEC-211: con arbitraje.designacion:EDITAR enlaza a la jornada del partido en F-24', async () => {
+    otorgar(CONSULTAR, 'arbitraje.designacion:EDITAR')
+    get.mockResolvedValue(partido())
+    const { unmount } = montar()
+
+    expect(await screen.findByRole('link', { name: 'Designar árbitros' })).toHaveAttribute(
+      'href',
+      '/app/programacion/designaciones?jornadaId=j1',
+    )
+    unmount()
+
+    otorgar(CONSULTAR)
+    get.mockResolvedValue(partido())
+    montar()
+
+    expect(await screen.findByRole('heading', { level: 1 })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Designar árbitros' })).not.toBeInTheDocument()
+  })
+
   it('VAL-015: sin permiso de consulta muestra la página 403 sin pedir el partido', () => {
     montar()
 
