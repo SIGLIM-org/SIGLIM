@@ -24,7 +24,7 @@ import org.springframework.stereotype.Repository;
  *
  * <p>Toda lectura de {@code emparejamientos} usa solo el calendario vigente (DEC-189).
  *
- * <p>Refs: H-33.2, RF-035, RF-041, RF-042, RF-044, DEC-176, DEC-177, DEC-179, DEC-180, DEC-181, DEC-189
+ * <p>Refs: H-33.2, RF-035, RF-041, RF-042, RF-044, DEC-176, DEC-177, DEC-179, DEC-180, DEC-181, DEC-189, DEC-217
  */
 @Repository
 class AsignacionFechaRepository {
@@ -217,9 +217,15 @@ class AsignacionFechaRepository {
                 .list();
     }
 
-    // ── Regenerar (DEC-181) ─────────────────────────────────────────────────────────────────────
+    // ── Partidos existentes: regenerar (DEC-181) y árbitro central (DEC-217) ─────────────────────
 
-    /** Partidos no cancelados de las jornadas de la fecha, con lo necesario para nombrarlos. */
+    /**
+     * Partidos no cancelados de las jornadas de la fecha, con lo necesario para nombrarlos, bloqueados
+     * con {@code FOR UPDATE OF p} por {@code inicio} y {@code id} (DEC-217). Se llama en los dos modos,
+     * después de bloquear la fecha y sus jornadas y antes de bloquear canchas y árbitros: el ajuste de
+     * un partido (RF-040) bloquea partido → cancha, y bloquear los partidos después de las canchas
+     * formaría un ciclo.
+     */
     List<PartidoDeLaFecha> partidosDeLaFecha(UUID fechaId) {
         return jdbc.sql("""
                         SELECT p.id, p.estado, l.nombre AS local_nombre, v.nombre AS visitante_nombre
@@ -229,6 +235,7 @@ class AsignacionFechaRepository {
                           JOIN equipos v ON v.id = p.equipo_visitante_id
                          WHERE j.fecha_id = :fechaId AND p.estado <> 'CANCELADO'
                          ORDER BY p.inicio, p.id
+                           FOR UPDATE OF p
                         """)
                 .param("fechaId", fechaId)
                 .query((fila, n) -> new PartidoDeLaFecha(

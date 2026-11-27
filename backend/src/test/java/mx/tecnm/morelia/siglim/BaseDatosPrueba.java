@@ -94,6 +94,31 @@ public abstract class BaseDatosPrueba {
         return perfil;
     }
 
+    // ── Árbitros: aislamiento de la designación automática (H-34) ──────────────────────────────
+
+    /**
+     * Pasa a {@code BAJA} los árbitros {@code VALIDADO} de la liga para que la designación automática
+     * (H-34) solo vea los que crea la prueba. Se llama en un {@code @BeforeEach} y lo que devuelve se
+     * pasa a {@link #restaurarArbitros} en el {@code @AfterEach}.
+     *
+     * @return los árbitros que pasaron a {@code BAJA}
+     */
+    protected List<UUID> aislarArbitrosValidados(UUID liga) {
+        return jdbc.sql("""
+                        UPDATE siglim.arbitros a SET estado = 'BAJA'
+                          FROM siglim.clubes cl
+                         WHERE cl.id = a.club_id AND cl.liga_id = :liga AND a.estado = 'VALIDADO'
+                        RETURNING a.id
+                        """).param("liga", liga).query(UUID.class).list();
+    }
+
+    /** Devuelve a {@code VALIDADO} los árbitros que apartó {@link #aislarArbitrosValidados}. */
+    protected void restaurarArbitros(List<UUID> arbitros) {
+        for (UUID arbitro : arbitros) {
+            jdbc.sql("UPDATE siglim.arbitros SET estado = 'VALIDADO' WHERE id = :id").param("id", arbitro).update();
+        }
+    }
+
     // ── Comunicados: el flujo más simple con triggers de estado y de historial ──────────────────
 
     protected UUID crearComunicado(UUID redactor) {

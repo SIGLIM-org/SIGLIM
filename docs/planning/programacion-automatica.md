@@ -261,6 +261,17 @@ La programación lo pide por el puerto `programacion.DesignadorArbitroCentral`, 
 Antes de elegir bloquea los partidos y después todos los árbitros validados de la liga, en el mismo
 orden que la designación manual (DEC-215). Decisiones: [DEC-213 a DEC-216](../requisitos/decisiones/registro-de-decisiones.md).
 
+**Integración en la asignación (H-34.2).** `AsignacionFechaService` llama al puerto después de insertar,
+solo si la sesión tiene `arbitraje.designacion:AUTOMATICA`: con `PENDIENTES`, para los partidos
+existentes no cancelados de la fecha y los insertados (un central retirado sin sustituto se vuelve a
+designar); con `REGENERAR`, solo para los insertados. Los partidos de la fecha se bloquean en los dos
+modos antes que las canchas, con el orden total fecha → jornadas → partidos → canchas → árbitros,
+porque el ajuste RF-040 bloquea partido → cancha. Sin el permiso la asignación sigue, sin
+designaciones y con una advertencia. La respuesta agrega `totales.centrales`, `totales.sinArbitro` y
+la lista `sinArbitro`, y una advertencia por cada central con `RF-022`. La verificación de la fecha pide
+la causa de cada partido sin central a `explicarSinCentral`, de solo lectura y sin permiso propio, y la
+agrega al aviso `RF-023`. Decisiones: [DEC-217 a DEC-220](../requisitos/decisiones/registro-de-decisiones.md).
+
 ---
 
 ## 5. API
@@ -275,8 +286,8 @@ Sigue [convenciones-api.md](../arquitectura/convenciones-api.md); permisos por A
 | `GET /api/v1/fechas?temporadaId=` | Fechas con estado derivado de sus jornadas | `programacion.jornada:CONSULTAR` |
 | `GET /api/v1/fechas/{id}` | Vista por fecha: bloques por categoría y grupo con partidos, descansos, sin asignar y árbitro | `programacion.jornada:CONSULTAR` |
 | `PATCH /api/v1/fechas/{id}` `{dias, motivo}` | Cambiar o agregar días (solo en `BORRADOR`) | `programacion.jornada:EDITAR` |
-| `POST /api/v1/fechas/{id}/asignacion` `{modo: PENDIENTES\|REGENERAR, motivo?}` | Motor (H-33) y, con el permiso, árbitros (H-34) | `programacion.jornada:EDITAR` (+ `arbitraje.designacion:AUTOMATICA`) |
-| `POST /api/v1/fechas/{id}/verificacion` | Conflictos y advertencias de toda la fecha, sin guardar | `programacion.jornada:CONSULTAR` |
+| `POST /api/v1/fechas/{id}/asignacion` `{modo: PENDIENTES\|REGENERAR, motivo?}` | Motor (H-33) y árbitros centrales (H-34): la designación es opcional y solo ocurre con el permiso adicional; sin él se asigna igual y se advierte (DEC-217, DEC-218) | `programacion.jornada:EDITAR` (+ `arbitraje.designacion:AUTOMATICA` para designar) |
+| `POST /api/v1/fechas/{id}/verificacion` | Conflictos y advertencias de toda la fecha, sin guardar; «Sin árbitro» con su causa (DEC-220) | `programacion.jornada:CONSULTAR` |
 | `POST /api/v1/fechas/{id}/envio` | Todas las jornadas pasan a `REVISION` | `programacion.jornada:ENVIAR` |
 | `POST /api/v1/fechas/{id}/resolucion` `{decision, observaciones}` | Aprobar o devolver la fecha completa | `programacion.jornada:APROBAR` |
 | `POST /api/v1/jornadas/{id}/partidos` + `emparejamientoId?` | Asignar a mano un emparejamiento pendiente | `programacion.jornada:EDITAR` |

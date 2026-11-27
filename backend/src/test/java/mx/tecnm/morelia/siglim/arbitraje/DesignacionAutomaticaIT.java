@@ -62,12 +62,7 @@ class DesignacionAutomaticaIT extends BaseDatosPrueba {
 
     @BeforeEach
     void aislarArbitros() {
-        arbitrosAjenos = jdbc.sql("""
-                        UPDATE siglim.arbitros a SET estado = 'BAJA'
-                          FROM siglim.clubes cl
-                         WHERE cl.id = a.club_id AND cl.liga_id = :liga AND a.estado = 'VALIDADO'
-                        RETURNING a.id
-                        """).param("liga", LIGA).query(UUID.class).list();
+        arbitrosAjenos = aislarArbitrosValidados(LIGA);
     }
 
     @AfterEach
@@ -79,9 +74,7 @@ class DesignacionAutomaticaIT extends BaseDatosPrueba {
         for (UUID club : clubesCreados) {
             jdbc.sql("DELETE FROM siglim.clubes WHERE id = :id").param("id", club).update();
         }
-        for (UUID arbitro : arbitrosAjenos) {
-            jdbc.sql("UPDATE siglim.arbitros SET estado = 'VALIDADO' WHERE id = :id").param("id", arbitro).update();
-        }
+        restaurarArbitros(arbitrosAjenos);
         arbitrosCreados.clear();
         clubesCreados.clear();
     }

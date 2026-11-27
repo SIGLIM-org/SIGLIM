@@ -1,6 +1,7 @@
 package mx.tecnm.morelia.siglim.arbitraje;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -28,8 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Designación automática y equitativa del árbitro central (H-34.1, DEC-182): implementa el puerto
- * {@link DesignadorArbitroCentral} de {@code programacion} (DEC-213, ADR-0006), que lo llamará al
- * asignar una fecha (H-34.2).
+ * {@link DesignadorArbitroCentral} de {@code programacion} (DEC-213, ADR-0006), que lo llama al
+ * asignar una fecha (H-34.2, DEC-217) y al verificarla (DEC-220).
  *
  * <ul>
  *   <li><b>Permiso.</b> {@code arbitraje.designacion:AUTOMATICA} en ámbito de liga (PROGRAMADOR), no
@@ -54,13 +55,16 @@ import org.springframework.transaction.annotation.Transactional;
  *       del último partido del árbitro.</li>
  *   <li><b>Sin candidato</b>, {@code SinCentral} con {@code RF-023} y la causa de DEC-216; no se
  *       audita porque no cambia nada.</li>
+ *   <li><b>Explicación (DEC-220).</b> {@link #explicarSinCentral} es de solo lectura, sin
+ *       {@code FOR UPDATE} ni permiso propio: la usa la verificación de la fecha, que ya exigió
+ *       {@code programacion.jornada:CONSULTAR}, y solo devuelve conteos.</li>
  *   <li><b>Auditoría (RF-093).</b> {@code DESIGNAR_ARBITRO} en {@code M-05} sobre
  *       {@code designaciones}, sin motivo, con {@code partidoId}, {@code arbitroId},
  *       {@code funcion} y {@code automatica}; sin nombres ni CURP.</li>
  * </ul>
  *
  * <p>Refs: H-34.1, RF-022, RF-023, RF-039, RF-093, RF-115, VAL-015, VAL-019, DEC-182, DEC-201,
- * DEC-204, DEC-213 a DEC-216, ADR-0006, ADR-0007, ADR-0015
+ * DEC-204, DEC-213 a DEC-217, DEC-220, ADR-0006, ADR-0007, ADR-0015
  */
 @Component
 public class DesignacionAutomatica implements DesignadorArbitroCentral {
@@ -117,6 +121,29 @@ public class DesignacionAutomatica implements DesignadorArbitroCentral {
             }
         }
         return new ResultadoCentrales(designados, sinCentral);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, readOnly = true)
+    public Map<UUID, String> explicarSinCentral(List<UUID> partidoIds) {
+        if (partidoIds == null || partidoIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, String> causas = new LinkedHashMap<>();
+        for (UUID partidoId : new LinkedHashSet<>(partidoIds)) {
+            boolean explicable = designaciones.buscarPartido(ligaId, partidoId)
+                    .filter(partido -> DesignacionService.designable(partido.estado()))
+                    .isPresent();
+            if (!explicable || tieneCentral(partidoId)) {
+                continue;
+            }
+            List<CandidatoArbitralDto> candidatos = elegibilidad.candidatos(ligaId, partidoId);
+            long elegibles = candidatos.stream().filter(CandidatoArbitralDto::elegible).count();
+            causas.put(partidoId, elegibles == 0
+                    ? SelectorArbitroCentral.causa(candidatos)
+                    : SelectorArbitroCentral.causaConElegibles((int) elegibles));
+        }
+        return Collections.unmodifiableMap(causas);
     }
 
     private boolean tieneCentral(UUID partidoId) {

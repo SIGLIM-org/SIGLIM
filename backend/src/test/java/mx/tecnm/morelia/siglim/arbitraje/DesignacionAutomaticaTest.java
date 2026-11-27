@@ -20,12 +20,14 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import mx.tecnm.morelia.siglim.arbitraje.ArbitroDto.ReferenciaDto;
 import mx.tecnm.morelia.siglim.arbitraje.CandidatoArbitralDto.CausaDto;
 import mx.tecnm.morelia.siglim.arbitraje.DesignacionDto.ArbitroDesignadoDto;
 import mx.tecnm.morelia.siglim.arbitraje.DesignacionRepository.DesignacionVigente;
 import mx.tecnm.morelia.siglim.arbitraje.DesignacionRepository.PartidoBloqueado;
+import mx.tecnm.morelia.siglim.arbitraje.DesignacionRepository.PartidoDesignable;
 import mx.tecnm.morelia.siglim.auditoria.AuditoriaService;
 import mx.tecnm.morelia.siglim.auditoria.EventoAuditoria;
 import mx.tecnm.morelia.siglim.compartido.config.SiglimPropiedades;
@@ -49,7 +51,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
-/** Reglas de {@link DesignacionAutomatica} (H-34.1, DEC-182, DEC-213 a DEC-216). Sin BD. */
+/** Reglas de {@link DesignacionAutomatica} (H-34.1, H-34.2, DEC-182, DEC-213 a DEC-216, DEC-220). Sin BD. */
 class DesignacionAutomaticaTest {
 
     private static final String AUTOMATICA = "arbitraje.designacion:AUTOMATICA";
@@ -245,6 +247,77 @@ class DesignacionAutomaticaTest {
         verify(designaciones, times(1)).bloquearArbitrosValidados(LIGA);
     }
 
+    // ── Explicación de «Sin árbitro» (H-34.2, DEC-220) ──────────────────────────────────────────
+
+    @Test
+    @DisplayName("DEC-220: explicarSinCentral no exige permiso propio ni bloquea, y con lista vacía o null no consulta")
+    void explicarSinPermisoNiConsulta() {
+        assertThat(designador.explicarSinCentral(List.of())).isEmpty();
+        assertThat(designador.explicarSinCentral(null)).isEmpty();
+
+        verifyNoInteractions(autorizacion, designaciones, elegibilidad, auditoria);
+    }
+
+    @Test
+    @DisplayName("DEC-220: omite otra liga, no designables y con central; el resto va en el orden recibido y sin duplicados")
+    void explicarOmite() {
+        UUID otraLiga = UUID.fromString("d4444444-4444-4444-8444-444444444444");
+        UUID suspendido = UUID.fromString("e5555555-5555-4555-8555-555555555555");
+        given(designaciones.buscarPartido(LIGA, otraLiga)).willReturn(Optional.empty());
+        given(designaciones.buscarPartido(LIGA, suspendido))
+                .willReturn(Optional.of(new PartidoDesignable(suspendido, EstadoPartido.SUSPENDIDO)));
+        designable(PRIMERO, EstadoPartido.PROGRAMADO);
+        designable(SEGUNDO, EstadoPartido.REPROGRAMADO);
+        designable(TERCERO, EstadoPartido.PROGRAMADO);
+        given(designaciones.vigentesDelPartido(PRIMERO)).willReturn(List.of(
+                new DesignacionVigente(UUID.randomUUID(), OTRO_ARBITRO, FuncionArbitral.CENTRAL)));
+        given(elegibilidad.candidatos(LIGA, SEGUNDO)).willReturn(List.of());
+        given(elegibilidad.candidatos(LIGA, TERCERO)).willReturn(List.of());
+
+        Map<UUID, String> causas = designador.explicarSinCentral(List.of(TERCERO, otraLiga, PRIMERO, suspendido,
+                SEGUNDO, TERCERO));
+
+        assertThat(causas.keySet()).containsExactly(TERCERO, SEGUNDO);
+        assertThat(causas).containsEntry(TERCERO, "No hay árbitros validados en la liga.");
+        assertThatThrownBy(() -> causas.put(PRIMERO, "x")).isInstanceOf(UnsupportedOperationException.class);
+        verify(elegibilidad, times(1)).candidatos(LIGA, TERCERO);
+        verify(elegibilidad, never()).candidatos(LIGA, PRIMERO);
+        verify(designaciones, never()).bloquearPartidos(any(), any());
+        verify(designaciones, never()).bloquearArbitrosValidados(any());
+        verify(designaciones, never()).bloquearPartido(any(), any());
+        verifyNoInteractions(autorizacion, auditoria);
+    }
+
+    @Test
+    @DisplayName("DEC-216 · DEC-220: sin elegibles da la causa con conteos por regla")
+    void explicarSinElegibles() {
+        designable(PRIMERO, EstadoPartido.PROGRAMADO);
+        given(elegibilidad.candidatos(LIGA, PRIMERO)).willReturn(List.of(
+                new CandidatoArbitralDto(arbitro(ARBITRO), false, List.of(new CausaDto("RF-039", "Choca.")), List.of(), 0),
+                new CandidatoArbitralDto(arbitro(OTRO_ARBITRO), false, List.of(new CausaDto("VAL-019", "Club.")),
+                        List.of(), 0)));
+
+        assertThat(designador.explicarSinCentral(List.of(PRIMERO))).containsExactly(Map.entry(PRIMERO,
+                "Ninguno de los 2 árbitros validados puede pitarlo: 1 es de los clubes del partido (VAL-019) "
+                        + "y 1 ya pita a esa hora (RF-039)."));
+    }
+
+    @Test
+    @DisplayName("DEC-220: con elegibles cuenta cuántos pueden pitarlo, en singular y en plural")
+    void explicarConElegibles() {
+        designable(PRIMERO, EstadoPartido.PROGRAMADO);
+        designable(SEGUNDO, EstadoPartido.PROGRAMADO);
+        given(elegibilidad.candidatos(LIGA, PRIMERO)).willReturn(List.of(elegible(ARBITRO, 0),
+                new CandidatoArbitralDto(arbitro(OTRO_ARBITRO), false, List.of(new CausaDto("RF-039", "Choca.")),
+                        List.of(), 0)));
+        given(elegibilidad.candidatos(LIGA, SEGUNDO)).willReturn(List.of(elegible(ARBITRO, 0), elegible(OTRO_ARBITRO, 2)));
+
+        Map<UUID, String> causas = designador.explicarSinCentral(List.of(PRIMERO, SEGUNDO));
+
+        assertThat(causas).containsEntry(PRIMERO, "1 árbitro validado puede pitarlo.")
+                .containsEntry(SEGUNDO, "2 árbitros validados pueden pitarlo.");
+    }
+
     // ── Apoyo ───────────────────────────────────────────────────────────────────────────────────
 
     private void partidos(PartidoBloqueado... bloqueados) {
@@ -261,5 +334,9 @@ class DesignacionAutomaticaTest {
 
     private static ArbitroDesignadoDto arbitro(UUID id) {
         return new ArbitroDesignadoDto(id, "Árbitro", new ReferenciaDto(UUID.randomUUID(), "Club"));
+    }
+
+    private void designable(UUID id, EstadoPartido estado) {
+        given(designaciones.buscarPartido(LIGA, id)).willReturn(Optional.of(new PartidoDesignable(id, estado)));
     }
 }

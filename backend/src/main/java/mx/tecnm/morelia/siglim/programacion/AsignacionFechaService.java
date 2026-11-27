@@ -5,6 +5,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -20,6 +21,7 @@ import mx.tecnm.morelia.siglim.compartido.error.RecursoNoEncontradoException;
 import mx.tecnm.morelia.siglim.compartido.error.ReglaNegocioException;
 import mx.tecnm.morelia.siglim.programacion.AsignacionFechaDto.NoAsignado;
 import mx.tecnm.morelia.siglim.programacion.AsignacionFechaDto.ResumenDia;
+import mx.tecnm.morelia.siglim.programacion.AsignacionFechaDto.SinArbitro;
 import mx.tecnm.morelia.siglim.programacion.AsignacionFechaDto.Totales;
 import mx.tecnm.morelia.siglim.programacion.AsignacionFechaRepository.CanchaDeAsignacion;
 import mx.tecnm.morelia.siglim.programacion.AsignacionFechaRepository.EmparejamientoPendiente;
@@ -28,12 +30,14 @@ import mx.tecnm.morelia.siglim.programacion.AsignacionFechaRepository.Parametros
 import mx.tecnm.morelia.siglim.programacion.AsignacionFechaRepository.PartidoDeLaFecha;
 import mx.tecnm.morelia.siglim.programacion.AsignacionFechaRepository.PeriodoDeCancha;
 import mx.tecnm.morelia.siglim.programacion.ConflictoRepository.SancionDeEquipo;
+import mx.tecnm.morelia.siglim.programacion.FechaDto.FilaPartido;
 import mx.tecnm.morelia.siglim.programacion.FechaRepository.DatosFecha;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.CanchaDeLiga;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.DatosJornada;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.EquipoDeLiga;
 import mx.tecnm.morelia.siglim.programacion.ResultadoAsignacion.PartidoAsignado;
 import mx.tecnm.morelia.siglim.programacion.ResultadoAsignacion.PartidoNoAsignado;
+import mx.tecnm.morelia.siglim.programacion.ResultadoCentrales.CentralDesignado;
 import mx.tecnm.morelia.siglim.programacion.SolicitudAsignacion.CanchaAsignable;
 import mx.tecnm.morelia.siglim.programacion.SolicitudAsignacion.CategoriaAsignable;
 import mx.tecnm.morelia.siglim.programacion.SolicitudAsignacion.EquipoAsignable;
@@ -56,7 +60,8 @@ import tools.jackson.databind.json.JsonMapper;
  *   <li>{@code 400 VALIDACION} sin {@code modo}.</li>
  *   <li>{@code 400 RN-021} al regenerar con un motivo de menos de 10 caracteres.</li>
  *   <li>{@code 404} si la fecha no es de la liga. La fecha y después sus jornadas se bloquean con
- *       {@code FOR UPDATE}, como el envío y el dictamen: dos asignaciones no se cruzan.</li>
+ *       {@code FOR UPDATE}, como el envío y el dictamen: dos asignaciones no se cruzan (ver
+ *       <b>Candados</b>).</li>
  *   <li>{@code 409 RF-003} con la temporada cerrada.</li>
  *   <li>{@code 409 RF-090} si alguna jornada de la fecha no está en {@code BORRADOR}.</li>
  *   <li>{@code 409 RF-006} sin parámetros vigentes (DEC-190).</li>
@@ -78,13 +83,36 @@ import tools.jackson.databind.json.JsonMapper;
  * causas de los no asignados, {@code generada_por}, {@code generada_en} y
  * {@code parametros_generacion} (RF-041) y se audita {@code GENERAR_FECHA} sin datos personales.
  *
- * <p>Refs: H-33.2, RF-032, RF-035, RF-036, RF-039, RF-041, RF-042, RF-044, RN-021, VAL-003, VAL-004,
- * VAL-005, VAL-006, VAL-007, VAL-027, DEC-179, DEC-180, DEC-181, DEC-206, DEC-207, DEC-208, ADR-0015
+ * <p><b>Árbitro central automático (H-34.2, DEC-217 a DEC-219).</b> Después de insertar, y solo si la
+ * sesión tiene además {@code arbitraje.designacion:AUTOMATICA} en ámbito de liga, se pide a
+ * {@link DesignadorArbitroCentral} el central de los partidos existentes no cancelados (solo en
+ * {@code PENDIENTES}: así un partido cuyo central se retiró sin sustituto lo vuelve a recibir) y de
+ * los recién insertados. Sin ese permiso la asignación sigue igual, sin designaciones y con una
+ * advertencia (DEC-218). Los partidos sin árbitro elegible van en {@code sinArbitro} con la causa de
+ * DEC-216, y un central que declaró no estar disponible en ese horario deja una advertencia
+ * {@code RF-022} (DEC-219).
+ *
+ * <p><b>Candados (DEC-217).</b> Orden total: fecha → jornadas → partidos existentes de la fecha →
+ * canchas → árbitros. Los partidos se bloquean en los dos modos con {@code FOR UPDATE OF p}, antes de
+ * cualquier escritura y antes de bloquear canchas: el ajuste de un partido (RF-040) bloquea
+ * partido → cancha, y bloquear los partidos después de las canchas formaría un ciclo con él. Los
+ * árbitros los bloquea {@link DesignadorArbitroCentral} al final (DEC-215).
+ *
+ * <p>Refs: H-33.2, H-34.2, RF-032, RF-035, RF-036, RF-039, RF-041, RF-042, RF-044, RN-021, VAL-003, VAL-004,
+ * VAL-005, VAL-006, VAL-007, VAL-027, DEC-179, DEC-180, DEC-181, DEC-182, DEC-206, DEC-207, DEC-208,
+ * DEC-215, DEC-217 a DEC-219, ADR-0006, ADR-0015
  */
 @Service
 public class AsignacionFechaService {
 
     private static final String EDITAR = "programacion.jornada:EDITAR";
+    /** Permiso adicional para designar el árbitro central al asignar (DEC-182, DEC-218). */
+    private static final String AUTOMATICA = "arbitraje.designacion:AUTOMATICA";
+    /** [PROPUESTA] Advertencia de una asignación sin {@link #AUTOMATICA} (DEC-218). */
+    static final String SIN_DESIGNACION_AUTOMATICA = "No se designaron árbitros centrales: tu sesión no tiene el "
+            + "permiso arbitraje.designacion:AUTOMATICA. La Comisión de Arbitraje los designa en F-24.";
+    /** Código de la advertencia de un central que declaró no estar disponible (DEC-204, DEC-219). */
+    private static final String NO_DISPONIBLE = "RF-022";
     private static final String MODULO = "M-07";
     private static final String ENTIDAD = "fechas_programacion";
     private static final ZoneId ZONA_DE_NEGOCIO = ZoneId.of("America/Mexico_City");
@@ -99,6 +127,7 @@ public class AsignacionFechaService {
     private final ValidadorConflictos validador;
     private final ValidadorLocalia localia;
     private final FechaService fechaService;
+    private final DesignadorArbitroCentral designador;
     private final Autorizacion autorizacion;
     private final AuditoriaService auditoria;
     private final MotivoOperacion motivoOperacion;
@@ -107,8 +136,9 @@ public class AsignacionFechaService {
 
     AsignacionFechaService(AsignacionFechaRepository asignacion, FechaRepository fechas, JornadaRepository jornadas,
             ConflictoRepository conflictos, LocaliaRepository localiaRepository, ValidadorConflictos validador,
-            ValidadorLocalia localia, FechaService fechaService, Autorizacion autorizacion, AuditoriaService auditoria,
-            MotivoOperacion motivoOperacion, JsonMapper json, SiglimPropiedades propiedades) {
+            ValidadorLocalia localia, FechaService fechaService, DesignadorArbitroCentral designador,
+            Autorizacion autorizacion, AuditoriaService auditoria, MotivoOperacion motivoOperacion, JsonMapper json,
+            SiglimPropiedades propiedades) {
         this.asignacion = asignacion;
         this.fechas = fechas;
         this.jornadas = jornadas;
@@ -117,6 +147,7 @@ public class AsignacionFechaService {
         this.validador = validador;
         this.localia = localia;
         this.fechaService = fechaService;
+        this.designador = designador;
         this.autorizacion = autorizacion;
         this.auditoria = auditoria;
         this.motivoOperacion = motivoOperacion;
@@ -125,10 +156,16 @@ public class AsignacionFechaService {
     }
 
     /**
-     * Asigna cancha y horario a los partidos de la fecha. El orden de errores está en la descripción
-     * de la clase.
+     * Asigna cancha y horario a los partidos de la fecha y, con {@code arbitraje.designacion:AUTOMATICA},
+     * su árbitro central. El orden de errores está en la descripción de la clase.
      *
-     * @return la fecha actualizada con los totales, los no asignados, las advertencias y el resumen
+     * <p>Candados, en este orden total (DEC-217): fecha → jornadas → partidos existentes de la fecha
+     * (en los dos modos) → canchas (al confirmar cada candidato) → árbitros (en
+     * {@link DesignadorArbitroCentral}). El ajuste RF-040 bloquea partido → cancha; por eso los partidos
+     * van antes que las canchas.
+     *
+     * @return la fecha actualizada con los totales, los no asignados, los sin árbitro, las advertencias
+     *         y el resumen
      */
     @Transactional
     public AsignacionFechaDto asignar(UUID id, AsignarFechaRequest peticion) {
@@ -180,8 +217,10 @@ public class AsignacionFechaService {
                                 + "grupo a mano.");
             }
         }
-        List<PartidoDeLaFecha> aCancelar = modo == ModoAsignacion.REGENERAR
-                ? asignacion.partidosDeLaFecha(id) : List.of();
+        // DEC-217: los partidos se bloquean en los dos modos, antes de cualquier escritura y antes que las
+        // canchas.
+        List<PartidoDeLaFecha> existentes = asignacion.partidosDeLaFecha(id);
+        List<PartidoDeLaFecha> aCancelar = modo == ModoAsignacion.REGENERAR ? existentes : List.of();
         for (PartidoDeLaFecha partido : aCancelar) {
             if (partido.estado() != EstadoPartido.PROGRAMADO && partido.estado() != EstadoPartido.SUSPENDIDO) {
                 throw ReglaNegocioException.conflicto("RF-046",
@@ -221,7 +260,7 @@ public class AsignacionFechaService {
             asignacion.marcarNoAsignado(sinLugar.emparejamientoId(), sinLugar.codigo(), sinLugar.causa());
             noAsignados.add(new NoAsignado(sinLugar.emparejamientoId(), sinLugar.codigo(), sinLugar.causa()));
         }
-        int asignados = 0;
+        List<UUID> insertados = new ArrayList<>();
         for (PartidoAsignado propuesto : propuesta.asignados()) {
             EmparejamientoPendiente pendiente = pendientes.get(propuesto.emparejamientoId());
             CanchaDeLiga cancha = jornadas.bloquearCancha(ligaId, propuesto.canchaId())
@@ -241,12 +280,31 @@ public class AsignacionFechaService {
             UUID partidoId = jornadas.insertarPartido(jornadaId, pendiente.local().id(), pendiente.visitante().id(),
                     cancha.id(), propuesto.inicio(), motivoLocalia, perfil, true);
             jornadas.ligarEmparejamiento(pendiente.id(), partidoId);
-            asignados++;
+            insertados.add(partidoId);
         }
-        // H-34 (DEC-182): aquí se designará el árbitro central automático de los partidos recién
-        // insertados, solo si la sesión tiene arbitraje.designacion:AUTOMATICA.
 
-        Totales totales = new Totales(asignados, noAsignados.size(), aCancelar.size());
+        // DEC-217, DEC-218: árbitro central automático, solo con el permiso adicional.
+        LinkedHashSet<UUID> porDesignar = new LinkedHashSet<>();
+        if (modo == ModoAsignacion.PENDIENTES) {
+            existentes.forEach(partido -> porDesignar.add(partido.id()));
+        }
+        porDesignar.addAll(insertados);
+        boolean designacionAutomatica = autorizacion.permite(AUTOMATICA, ObjetivoAutorizacion.deLiga());
+        ResultadoCentrales centrales = designacionAutomatica
+                ? designador.designarCentrales(List.copyOf(porDesignar))
+                : ResultadoCentrales.vacio();
+        List<SinArbitro> sinArbitro = centrales.sinCentral().stream()
+                .map(sin -> new SinArbitro(sin.partidoId(), sin.codigo(), sin.causa()))
+                .toList();
+        FechaDto detalleFecha = fechaService.detalle(id);
+        List<String> advertencias = new ArrayList<>(propuesta.advertencias());
+        if (!designacionAutomatica) {
+            advertencias.add(SIN_DESIGNACION_AUTOMATICA);
+        }
+        advertencias.addAll(advertenciasNoDisponible(centrales.designados(), detalleFecha));
+
+        Totales totales = new Totales(insertados.size(), noAsignados.size(), aCancelar.size(),
+                centrales.designados().size(), sinArbitro.size());
         Map<String, Object> generacion = new LinkedHashMap<>();
         generacion.put("versionParametros", parametros.version());
         generacion.put("modo", modo.name());
@@ -256,6 +314,9 @@ public class AsignacionFechaService {
         generacion.put("asignados", totales.asignados());
         generacion.put("noAsignados", totales.noAsignados());
         generacion.put("cancelados", totales.cancelados());
+        generacion.put("designacionAutomatica", designacionAutomatica);
+        generacion.put("centrales", totales.centrales());
+        generacion.put("sinArbitro", totales.sinArbitro());
         asignacion.registrarGeneracion(id, perfil, json.writeValueAsString(generacion));
 
         Map<String, Object> detalle = new LinkedHashMap<>();
@@ -266,6 +327,9 @@ public class AsignacionFechaService {
         detalle.put("asignados", totales.asignados());
         detalle.put("noAsignados", totales.noAsignados());
         detalle.put("cancelados", totales.cancelados());
+        detalle.put("designacionAutomatica", designacionAutomatica);
+        detalle.put("centrales", totales.centrales());
+        detalle.put("sinArbitro", totales.sinArbitro());
         detalle.put("jornadasCreadas", jornadasCreadas);
         auditoria.registrar(new EventoAuditoria(ligaId, MODULO, "GENERAR_FECHA", ENTIDAD, id.toString(), motivo,
                 detalle));
@@ -273,7 +337,32 @@ public class AsignacionFechaService {
         List<ResumenDia> resumen = propuesta.resumen().stream()
                 .map(dia -> new ResumenDia(dia.dia(), dia.franjasLibres(), dia.bloqueMinutos(), dia.partidosRequeridos()))
                 .toList();
-        return new AsignacionFechaDto(fechaService.detalle(id), totales, noAsignados, propuesta.advertencias(), resumen);
+        return new AsignacionFechaDto(detalleFecha, totales, noAsignados, sinArbitro, List.copyOf(advertencias),
+                resumen);
+    }
+
+    /**
+     * DEC-219: una advertencia por cada central designado que declaró no estar disponible en ese horario
+     * (RF-022), con los nombres de los equipos tomados del detalle de la fecha.
+     */
+    private static List<String> advertenciasNoDisponible(List<CentralDesignado> designados, FechaDto fecha) {
+        Map<UUID, FilaPartido> porId = new LinkedHashMap<>();
+        if (fecha != null && fecha.bloques() != null) {
+            fecha.bloques().forEach(bloque -> bloque.partidos().forEach(fila -> porId.put(fila.id(), fila)));
+        }
+        List<String> advertencias = new ArrayList<>();
+        for (CentralDesignado designado : designados) {
+            if (!designado.advertencias().contains(NO_DISPONIBLE)) {
+                continue;
+            }
+            FilaPartido fila = porId.get(designado.partidoId());
+            String partido = fila == null ? "Un partido"
+                    : fila.equipoLocal().nombre() + " vs " + fila.equipoVisitante().nombre();
+            // [PROPUESTA] Texto de la advertencia (DEC-219).
+            advertencias.add(partido + ": el árbitro central designado declaró que no está disponible en ese "
+                    + "horario (RF-022). La Comisión puede cambiarlo en F-24.");
+        }
+        return advertencias;
     }
 
     /**

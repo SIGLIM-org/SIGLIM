@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.31 · 26 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.32 · 27 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -80,6 +80,7 @@ Versión 5.31 · 26 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.29 | 26 de noviembre de 2026 | H-32.3: §6.2 «Parámetros deportivos» con `vueltas` (1 a 4), `horaInicioJuego` y `horaFinJuego` (`HH:mm` o `HH:mm:ss`, minutos exactos, las dos o ninguna) opcionales en el `POST`, heredados de la vigente y con 1, 08:00 y 18:00 **[DEMO]** en la primera versión; horario ≥ mayor bloque de cancha, evaluado con los valores efectivos después del `404`; las horas en `camposDemo` y no las vueltas; no retroactivo (DEC-194 a DEC-196). |
 | 5.30 | 26 de noviembre de 2026 | H-14.1: §6.5 «Designaciones» con `GET /designaciones?jornadaId=` (jornada, avance y partidos no cancelados con el central y los asistentes vigentes), `GET /partidos/{id}/arbitros-candidatos` (árbitros `VALIDADO` con `elegible`, `causas` `VAL-019`, `RF-039` y `YA_DESIGNADO`, la advertencia `RF-022` y `carga`), `POST /partidos/{id}/designaciones` (`201` sin `Location`; partido `PROGRAMADO` o `REPROGRAMADO`, árbitro repetido y tercer asistente `409 RF-023`; sustitución del central con motivo `400 RN-021`), `POST /designaciones/{id}/retiro` y `GET /mis-designaciones` (vigentes en jornadas `PUBLICADO`, siempre del titular); auditoría `DESIGNAR_ARBITRO`, `SUSTITUIR_ARBITRO` y `RETIRAR_DESIGNACION`; §3.1 agrega `RF-023` a `409` (DEC-201 a DEC-205). |
 | 5.31 | 26 de noviembre de 2026 | H-33.2: §6.7 «Asignación automática de la fecha» con `POST /fechas/{id}/asignacion` (`{ modo: PENDIENTES\|REGENERAR, motivo? }`, orden de errores de DEC-206, respuesta `{ fecha, totales, noAsignados, advertencias, resumen }`), la confirmación con el validador de H-12 y el motivo de localía automático (DEC-207) y la jornada de la fecha, la jornada manual duplicada y los partidos que no se pueden cancelar (DEC-208). `GET /jornadas/{id}` ya no lista los partidos `CANCELADO` (DEC-181). |
+| 5.32 | 27 de noviembre de 2026 | H-34.2: §6.7 «Asignación automática de la fecha» con el árbitro central automático: con `arbitraje.designacion:AUTOMATICA` designa el central de los existentes (en `PENDIENTES`) y de los insertados, con el orden de candados fecha → jornadas → partidos → canchas → árbitros (DEC-217); sin el permiso asigna igual y lo advierte (DEC-218); `totales.centrales`, `totales.sinArbitro`, la lista `sinArbitro`, la advertencia `RF-022` y los campos nuevos de `parametros_generacion` y `GENERAR_FECHA` (DEC-219); la verificación de la fecha agrega la causa al aviso `RF-023` (DEC-220). |
 
 ## Índice
 
@@ -2437,7 +2438,10 @@ jornada menos avanzada (`BORRADOR` si no tiene jornadas). Los partidos `CANCELAD
   `{ jornadaId, partidoId?, emparejamientoId?, codigo, mensaje }`. Los conflictos son los de
   `POST /jornadas/{id}/verificacion` de cada jornada. Las advertencias no bloquean el envío: localía
   (`VAL-027`), sin árbitro central (`RF-023`) y sin asignar (su `codigo`, o `RF-033` **[PROPUESTA]**
-  si aún no tiene causa).
+  si aún no tiene causa). El aviso `RF-023` dice «Sin árbitro central: ‹Local› vs ‹Visitante›.
+  ‹causa› La Comisión de Arbitraje lo designa en F-24.»: la causa de DEC-216 si ningún árbitro validado
+  puede pitarlo, o «N árbitros validados pueden pitarlo.» **[PROPUESTA]** si alguno puede; se calcula al
+  verificar, sin escribir ni bloquear y sin permiso adicional (DEC-220).
 - `POST /fechas/{id}/envio`, sin cuerpo, exige `programacion.jornada:ENVIAR`. Orden: permiso (`403`) →
   fecha de la liga (`404`) → con jornadas (`409 RF-121`) → todas en `BORRADOR` (`409 RF-090`, nombra la
   primera que no lo está) → al menos un partido vigente (`409 RF-121`, **[PROPUESTA]**) → sin conflictos
@@ -2536,7 +2540,7 @@ calendario **no crea jornadas**: las crea la asignación automática de H-33 (DE
   en la forma del listado (sin `bloques`). Auditoría `CAMBIAR_DIAS_FECHA` sobre `fechas_programacion`
   con el motivo y `{ temporadaId, numero, diasAnteriores, dias }`.
 
-**Asignación automática de la fecha (H-33.2, DEC-181, DEC-206 a DEC-208).** El motor de H-33.1
+**Asignación automática de la fecha (H-33.2, H-34.2, DEC-181, DEC-206 a DEC-208, DEC-217 a DEC-220).** El motor de H-33.1
 (ADR-0015) coloca cancha y horario a los emparejamientos de la fecha en todas las categorías y grupos
 a la vez; el resultado queda en `BORRADOR` para que el Programador lo revise.
 
@@ -2561,27 +2565,45 @@ a la vez; el resultado queda en `BORRADOR` para que el Programador lo revise.
   y su mensaje (DEC-207). El partido se guarda `PROGRAMADO` con `asignadoAutomaticamente` y, si la
   localía advierte, con un `motivoLocalia` que empieza con «Asignación automática:» (DEC-207). Los
   que no caben guardan `codigo` (`VAL-006` o `VAL-007`) y `causa` (DEC-180).
+- **Árbitro central automático (H-34.2).** Si la sesión tiene además `arbitraje.designacion:AUTOMATICA`
+  (ámbito `LIGA`, PROGRAMADOR), en la misma transacción se designa el central de los partidos
+  existentes no cancelados de la fecha (solo con `PENDIENTES`) y de los recién insertados (DEC-217): los
+  que ya tienen central vigente, manual o automático, se omiten, y uno cuyo central se retiró sin
+  sustituto lo vuelve a recibir. Se elige con la carga y el desempate de DEC-214 y se guarda
+  `automatica = true`. Candados en un orden total: fecha → jornadas → partidos existentes de la fecha
+  (`FOR UPDATE`, en los dos modos y antes de escribir) → canchas → árbitros (DEC-215, DEC-217). Un
+  central que declaró no estar disponible en ese horario se designa igual y deja una advertencia
+  (`RF-022`, DEC-219). Sin el permiso, la asignación sigue sin designaciones y `advertencias` lo indica
+  (DEC-218).
 - Respuesta `200`:
 
   ```json
   { "fecha": { "id": "…", "numero": 3, "estadoPublicacion": "BORRADOR", "bloques": [ … ] },
-    "totales": { "asignados": 14, "noAsignados": 2, "cancelados": 0 },
+    "totales": { "asignados": 14, "noAsignados": 2, "cancelados": 0, "centrales": 13, "sinArbitro": 1 },
     "noAsignados": [ { "emparejamientoId": "…", "codigo": "VAL-007",
                        "causa": "Sin horario libre el domingo para Libre (bloque de 120 min): 14 franjas libres, 16 partidos" } ],
-    "advertencias": [],
+    "sinArbitro": [ { "partidoId": "…", "codigo": "RF-023",
+                      "causa": "Ninguno de los 6 árbitros validados puede pitarlo: 1 es de los clubes del partido (VAL-019) y 5 ya pitan a esa hora (RF-039)." } ],
+    "advertencias": [ "Halcones vs Toros: el árbitro central designado declaró que no está disponible en ese horario (RF-022). La Comisión puede cambiarlo en F-24." ],
     "resumen": [ { "dia": "2031-03-09", "franjasLibres": 14, "bloqueMinutos": 120, "partidosRequeridos": 16 } ] }
   ```
 
-  `fecha` es el detalle de `GET /fechas/{id}`. `advertencias` son las del motor que no bloquean (por
-  ejemplo, una categoría sin día de juego en la fecha, DEC-177). En `resumen`, las franjas son los
+  `fecha` es el detalle de `GET /fechas/{id}`, ya con los centrales designados. `totales.centrales` y
+  `totales.sinArbitro` cuentan las designaciones de esta operación y los partidos que se quedaron sin
+  central elegible; `sinArbitro` los lista con la causa de DEC-216 (vacía sin el permiso, DEC-219).
+  `advertencias` no bloquean: las del motor (por ejemplo, una categoría sin día de juego en la fecha,
+  DEC-177), la de la sesión sin `arbitraje.designacion:AUTOMATICA` **[PROPUESTA]** (DEC-218) y una por
+  cada central con `RF-022` **[PROPUESTA]** (DEC-219). En `resumen`, las franjas son los
   bloques que cabían antes de asignar y los partidos requeridos, los que tienen ese día permitido
   (**[PROPUESTA]**, `ResumenDia`).
 - `fechas_programacion` guarda `generada_por`, `generada_en` y `parametros_generacion`
-  (`{ versionParametros, modo, motivo?, asignados, noAsignados, cancelados }`, RF-041). Auditoría
-  `GENERAR_FECHA` en `M-07` sobre `fechas_programacion`, con el motivo y `{ temporadaId, numero, modo,
-  versionParametros, asignados, noAsignados, cancelados, jornadasCreadas }`, sin nombres ni datos
-  personales. Con los mismos datos se obtiene la misma asignación.
-- El árbitro central automático (H-34, DEC-182) se agregará en esta misma operación.
+  (`{ versionParametros, modo, motivo?, asignados, noAsignados, cancelados, designacionAutomatica,
+  centrales, sinArbitro }`, RF-041). Auditoría `GENERAR_FECHA` en `M-07` sobre `fechas_programacion`,
+  con el motivo y `{ temporadaId, numero, modo, versionParametros, asignados, noAsignados, cancelados,
+  designacionAutomatica, centrales, sinArbitro, jornadasCreadas }`, sin nombres ni datos personales; cada
+  central designado deja además `DESIGNAR_ARBITRO` en `M-05` con `automatica: true` (DEC-213, DEC-219).
+  Con los mismos datos se obtiene la misma cancha y el mismo horario; los árbitros dependen además
+  del orden de los partidos a la misma hora (DEC-214).
 
 ### 6.8 M-08 Partidos, cédula y resultados
 
