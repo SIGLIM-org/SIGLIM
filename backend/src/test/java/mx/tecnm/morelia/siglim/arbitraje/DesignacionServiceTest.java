@@ -3,6 +3,7 @@ package mx.tecnm.morelia.siglim.arbitraje;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.inOrder;
@@ -81,7 +82,7 @@ class DesignacionServiceTest {
                 .willReturn(Optional.of(new PartidoDesignable(PARTIDO, EstadoPartido.PROGRAMADO)));
         given(designaciones.bloquearArbitro(LIGA, ARBITRO)).willReturn(true);
         given(designaciones.vigentesDelPartido(PARTIDO)).willReturn(List.of());
-        given(designaciones.insertar(any(), any(), any(), any())).willReturn(DESIGNACION);
+        given(designaciones.insertar(any(), any(), any(), any(), anyBoolean())).willReturn(DESIGNACION);
         given(designaciones.buscar(LIGA, DESIGNACION))
                 .willReturn(Optional.of(designacion(DESIGNACION, FuncionArbitral.CENTRAL, true, null)));
     }
@@ -102,7 +103,7 @@ class DesignacionServiceTest {
         assertThat(resultado.id()).isEqualTo(DESIGNACION);
         assertThat(resultado.vigente()).isTrue();
         verify(autorizacion).exigir(EDITAR, ObjetivoAutorizacion.deLiga());
-        verify(designaciones).insertar(PARTIDO, ARBITRO, FuncionArbitral.CENTRAL, PERFIL);
+        verify(designaciones).insertar(PARTIDO, ARBITRO, FuncionArbitral.CENTRAL, PERFIL, false);
         verify(designaciones, never()).retirar(any(), any());
         EventoAuditoria evento = eventoAuditado();
         assertThat(evento.modulo()).isEqualTo("M-05");
@@ -161,7 +162,7 @@ class DesignacionServiceTest {
         InOrder orden = inOrder(designaciones);
         orden.verify(designaciones).bloquearPartido(LIGA, PARTIDO);
         orden.verify(designaciones).bloquearArbitro(LIGA, ARBITRO);
-        verify(designaciones, never()).insertar(any(), any(), any(), any());
+        verify(designaciones, never()).insertar(any(), any(), any(), any(), anyBoolean());
     }
 
     @ParameterizedTest
@@ -176,7 +177,7 @@ class DesignacionServiceTest {
                     error(HttpStatus.CONFLICT, "RF-023").accept(excepcion);
                     assertThat(excepcion.getMessage()).contains(DesignacionService.texto(estado));
                 });
-        verify(designaciones, never()).insertar(any(), any(), any(), any());
+        verify(designaciones, never()).insertar(any(), any(), any(), any(), anyBoolean());
         verifyNoInteractions(auditoria);
     }
 
@@ -188,7 +189,7 @@ class DesignacionServiceTest {
 
         servicio.designar(PARTIDO, peticion(FuncionArbitral.ASISTENTE));
 
-        verify(designaciones).insertar(PARTIDO, ARBITRO, FuncionArbitral.ASISTENTE, PERFIL);
+        verify(designaciones).insertar(PARTIDO, ARBITRO, FuncionArbitral.ASISTENTE, PERFIL, false);
     }
 
     @Test
@@ -203,7 +204,7 @@ class DesignacionServiceTest {
                     assertThat(excepcion.getMessage()).contains("como asistente");
                 });
         verify(designaciones, never()).retirar(any(), any());
-        verify(designaciones, never()).insertar(any(), any(), any(), any());
+        verify(designaciones, never()).insertar(any(), any(), any(), any(), anyBoolean());
     }
 
     @Test
@@ -215,7 +216,7 @@ class DesignacionServiceTest {
 
         assertThatThrownBy(() -> servicio.designar(PARTIDO, peticion(FuncionArbitral.ASISTENTE)))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.CONFLICT, "RF-023"));
-        verify(designaciones, never()).insertar(any(), any(), any(), any());
+        verify(designaciones, never()).insertar(any(), any(), any(), any(), anyBoolean());
     }
 
     @Test
@@ -227,7 +228,7 @@ class DesignacionServiceTest {
 
         servicio.designar(PARTIDO, peticion(FuncionArbitral.ASISTENTE));
 
-        verify(designaciones).insertar(PARTIDO, ARBITRO, FuncionArbitral.ASISTENTE, PERFIL);
+        verify(designaciones).insertar(PARTIDO, ARBITRO, FuncionArbitral.ASISTENTE, PERFIL, false);
         verify(designaciones, never()).retirar(any(), any());
         assertThat(eventoAuditado().accion()).isEqualTo("DESIGNAR_ARBITRO");
     }
@@ -244,7 +245,7 @@ class DesignacionServiceTest {
 
         InOrder orden = inOrder(designaciones);
         orden.verify(designaciones).retirar(ANTERIOR, MOTIVO.strip());
-        orden.verify(designaciones).insertar(PARTIDO, ARBITRO, FuncionArbitral.CENTRAL, PERFIL);
+        orden.verify(designaciones).insertar(PARTIDO, ARBITRO, FuncionArbitral.CENTRAL, PERFIL, false);
         EventoAuditoria evento = eventoAuditado();
         assertThat(evento.accion()).isEqualTo("SUSTITUIR_ARBITRO");
         assertThat(evento.motivo()).isEqualTo(MOTIVO.strip());
@@ -266,7 +267,7 @@ class DesignacionServiceTest {
                     .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "RN-021"));
         }
         verify(designaciones, never()).retirar(any(), any());
-        verify(designaciones, never()).insertar(any(), any(), any(), any());
+        verify(designaciones, never()).insertar(any(), any(), any(), any(), anyBoolean());
         verifyNoInteractions(auditoria);
     }
 

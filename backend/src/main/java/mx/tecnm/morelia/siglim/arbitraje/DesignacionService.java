@@ -198,7 +198,7 @@ public class DesignacionService {
             designaciones.retirar(centralAnterior.get().id(), motivo);
         }
 
-        UUID id = designaciones.insertar(partidoId, arbitroId, funcion, UsuarioActual.idRequerido());
+        UUID id = designaciones.insertar(partidoId, arbitroId, funcion, UsuarioActual.idRequerido(), false);
         Map<String, Object> detalle = detalle(partidoId, arbitroId, funcion);
         centralAnterior.ifPresent(anterior -> detalle.put("designacionAnteriorId", anterior.id().toString()));
         if (motivo != null) {

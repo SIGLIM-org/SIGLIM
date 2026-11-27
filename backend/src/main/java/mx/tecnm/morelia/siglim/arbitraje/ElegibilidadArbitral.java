@@ -39,14 +39,16 @@ import org.springframework.transaction.annotation.Transactional;
  *       política RLS no deja verla (DEC-78).</li>
  * </ul>
  *
- * <p>Es público para que la asignación automática del árbitro central (H-34.1, DEC-182) use la
- * misma regla y la misma carga sin duplicarlas: elegir entre los {@code elegible} el de menor
- * {@code carga}. Un módulo de nivel inferior (ADR-0006) lo consumiría a través de una interfaz propia
- * que este paquete implemente. Se llama dentro de la transacción del servicio
- * ({@code Propagation.MANDATORY}): fuera de ella la consulta correría sin el contexto de la sesión
- * (ADR-0014).
+ * <p>La asignación automática del árbitro central, {@link DesignacionAutomatica} (H-34.1, DEC-182,
+ * DEC-213), usa esta misma regla y esta misma carga sin duplicarlas: elige entre los
+ * {@code elegible} con {@link SelectorArbitroCentral} (DEC-214). La programación, de nivel inferior
+ * (ADR-0006), no lo usa directamente: llega a través del puerto
+ * {@code programacion.DesignadorArbitroCentral} que implementa {@code DesignacionAutomatica}. Se
+ * llama dentro de la transacción del servicio ({@code Propagation.MANDATORY}): fuera de ella la
+ * consulta correría sin el contexto de la sesión (ADR-0014).
  *
- * <p>Refs: H-14.1, RF-022, RF-023, RF-039, RF-115, VAL-019, DEC-78, DEC-182, DEC-204, ADR-0006
+ * <p>Refs: H-14.1, H-34.1, RF-022, RF-023, RF-039, RF-115, VAL-019, DEC-78, DEC-182, DEC-204, DEC-213,
+ * DEC-214, ADR-0006
  */
 @Component
 public class ElegibilidadArbitral {

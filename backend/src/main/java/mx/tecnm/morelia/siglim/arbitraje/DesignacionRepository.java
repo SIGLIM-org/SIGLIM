@@ -5,7 +5,10 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import mx.tecnm.morelia.siglim.arbitraje.ArbitroDto.ReferenciaDto;
@@ -15,6 +18,7 @@ import mx.tecnm.morelia.siglim.programacion.EstadoJornada;
 import mx.tecnm.morelia.siglim.programacion.EstadoPartido;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.core.simple.JdbcClient.StatementSpec;
+import org.springframework.jdbc.support.SqlArrayValue;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -28,12 +32,14 @@ import org.springframework.stereotype.Repository;
  *       sustituir es {@code vigente = false} con {@code motivo_cambio} (RN-005).</li>
  *   <li><b>Bloqueos.</b> Al designar se bloquea el partido y después el árbitro
  *       ({@code FOR UPDATE}), siempre en ese orden, para que dos designaciones simultáneas del mismo
- *       árbitro o al mismo partido se serialicen y el trigger vea la otra ya confirmada.</li>
+ *       árbitro o al mismo partido se serialicen y el trigger vea la otra ya confirmada. La
+ *       designación automática (DEC-215) sigue el mismo orden: todos sus partidos por {@code id} y
+ *       después todos los árbitros validados por {@code id}.</li>
  *   <li><b>Nombre.</b> {@code LEFT JOIN personas}: va {@code null} si RLS la oculta (DEC-78).</li>
  *   <li><b>Fechas</b> en {@code America/Mexico_City}.</li>
  * </ul>
  *
- * <p>Refs: H-14.1, RF-023, RF-039, RF-115, VAL-019, DEC-201 a DEC-205, ADR-0014
+ * <p>Refs: H-14.1, H-34.1, RF-023, RF-039, RF-115, VAL-019, DEC-201 a DEC-205, DEC-215, ADR-0014
  */
 @Repository
 class DesignacionRepository {
@@ -220,21 +226,100 @@ class DesignacionRepository {
     }
 
     /**
-     * Designación manual vigente. El trigger aplica RF-113, VAL-019 y RF-039 como última garantía;
-     * sus errores los traduce {@code TraductorErroresBd}.
+     * Designación vigente, manual ({@code automatica = false}, DEC-201) o de la asignación automática
+     * del central ({@code true}, DEC-182). El trigger aplica RF-113, VAL-019 y RF-039 como última
+     * garantía; sus errores los traduce {@code TraductorErroresBd}.
      */
-    UUID insertar(UUID partidoId, UUID arbitroId, FuncionArbitral funcion, UUID designadoPor) {
+    UUID insertar(UUID partidoId, UUID arbitroId, FuncionArbitral funcion, UUID designadoPor, boolean automatica) {
         return jdbc.sql("""
                         INSERT INTO designaciones (partido_id, arbitro_id, funcion, designado_por, automatica)
-                        VALUES (:partido, :arbitro, CAST(:funcion AS siglim.funcion_arbitral), :perfil, false)
+                        VALUES (:partido, :arbitro, CAST(:funcion AS siglim.funcion_arbitral), :perfil, :automatica)
                         RETURNING id
                         """)
                 .param("partido", partidoId)
                 .param("arbitro", arbitroId)
                 .param("funcion", funcion.name())
                 .param("perfil", designadoPor)
+                .param("automatica", automatica)
                 .query(UUID.class)
                 .single();
+    }
+
+    // ── Designación automática del central (H-34.1) ─────────────────────────────────────────────
+
+    /**
+     * Bloquea, en una sola sentencia y por {@code id}, los partidos de la liga que están en la lista;
+     * los que no son de la liga se ignoran (DEC-215). Se bloquean antes que los árbitros, en el mismo
+     * orden que la designación manual.
+     */
+    List<PartidoBloqueado> bloquearPartidos(UUID ligaId, Collection<UUID> partidoIds) {
+        return jdbc.sql("SELECT p.id, p.estado, p.inicio FROM partidos p" + PARTIDO_EN_LIGA + """
+                         WHERE p.id = ANY(:partidos) AND t.liga_id = :liga
+                         ORDER BY p.id
+                           FOR UPDATE OF p
+                        """)
+                .param("partidos", new SqlArrayValue("uuid", partidoIds.toArray()))
+                .param("liga", ligaId)
+                .query((fila, numero) -> new PartidoBloqueado(
+                        fila.getObject("id", UUID.class),
+                        EstadoPartido.valueOf(fila.getString("estado")),
+                        fila.getObject("inicio", OffsetDateTime.class)))
+                .list();
+    }
+
+    /**
+     * Bloquea, por {@code id}, a todos los árbitros {@code VALIDADO} de la liga (DEC-215): son los
+     * candidatos de cualquier partido, y así una designación manual simultánea espera a que termine la
+     * asignación en lugar de cruzarse con ella.
+     *
+     * @return los identificadores bloqueados
+     */
+    List<UUID> bloquearArbitrosValidados(UUID ligaId) {
+        return jdbc.sql("""
+                        SELECT a.id
+                          FROM arbitros a
+                          JOIN clubes cl ON cl.id = a.club_id
+                         WHERE a.estado = 'VALIDADO' AND cl.liga_id = :liga
+                         ORDER BY a.id
+                           FOR UPDATE OF a
+                        """)
+                .param("liga", ligaId)
+                .query(UUID.class)
+                .list();
+    }
+
+    /**
+     * Inicio del último partido de cada árbitro en la temporada del partido: el mayor {@code inicio} de
+     * sus designaciones vigentes, con cualquier función, en partidos no {@code CANCELADO}. Mismo
+     * alcance que la {@code carga} de {@link ElegibilidadArbitral}. Un árbitro sin designaciones no
+     * aparece.
+     */
+    Map<UUID, OffsetDateTime> ultimoPartidoPorArbitro(UUID partidoId) {
+        Map<UUID, OffsetDateTime> ultimos = new HashMap<>();
+        jdbc.sql("""
+                        WITH partido AS (
+                            SELECT ct.temporada_id
+                              FROM partidos p
+                              JOIN jornadas j ON j.id = p.jornada_id
+                              JOIN grupos g ON g.id = j.grupo_id
+                              JOIN categorias_temporada ct ON ct.id = g.categoria_temporada_id
+                             WHERE p.id = :partido
+                        )
+                        SELECT dc.arbitro_id, max(pc.inicio) AS ultimo
+                          FROM partido pa
+                          JOIN categorias_temporada ctc ON ctc.temporada_id = pa.temporada_id
+                          JOIN grupos gc ON gc.categoria_temporada_id = ctc.id
+                          JOIN jornadas jc ON jc.grupo_id = gc.id
+                          JOIN partidos pc ON pc.jornada_id = jc.id
+                          JOIN designaciones dc ON dc.partido_id = pc.id
+                         WHERE dc.vigente AND pc.estado <> 'CANCELADO'
+                         GROUP BY dc.arbitro_id
+                        """)
+                .param("partido", partidoId)
+                .query((fila, numero) -> ultimos.put(fila.getObject("arbitro_id", UUID.class),
+                        fila.getObject("ultimo", OffsetDateTime.class)))
+                .list();
+        return ultimos;
     }
 
     /** La designación de la liga, vigente o no. */
@@ -343,6 +428,10 @@ class DesignacionRepository {
 
     /** Lo que la designación necesita del partido. */
     record PartidoDesignable(UUID id, EstadoPartido estado) {
+    }
+
+    /** Partido bloqueado por la designación automática del central. */
+    record PartidoBloqueado(UUID id, EstadoPartido estado, OffsetDateTime inicio) {
     }
 
     /** Designación vigente de un partido, sin datos personales. */
