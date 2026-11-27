@@ -493,7 +493,8 @@ public class FechaService {
 
     // ── Representación ──────────────────────────────────────────────────────────────────────────
 
-    private FechaDto detalle(UUID id) {
+    /** Detalle de la fecha con sus bloques, sin exigir permiso; lo reutiliza la asignación (H-33.2). */
+    FechaDto detalle(UUID id) {
         DatosFecha fecha = buscar(id);
         List<DatosJornada> deLaFecha = jornadas.listarJornadasDeFecha(id);
         List<PartidoDeFecha> partidos = fechas.listarPartidos(id);
