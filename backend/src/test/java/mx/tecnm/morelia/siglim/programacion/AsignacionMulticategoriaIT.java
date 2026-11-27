@@ -14,6 +14,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import mx.tecnm.morelia.siglim.BaseDatosPrueba;
 import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +32,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
  * últimas que van a la unidad deportiva. «Libre» juega el domingo con un grupo de 4 y otro de 5 equipos
  * (con descanso); «Veteranos» e «Infantil» juegan el sábado con un grupo de 4 cada una. Dos canchas de
  * la unidad deportiva y, para un local de «Libre», la cancha de su club bloqueada de 08:00 a 12:00 del
- * domingo. Un visitante de «Veteranos» tiene una suspensión vigente.
+ * domingo. Un visitante de «Veteranos» tiene una suspensión vigente. Sin árbitros {@code VALIDADO}
+ * (los de otras clases pasan a {@code BAJA} mientras corre): los partidos quedan sin central (H-34.2).
  *
  * <p>Refs: H-33.3, CA-002, RF-032, RF-035, RF-039, VAL-003, VAL-004, VAL-005, VAL-006, DEC-176,
  * DEC-177, DEC-178, DEC-179, DEC-180, DEC-207
@@ -51,6 +54,18 @@ class AsignacionMulticategoriaIT extends BaseDatosPrueba {
     @Autowired
     private FechaService fechas;
 
+    private List<UUID> arbitrosAjenos = List.of();
+
+    @BeforeEach
+    void aislarArbitros() {
+        arbitrosAjenos = aislarArbitrosValidados(LIGA);
+    }
+
+    @AfterEach
+    void devolverArbitros() {
+        restaurarArbitros(arbitrosAjenos);
+    }
+
     @Test
     @DisplayName("CA-002: varias categorías con canchas compartidas, una cancha bloqueada y un equipo sancionado se asignan sin conflictos duros")
     void asignarFechaMulticategoria() {
@@ -59,7 +74,7 @@ class AsignacionMulticategoriaIT extends BaseDatosPrueba {
                 new AsignarFechaRequest(ModoAsignacion.PENDIENTES, null));
 
         // La asignación termina: 8 partidos en la fecha (2 + 2 + 2 + 2), uno sin asignar por la sanción.
-        assertThat(resultado.totales()).isEqualTo(new AsignacionFechaDto.Totales(7, 1, 0));
+        assertThat(resultado.totales()).isEqualTo(new AsignacionFechaDto.Totales(7, 1, 0, 0, 7));
         assertThat(resultado.fecha().jornadas()).as("una jornada por grupo").isEqualTo(4);
         assertThat(resultado.fecha().descansos()).as("el grupo de 5 descansa a uno").isEqualTo(1);
 

@@ -30,7 +30,10 @@ import mx.tecnm.morelia.siglim.arbitraje.CandidatoArbitralDto.CausaDto;
  * <p><b>Sin candidato</b> (DEC-216): la causa cuenta a cada árbitro una sola vez, por su primera causa
  * en el orden {@code VAL-019}, {@code RF-039}, {@code YA_DESIGNADO}.
  *
- * <p>Refs: H-34.1, RF-022, RF-023, RF-039, RF-115, VAL-019, DEC-182, DEC-185, DEC-204, DEC-214, DEC-216
+ * <p><b>Con elegibles</b> (DEC-220): {@link #causaConElegibles} solo cuenta cuántos pueden pitarlo.
+ *
+ * <p>Refs: H-34.1, H-34.2, RF-022, RF-023, RF-039, RF-115, VAL-019, DEC-182, DEC-185, DEC-204, DEC-214,
+ * DEC-216, DEC-220
  */
 final class SelectorArbitroCentral {
 
@@ -106,6 +109,18 @@ final class SelectorArbitroCentral {
                 ? "El único árbitro validado no puede pitarlo"
                 : "Ninguno de los " + total + " árbitros validados puede pitarlo";
         return partes.isEmpty() ? inicio + "." : inicio + ": " + unir(partes) + ".";
+    }
+
+    /**
+     * [PROPUESTA] Causa de un partido que sigue sin central aunque algún árbitro validado podría
+     * pitarlo (DEC-220): la Comisión lo designa o la asignación automática lo cubre al repetirse.
+     *
+     * @param elegibles cuántos árbitros son {@code elegible} para el partido; al menos 1
+     */
+    static String causaConElegibles(int elegibles) {
+        return elegibles == 1
+                ? "1 árbitro validado puede pitarlo."
+                : elegibles + " árbitros validados pueden pitarlo.";
     }
 
     /** «a», «a y b», «a, b y c». */

@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -41,16 +42,21 @@ import mx.tecnm.morelia.siglim.programacion.FechaRepository.DatosFecha;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.CanchaDeLiga;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.DatosJornada;
 import mx.tecnm.morelia.siglim.programacion.JornadaRepository.EquipoDeLiga;
+import mx.tecnm.morelia.siglim.programacion.PartidoDto.ReferenciaDto;
 import mx.tecnm.morelia.siglim.programacion.ResultadoAsignacion.PartidoAsignado;
+import mx.tecnm.morelia.siglim.programacion.ResultadoCentrales.CentralDesignado;
+import mx.tecnm.morelia.siglim.programacion.ResultadoCentrales.SinCentral;
 import mx.tecnm.morelia.siglim.programacion.SolicitudAsignacion.Ocupacion;
 import mx.tecnm.morelia.siglim.programacion.ValidadorConflictos.Conflicto;
 import mx.tecnm.morelia.siglim.programacion.ValidadorLocalia.Advertencia;
 import mx.tecnm.morelia.siglim.seguridad.Autorizacion;
+import mx.tecnm.morelia.siglim.seguridad.ObjetivoAutorizacion;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -59,9 +65,11 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * Asignación automática de la fecha (H-33.2) con dobles de los repositorios y los validadores: el
  * orden de errores, los dos modos, la confirmación con {@link ValidadorConflictos}, la localía, la
- * trazabilidad y la auditoría. El motor (H-33.1) corre de verdad.
+ * trazabilidad y la auditoría, y la integración del árbitro central automático (H-34.2). El motor
+ * (H-33.1) corre de verdad.
  *
- * <p>Refs: H-33.2, RF-041, RF-044, RN-021, VAL-006, VAL-027, DEC-181, DEC-206, DEC-207, DEC-208
+ * <p>Refs: H-33.2, H-34.2, RF-022, RF-023, RF-041, RF-044, RN-021, VAL-006, VAL-027, DEC-181, DEC-206,
+ * DEC-207, DEC-208, DEC-217, DEC-218, DEC-219
  */
 class AsignacionFechaServiceTest {
 
@@ -74,6 +82,8 @@ class AsignacionFechaServiceTest {
     private static final UUID CANCHA = UUID.fromString("55555555-5555-4555-8555-555555555555");
     private static final UUID EMPAREJAMIENTO = UUID.fromString("66666666-6666-4666-8666-666666666666");
     private static final UUID PARTIDO_NUEVO = UUID.fromString("77777777-7777-4777-8777-777777777777");
+    private static final UUID PARTIDO_EXISTENTE = UUID.fromString("88888888-8888-4888-8888-888888888888");
+    private static final String AUTOMATICA = "arbitraje.designacion:AUTOMATICA";
     private static final ZoneId ZONA = ZoneId.of("America/Mexico_City");
     private static final LocalDate SABADO = LocalDate.parse("2031-03-08");
     private static final LocalDate DOMINGO = SABADO.plusDays(1);
@@ -91,11 +101,12 @@ class AsignacionFechaServiceTest {
     private final ValidadorConflictos validador = mock(ValidadorConflictos.class);
     private final ValidadorLocalia localia = mock(ValidadorLocalia.class);
     private final FechaService fechaService = mock(FechaService.class);
+    private final DesignadorArbitroCentral designador = mock(DesignadorArbitroCentral.class);
     private final Autorizacion autorizacion = mock(Autorizacion.class);
     private final AuditoriaService auditoria = mock(AuditoriaService.class);
     private final MotivoOperacion motivoOperacion = mock(MotivoOperacion.class);
     private final AsignacionFechaService servicio = new AsignacionFechaService(asignacion, fechas, jornadas,
-            conflictos, localiaRepository, validador, localia, fechaService, autorizacion, auditoria,
+            conflictos, localiaRepository, validador, localia, fechaService, designador, autorizacion, auditoria,
             motivoOperacion, JsonMapper.builder().build(), new SiglimPropiedades(null, null, null, LIGA));
 
     @BeforeEach
@@ -143,6 +154,8 @@ class AsignacionFechaServiceTest {
         given(jornadas.bloquearCancha(LIGA, CANCHA)).willReturn(Optional.of(new CanchaDeLiga(CANCHA, "Cancha 1", true)));
         given(jornadas.insertarPartido(any(), any(), any(), any(), any(), any(), any(), anyBoolean()))
                 .willReturn(PARTIDO_NUEVO);
+        given(autorizacion.permite(AUTOMATICA, ObjetivoAutorizacion.deLiga())).willReturn(true);
+        given(designador.designarCentrales(any())).willReturn(ResultadoCentrales.vacio());
     }
 
     private void escenario() {
@@ -279,10 +292,10 @@ class AsignacionFechaServiceTest {
 
         AsignacionFechaDto resultado = servicio.asignar(FECHA, pendientes());
 
-        assertThat(resultado.totales()).isEqualTo(new AsignacionFechaDto.Totales(1, 0, 0));
+        assertThat(resultado.totales()).isEqualTo(new AsignacionFechaDto.Totales(1, 0, 0, 0, 0));
         verify(jornadas).insertarPartido(JORNADA, HALCONES.id(), TOROS.id(), CANCHA, a(DOMINGO, 10), null, PERFIL, true);
         verify(jornadas).ligarEmparejamiento(EMPAREJAMIENTO, PARTIDO_NUEVO);
-        verify(asignacion, never()).partidosDeLaFecha(any());
+        verify(asignacion).partidosDeLaFecha(FECHA);
         verify(asignacion, never()).cancelarPartido(any());
         verify(asignacion, never()).soltarEmparejamientos(any(), any(Integer.class));
         verify(motivoOperacion, never()).fijar(anyString());
@@ -300,7 +313,7 @@ class AsignacionFechaServiceTest {
 
         AsignacionFechaDto resultado = servicio.asignar(FECHA, regenerar("  " + MOTIVO + " "));
 
-        assertThat(resultado.totales()).isEqualTo(new AsignacionFechaDto.Totales(1, 0, 2));
+        assertThat(resultado.totales()).isEqualTo(new AsignacionFechaDto.Totales(1, 0, 2, 0, 0));
         verify(motivoOperacion).fijar(MOTIVO);
         verify(asignacion).cancelarPartido(uno);
         verify(asignacion).cancelarPartido(dos);
@@ -333,7 +346,7 @@ class AsignacionFechaServiceTest {
 
         AsignacionFechaDto resultado = servicio.asignar(FECHA, pendientes());
 
-        assertThat(resultado.totales()).isEqualTo(new AsignacionFechaDto.Totales(0, 1, 0));
+        assertThat(resultado.totales()).isEqualTo(new AsignacionFechaDto.Totales(0, 1, 0, 0, 0));
         assertThat(resultado.noAsignados()).singleElement()
                 .isEqualTo(new AsignacionFechaDto.NoAsignado(EMPAREJAMIENTO, "VAL-004",
                         "La cancha «Cancha 1» ya está ocupada."));
@@ -394,7 +407,8 @@ class AsignacionFechaServiceTest {
         ArgumentCaptor<String> parametros = ArgumentCaptor.forClass(String.class);
         verify(asignacion).registrarGeneracion(eq(FECHA), eq(PERFIL), parametros.capture());
         assertThat(parametros.getValue()).isEqualTo("{\"versionParametros\":2,\"modo\":\"REGENERAR\",\"motivo\":\""
-                + MOTIVO + "\",\"asignados\":1,\"noAsignados\":0,\"cancelados\":1}");
+                + MOTIVO + "\",\"asignados\":1,\"noAsignados\":0,\"cancelados\":1,"
+                + "\"designacionAutomatica\":true,\"centrales\":0,\"sinArbitro\":0}");
 
         ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
         verify(auditoria).registrar(evento.capture());
@@ -410,7 +424,119 @@ class AsignacionFechaServiceTest {
                 .containsEntry("asignados", 1)
                 .containsEntry("noAsignados", 0)
                 .containsEntry("cancelados", 1)
+                .containsEntry("designacionAutomatica", true)
+                .containsEntry("centrales", 0)
+                .containsEntry("sinArbitro", 0)
                 .containsEntry("jornadasCreadas", List.of());
         verify(fechaService).detalle(FECHA);
+    }
+
+    // ── Árbitro central automático (H-34.2) ─────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("DEC-217: PENDIENTES pide central para los existentes no cancelados y los insertados")
+    void pendientesDesignaExistentesEInsertados() {
+        escenario();
+        given(asignacion.partidosDeLaFecha(FECHA)).willReturn(List.of(
+                new PartidoDeLaFecha(PARTIDO_EXISTENTE, EstadoPartido.PROGRAMADO, "Pumas", "Leones")));
+
+        servicio.asignar(FECHA, pendientes());
+
+        verify(designador).designarCentrales(List.of(PARTIDO_EXISTENTE, PARTIDO_NUEVO));
+    }
+
+    @Test
+    @DisplayName("DEC-217: REGENERAR pide central solo para los insertados; los cancelados no")
+    void regenerarDesignaSoloInsertados() {
+        escenario();
+        given(asignacion.partidosDeLaFecha(FECHA)).willReturn(List.of(
+                new PartidoDeLaFecha(PARTIDO_EXISTENTE, EstadoPartido.PROGRAMADO, "Pumas", "Leones")));
+
+        servicio.asignar(FECHA, regenerar(MOTIVO));
+
+        verify(designador).designarCentrales(List.of(PARTIDO_NUEVO));
+    }
+
+    @Test
+    @DisplayName("DEC-217: candados partidos → canchas; designa después de insertar y antes de registrar y auditar")
+    void ordenDeCandados() {
+        escenario();
+
+        servicio.asignar(FECHA, pendientes());
+
+        InOrder orden = inOrder(asignacion, jornadas, designador, auditoria);
+        orden.verify(asignacion).partidosDeLaFecha(FECHA);
+        orden.verify(jornadas).bloquearCancha(LIGA, CANCHA);
+        orden.verify(jornadas).insertarPartido(any(), any(), any(), any(), any(), any(), any(), anyBoolean());
+        orden.verify(designador).designarCentrales(List.of(PARTIDO_NUEVO));
+        orden.verify(asignacion).registrarGeneracion(eq(FECHA), eq(PERFIL), anyString());
+        orden.verify(auditoria).registrar(any());
+    }
+
+    @Test
+    @DisplayName("DEC-218: sin arbitraje.designacion:AUTOMATICA asigna igual, no llama al puerto y lo advierte")
+    void sinPermisoDeDesignacionAutomatica() {
+        escenario();
+        given(autorizacion.permite(AUTOMATICA, ObjetivoAutorizacion.deLiga())).willReturn(false);
+
+        AsignacionFechaDto resultado = servicio.asignar(FECHA, pendientes());
+
+        verify(designador, never()).designarCentrales(any());
+        assertThat(resultado.totales()).isEqualTo(new AsignacionFechaDto.Totales(1, 0, 0, 0, 0));
+        assertThat(resultado.sinArbitro()).isEmpty();
+        assertThat(resultado.advertencias()).contains("No se designaron árbitros centrales: tu sesión no tiene el "
+                + "permiso arbitraje.designacion:AUTOMATICA. La Comisión de Arbitraje los designa en F-24.");
+        ArgumentCaptor<String> parametros = ArgumentCaptor.forClass(String.class);
+        verify(asignacion).registrarGeneracion(eq(FECHA), eq(PERFIL), parametros.capture());
+        assertThat(parametros.getValue()).contains("\"designacionAutomatica\":false,\"centrales\":0,\"sinArbitro\":0");
+        ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
+        verify(auditoria).registrar(evento.capture());
+        assertThat(evento.getValue().detalle()).containsEntry("designacionAutomatica", false);
+    }
+
+    @Test
+    @DisplayName("RF-023 · DEC-219: un partido sin central va en sinArbitro con su causa y cuenta en los totales")
+    void sinCentralEnLaRespuesta() {
+        escenario();
+        String causa = "No hay árbitros validados en la liga.";
+        given(designador.designarCentrales(any())).willReturn(new ResultadoCentrales(List.of(),
+                List.of(new SinCentral(PARTIDO_NUEVO, "RF-023", causa))));
+
+        AsignacionFechaDto resultado = servicio.asignar(FECHA, pendientes());
+
+        assertThat(resultado.totales()).isEqualTo(new AsignacionFechaDto.Totales(1, 0, 0, 0, 1));
+        assertThat(resultado.sinArbitro()).containsExactly(new AsignacionFechaDto.SinArbitro(PARTIDO_NUEVO, "RF-023", causa));
+        ArgumentCaptor<EventoAuditoria> evento = ArgumentCaptor.forClass(EventoAuditoria.class);
+        verify(auditoria).registrar(evento.capture());
+        assertThat(evento.getValue().detalle()).containsEntry("centrales", 0).containsEntry("sinArbitro", 1);
+    }
+
+    @Test
+    @DisplayName("RF-022 · DEC-219: un central que declaró no estar disponible deja una advertencia con los equipos")
+    void centralNoDisponible() {
+        escenario();
+        given(designador.designarCentrales(any())).willReturn(new ResultadoCentrales(
+                List.of(new CentralDesignado(PARTIDO_NUEVO, UUID.randomUUID(), UUID.randomUUID(), List.of("RF-022"))),
+                List.of()));
+        given(fechaService.detalle(FECHA)).willReturn(detalleConPartido(PARTIDO_NUEVO, "Halcones", "Toros"));
+
+        AsignacionFechaDto resultado = servicio.asignar(FECHA, pendientes());
+
+        assertThat(resultado.totales()).isEqualTo(new AsignacionFechaDto.Totales(1, 0, 0, 1, 0));
+        assertThat(resultado.advertencias()).containsExactly("Halcones vs Toros: el árbitro central designado "
+                + "declaró que no está disponible en ese horario (RF-022). La Comisión puede cambiarlo en F-24.");
+        verify(fechaService).detalle(FECHA);
+    }
+
+    private static FechaDto detalleConPartido(UUID partido, String local, String visitante) {
+        FechaDto.FilaPartido fila = new FechaDto.FilaPartido(partido, JORNADA, EMPAREJAMIENTO,
+                new ReferenciaDto(UUID.randomUUID(), local), new ReferenciaDto(UUID.randomUUID(), visitante),
+                new ReferenciaDto(CANCHA, "Cancha 1"), a(DOMINGO, 8), a(DOMINGO, 10), EstadoPartido.PROGRAMADO,
+                null, null, true, false, null);
+        FechaDto.Bloque bloque = new FechaDto.Bloque(new ReferenciaDto(UUID.randomUUID(), "Libre"),
+                new ReferenciaDto(GRUPO, "Grupo 1"), List.of(7), JORNADA, EstadoJornada.BORRADOR, List.of(fila),
+                List.of(), List.of());
+        return new FechaDto(FECHA, TEMPORADA, 3, List.of(SABADO, DOMINGO), EstadoJornada.BORRADOR, 1, 1, 0, 0,
+                null, null, null, null, null, null, null, List.of(bloque));
     }
 }

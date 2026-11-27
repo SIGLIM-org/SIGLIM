@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.UUID;
 import mx.tecnm.morelia.siglim.BaseDatosPrueba;
 import mx.tecnm.morelia.siglim.compartido.contexto.AutenticacionSiglim;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +25,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
  *
  * <p>Escenario: temporada que empieza el sábado 5 de marzo de 2033; «Libre» (juega el domingo) y
  * «Veteranos» (juega el sábado), un grupo de 4 equipos cada una y dos canchas de la unidad deportiva.
+ * Sin árbitros {@code VALIDADO} (los de otras clases pasan a {@code BAJA} mientras corre): la designación
+ * automática (H-34.2) deja todos los partidos en {@code sinArbitro}; la de árbitros se prueba en
+ * {@link AsignacionFechaArbitrosIT}.
  *
  * <p>Refs: H-33.2, RF-035, RF-039, RF-041, RF-044, RN-021, DEC-177, DEC-181, DEC-206, CA-002
  */
@@ -45,6 +50,18 @@ class AsignacionFechaIT extends BaseDatosPrueba {
     @Autowired
     private JornadaService jornadas;
 
+    private List<UUID> arbitrosAjenos = List.of();
+
+    @BeforeEach
+    void aislarArbitros() {
+        arbitrosAjenos = aislarArbitrosValidados(LIGA);
+    }
+
+    @AfterEach
+    void devolverArbitros() {
+        restaurarArbitros(arbitrosAjenos);
+    }
+
     @Test
     @DisplayName("DEC-181, CA-002: asigna sin conflictos, PENDIENTES no toca nada y REGENERAR cancela y repite la misma asignación")
     void asignarYRegenerar() {
@@ -54,7 +71,7 @@ class AsignacionFechaIT extends BaseDatosPrueba {
 
         AsignacionFechaDto primera = asignacion.asignar(fecha, new AsignarFechaRequest(ModoAsignacion.PENDIENTES, null));
 
-        assertThat(primera.totales()).isEqualTo(new AsignacionFechaDto.Totales(4, 0, 0));
+        assertThat(primera.totales()).isEqualTo(new AsignacionFechaDto.Totales(4, 0, 0, 0, 4));
         assertThat(primera.noAsignados()).isEmpty();
         assertThat(primera.fecha().jornadas()).as("una jornada por grupo (DEC-175)").isEqualTo(2);
         assertThat(primera.fecha().sinAsignar()).isZero();
@@ -82,12 +99,13 @@ class AsignacionFechaIT extends BaseDatosPrueba {
 
         AsignacionFechaDto otraVez = asignacion.asignar(fecha, new AsignarFechaRequest(ModoAsignacion.PENDIENTES, null));
 
-        assertThat(otraVez.totales()).as("sin pendientes no cambia nada").isEqualTo(new AsignacionFechaDto.Totales(0, 0, 0));
+        assertThat(otraVez.totales()).as("sin pendientes no cambia nada; los 4 siguen sin árbitro (DEC-217)")
+                .isEqualTo(new AsignacionFechaDto.Totales(0, 0, 0, 0, 4));
         assertThat(partidos(otraVez.fecha())).isEqualTo(antes);
 
         AsignacionFechaDto regenerada = asignacion.asignar(fecha, new AsignarFechaRequest(ModoAsignacion.REGENERAR, MOTIVO));
 
-        assertThat(regenerada.totales()).isEqualTo(new AsignacionFechaDto.Totales(4, 0, 4));
+        assertThat(regenerada.totales()).isEqualTo(new AsignacionFechaDto.Totales(4, 0, 4, 0, 4));
         List<FechaDto.FilaPartido> despues = partidos(regenerada.fecha());
         assertThat(despues).extracting(FechaDto.FilaPartido::id)
                 .as("los partidos son nuevos").doesNotContainAnyElementsOf(antes.stream().map(FechaDto.FilaPartido::id).toList());

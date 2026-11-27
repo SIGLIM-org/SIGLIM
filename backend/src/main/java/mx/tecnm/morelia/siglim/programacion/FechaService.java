@@ -48,7 +48,9 @@ import org.springframework.transaction.annotation.Transactional;
  *       {@code CANCELADO} no aparecen (DEC-181).</li>
  *   <li><b>Verificación sin guardar.</b> Revisa los partidos de todas las jornadas con la misma
  *       regla del alta y el ajuste ({@link ValidadorConflictos}); devuelve como advertencias la
- *       localía, los partidos sin árbitro y los emparejamientos sin asignar.</li>
+ *       localía, los partidos sin árbitro y los emparejamientos sin asignar. La causa de cada partido sin
+ *       árbitro central la da {@link DesignadorArbitroCentral#explicarSinCentral} en una sola llamada
+ *       (DEC-220).</li>
  *   <li><b>Envío (RF-121, RF-090).</b> Con {@code programacion.jornada:ENVIAR}: todas las jornadas
  *       pasan juntas de {@code BORRADOR} a {@code REVISION} en una transacción, solo si ninguna tiene
  *       conflictos duros ({@code 409 RF-039} con la lista). Los sin asignar y los sin árbitro no
@@ -82,7 +84,7 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Refs: H-35.1, H-32.2, RF-003, RF-023, RF-033, RF-035, RF-037, RF-039, RF-040, RF-042, RF-090, RF-093,
  * RF-121, RN-021, RN-053, UI-009, DD-008, DEC-175, DEC-176, DEC-180, DEC-181, DEC-182, DEC-189, DEC-193,
- * ADR-0007
+ * DEC-220, ADR-0006, ADR-0007
  */
 @Service
 public class FechaService {
@@ -110,6 +112,7 @@ public class FechaService {
     private final JornadaRepository jornadas;
     private final ValidadorConflictos validador;
     private final ValidadorLocalia localia;
+    private final DesignadorArbitroCentral designador;
     private final Autorizacion autorizacion;
     private final AuditoriaService auditoria;
     private final MotivoOperacion motivoOperacion;
@@ -117,12 +120,14 @@ public class FechaService {
     private final UUID ligaId;
 
     FechaService(FechaRepository fechas, JornadaRepository jornadas, ValidadorConflictos validador,
-            ValidadorLocalia localia, Autorizacion autorizacion, AuditoriaService auditoria,
-            MotivoOperacion motivoOperacion, ApplicationEventPublisher eventos, SiglimPropiedades propiedades) {
+            ValidadorLocalia localia, DesignadorArbitroCentral designador, Autorizacion autorizacion,
+            AuditoriaService auditoria, MotivoOperacion motivoOperacion, ApplicationEventPublisher eventos,
+            SiglimPropiedades propiedades) {
         this.fechas = fechas;
         this.jornadas = jornadas;
         this.validador = validador;
         this.localia = localia;
+        this.designador = designador;
         this.autorizacion = autorizacion;
         this.auditoria = auditoria;
         this.motivoOperacion = motivoOperacion;
@@ -180,12 +185,18 @@ public class FechaService {
             advertencias.addAll(deJornada(jornada.id(),
                     JornadaService.advertenciasDe(localia, jornadas.listarPartidos(jornada.id()))));
         }
-        for (PartidoDeFecha partido : fechas.listarPartidos(id)) {
-            if (partido.arbitroId() == null) {
-                advertencias.add(new Aviso(partido.jornadaId(), partido.id(), partido.emparejamientoId(),
-                        CODIGO_SIN_ARBITRO, "Sin árbitro central: " + partido.equipoLocalNombre() + " vs "
-                                + partido.equipoVisitanteNombre() + ". La Comisión de Arbitraje lo designa en F-24."));
-            }
+        List<PartidoDeFecha> sinArbitro = fechas.listarPartidos(id).stream()
+                .filter(partido -> partido.arbitroId() == null)
+                .toList();
+        // DEC-220: una sola llamada al puerto para la causa de todos los partidos sin central.
+        Map<UUID, String> causas = sinArbitro.isEmpty() ? Map.of()
+                : designador.explicarSinCentral(sinArbitro.stream().map(PartidoDeFecha::id).toList());
+        for (PartidoDeFecha partido : sinArbitro) {
+            String causa = causas.get(partido.id());
+            advertencias.add(new Aviso(partido.jornadaId(), partido.id(), partido.emparejamientoId(),
+                    CODIGO_SIN_ARBITRO, "Sin árbitro central: " + partido.equipoLocalNombre() + " vs "
+                            + partido.equipoVisitanteNombre() + ". " + (causa == null ? "" : causa + " ")
+                            + "La Comisión de Arbitraje lo designa en F-24."));
         }
         Map<UUID, UUID> jornadaDeGrupo = new LinkedHashMap<>();
         deLaFecha.forEach(jornada -> jornadaDeGrupo.put(jornada.grupoId(), jornada.id()));
