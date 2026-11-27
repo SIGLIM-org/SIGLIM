@@ -243,12 +243,23 @@ ante cualquier orden de entrada. Además, casos dorados con N = 4 y N = 5.
 
 ### 4.3 Árbitro central: asignación voraz equitativa (H-34)
 
-Por partido sin central vigente, ordenado por `inicio`: candidatos `VALIDADO`, que no son del club
-de ninguno de los dos equipos (VAL-019) y sin otro partido traslapado (RF-039), incluidos los de la
-misma corrida. Se elige al de menor carga (designaciones vigentes en la temporada); desempate por la
-designación más antigua y luego `id`. Se inserta con `funcion = 'CENTRAL'`, `automatica = true` y
-`designado_por` = quien generó; `tg_designaciones_validar` es la garantía final. Sin candidato: «Sin
-árbitro» con la causa, como advertencia que **no bloquea** el envío.
+Por partido sin central vigente, ordenado por `inicio` y después `id`: candidatos `VALIDADO`, que no
+son del club de ninguno de los dos equipos (VAL-019) y sin otro partido traslapado (RF-039), incluidos
+los de la misma corrida. Se elige al de menor carga (designaciones vigentes en la temporada); el
+desempate es el **último partido** del árbitro en la temporada más antiguo (quien nunca ha sido
+designado va primero) y luego `id` por texto. No se usa `designado_en`: dentro de la transacción
+`now()` es constante y todas las designaciones de la corrida empatarían. **[PROPUESTA]** Antes que la
+carga, se prefiere a quien no tiene la advertencia `RF-022` (declaró que no está disponible); la
+disponibilidad no filtra: si solo quedan candidatos con ella, se elige uno y se informa (DEC-214). Se
+inserta con `funcion = 'CENTRAL'`, `automatica = true` y `designado_por` = quien generó;
+`tg_designaciones_validar` es la garantía final. Sin candidato: «Sin árbitro» con la causa y sus
+conteos por regla (DEC-216), como advertencia que **no bloquea** el envío.
+
+La programación lo pide por el puerto `programacion.DesignadorArbitroCentral`, que implementa
+`arbitraje.DesignacionAutomatica` (ADR-0006, DEC-213) con la elegibilidad de `ElegibilidadArbitral`
+(DEC-204), en la transacción de la asignación y con el permiso `arbitraje.designacion:AUTOMATICA`.
+Antes de elegir bloquea los partidos y después todos los árbitros validados de la liga, en el mismo
+orden que la designación manual (DEC-215). Decisiones: [DEC-213 a DEC-216](../requisitos/decisiones/registro-de-decisiones.md).
 
 ---
 

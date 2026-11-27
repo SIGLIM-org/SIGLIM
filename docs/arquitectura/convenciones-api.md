@@ -2116,8 +2116,8 @@ La única **advertencia** es `RF-022`, «Declaró que no está disponible en ese
 `disponible = false` de su disponibilidad se traslapa con el bloque del partido: **no bloquea**; la
 disponibilidad solo informa (DEC-204). `carga` cuenta las designaciones vigentes del árbitro en
 partidos no `CANCELADO` de la temporada del partido. La consulta es una sola sentencia SQL en el
-componente `arbitraje.ElegibilidadArbitral`, que reutilizará la asignación automática del central
-(H-34.1, DEC-182).
+componente `arbitraje.ElegibilidadArbitral`, que reutiliza la asignación automática del central,
+`arbitraje.DesignacionAutomatica` (H-34.1, DEC-182, DEC-213).
 
 `POST /api/v1/partidos/{id}/designaciones` lleva `{ "arbitroId", "funcion": "CENTRAL"|"ASISTENTE",
 "motivo"? }` y exige `arbitraje.designacion:EDITAR`. Responde `201` **sin** `Location` (no hay
