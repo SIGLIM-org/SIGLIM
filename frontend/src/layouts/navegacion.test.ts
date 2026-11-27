@@ -47,6 +47,27 @@ describe('subsecciones', () => {
     expect(seccionDeRuta('/app/programacion/arbitros')?.nombre).toBe('Programación')
   })
 
+  it('H-14.2 · DEC-209: Programación ofrece Designaciones después de Árbitros con sus tres permisos', () => {
+    const programacion = seccionesApp.find(({ nombre }) => nombre === 'Programación')
+    const nombres = programacion?.subsecciones?.map(({ nombre }) => nombre) ?? []
+
+    expect(programacion?.subsecciones).toContainEqual(
+      expect.objectContaining({
+        nombre: 'Designaciones',
+        ruta: '/app/programacion/designaciones',
+        permiso: [
+          'arbitraje.designacion:CONSULTAR',
+          'arbitraje.arbitro:CONSULTAR',
+          'partidos.partido:CONSULTAR',
+        ],
+        requiereTodos: true,
+        descripcion: 'Árbitros de cada partido de la jornada.',
+      }),
+    )
+    expect(nombres.indexOf('Designaciones')).toBe(nombres.indexOf('Árbitros') + 1)
+    expect(seccionDeRuta('/app/programacion/designaciones')?.nombre).toBe('Programación')
+  })
+
   it('H-06.2: Organización ofrece Clubes con su permiso y la ruta queda en la sección', () => {
     const organizacion = seccionesApp.find(({ nombre }) => nombre === 'Organización')
 
@@ -241,12 +262,42 @@ describe('seccionesPermitidas', () => {
       disciplina: 'M-09',
     }
     const secciones = seccionesPermitidas(
-      PERMISOS_CONSULTA_PROPIA.map((codigo) =>
-        permiso(codigo, modulos[codigo.split('.')[0]], 'PROPIO'),
+      PERMISOS_CONSULTA_PROPIA.filter((codigo) => !codigo.startsWith('arbitraje.')).map(
+        (codigo) => permiso(codigo, modulos[codigo.split('.')[0]], 'PROPIO'),
       ),
     )
 
     expect(secciones.map((seccion) => seccion.nombre)).toEqual(['Inicio', 'Mi información'])
+  })
+
+  it('H-14.2 · DEC-212: el Árbitro con sus permisos del seed ve Inicio, Mis designaciones y Partidos', () => {
+    const secciones = seccionesPermitidas([
+      permiso('arbitraje.designacion:CONSULTAR', 'M-05', 'PROPIO'),
+      permiso('arbitraje.disponibilidad:EDITAR', 'M-05', 'PROPIO'),
+      permiso('partidos.partido:CONSULTAR', 'M-08', 'PROPIO'),
+      permiso('partidos.cedula:CONSULTAR', 'M-08', 'PROPIO'),
+      permiso('partidos.cedula:APROBAR', 'M-08', 'PROPIO'),
+    ])
+
+    expect(secciones.map((seccion) => seccion.nombre)).toEqual([
+      'Inicio',
+      'Mis designaciones',
+      'Partidos',
+    ])
+  })
+
+  it('H-14.2 · DEC-212: la Comisión de Arbitraje ve Programación y no Mis designaciones', () => {
+    const secciones = seccionesPermitidas([
+      permiso('arbitraje.designacion:CONSULTAR', 'M-05'),
+      permiso('arbitraje.designacion:EDITAR', 'M-05'),
+      permiso('arbitraje.arbitro:CONSULTAR', 'M-05'),
+    ])
+
+    expect(secciones.map((seccion) => seccion.nombre)).toEqual(['Inicio', 'Programación'])
+  })
+
+  it('H-14.2 · DEC-212: la ruta de Mis designaciones queda en su sección', () => {
+    expect(seccionDeRuta('/app/mis-designaciones')?.nombre).toBe('Mis designaciones')
   })
 
   it('H-24.2 · DEC-147: el administrador con registros.registro:CONSULTAR en LIGA no ve Mi información', () => {

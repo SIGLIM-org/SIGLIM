@@ -1,6 +1,7 @@
 import {
   Building2,
   CalendarDays,
+  ClipboardCheck,
   Gavel,
   Goal,
   IdCard,
@@ -45,14 +46,18 @@ export type SeccionApp = EnlacePortal & {
 export type PermisoMenu = Pick<Permiso, 'codigo' | 'modulo' | 'ambito'>
 
 /**
- * Permisos de consulta propia del jugador o tutor (DEC-147). En ámbito PROPIO no abren secciones
- * administrativas: con ellos solo se ve «Mi información». En LIGA o CLUB cuentan como siempre.
+ * Permisos de consulta propia (DEC-147, DEC-212). En ámbito PROPIO no abren secciones
+ * administrativas: con los del jugador o tutor solo se ve «Mi información», y con los del Árbitro
+ * (`arbitraje.designacion:CONSULTAR` y `arbitraje.disponibilidad:EDITAR`), «Mis designaciones» y no
+ * Programación. En LIGA o CLUB cuentan como siempre.
  */
 export const PERMISOS_CONSULTA_PROPIA: readonly string[] = [
   'registros.registro:CONSULTAR',
   'registros.documento:CONSULTAR',
   'partidos.partido:CONSULTAR',
   'disciplina.expediente:CONSULTAR',
+  'arbitraje.designacion:CONSULTAR',
+  'arbitraje.disponibilidad:EDITAR',
 ]
 
 /** ¿La sesión tiene este permiso en ámbito PROPIO? (DEC-147). */
@@ -76,9 +81,9 @@ export const enlacesPortal: EnlacePortal[] = [
  * M-14 (notificaciones) no tiene sección: los avisos se consultan desde la
  * campana (F-09, RF-142), no desde el menú lateral.
  *
- * «Mi información» es la sección personal del jugador o tutor (F-35, DEC-147): se muestra con
- * `permisoPropio` en ámbito PROPIO y no por módulo, y los `PERMISOS_CONSULTA_PROPIA` en ámbito
- * PROPIO no abren las demás secciones.
+ * «Mi información» es la sección personal del jugador o tutor (F-35, DEC-147) y «Mis
+ * designaciones», la del Árbitro (DEC-212): se muestran con `permisoPropio` en ámbito PROPIO y no
+ * por módulo, y los `PERMISOS_CONSULTA_PROPIA` en ámbito PROPIO no abren las demás secciones.
  */
 export const seccionesApp: SeccionApp[] = [
   { nombre: 'Inicio', ruta: '/app', icono: LayoutDashboard, modulos: [] },
@@ -88,6 +93,13 @@ export const seccionesApp: SeccionApp[] = [
     icono: IdCard,
     modulos: ['M-04'],
     permisoPropio: 'registros.registro:CONSULTAR',
+  },
+  {
+    nombre: 'Mis designaciones',
+    ruta: '/app/mis-designaciones',
+    icono: ClipboardCheck,
+    modulos: ['M-05'],
+    permisoPropio: 'arbitraje.designacion:CONSULTAR',
   },
   {
     nombre: 'Organización',
@@ -179,6 +191,19 @@ export const seccionesApp: SeccionApp[] = [
         permiso: 'arbitraje.arbitro:CONSULTAR',
         descripcion: 'Árbitros presentados por los clubes y su validación.',
       },
+      {
+        // F-24 (DEC-209): la jornada se arma con los partidos y los árbitros, así que exige los tres
+        // permisos. El Árbitro, con designacion:CONSULTAR PROPIO, usa «Mis designaciones».
+        nombre: 'Designaciones',
+        ruta: '/app/programacion/designaciones',
+        permiso: [
+          'arbitraje.designacion:CONSULTAR',
+          'arbitraje.arbitro:CONSULTAR',
+          'partidos.partido:CONSULTAR',
+        ],
+        requiereTodos: true,
+        descripcion: 'Árbitros de cada partido de la jornada.',
+      },
     ],
   },
   { nombre: 'Partidos', ruta: '/app/partidos', icono: Goal, modulos: ['M-08'] },
@@ -249,7 +274,8 @@ export const seccionesApp: SeccionApp[] = [
  * Secciones que puede ver el usuario según los permisos de `GET /api/v1/yo`.
  * Inicio siempre está presente (H-01.3). Una sección con `permisoPropio` exige ese permiso en
  * ámbito PROPIO; para las demás no cuentan los `PERMISOS_CONSULTA_PROPIA` en ámbito PROPIO, así que
- * el jugador o tutor ve solo Inicio y Mi información (DEC-147).
+ * el jugador o tutor ve solo Inicio y Mi información (DEC-147), y el Árbitro, Inicio, Mis
+ * designaciones y Partidos, este último por la cédula (DEC-212).
  */
 export function seccionesPermitidas(permisos: readonly PermisoMenu[]): SeccionApp[] {
   const administrativos = permisos.filter(
