@@ -134,11 +134,11 @@ class ValidadorConflictos {
 
     // ── VAL-006: equipos elegibles ──────────────────────────────────────────────────────────────
 
-    private static String mensajeEquipoDeBaja(EquipoDeLiga equipo) {
+    static String mensajeEquipoDeBaja(EquipoDeLiga equipo) {
         return "El equipo «" + equipo.nombre() + "» está dado de baja y no se puede programar.";
     }
 
-    private static String mensajeSancion(SancionDeEquipo sancion) {
+    static String mensajeSancion(SancionDeEquipo sancion) {
         if ("BAJA".equals(sancion.tipo())) {
             return "El equipo «" + sancion.equipoNombre()
                     + "» tiene una sanción vigente de baja y no puede jugar.";

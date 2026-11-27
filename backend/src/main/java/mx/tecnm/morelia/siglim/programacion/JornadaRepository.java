@@ -269,6 +269,24 @@ class JornadaRepository {
     }
 
     /**
+     * Registra la jornada de un grupo en una fecha de programación (DEC-175, DEC-188): la crea la
+     * asignación automática (H-33.2) con el número de la fecha y en {@code BORRADOR}.
+     */
+    UUID insertarJornadaDeFecha(UUID grupoId, UUID fechaId, int numero, UUID creadoPor) {
+        return jdbc.sql("""
+                        INSERT INTO jornadas (grupo_id, numero, fecha_id, creado_por)
+                        VALUES (:grupoId, :numero, :fechaId, :creadoPor)
+                        RETURNING id
+                        """)
+                .param("grupoId", grupoId)
+                .param("fechaId", fechaId)
+                .param("numero", numero)
+                .param("creadoPor", creadoPor)
+                .query(UUID.class)
+                .single();
+    }
+
+    /**
      * Pasa la jornada de {@code BORRADOR} a {@code REVISION} con quien la envía y la hora de la base
      * (RF-121). El {@code WHERE} por estado evita sobrescribir un envío concurrente.
      *
@@ -312,9 +330,14 @@ class JornadaRepository {
 
     // ── Partidos ────────────────────────────────────────────────────────────────────────────────
 
-    /** Partidos de la jornada ordenados por inicio. */
+    /**
+     * Partidos de la jornada ordenados por inicio, sin los {@code CANCELADO} (DEC-181): al regenerar una
+     * fecha, los anteriores quedan cancelados con su historial y ya no se listan. El detalle por id y el
+     * historial del partido los siguen mostrando.
+     */
     List<DatosPartido> listarPartidos(UUID jornadaId) {
-        return jdbc.sql(SELECCION_PARTIDO + " WHERE p.jornada_id = :jornadaId ORDER BY p.inicio, p.id")
+        return jdbc.sql(SELECCION_PARTIDO + " WHERE p.jornada_id = :jornadaId AND p.estado <> 'CANCELADO'"
+                        + " ORDER BY p.inicio, p.id")
                 .param("jornadaId", jornadaId)
                 .query(JornadaRepository::aPartido)
                 .list();
@@ -343,13 +366,25 @@ class JornadaRepository {
      */
     UUID insertarPartido(UUID jornadaId, UUID equipoLocalId, UUID equipoVisitanteId, UUID canchaId,
             OffsetDateTime inicio, String motivoLocalia, UUID creadoPor) {
+        return insertarPartido(jornadaId, equipoLocalId, equipoVisitanteId, canchaId, inicio, motivoLocalia,
+                creadoPor, false);
+    }
+
+    /**
+     * Registra el partido indicando si lo colocó la asignación automática
+     * ({@code asignado_automaticamente}, H-33.2, RF-041).
+     */
+    UUID insertarPartido(UUID jornadaId, UUID equipoLocalId, UUID equipoVisitanteId, UUID canchaId,
+            OffsetDateTime inicio, String motivoLocalia, UUID creadoPor, boolean asignadoAutomaticamente) {
         return jdbc.sql("""
                         INSERT INTO partidos (jornada_id, equipo_local_id, equipo_visitante_id, cancha_id,
-                                              inicio, fin_bloque, motivo_localia, creado_por)
+                                              inicio, fin_bloque, motivo_localia, creado_por,
+                                              asignado_automaticamente)
                         VALUES (:jornadaId, :local, :visitante, :cancha, :inicio, :inicio, :motivoLocalia,
-                                :creadoPor)
+                                :creadoPor, :automatico)
                         RETURNING id
                         """)
+                .param("automatico", asignadoAutomaticamente)
                 .param("jornadaId", jornadaId)
                 .param("local", equipoLocalId)
                 .param("visitante", equipoVisitanteId)

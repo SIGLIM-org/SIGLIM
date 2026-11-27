@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.30 · 26 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.31 · 26 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -79,6 +79,7 @@ Versión 5.30 · 26 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.28 | 26 de noviembre de 2026 | H-32.2: §6.7 «Programación automática (H-32.2)» con `POST /temporadas/{id}/calendario` (cuerpo opcional `{ fechaInicio?, grupoIds?, motivo? }`, `201` con `Location`, orden de errores `403` → `400` → `404` → `409 RF-003` → `409 RF-006` → `422 REFERENCIA_INVALIDA` → `400 RN-021` → `409 RN-020` con `grupos` → `422 VALIDACION`; grupos omitidos y advertencias; reemplazo lógico con `vigente`, DEC-187 a DEC-193), `GET /temporadas/{id}/calendario`, el listado de fechas solo hasta la última fecha del calendario vigente y con `descansos`, y `PATCH /fechas/{id}` `{ dias, motivo }`; §6.2 con `PATCH /temporadas/{id}/categorias/{categoriaTemporadaId}` `{ diasJuego }` con `programacion.jornada:EDITAR` (DEC-191) y `diasJuego` en las categorías de la temporada; §3.2 agrega `RN-020` a `409` (migración `20261126090000_emparejamientos_vigentes.sql`). |
 | 5.29 | 26 de noviembre de 2026 | H-32.3: §6.2 «Parámetros deportivos» con `vueltas` (1 a 4), `horaInicioJuego` y `horaFinJuego` (`HH:mm` o `HH:mm:ss`, minutos exactos, las dos o ninguna) opcionales en el `POST`, heredados de la vigente y con 1, 08:00 y 18:00 **[DEMO]** en la primera versión; horario ≥ mayor bloque de cancha, evaluado con los valores efectivos después del `404`; las horas en `camposDemo` y no las vueltas; no retroactivo (DEC-194 a DEC-196). |
 | 5.30 | 26 de noviembre de 2026 | H-14.1: §6.5 «Designaciones» con `GET /designaciones?jornadaId=` (jornada, avance y partidos no cancelados con el central y los asistentes vigentes), `GET /partidos/{id}/arbitros-candidatos` (árbitros `VALIDADO` con `elegible`, `causas` `VAL-019`, `RF-039` y `YA_DESIGNADO`, la advertencia `RF-022` y `carga`), `POST /partidos/{id}/designaciones` (`201` sin `Location`; partido `PROGRAMADO` o `REPROGRAMADO`, árbitro repetido y tercer asistente `409 RF-023`; sustitución del central con motivo `400 RN-021`), `POST /designaciones/{id}/retiro` y `GET /mis-designaciones` (vigentes en jornadas `PUBLICADO`, siempre del titular); auditoría `DESIGNAR_ARBITRO`, `SUSTITUIR_ARBITRO` y `RETIRAR_DESIGNACION`; §3.1 agrega `RF-023` a `409` (DEC-201 a DEC-205). |
+| 5.31 | 26 de noviembre de 2026 | H-33.2: §6.7 «Asignación automática de la fecha» con `POST /fechas/{id}/asignacion` (`{ modo: PENDIENTES\|REGENERAR, motivo? }`, orden de errores de DEC-206, respuesta `{ fecha, totales, noAsignados, advertencias, resumen }`), la confirmación con el validador de H-12 y el motivo de localía automático (DEC-207) y la jornada de la fecha, la jornada manual duplicada y los partidos que no se pueden cancelar (DEC-208). `GET /jornadas/{id}` ya no lista los partidos `CANCELADO` (DEC-181). |
 
 ## Índice
 
@@ -2341,6 +2342,7 @@ vaciar la lista.
 | `POST /fechas/{id}/envio` · `/resolucion` | Envío y dictamen de la fecha completa | `ENVIAR` · `APROBAR` | RF-121, RF-090 | N |
 | `POST /temporadas/{id}/calendario` · `GET /temporadas/{id}/calendario` | Generar o regenerar y consultar el calendario de la temporada (H-32.2) | `programacion.jornada:EDITAR` · `CONSULTAR` | RF-034, RF-037 | N |
 | `PATCH /fechas/{id}` | Cambiar o agregar días de la fecha en `BORRADOR`, con motivo (DEC-193) | `programacion.jornada:EDITAR` | RF-035, RF-090 | N |
+| `POST /fechas/{id}/asignacion` | Asignar cancha y horario a los pendientes o regenerar la fecha completa (H-33.2, DEC-181) | `programacion.jornada:EDITAR` | RF-035, RF-041, RF-042 | N |
 
 La verificación y el guardado usan las mismas reglas: VAL-003 (equipo duplicado en el bloque),
 VAL-004 (cancha ocupada), VAL-005 (cancha bloqueada o fuera de disponibilidad), VAL-006 (equipo con
@@ -2533,6 +2535,53 @@ calendario **no crea jornadas**: las crea la asignación automática de H-33 (DE
   el día y cuántos). Se guardan ordenados; sin cambios no escribe ni audita. Responde `200` con la fecha
   en la forma del listado (sin `bloques`). Auditoría `CAMBIAR_DIAS_FECHA` sobre `fechas_programacion`
   con el motivo y `{ temporadaId, numero, diasAnteriores, dias }`.
+
+**Asignación automática de la fecha (H-33.2, DEC-181, DEC-206 a DEC-208).** El motor de H-33.1
+(ADR-0015) coloca cancha y horario a los emparejamientos de la fecha en todas las categorías y grupos
+a la vez; el resultado queda en `BORRADOR` para que el Programador lo revise.
+
+- `POST /fechas/{id}/asignacion` exige `programacion.jornada:EDITAR` (ámbito `LIGA`) y lleva
+  `{ "modo": "PENDIENTES" | "REGENERAR", "motivo"? }`. `PENDIENTES` solo coloca los emparejamientos
+  sin partido vigente; lo ya asignado o ajustado a mano no se mueve. `REGENERAR` cancela con el motivo
+  los partidos de la fecha y vuelve a asignar todo.
+- Orden de validación (DEC-206): permiso (`403 VAL-015`) → `modo` presente (`400 VALIDACION`; un valor
+  que no existe responde `400` antes de llegar al servicio) → con `REGENERAR`, motivo de al menos 10
+  caracteres (`400 RN-021`) → fecha de la liga (`404`; se bloquea con `FOR UPDATE` la fecha y después
+  sus jornadas, como el envío) → temporada `CERRADA` (`409 RF-003`) → alguna jornada de la fecha que no
+  está en `BORRADOR` (`409 RF-090`, nombra la primera) → sin parámetros vigentes (`409 RF-006`) → la fecha
+  sin emparejamientos en el calendario vigente (`422 VALIDACION`, **[PROPUESTA]**) → un grupo con una
+  jornada manual con el número de la fecha (`409 DUPLICADO`, **[PROPUESTA]**, DEC-208) → con
+  `REGENERAR`, un partido de la fecha que no está `PROGRAMADO` ni `SUSPENDIDO` (`409 RF-046`,
+  **[PROPUESTA]**, DEC-208).
+- En una transacción: con `REGENERAR`, los partidos de la fecha pasan a `CANCELADO` con el motivo en
+  su historial, sus designaciones quedan `vigente = false` con `motivo_cambio` y los emparejamientos
+  sueltan el partido cancelado (nada se borra, RF-044). Se crean las jornadas de la fecha que falten
+  (una por grupo, en `BORRADOR`, con el número de la fecha). Cada candidato del motor se confirma con
+  las reglas de H-12: si aún tiene un conflicto duro no se inserta y queda sin asignar con ese código
+  y su mensaje (DEC-207). El partido se guarda `PROGRAMADO` con `asignadoAutomaticamente` y, si la
+  localía advierte, con un `motivoLocalia` que empieza con «Asignación automática:» (DEC-207). Los
+  que no caben guardan `codigo` (`VAL-006` o `VAL-007`) y `causa` (DEC-180).
+- Respuesta `200`:
+
+  ```json
+  { "fecha": { "id": "…", "numero": 3, "estadoPublicacion": "BORRADOR", "bloques": [ … ] },
+    "totales": { "asignados": 14, "noAsignados": 2, "cancelados": 0 },
+    "noAsignados": [ { "emparejamientoId": "…", "codigo": "VAL-007",
+                       "causa": "Sin horario libre el domingo para Libre (bloque de 120 min): 14 franjas libres, 16 partidos" } ],
+    "advertencias": [],
+    "resumen": [ { "dia": "2031-03-09", "franjasLibres": 14, "bloqueMinutos": 120, "partidosRequeridos": 16 } ] }
+  ```
+
+  `fecha` es el detalle de `GET /fechas/{id}`. `advertencias` son las del motor que no bloquean (por
+  ejemplo, una categoría sin día de juego en la fecha, DEC-177). En `resumen`, las franjas son los
+  bloques que cabían antes de asignar y los partidos requeridos, los que tienen ese día permitido
+  (**[PROPUESTA]**, `ResumenDia`).
+- `fechas_programacion` guarda `generada_por`, `generada_en` y `parametros_generacion`
+  (`{ versionParametros, modo, motivo?, asignados, noAsignados, cancelados }`, RF-041). Auditoría
+  `GENERAR_FECHA` en `M-07` sobre `fechas_programacion`, con el motivo y `{ temporadaId, numero, modo,
+  versionParametros, asignados, noAsignados, cancelados, jornadasCreadas }`, sin nombres ni datos
+  personales. Con los mismos datos se obtiene la misma asignación.
+- El árbitro central automático (H-34, DEC-182) se agregará en esta misma operación.
 
 ### 6.8 M-08 Partidos, cédula y resultados
 
