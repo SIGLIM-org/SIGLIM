@@ -1,0 +1,58 @@
+Prueba de aceptación H-34.3 · contrato HTTP verificado
+======================================================
+
+H-34 no agrega endpoints: el central automático se designa dentro de
+POST /api/v1/fechas/{id}/asignacion (H-33) y su causa aparece en POST /api/v1/fechas/{id}/verificacion.
+El cambio manual sigue en POST /api/v1/partidos/{id}/designaciones y POST /api/v1/designaciones/{id}/retiro
+(H-14, F-24).
+
+Fuente: AsignacionFechaControllerTest y DesignacionControllerTest (MockMvc con la cadena de seguridad
+real y tokens ES256 de SeguridadPrueba). El caso 200 usa un doble del servicio con la respuesta de
+ejemplo de las convenciones de API §6.7 (versión 5.32, H-34.2). No se imprimen tokens ni datos personales.
+
+1. POST /api/v1/fechas/{id}/asignacion · 200 OK (campos de H-34)
+---------------------------------------------------------------
+  totales.asignados                     = 4
+  totales.cancelados                    = 0
+  totales.centrales                     = 3
+  totales.sinArbitro                    = 1
+  sinArbitro[0].partidoId               = "77777777-7777-4777-8777-777777777777"
+  sinArbitro[0].codigo                  = "RF-023"
+  sinArbitro[0].causa                   = "El único árbitro validado no puede pitarlo: 1 ya pita a esa hora (RF-039)."
+
+Advertencias que agrega el servicio (AsignacionFechaServiceTest, AsignacionFechaArbitrosIT):
+  - Sin AUTOMATICA [PROPUESTA, DEC-218]:
+    "No se designaron árbitros centrales: tu sesión no tiene el permiso
+     arbitraje.designacion:AUTOMATICA. La Comisión de Arbitraje los designa en F-24."
+  - Central con RF-022 [PROPUESTA, DEC-219]:
+    "‹Local› vs ‹Visitante›: el árbitro central designado declaró que no está disponible en ese
+     horario (RF-022). La Comisión puede cambiarlo en F-24."
+
+2. POST /api/v1/fechas/{id}/verificacion · aviso RF-023 (DEC-220)
+---------------------------------------------------------------
+  advertencias[i].codigo  = "RF-023"
+  advertencias[i].mensaje = "Sin árbitro central: Halcones vs Toros. El único árbitro validado no
+                             puede pitarlo: 1 ya pita a esa hora (RF-039). La Comisión de Arbitraje
+                             lo designa en F-24."
+  Va en advertencias, no en conflictos: el envío a aprobación no se bloquea (CA-3).
+
+3. Errores de la Definición de Terminado
+---------------------------------------
+POST /api/v1/fechas/{id}/asignacion (AsignacionFechaControllerTest#seguridadAsignar):
+  [1] Sin token                         → 401 NO_AUTENTICADO + WWW-Authenticate: Bearer
+  [2] Token firmado con otra llave      → 401 NO_AUTENTICADO
+  [3] Sin programacion.jornada:EDITAR   → 403 VAL-015
+  [4] Fecha de otra liga                → 404 NO_ENCONTRADO
+  [5] Fecha fuera de ámbito             → 404 NO_ENCONTRADO
+  fechaInexistente                      → 404 NO_ENCONTRADO
+
+Designación automática sin arbitraje.designacion:AUTOMATICA (DesignacionAutomaticaTest#sinPermiso,
+DesignacionAutomaticaIT#permisos):
+  - Llamada directa al puerto → 403 VAL-015, sin consultar ni insertar nada.
+  - Dentro de la asignación de la fecha → no es error: la fecha se asigna sin centrales y con la
+    advertencia de DEC-218 (la transacción no se marca para revertir).
+
+Cambio manual en F-24 (DesignacionControllerTest, RNF-003):
+  - seguridad de POST /api/v1/partidos/{id}/designaciones y POST /api/v1/designaciones/{id}/retiro:
+    401 sin token / token inválido, 403 VAL-015 sin arbitraje.designacion:EDITAR, 404 fuera de ámbito.
+  - POST que sustituye al central sin motivo → 400 RN-021.
