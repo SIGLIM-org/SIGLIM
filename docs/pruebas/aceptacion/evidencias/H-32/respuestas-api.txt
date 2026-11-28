@@ -1,0 +1,929 @@
+Respuestas de la API · prueba de aceptación H-32.5 (base local efímera, develop en abd90c2, 27-nov-2026)
+Cuentas ficticias: «Programador de prueba» (PROGRAMADOR, LIGA) y «Comisión de prueba» (COMISION_ARBITRAJE, LIGA).
+
+### S-1 · Sin sesión
+> POST /api/v1/temporadas/d3210000-0000-4000-8000-000000000001/calendario  (sin token)
+{"type":"https://siglim.mx/errores/no-autenticado","title":"No autenticado","status":401,"detail":"Inicia sesión para continuar.","instance":"/api/v1/temporadas/d3210000-0000-4000-8000-000000000001/calendario","codigo":"NO_AUTENTICADO"}
+< HTTP 401
+
+### S-2 · Comisión de arbitraje (solo consulta)
+> POST /api/v1/temporadas/d3210000-0000-4000-8000-000000000001/calendario  (cuenta: Comisión de prueba)
+> {}
+< HTTP 403
+{
+  "detail": "Tu cuenta no tiene el permiso necesario para esta operación.",
+  "instance": "/api/v1/temporadas/d3210000-0000-4000-8000-000000000001/calendario",
+  "status": 403,
+  "title": "Acción no permitida",
+  "type": "https://siglim.mx/errores/val-015",
+  "codigo": "VAL-015"
+}
+
+### S-3 · Antes de generar
+> GET /api/v1/temporadas/d3210000-0000-4000-8000-000000000001/calendario  (cuenta: Programador de prueba)
+< HTTP 200
+{
+  "temporadaId": "d3210000-0000-4000-8000-000000000001",
+  "grupos": [
+    {
+      "grupoId": "d3240000-0000-4000-8000-00000000000a",
+      "nombre": "A",
+      "categoria": {
+        "id": "d3220000-0000-4000-8000-000000000001",
+        "nombre": "Libre (prueba H-32)"
+      },
+      "generado": false,
+      "fechas": []
+    },
+    {
+      "grupoId": "d3240000-0000-4000-8000-00000000000b",
+      "nombre": "B",
+      "categoria": {
+        "id": "d3220000-0000-4000-8000-000000000001",
+        "nombre": "Libre (prueba H-32)"
+      },
+      "generado": false,
+      "fechas": []
+    }
+  ]
+}
+
+### G-1 · Generación desde F-22 (respuesta 201 capturada en el navegador)
+> POST /api/v1/temporadas/d3210000-0000-4000-8000-000000000001/calendario  (cuenta: Programador de prueba, modal «Generar calendario», fechaInicio 2027-01-06)
+< HTTP 201
+{
+  "versionParametros": 1,
+  "vueltas": 2,
+  "totalFechas": 10,
+  "fechasCreadas": 10,
+  "grupos": [
+    {
+      "grupoId": "d3240000-0000-4000-8000-00000000000a",
+      "nombre": "A",
+      "equipos": 4,
+      "fechas": 6,
+      "reemplazado": false
+    },
+    {
+      "grupoId": "d3240000-0000-4000-8000-00000000000b",
+      "nombre": "B",
+      "equipos": 5,
+      "fechas": 10,
+      "reemplazado": false
+    }
+  ],
+  "gruposOmitidos": [],
+  "advertencias": []
+}
+
+### G-2 · Calendario por grupo y fecha
+> GET /api/v1/temporadas/d3210000-0000-4000-8000-000000000001/calendario  (cuenta: Programador de prueba)
+< HTTP 200
+{
+  "temporadaId": "d3210000-0000-4000-8000-000000000001",
+  "grupos": [
+    {
+      "grupoId": "d3240000-0000-4000-8000-00000000000a",
+      "nombre": "A",
+      "categoria": {
+        "id": "d3220000-0000-4000-8000-000000000001",
+        "nombre": "Libre (prueba H-32)"
+      },
+      "generado": true,
+      "fechas": [
+        {
+          "numero": 1,
+          "vuelta": 1,
+          "partidos": [
+            {
+              "emparejamientoId": "c7b54c5e-5d76-4c11-ae66-e1251b0bd7d7",
+              "local": {
+                "id": "d3260001-0000-4000-8000-000000000001",
+                "nombre": "Halcones",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260004-0000-4000-8000-000000000001",
+                "nombre": "Leones",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "9c00c6e3-e40a-425a-bbc0-c9ef322afd4a",
+              "local": {
+                "id": "d3260002-0000-4000-8000-000000000001",
+                "nombre": "Toros",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260003-0000-4000-8000-000000000001",
+                "nombre": "Pumas",
+                "estado": "ACTIVO"
+              }
+            }
+          ]
+        },
+        {
+          "numero": 2,
+          "vuelta": 1,
+          "partidos": [
+            {
+              "emparejamientoId": "2ddd8b27-e0ef-4163-93c6-ee6f917806b2",
+              "local": {
+                "id": "d3260004-0000-4000-8000-000000000001",
+                "nombre": "Leones",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260002-0000-4000-8000-000000000001",
+                "nombre": "Toros",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "ff0aa055-5da3-42b2-9e8d-08568e9036a6",
+              "local": {
+                "id": "d3260003-0000-4000-8000-000000000001",
+                "nombre": "Pumas",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260001-0000-4000-8000-000000000001",
+                "nombre": "Halcones",
+                "estado": "ACTIVO"
+              }
+            }
+          ]
+        },
+        {
+          "numero": 3,
+          "vuelta": 1,
+          "partidos": [
+            {
+              "emparejamientoId": "43604ccc-74dd-4da4-9f8b-b0e0b86ccc32",
+              "local": {
+                "id": "d3260001-0000-4000-8000-000000000001",
+                "nombre": "Halcones",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260002-0000-4000-8000-000000000001",
+                "nombre": "Toros",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "6ec20703-4db1-4576-838b-8156c36f034c",
+              "local": {
+                "id": "d3260003-0000-4000-8000-000000000001",
+                "nombre": "Pumas",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260004-0000-4000-8000-000000000001",
+                "nombre": "Leones",
+                "estado": "ACTIVO"
+              }
+            }
+          ]
+        },
+        {
+          "numero": 4,
+          "vuelta": 2,
+          "partidos": [
+            {
+              "emparejamientoId": "98e5373c-0177-470d-b97c-effabe85dba7",
+              "local": {
+                "id": "d3260004-0000-4000-8000-000000000001",
+                "nombre": "Leones",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260001-0000-4000-8000-000000000001",
+                "nombre": "Halcones",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "5c5cb7a0-570e-4f69-95ec-8c4c4f6b67b9",
+              "local": {
+                "id": "d3260003-0000-4000-8000-000000000001",
+                "nombre": "Pumas",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260002-0000-4000-8000-000000000001",
+                "nombre": "Toros",
+                "estado": "ACTIVO"
+              }
+            }
+          ]
+        },
+        {
+          "numero": 5,
+          "vuelta": 2,
+          "partidos": [
+            {
+              "emparejamientoId": "b22cd06b-cdb5-43a5-801c-279548b36cc9",
+              "local": {
+                "id": "d3260001-0000-4000-8000-000000000001",
+                "nombre": "Halcones",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260003-0000-4000-8000-000000000001",
+                "nombre": "Pumas",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "6243651e-da34-4328-a0bc-b750f5adc3b6",
+              "local": {
+                "id": "d3260002-0000-4000-8000-000000000001",
+                "nombre": "Toros",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260004-0000-4000-8000-000000000001",
+                "nombre": "Leones",
+                "estado": "ACTIVO"
+              }
+            }
+          ]
+        },
+        {
+          "numero": 6,
+          "vuelta": 2,
+          "partidos": [
+            {
+              "emparejamientoId": "af11831b-cfca-4fc8-855b-57b5c25d8c83",
+              "local": {
+                "id": "d3260004-0000-4000-8000-000000000001",
+                "nombre": "Leones",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260003-0000-4000-8000-000000000001",
+                "nombre": "Pumas",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "b9ffdca3-93b5-4987-b09f-336865b1ecf9",
+              "local": {
+                "id": "d3260002-0000-4000-8000-000000000001",
+                "nombre": "Toros",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260001-0000-4000-8000-000000000001",
+                "nombre": "Halcones",
+                "estado": "ACTIVO"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "grupoId": "d3240000-0000-4000-8000-00000000000b",
+      "nombre": "B",
+      "categoria": {
+        "id": "d3220000-0000-4000-8000-000000000001",
+        "nombre": "Libre (prueba H-32)"
+      },
+      "generado": true,
+      "fechas": [
+        {
+          "numero": 1,
+          "vuelta": 1,
+          "partidos": [
+            {
+              "emparejamientoId": "a0157880-0289-4114-9242-6142850694d8",
+              "local": {
+                "id": "d3260007-0000-4000-8000-000000000001",
+                "nombre": "Osos",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260006-0000-4000-8000-000000000001",
+                "nombre": "Lobos",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "bb7c81ba-224e-40f7-b44d-3eddeaf87437",
+              "local": {
+                "id": "d3260005-0000-4000-8000-000000000001",
+                "nombre": "Águilas",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260008-0000-4000-8000-000000000001",
+                "nombre": "Zorros",
+                "estado": "ACTIVO"
+              }
+            }
+          ],
+          "descansa": {
+            "id": "d3260009-0000-4000-8000-000000000001",
+            "nombre": "Linces",
+            "estado": "ACTIVO"
+          }
+        },
+        {
+          "numero": 2,
+          "vuelta": 1,
+          "partidos": [
+            {
+              "emparejamientoId": "5225eab0-279c-475b-966e-f3efdbc531c1",
+              "local": {
+                "id": "d3260009-0000-4000-8000-000000000001",
+                "nombre": "Linces",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260007-0000-4000-8000-000000000001",
+                "nombre": "Osos",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "68d80bcb-b7ef-41f2-b6dd-aea8fe38eb62",
+              "local": {
+                "id": "d3260006-0000-4000-8000-000000000001",
+                "nombre": "Lobos",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260005-0000-4000-8000-000000000001",
+                "nombre": "Águilas",
+                "estado": "ACTIVO"
+              }
+            }
+          ],
+          "descansa": {
+            "id": "d3260008-0000-4000-8000-000000000001",
+            "nombre": "Zorros",
+            "estado": "ACTIVO"
+          }
+        },
+        {
+          "numero": 3,
+          "vuelta": 1,
+          "partidos": [
+            {
+              "emparejamientoId": "3f8a9e21-bdda-4b72-9421-c592b6626aba",
+              "local": {
+                "id": "d3260008-0000-4000-8000-000000000001",
+                "nombre": "Zorros",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260006-0000-4000-8000-000000000001",
+                "nombre": "Lobos",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "d95716e8-e66e-416e-9e7b-424f7982693b",
+              "local": {
+                "id": "d3260005-0000-4000-8000-000000000001",
+                "nombre": "Águilas",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260009-0000-4000-8000-000000000001",
+                "nombre": "Linces",
+                "estado": "ACTIVO"
+              }
+            }
+          ],
+          "descansa": {
+            "id": "d3260007-0000-4000-8000-000000000001",
+            "nombre": "Osos",
+            "estado": "ACTIVO"
+          }
+        },
+        {
+          "numero": 4,
+          "vuelta": 1,
+          "partidos": [
+            {
+              "emparejamientoId": "91f757ed-cbff-4869-85af-b3529bd0ca37",
+              "local": {
+                "id": "d3260009-0000-4000-8000-000000000001",
+                "nombre": "Linces",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260008-0000-4000-8000-000000000001",
+                "nombre": "Zorros",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "190fce9f-fdbb-4c8c-a1a9-9560058a0060",
+              "local": {
+                "id": "d3260007-0000-4000-8000-000000000001",
+                "nombre": "Osos",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260005-0000-4000-8000-000000000001",
+                "nombre": "Águilas",
+                "estado": "ACTIVO"
+              }
+            }
+          ],
+          "descansa": {
+            "id": "d3260006-0000-4000-8000-000000000001",
+            "nombre": "Lobos",
+            "estado": "ACTIVO"
+          }
+        },
+        {
+          "numero": 5,
+          "vuelta": 1,
+          "partidos": [
+            {
+              "emparejamientoId": "e802c6b1-2900-48de-8de2-ae8183cba4f5",
+              "local": {
+                "id": "d3260006-0000-4000-8000-000000000001",
+                "nombre": "Lobos",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260009-0000-4000-8000-000000000001",
+                "nombre": "Linces",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "44ca6586-726a-4c11-9d40-90eed65e4267",
+              "local": {
+                "id": "d3260008-0000-4000-8000-000000000001",
+                "nombre": "Zorros",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260007-0000-4000-8000-000000000001",
+                "nombre": "Osos",
+                "estado": "ACTIVO"
+              }
+            }
+          ],
+          "descansa": {
+            "id": "d3260005-0000-4000-8000-000000000001",
+            "nombre": "Águilas",
+            "estado": "ACTIVO"
+          }
+        },
+        {
+          "numero": 6,
+          "vuelta": 2,
+          "partidos": [
+            {
+              "emparejamientoId": "acf13657-db66-4f62-a359-0b8c88229a79",
+              "local": {
+                "id": "d3260006-0000-4000-8000-000000000001",
+                "nombre": "Lobos",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260007-0000-4000-8000-000000000001",
+                "nombre": "Osos",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "dee736fe-16f7-4513-a666-8d5e9f1d3811",
+              "local": {
+                "id": "d3260008-0000-4000-8000-000000000001",
+                "nombre": "Zorros",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260005-0000-4000-8000-000000000001",
+                "nombre": "Águilas",
+                "estado": "ACTIVO"
+              }
+            }
+          ],
+          "descansa": {
+            "id": "d3260009-0000-4000-8000-000000000001",
+            "nombre": "Linces",
+            "estado": "ACTIVO"
+          }
+        },
+        {
+          "numero": 7,
+          "vuelta": 2,
+          "partidos": [
+            {
+              "emparejamientoId": "3497043e-906f-4717-9c88-1e3b8fc4aa16",
+              "local": {
+                "id": "d3260007-0000-4000-8000-000000000001",
+                "nombre": "Osos",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260009-0000-4000-8000-000000000001",
+                "nombre": "Linces",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "aee1adef-8aa4-43de-949e-b56eb2c2e7db",
+              "local": {
+                "id": "d3260005-0000-4000-8000-000000000001",
+                "nombre": "Águilas",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260006-0000-4000-8000-000000000001",
+                "nombre": "Lobos",
+                "estado": "ACTIVO"
+              }
+            }
+          ],
+          "descansa": {
+            "id": "d3260008-0000-4000-8000-000000000001",
+            "nombre": "Zorros",
+            "estado": "ACTIVO"
+          }
+        },
+        {
+          "numero": 8,
+          "vuelta": 2,
+          "partidos": [
+            {
+              "emparejamientoId": "04192349-81d4-4bb7-895c-0126dcc2ae3b",
+              "local": {
+                "id": "d3260009-0000-4000-8000-000000000001",
+                "nombre": "Linces",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260005-0000-4000-8000-000000000001",
+                "nombre": "Águilas",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "e3a182ce-b8ae-40ad-9f2e-b927787801aa",
+              "local": {
+                "id": "d3260006-0000-4000-8000-000000000001",
+                "nombre": "Lobos",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260008-0000-4000-8000-000000000001",
+                "nombre": "Zorros",
+                "estado": "ACTIVO"
+              }
+            }
+          ],
+          "descansa": {
+            "id": "d3260007-0000-4000-8000-000000000001",
+            "nombre": "Osos",
+            "estado": "ACTIVO"
+          }
+        },
+        {
+          "numero": 9,
+          "vuelta": 2,
+          "partidos": [
+            {
+              "emparejamientoId": "3abddb62-2df5-4354-a278-a10a85d1303e",
+              "local": {
+                "id": "d3260008-0000-4000-8000-000000000001",
+                "nombre": "Zorros",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260009-0000-4000-8000-000000000001",
+                "nombre": "Linces",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "0b7a0cd7-8ba7-491e-b714-3bd5d905f3fb",
+              "local": {
+                "id": "d3260005-0000-4000-8000-000000000001",
+                "nombre": "Águilas",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260007-0000-4000-8000-000000000001",
+                "nombre": "Osos",
+                "estado": "ACTIVO"
+              }
+            }
+          ],
+          "descansa": {
+            "id": "d3260006-0000-4000-8000-000000000001",
+            "nombre": "Lobos",
+            "estado": "ACTIVO"
+          }
+        },
+        {
+          "numero": 10,
+          "vuelta": 2,
+          "partidos": [
+            {
+              "emparejamientoId": "144365b2-1676-4ece-9678-ee967b7d709c",
+              "local": {
+                "id": "d3260009-0000-4000-8000-000000000001",
+                "nombre": "Linces",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260006-0000-4000-8000-000000000001",
+                "nombre": "Lobos",
+                "estado": "ACTIVO"
+              }
+            },
+            {
+              "emparejamientoId": "7a885292-cb6f-4100-9795-86384e027e7b",
+              "local": {
+                "id": "d3260007-0000-4000-8000-000000000001",
+                "nombre": "Osos",
+                "estado": "ACTIVO"
+              },
+              "visitante": {
+                "id": "d3260008-0000-4000-8000-000000000001",
+                "nombre": "Zorros",
+                "estado": "ACTIVO"
+              }
+            }
+          ],
+          "descansa": {
+            "id": "d3260005-0000-4000-8000-000000000001",
+            "nombre": "Águilas",
+            "estado": "ACTIVO"
+          }
+        }
+      ]
+    }
+  ]
+}
+
+### G-3 · Fechas de la temporada
+> GET /api/v1/fechas?temporadaId=d3210000-0000-4000-8000-000000000001&tamano=20  (cuenta: Programador de prueba)
+< HTTP 200
+{
+  "contenido": [
+    {
+      "id": "eb227a20-1a95-41a4-b41a-3341443c1859",
+      "temporadaId": "d3210000-0000-4000-8000-000000000001",
+      "numero": 1,
+      "dias": [
+        "2027-01-09",
+        "2027-01-10"
+      ],
+      "estadoPublicacion": "BORRADOR",
+      "jornadas": 0,
+      "partidos": 0,
+      "sinAsignar": 4,
+      "descansos": 1
+    },
+    {
+      "id": "11f4b690-3ad0-41d6-b323-064420f5b887",
+      "temporadaId": "d3210000-0000-4000-8000-000000000001",
+      "numero": 2,
+      "dias": [
+        "2027-01-16",
+        "2027-01-17"
+      ],
+      "estadoPublicacion": "BORRADOR",
+      "jornadas": 0,
+      "partidos": 0,
+      "sinAsignar": 4,
+      "descansos": 1
+    },
+    {
+      "id": "09ee0a93-027a-4d7b-ab1c-6d0d5319f695",
+      "temporadaId": "d3210000-0000-4000-8000-000000000001",
+      "numero": 3,
+      "dias": [
+        "2027-01-23",
+        "2027-01-24"
+      ],
+      "estadoPublicacion": "BORRADOR",
+      "jornadas": 0,
+      "partidos": 0,
+      "sinAsignar": 4,
+      "descansos": 1
+    },
+    {
+      "id": "1df528c2-0336-4a19-ad9d-3f48b18f41e6",
+      "temporadaId": "d3210000-0000-4000-8000-000000000001",
+      "numero": 4,
+      "dias": [
+        "2027-01-30",
+        "2027-01-31"
+      ],
+      "estadoPublicacion": "BORRADOR",
+      "jornadas": 0,
+      "partidos": 0,
+      "sinAsignar": 4,
+      "descansos": 1
+    },
+    {
+      "id": "aa34873d-5115-4326-ac5d-2cc8303493a0",
+      "temporadaId": "d3210000-0000-4000-8000-000000000001",
+      "numero": 5,
+      "dias": [
+        "2027-02-06",
+        "2027-02-07"
+      ],
+      "estadoPublicacion": "BORRADOR",
+      "jornadas": 0,
+      "partidos": 0,
+      "sinAsignar": 4,
+      "descansos": 1
+    },
+    {
+      "id": "adf40dd1-cb2d-40c4-9cdf-083bef05441f",
+      "temporadaId": "d3210000-0000-4000-8000-000000000001",
+      "numero": 6,
+      "dias": [
+        "2027-02-13",
+        "2027-02-14"
+      ],
+      "estadoPublicacion": "BORRADOR",
+      "jornadas": 0,
+      "partidos": 0,
+      "sinAsignar": 4,
+      "descansos": 1
+    },
+    {
+      "id": "91c1f670-d523-4a53-ba39-5f0d66edd932",
+      "temporadaId": "d3210000-0000-4000-8000-000000000001",
+      "numero": 7,
+      "dias": [
+        "2027-02-20",
+        "2027-02-21"
+      ],
+      "estadoPublicacion": "BORRADOR",
+      "jornadas": 0,
+      "partidos": 0,
+      "sinAsignar": 2,
+      "descansos": 1
+    },
+    {
+      "id": "4bab81c7-4422-4f57-9a6a-7119fd0d7b53",
+      "temporadaId": "d3210000-0000-4000-8000-000000000001",
+      "numero": 8,
+      "dias": [
+        "2027-02-27",
+        "2027-02-28"
+      ],
+      "estadoPublicacion": "BORRADOR",
+      "jornadas": 0,
+      "partidos": 0,
+      "sinAsignar": 2,
+      "descansos": 1
+    },
+    {
+      "id": "8b20575d-5ad7-47e8-a583-b8c1195865d0",
+      "temporadaId": "d3210000-0000-4000-8000-000000000001",
+      "numero": 9,
+      "dias": [
+        "2027-03-06",
+        "2027-03-07"
+      ],
+      "estadoPublicacion": "BORRADOR",
+      "jornadas": 0,
+      "partidos": 0,
+      "sinAsignar": 2,
+      "descansos": 1
+    },
+    {
+      "id": "e19189c6-1fd6-4720-861f-4b0c4bfcd122",
+      "temporadaId": "d3210000-0000-4000-8000-000000000001",
+      "numero": 10,
+      "dias": [
+        "2027-03-13",
+        "2027-03-14"
+      ],
+      "estadoPublicacion": "BORRADOR",
+      "jornadas": 0,
+      "partidos": 0,
+      "sinAsignar": 2,
+      "descansos": 1
+    }
+  ],
+  "pagina": 0,
+  "tamano": 20,
+  "totalElementos": 10,
+  "totalPaginas": 1
+}
+
+### CA-4a · Cambiar los días de la fecha 1 (en BORRADOR) con motivo: se agrega el viernes
+> PATCH /api/v1/fechas/eb227a20-1a95-41a4-b41a-3341443c1859  (cuenta: Programador de prueba)
+> {"dias":["2027-01-08","2027-01-09","2027-01-10"],"motivo":"Se agrega el viernes por el torneo relámpago"}
+< HTTP 200
+{
+  "id": "eb227a20-1a95-41a4-b41a-3341443c1859",
+  "temporadaId": "d3210000-0000-4000-8000-000000000001",
+  "numero": 1,
+  "dias": [
+    "2027-01-08",
+    "2027-01-09",
+    "2027-01-10"
+  ],
+  "estadoPublicacion": "BORRADOR",
+  "jornadas": 0,
+  "partidos": 0,
+  "sinAsignar": 4,
+  "descansos": 1
+}
+
+### CA-4b · Sin motivo se rechaza
+> PATCH /api/v1/fechas/eb227a20-1a95-41a4-b41a-3341443c1859  (cuenta: Programador de prueba)
+> {"dias":["2027-01-09","2027-01-10"]}
+< HTTP 400
+{
+  "detail": "Escribe un motivo de al menos 10 caracteres para cambiar los días de la fecha.",
+  "instance": "/api/v1/fechas/eb227a20-1a95-41a4-b41a-3341443c1859",
+  "status": 400,
+  "title": "Solicitud inválida",
+  "type": "https://siglim.mx/errores/rn-021",
+  "codigo": "RN-021"
+}
+
+### CA-5a · Se asigna la fecha 2: sus emparejamientos quedan ligados a partidos (H-33)
+> POST /api/v1/fechas/11f4b690-3ad0-41d6-b323-064420f5b887/asignacion  (cuenta: Programador de prueba)
+> {"modo":"PENDIENTES"}
+< HTTP 200
+{
+  "fecha": {
+    "id": "11f4b690-3ad0-41d6-b323-064420f5b887",
+    "numero": 2,
+    "estadoPublicacion": "BORRADOR",
+    "jornadas": 2,
+    "partidos": 4,
+    "descansos": 1
+  },
+  "totales": {
+    "asignados": 4,
+    "noAsignados": 0,
+    "cancelados": 0,
+    "centrales": 0,
+    "sinArbitro": 4
+  },
+  "noAsignados": []
+}
+(respuesta recortada a la fecha, los totales y los no asignados)
+
+### CA-5b · Regenerar el calendario del grupo A, que ya tiene partidos ligados
+> POST /api/v1/temporadas/d3210000-0000-4000-8000-000000000001/calendario  (cuenta: Programador de prueba)
+> {"grupoIds":["d3240000-0000-4000-8000-00000000000a"],"motivo":"Se quiere rehacer el calendario del grupo A"}
+< HTTP 409
+{
+  "detail": "El calendario de «Libre (prueba H-32) – A» ya tiene partidos o jornadas programados y no se puede regenerar; quita esos grupos de grupoIds.",
+  "instance": "/api/v1/temporadas/d3210000-0000-4000-8000-000000000001/calendario",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/rn-020",
+  "codigo": "RN-020",
+  "grupos": [
+    {
+      "nombre": "A",
+      "grupoId": "d3240000-0000-4000-8000-00000000000a"
+    }
+  ]
+}
+
+### CA-4c · Se envía la fecha 2 a aprobación (sus jornadas pasan a REVISION)
+> POST /api/v1/fechas/11f4b690-3ad0-41d6-b323-064420f5b887/envio  (cuenta: Programador de prueba)
+< HTTP 200
+{
+  "id": "11f4b690-3ad0-41d6-b323-064420f5b887",
+  "numero": 2,
+  "dias": [
+    "2027-01-16",
+    "2027-01-17"
+  ],
+  "estadoPublicacion": "REVISION",
+  "jornadas": 2,
+  "partidos": 4,
+  "enviadaEn": "2026-11-27T19:28:00.657657-06:00"
+}
+(respuesta recortada, sin bloques)
+
+### CA-4d · Con la fecha en revisión, cambiar sus días se rechaza
+> PATCH /api/v1/fechas/11f4b690-3ad0-41d6-b323-064420f5b887  (cuenta: Programador de prueba)
+> {"dias":["2027-01-16","2027-01-17","2027-01-18"],"motivo":"Se intenta agregar el lunes festivo"}
+< HTTP 409
+{
+  "detail": "Los días de la fecha 2 solo se cambian en borrador; la jornada 2 está revisión.",
+  "instance": "/api/v1/fechas/11f4b690-3ad0-41d6-b323-064420f5b887",
+  "status": 409,
+  "title": "Conflicto con el estado actual",
+  "type": "https://siglim.mx/errores/rf-090",
+  "codigo": "RF-090"
+}
+

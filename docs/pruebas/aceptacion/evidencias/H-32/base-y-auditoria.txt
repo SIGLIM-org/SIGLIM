@@ -1,0 +1,145 @@
+Base de datos y auditoría · prueba de aceptación H-32.5 (consultas psql sobre la base local efímera)
+
+### CA-1 · Cada par se enfrenta exactamente v = 2 veces (por grupo: pares distintos y veces por par)
+ grupo | pares | min_veces | max_veces 
+-------+-------+-----------+-----------
+ A     |     6 |         2 |         2
+ B     |    10 |         2 |         2
+(2 rows)
+
+### CA-1 · RN-012: ningún equipo aparece dos veces en una fecha (filas esperadas: 0)
+ grupo | numero_fecha | equipo | apariciones 
+-------+--------------+--------+-------------
+(0 rows)
+
+### CA-1 · Cada equipo aparece una vez en cada fecha de su grupo (apariciones por fecha)
+ grupo | fechas | min_equipos_por_fecha | max_equipos_por_fecha 
+-------+--------+-----------------------+-----------------------
+ A     |      6 |                     4 |                     4
+ B     |     10 |                     5 |                     5
+(2 rows)
+
+### CA-2 · RF-037: con N = 5, un descanso por fecha y cada equipo descansa v = 2 veces
+            medida             | minimo | maximo 
+-------------------------------+--------+--------
+ descansos por fecha           |      1 |      1
+ descansos por equipo          |      2 |      2
+ descansos en el grupo par (A) |      0 |      0
+(3 rows)
+
+### CA-2 · Quién descansa en cada fecha del grupo B
+ fecha | vuelta | descansa 
+-------+--------+----------
+     1 |      1 | Linces
+     2 |      1 | Zorros
+     3 |      1 | Osos
+     4 |      1 | Lobos
+     5 |      1 | Águilas
+     6 |      2 | Linces
+     7 |      2 | Zorros
+     8 |      2 | Osos
+     9 |      2 | Lobos
+    10 |      2 | Águilas
+(10 rows)
+
+### CA-3 · Partidos de local y de visitante por equipo y vuelta (diferencia esperada: 1 como máximo)
+ grupo |  equipo  | vuelta | de_local | de_visitante | diferencia 
+-------+----------+--------+----------+--------------+------------
+ A     | Halcones |      1 |        2 |            1 |          1
+ A     | Halcones |      2 |        1 |            2 |          1
+ A     | Leones   |      1 |        1 |            2 |          1
+ A     | Leones   |      2 |        2 |            1 |          1
+ A     | Pumas    |      1 |        2 |            1 |          1
+ A     | Pumas    |      2 |        1 |            2 |          1
+ A     | Toros    |      1 |        1 |            2 |          1
+ A     | Toros    |      2 |        2 |            1 |          1
+ B     | Linces   |      1 |        2 |            2 |          0
+ B     | Linces   |      2 |        2 |            2 |          0
+ B     | Lobos    |      1 |        2 |            2 |          0
+ B     | Lobos    |      2 |        2 |            2 |          0
+ B     | Osos     |      1 |        2 |            2 |          0
+ B     | Osos     |      2 |        2 |            2 |          0
+ B     | Zorros   |      1 |        2 |            2 |          0
+ B     | Zorros   |      2 |        2 |            2 |          0
+ B     | Águilas  |      1 |        2 |            2 |          0
+ B     | Águilas  |      2 |        2 |            2 |          0
+(18 rows)
+
+### CA-3 · En la vuelta 2 se invierte la localía de cada par (pares con la misma localía en las dos vueltas: 0)
+ grupo | pares_revisados | misma_localia 
+-------+-----------------+---------------
+ A     |               6 |             0
+ B     |              10 |             0
+(2 rows)
+
+### CA-4 · Fechas 1…F: sábado y domingo consecutivos, una semana después de la otra
+ numero |          dias           | primer_dia | dias_entre | desde_la_anterior 
+--------+-------------------------+------------+------------+-------------------
+      1 | {2027-01-09,2027-01-10} | Saturday   |          1 |                  
+      2 | {2027-01-16,2027-01-17} | Saturday   |          1 |                 7
+      3 | {2027-01-23,2027-01-24} | Saturday   |          1 |                 7
+      4 | {2027-01-30,2027-01-31} | Saturday   |          1 |                 7
+      5 | {2027-02-06,2027-02-07} | Saturday   |          1 |                 7
+      6 | {2027-02-13,2027-02-14} | Saturday   |          1 |                 7
+      7 | {2027-02-20,2027-02-21} | Saturday   |          1 |                 7
+      8 | {2027-02-27,2027-02-28} | Saturday   |          1 |                 7
+      9 | {2027-03-06,2027-03-07} | Saturday   |          1 |                 7
+     10 | {2027-03-13,2027-03-14} | Saturday   |          1 |                 7
+(10 rows)
+
+### CA-6 · RF-041: quién generó y con qué parámetros
+ emparejamientos | autores |      creado_por       
+-----------------+---------+-----------------------
+              42 |       1 | Programador de prueba
+(1 row)
+
+ modulo |       accion       |  entidad   |              entidad_id              |        usuario        |      fecha       | motivo 
+--------+--------------------+------------+--------------------------------------+-----------------------+------------------+--------
+ M-07   | GENERAR_CALENDARIO | temporadas | d3210000-0000-4000-8000-000000000001 | Programador de prueba | 2026-11-27 19:26 | 
+(1 row)
+
+                     detalle                     
+-------------------------------------------------
+ {                                              +
+     "grupos": [                                +
+         "d3240000-0000-4000-8000-00000000000a",+
+         "d3240000-0000-4000-8000-00000000000b" +
+     ],                                         +
+     "vueltas": 2,                              +
+     "omitidos": [                              +
+     ],                                         +
+     "fechaInicio": "2027-01-06",               +
+     "totalFechas": 10,                         +
+     "reemplazados": [                          +
+     ],                                         +
+     "fechasCreadas": 10,                       +
+     "emparejamientos": 42,                     +
+     "versionParametros": 1,                    +
+     "fechasRecalculadas": 0                    +
+ }
+(1 row)
+
+
+### Estado después de CA-4 y CA-5: auditoría de M-07, emparejamientos del calendario y días de las fechas 1 y 2
+SET
+          accion           |        usuario        |                    motivo                    |                                                                                                                                                                  detalle                                                                                                                                                                   
+---------------------------+-----------------------+----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ GENERAR_CALENDARIO        | Programador de prueba |                                              | {"grupos": ["d3240000-0000-4000-8000-00000000000a", "d3240000-0000-4000-8000-00000000000b"], "vueltas": 2, "omitidos": [], "fechaInicio": "2027-01-06", "totalFechas": 10, "reemplazados": [], "fechasCreadas": 10, "emparejamientos": 42, "versionParametros": 1, "fechasRecalculadas": 0}
+ GENERAR_FECHA             | Programador de prueba |                                              | {"modo": "PENDIENTES", "numero": 2, "asignados": 4, "centrales": 0, "cancelados": 0, "sinArbitro": 4, "noAsignados": 0, "temporadaId": "d3210000-0000-4000-8000-000000000001", "jornadasCreadas": ["b42e683c-b078-4f7f-93c5-1eefb49de8f0", "cafe6fc1-5823-409a-b5b3-90d2b25050b4"], "versionParametros": 1, "designacionAutomatica": true}
+ ENVIAR_FECHA_A_APROBACION | Programador de prueba |                                              | {"estado": "REVISION", "jornadas": ["b42e683c-b078-4f7f-93c5-1eefb49de8f0", "cafe6fc1-5823-409a-b5b3-90d2b25050b4"], "partidos": 4, "sinAsignar": 0, "estadoAnterior": "BORRADOR"}
+ CAMBIAR_DIAS_FECHA        | Programador de prueba | Se agrega el viernes por el torneo relámpago | {"dias": ["2027-01-08", "2027-01-09", "2027-01-10"], "numero": 1, "temporadaId": "d3210000-0000-4000-8000-000000000001", "diasAnteriores": ["2027-01-09", "2027-01-10"]}
+(4 rows)
+
+SET
+ vigentes | reemplazados | con_partido 
+----------+--------------+-------------
+       42 |            0 |           4
+(1 row)
+
+SET
+ numero |                dias                
+--------+------------------------------------
+      1 | {2027-01-08,2027-01-09,2027-01-10}
+      2 | {2027-01-16,2027-01-17}
+(2 rows)
+
