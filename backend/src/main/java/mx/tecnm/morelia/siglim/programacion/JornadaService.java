@@ -153,7 +153,7 @@ public class JornadaService {
     public JornadaDto consultar(UUID id) {
         autorizacion.exigir(CONSULTAR, ObjetivoAutorizacion.deLiga());
         DatosJornada jornada = jornadas.buscarJornada(ligaId, id).orElseThrow(() -> noExisteJornada(id));
-        return aDto(jornada, jornadas.listarPartidos(id).stream().map(JornadaService::aDto).toList());
+        return conPartidos(jornada);
     }
 
     /**
@@ -409,8 +409,10 @@ public class JornadaService {
         auditar(accion, ENTIDAD_JORNADA, id, motivo, detalle);
     }
 
+    /** Detalle con partidos y, si la jornada es de una fecha de programación, su número (H-35.2). */
     private JornadaDto conPartidos(DatosJornada jornada) {
-        return aDto(jornada, jornadas.listarPartidos(jornada.id()).stream().map(JornadaService::aDto).toList());
+        return aDto(jornada, jornadas.listarPartidos(jornada.id()).stream().map(JornadaService::aDto).toList(),
+                jornadas.numeroDeFecha(jornada.id()).orElse(null));
     }
 
     /** El {@code UPDATE} condicionado no encontró el estado leído con candado: no debería ocurrir. */
@@ -764,10 +766,14 @@ public class JornadaService {
     // ── Representación ─────────────────────────────────────────────────────────────────────────
 
     private static JornadaDto aDto(DatosJornada datos, List<PartidoDto> partidos) {
+        return aDto(datos, partidos, null);
+    }
+
+    private static JornadaDto aDto(DatosJornada datos, List<PartidoDto> partidos, Integer numeroFecha) {
         return new JornadaDto(datos.id(), datos.grupoId(), datos.faseId(), datos.numero(),
                 datos.estadoPublicacion(), partidos, datos.enviadaPor(), datos.enviadaEn(),
                 datos.aprobadaPor(), datos.aprobadaEn(), datos.publicadaEn(), datos.observaciones(),
-                datos.creadoEn(), datos.actualizadoEn());
+                datos.creadoEn(), datos.actualizadoEn(), numeroFecha);
     }
 
     private static PartidoDto aDto(DatosPartido datos) {

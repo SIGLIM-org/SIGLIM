@@ -4,7 +4,9 @@ import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PantallaProgramacion } from '@/features/programacion/PantallaProgramacion'
+import type { Calendario } from '@/features/programacion/calendario/tipos'
 import type {
+  AsignacionFecha,
   FechaProgramacion,
   VerificacionFecha,
 } from '@/features/programacion/tipos'
@@ -52,6 +54,7 @@ const CATEGORIAS: CategoriaTemporada[] = [
     id: 'ct1',
     categoria: { id: 'cat1', nombre: 'Libre Primera', tipo: 'LIBRE', orden: 1 },
     grupos: [{ id: 'g1', nombre: 'Grupo 1', equipos: 5 }],
+    diasJuego: [7],
   },
 ]
 
@@ -174,6 +177,31 @@ const CON_CONFLICTOS: VerificacionFecha = {
   advertencias: [],
 }
 
+const CALENDARIO: Calendario = {
+  temporadaId: 't1',
+  grupos: [
+    {
+      grupoId: 'g1',
+      nombre: 'Grupo 1',
+      categoria: { id: 'cat1', nombre: 'Libre Primera' },
+      generado: false,
+      fechas: [],
+    },
+  ],
+}
+
+const CAUSA_SIN_ARBITRO =
+  'Ninguno de los 2 árbitros validados puede pitarlo: los 2 ya pitan a esa hora.'
+
+const ASIGNACION: AsignacionFecha = {
+  fecha: FECHA,
+  totales: { asignados: 2, noAsignados: 1, cancelados: 0, centrales: 1, sinArbitro: 1 },
+  noAsignados: [{ emparejamientoId: 'em3', codigo: 'VAL-007', causa: 'Sin horario libre.' }],
+  sinArbitro: [{ partidoId: 'p2', codigo: 'RF-023', causa: CAUSA_SIN_ARBITRO }],
+  advertencias: ['Veteranos no tiene día de juego en la fecha: se usaron todos los días.'],
+  resumen: [],
+}
+
 function pagina<T>(contenido: T[]): Pagina<T> {
   return {
     contenido,
@@ -215,6 +243,9 @@ function responder({
     if (ruta.startsWith('jornadas?')) {
       return pagina([])
     }
+    if (ruta === 'temporadas/t1/calendario') {
+      return CALENDARIO
+    }
     if (ruta.startsWith('equipos?')) {
       return pagina(EQUIPOS)
     }
@@ -233,7 +264,7 @@ function responder({
       return { ...fecha, estadoPublicacion: 'REVISION' }
     }
     if (ruta === 'fechas/f1/asignacion') {
-      return {}
+      return ASIGNACION
     }
     if (ruta === 'jornadas/j1/partidos') {
       return { id: 'p9' }
@@ -393,7 +424,7 @@ describe('F-22 · Vista por fecha (H-35.2)', () => {
     expect(await screen.findByText(/Fecha 3 enviada a aprobación/)).toBeInTheDocument()
   })
 
-  it('«Asignar pendientes» pide la asignación sin regenerar', async () => {
+  it('«Asignar pendientes» pide la asignación sin regenerar y resume su respuesta', async () => {
     const usuario = userEvent.setup()
     montarPantalla()
 
@@ -402,7 +433,23 @@ describe('F-22 · Vista por fecha (H-35.2)', () => {
     await waitFor(() =>
       expect(post).toHaveBeenCalledWith('fechas/f1/asignacion', { modo: 'PENDIENTES' }),
     )
-    expect(await screen.findByText(/Asignación terminada/)).toBeInTheDocument()
+    expect(
+      await screen.findByText(
+        'Asignación terminada: 2 partidos asignados · 1 sin asignar · 1 árbitro central designado · 1 sin árbitro.',
+      ),
+    ).toBeInTheDocument()
+    const advertencias = screen.getByRole('note', { name: 'Advertencias de la asignación' })
+    expect(within(advertencias).getByText(/Veteranos no tiene día de juego/)).toBeInTheDocument()
+    const veteranos = await bloque('Veteranos – Grupo 1')
+    expect(within(veteranos).getByText(CAUSA_SIN_ARBITRO)).toBeInTheDocument()
+  })
+
+  it('H-32.4: muestra la tarjeta del calendario de la temporada', async () => {
+    montarPantalla()
+
+    expect(
+      await screen.findByRole('region', { name: 'Calendario de la temporada' }),
+    ).toBeInTheDocument()
   })
 
   it('«Regenerar» exige motivo y lo envía', async () => {

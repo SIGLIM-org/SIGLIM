@@ -27,6 +27,11 @@ type Props = {
   /** La sesión puede enviar jornadas a aprobación (`programacion.jornada:ENVIAR`). */
   tienesPermisoEnvio: boolean
   puedeEnviar: boolean
+  /**
+   * Número de la fecha de programación a la que pertenece la jornada (H-35.2, DEC-175): entonces no
+   * se envía sola, sino con la fecha completa desde la vista por fecha.
+   */
+  numeroFecha?: number
   onVerificar: () => void
   onEnviar: () => void
 }
@@ -47,6 +52,7 @@ export function ResumenVerificacion({
   puedeVerificar,
   tienesPermisoEnvio,
   puedeEnviar,
+  numeroFecha,
   onVerificar,
   onEnviar,
 }: Props) {
@@ -185,18 +191,27 @@ export function ResumenVerificacion({
 
       <section className="rounded-lg border border-border bg-surface p-4">
         <h2 className="text-headline-sm text-text-main">Envío a aprobación</h2>
-        <Button
-          icono={Send}
-          onClick={onEnviar}
-          disabled={!puedeEnviar}
-          aria-describedby={idAyudaEnvio}
-          className="mt-3 w-full"
-        >
-          Enviar a aprobación
-        </Button>
-        <p id={idAyudaEnvio} className="mt-2 text-body-sm text-text-muted">
-          {ayudaEnvio}
-        </p>
+        {numeroFecha !== undefined ? (
+          <p className="mt-2 text-body-md text-text-muted">
+            Esta jornada es parte de la fecha {numeroFecha}. Se envía a aprobación junto con las
+            demás jornadas de la fecha, desde la vista «Por fecha».
+          </p>
+        ) : (
+          <>
+            <Button
+              icono={Send}
+              onClick={onEnviar}
+              disabled={!puedeEnviar}
+              aria-describedby={idAyudaEnvio}
+              className="mt-3 w-full"
+            >
+              Enviar a aprobación
+            </Button>
+            <p id={idAyudaEnvio} className="mt-2 text-body-sm text-text-muted">
+              {ayudaEnvio}
+            </p>
+          </>
+        )}
       </section>
     </aside>
   )

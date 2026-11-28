@@ -143,8 +143,10 @@ export function ProgramacionJornadas({ selectorVista }: Props = {}) {
   const verificacionLista = !verificacion.isPending && !verificacion.isError
   // El backend no envía una jornada sin partidos vigentes (`409 RF-121`, [PROPUESTA]).
   const partidosVigentes = partidos.filter(({ estado }) => estado !== 'CANCELADO').length
+  // Una jornada de una fecha se envía con la fecha completa (DEC-175): el backend responde 409 RF-090.
   const puedeEnviar =
     permisos.enviar &&
+    jornada?.numeroFecha === undefined &&
     jornada?.estadoPublicacion === 'BORRADOR' &&
     partidosVigentes > 0 &&
     verificacionLista &&
@@ -537,6 +539,7 @@ export function ProgramacionJornadas({ selectorVista }: Props = {}) {
                   puedeVerificar={permisos.editar}
                   tienesPermisoEnvio={permisos.enviar}
                   puedeEnviar={puedeEnviar}
+                  numeroFecha={jornada.numeroFecha}
                   onVerificar={() => void verificacion.refetch()}
                   onEnviar={alEnviar}
                 />

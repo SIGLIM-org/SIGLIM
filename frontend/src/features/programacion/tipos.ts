@@ -33,6 +33,11 @@ export type Jornada = {
   observaciones?: string
   creadoEn: string
   actualizadoEn: string
+  /**
+   * Número de la fecha de programación a la que pertenece (solo en el detalle): entonces se envía y
+   * se dictamina con la fecha completa (H-35, DEC-175).
+   */
+  numeroFecha?: number
 }
 
 /** Partido programado a mano en una jornada (RF-033, RF-036). */
@@ -222,6 +227,26 @@ export type AvisoFecha = {
 export type VerificacionFecha = {
   conflictos: AvisoFecha[]
   advertencias: AvisoFecha[]
+}
+
+/**
+ * Respuesta de `POST /fechas/{id}/asignacion` (H-33.2, H-34.2; convenciones de API §6.7): `fecha` es el
+ * detalle ya asignado; `advertencias` son textos que no bloquean.
+ */
+export type AsignacionFecha = {
+  fecha: FechaProgramacion
+  totales: {
+    asignados: number
+    noAsignados: number
+    cancelados: number
+    centrales: number
+    sinArbitro: number
+  }
+  noAsignados: { emparejamientoId: string; codigo: string; causa: string }[]
+  /** Partidos sin árbitro central elegible, con la causa (DEC-216, DEC-219). */
+  sinArbitro: { partidoId: string; codigo: string; causa: string }[]
+  advertencias: string[]
+  resumen: { dia: string; franjasLibres: number; bloqueMinutos: number; partidosRequeridos: number }[]
 }
 
 /**

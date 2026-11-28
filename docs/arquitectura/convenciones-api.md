@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.33 · 27 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.34 · 27 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -82,6 +82,7 @@ Versión 5.33 · 27 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.31 | 26 de noviembre de 2026 | H-33.2: §6.7 «Asignación automática de la fecha» con `POST /fechas/{id}/asignacion` (`{ modo: PENDIENTES\|REGENERAR, motivo? }`, orden de errores de DEC-206, respuesta `{ fecha, totales, noAsignados, advertencias, resumen }`), la confirmación con el validador de H-12 y el motivo de localía automático (DEC-207) y la jornada de la fecha, la jornada manual duplicada y los partidos que no se pueden cancelar (DEC-208). `GET /jornadas/{id}` ya no lista los partidos `CANCELADO` (DEC-181). |
 | 5.32 | 27 de noviembre de 2026 | H-34.2: §6.7 «Asignación automática de la fecha» con el árbitro central automático: con `arbitraje.designacion:AUTOMATICA` designa el central de los existentes (en `PENDIENTES`) y de los insertados, con el orden de candados fecha → jornadas → partidos → canchas → árbitros (DEC-217); sin el permiso asigna igual y lo advierte (DEC-218); `totales.centrales`, `totales.sinArbitro`, la lista `sinArbitro`, la advertencia `RF-022` y los campos nuevos de `parametros_generacion` y `GENERAR_FECHA` (DEC-219); la verificación de la fecha agrega la causa al aviso `RF-023` (DEC-220). |
 | 5.33 | 27 de noviembre de 2026 | H-35.1 (corrección): §6.7 indica que `POST /jornadas/{id}/envio` y `/resolucion` responden `409 RF-090` **[PROPUESTA]** con una jornada que pertenece a una fecha de programación (`jornadas.fecha_id`, creada por la asignación de H-33, DEC-188): se envía y se dictamina con la fecha completa (DEC-175). Los endpoints por jornada quedan para fases finales y jornadas manuales. |
+| 5.34 | 27 de noviembre de 2026 | H-35.2: §6.7 agrega `numeroFecha` al detalle de `GET /jornadas/{id}` (y a las respuestas de su envío y dictamen) cuando la jornada pertenece a una fecha de programación, para que F-22 remita a la vista por fecha en lugar de ofrecer el envío por jornada (DEC-175). Se omite en el listado y en las jornadas manuales o de fase final. |
 
 ## Índice
 
@@ -2406,7 +2407,9 @@ paso en `historial_publicacion` con quien lo hizo y su motivo.
   observaciones como motivo). Al publicarse, la jornada emite `JornadaPublicada` y `tesoreria` genera
   sus cobros en la misma transacción (B-30, RF-136; ver §6.13 «Cobros automáticos»).
 
-**Jornadas de una fecha (DEC-175, DEC-188).** Una jornada con `fecha_id` (la crea la asignación de
+**Jornadas de una fecha (DEC-175, DEC-188).** El detalle de `GET /jornadas/{id}` trae
+`numeroFecha` (número de la fecha de programación) solo si la jornada pertenece a una; F-22 lo usa
+para no ofrecer el envío por jornada (H-35.2). Una jornada con `fecha_id` (la crea la asignación de
 la fecha, H-33) no se envía ni se dictamina sola: `POST /jornadas/{id}/envio` y `/resolucion`
 responden `409 RF-090` **[PROPUESTA]** con un `detail` que nombra la fecha y pide hacerlo con
 `POST /fechas/{id}/envio` o `/resolucion`. Así todas las jornadas de la fecha cambian juntas. El alta,

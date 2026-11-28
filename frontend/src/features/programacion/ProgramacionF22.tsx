@@ -8,6 +8,7 @@ import {
 } from '@/features/programacion/SelectorVistaProgramacion'
 import { useFechas, useTemporadaActiva } from '@/features/programacion/api'
 import { usePermisosProgramacion } from '@/features/programacion/permisos'
+import { useCategoriasTemporada } from '@/features/temporadas/api'
 
 /**
  * F-22 para quien programa (H-35.2). Si la temporada activa ya tiene fechas del calendario
@@ -20,6 +21,9 @@ export function ProgramacionF22() {
   const temporadas = useTemporadaActiva({ habilitada: permisos.editar })
   const temporada = temporadas.data ?? null
   const fechas = useFechas(temporada?.id, { habilitada: permisos.editar })
+  // Las dos vistas necesitan las categorías: se piden en paralelo con las fechas para no esperar una
+  // vuelta más al montar la vista elegida (la consulta queda en caché con la misma clave).
+  useCategoriasTemporada(temporada?.id ?? '', { habilitada: Boolean(temporada) && permisos.editar })
   const [vista, setVista] = useState<VistaProgramacion>('fecha')
 
   if (permisos.editar && temporada && fechas.isPending) {

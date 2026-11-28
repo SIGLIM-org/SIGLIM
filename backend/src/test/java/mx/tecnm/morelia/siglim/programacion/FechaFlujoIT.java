@@ -94,6 +94,8 @@ class FechaFlujoIT extends BaseDatosPrueba {
         assertThat(vista.sinAsignar()).isEqualTo(1);
         FechaDto.Bloque bloque = vista.bloques().getFirst();
         assertThat(bloque.jornadaId()).isNotNull();
+        assertThat(jornadas.consultar(bloque.jornadaId()).numeroFecha())
+                .as("el detalle de la jornada dice a qué fecha pertenece").isEqualTo(1);
         assertThat(bloque.partidos()).singleElement().satisfies(partido -> {
             assertThat(partido.asignadoAutomaticamente()).isTrue();
             assertThat(partido.emparejamientoId()).isNotNull();

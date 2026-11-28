@@ -8,6 +8,7 @@ import {
   ListChecks,
   RefreshCw,
   Send,
+  TriangleAlert,
   Wand2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -19,6 +20,7 @@ import { ModalMotivo } from '@/components/ui/ModalMotivo'
 import { BloqueFecha } from '@/features/programacion/BloqueFecha'
 import { ModalEnvioFecha } from '@/features/programacion/ModalEnvioFecha'
 import { ModalPartido, type EmparejamientoPendiente } from '@/features/programacion/ModalPartido'
+import { TarjetaCalendario } from '@/features/programacion/calendario/TarjetaCalendario'
 import { useAsignarFecha, useFecha, useVerificacionFecha } from '@/features/programacion/api'
 import {
   etiquetaAdvertenciaFecha,
@@ -28,10 +30,12 @@ import {
 import { diasDeFecha } from '@/features/programacion/fechas'
 import { usePermisosProgramacion } from '@/features/programacion/permisos'
 import type {
+  AsignacionFecha,
   AvisoFecha,
   FechaProgramacion,
   FilaPartidoFecha,
 } from '@/features/programacion/tipos'
+import { useCategoriasTemporada } from '@/features/temporadas/api'
 import { formatearFechaHora } from '@/features/publicacion/fechas'
 import type { Temporada } from '@/features/temporadas/tipos'
 import { ApiError } from '@/lib/api/ApiError'
@@ -74,6 +78,23 @@ function resumenAdvertencias(advertencias: readonly AvisoFecha[]): string {
   return [...porTipo.entries()].map(([etiqueta, total]) => `${total} ${etiqueta.toLowerCase()}`).join(' · ')
 }
 
+function plural(cantidad: number, singular: string, varios: string): string {
+  return `${cantidad} ${cantidad === 1 ? singular : varios}`
+}
+
+/** «3 asignados · 1 sin asignar · 3 árbitros centrales · 1 sin árbitro» de la última asignación. */
+function resumenAsignacion({ totales }: AsignacionFecha): string {
+  return [
+    plural(totales.asignados, 'partido asignado', 'partidos asignados'),
+    totales.cancelados > 0 ? plural(totales.cancelados, 'cancelado', 'cancelados') : null,
+    totales.noAsignados > 0 ? `${totales.noAsignados} sin asignar` : null,
+    totales.centrales > 0 ? plural(totales.centrales, 'árbitro central designado', 'árbitros centrales designados') : null,
+    totales.sinArbitro > 0 ? `${totales.sinArbitro} sin árbitro` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
 /** La primera fecha que sigue en borrador o, si todas avanzaron, la última. */
 function fechaInicial(fechas: readonly FechaProgramacion[]): string | undefined {
   return (fechas.find(({ estadoPublicacion }) => estadoPublicacion === 'BORRADOR') ?? fechas.at(-1))?.id
@@ -96,6 +117,9 @@ export function ProgramacionFechas({ temporada, fechas, selectorVista }: Props) 
   const [regenerando, setRegenerando] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
+  /** Resultado de la última asignación, con sus totales, causas sin árbitro y advertencias. */
+  const [ultimaAsignacion, setUltimaAsignacion] = useState<AsignacionFecha | null>(null)
+  const categorias = useCategoriasTemporada(temporada.id, { habilitada: permisos.editar })
 
   const fechaId = fechas.some(({ id: fecha }) => fecha === fechaElegida)
     ? fechaElegida
@@ -109,6 +133,15 @@ export function ProgramacionFechas({ temporada, fechas, selectorVista }: Props) 
   const conflictos = useMemo(() => verificacion.data?.conflictos ?? [], [verificacion.data])
   const advertencias = verificacion.data?.advertencias ?? []
   const conflictosPorPartido = useMemo(() => agruparPorPartido(conflictos), [conflictos])
+  const causasSinArbitro = useMemo(
+    () =>
+      new Map(
+        ultimaAsignacion && ultimaAsignacion.fecha.id === fechaId
+          ? ultimaAsignacion.sinArbitro.map(({ partidoId, causa }) => [partidoId, causa] as const)
+          : [],
+      ),
+    [ultimaAsignacion, fechaId],
+  )
 
   const puedeEditar = permisos.editar && enBorrador
   const verificacionLista = verificacion.isSuccess && !verificacion.isFetching
@@ -133,6 +166,7 @@ export function ProgramacionFechas({ temporada, fechas, selectorVista }: Props) 
   const cambiarFecha = (siguiente: string) => {
     setFechaElegida(siguiente)
     setMensaje(null)
+    setUltimaAsignacion(null)
     asignar.reset()
   }
 
@@ -141,9 +175,15 @@ export function ProgramacionFechas({ temporada, fechas, selectorVista }: Props) 
       return
     }
     setMensaje(null)
+    setUltimaAsignacion(null)
     asignar.mutate(
       { fechaId: fecha.id, modo: 'PENDIENTES' },
-      { onSuccess: () => setMensaje('Asignación terminada. Revisa los partidos que hayan quedado sin asignar.') },
+      {
+        onSuccess: (resultado) => {
+          setUltimaAsignacion(resultado)
+          setMensaje(`Asignación terminada: ${resumenAsignacion(resultado)}.`)
+        },
+      },
     )
   }
 
@@ -154,9 +194,12 @@ export function ProgramacionFechas({ temporada, fechas, selectorVista }: Props) 
     asignar.mutate(
       { fechaId: fecha.id, modo: 'REGENERAR', motivo },
       {
-        onSuccess: () => {
+        onSuccess: (resultado) => {
           setRegenerando(false)
-          setMensaje('Fecha regenerada. Los partidos anteriores quedaron cancelados con el motivo y se asignaron de nuevo.')
+          setUltimaAsignacion(resultado)
+          setMensaje(
+            `Fecha regenerada: ${resumenAsignacion(resultado)}. Los partidos anteriores quedaron cancelados con el motivo.`,
+          )
         },
         onError: () => setRegenerando(false),
       },
@@ -195,6 +238,26 @@ export function ProgramacionFechas({ temporada, fechas, selectorVista }: Props) 
         </p>
       )}
 
+      {ultimaAsignacion && ultimaAsignacion.advertencias.length > 0 && (
+        <div
+          role="note"
+          aria-label="Advertencias de la asignación"
+          className="rounded-lg border border-warning/30 bg-warning/8 p-3"
+        >
+          <p className="flex items-center gap-2 text-label-md font-semibold text-warning-strong">
+            <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
+            Advertencias de la asignación
+          </p>
+          <ul className="mt-1.5 flex list-disc flex-col gap-1 pl-6">
+            {ultimaAsignacion.advertencias.map((advertencia, indice) => (
+              <li key={indice} className="break-words text-body-md text-text-main">
+                {advertencia}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {errorAsignacion && (
         <p
           role="alert"
@@ -203,6 +266,10 @@ export function ProgramacionFechas({ temporada, fechas, selectorVista }: Props) 
           <CircleAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
           {errorAsignacion}
         </p>
+      )}
+
+      {permisos.editar && categorias.data && (
+        <TarjetaCalendario temporada={temporada} categorias={categorias.data} />
       )}
 
       <section
@@ -388,6 +455,7 @@ export function ProgramacionFechas({ temporada, fechas, selectorVista }: Props) 
                   key={bloque.grupo.id}
                   bloque={bloque}
                   conflictosPorPartido={conflictosPorPartido}
+                  causasSinArbitro={causasSinArbitro}
                   puedeEditar={puedeEditar}
                   onAjustar={(partido, { grupo, jornadaId }) => {
                     if (!jornadaId) {

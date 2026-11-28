@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
   ActualizarPartidoPeticion,
   AdvertenciaAceptable,
+  AsignacionFecha,
   AsignarFechaPeticion,
   FechaProgramacion,
   CrearJornadaPeticion,
@@ -267,16 +268,16 @@ export function useEnviarFecha() {
 }
 
 /**
- * `POST /fechas/{id}/asignacion` (H-33, DEC-181): asigna cancha, horario y, con su permiso, árbitro
- * central a lo pendiente, o regenera la fecha con motivo. La respuesta la define H-33; la pantalla
- * solo refresca la fecha.
+ * `POST /fechas/{id}/asignacion` (H-33, H-34.2, DEC-181): asigna cancha, horario y, con su permiso,
+ * árbitro central a lo pendiente, o regenera la fecha con motivo. La respuesta trae los totales, las
+ * causas de los partidos sin árbitro y las advertencias; después se refresca la fecha.
  */
 export function useAsignarFecha() {
   const invalidar = useInvalidarProgramacion()
 
   return useMutation({
     mutationFn: ({ fechaId, ...peticion }: AsignarFechaPeticion & { fechaId: string }) =>
-      api.post<unknown>(`fechas/${fechaId}/asignacion`, peticion),
+      api.post<AsignacionFecha>(`fechas/${fechaId}/asignacion`, peticion),
     onSettled: invalidar,
   })
 }

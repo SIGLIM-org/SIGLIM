@@ -712,6 +712,16 @@ class JornadaServiceTest {
     }
 
     @Test
+    @DisplayName("DEC-175: el detalle de una jornada de fecha trae el número de la fecha; el de una manual, no")
+    void consultarNumeroDeFecha() {
+        given(jornadas.buscarJornada(LIGA, JORNADA)).willReturn(Optional.of(jornada(EstadoJornada.BORRADOR)));
+        given(jornadas.numeroDeFecha(JORNADA)).willReturn(Optional.of(4), Optional.empty());
+
+        assertThat(servicio.consultar(JORNADA).numeroFecha()).isEqualTo(4);
+        assertThat(servicio.consultar(JORNADA).numeroFecha()).isNull();
+    }
+
+    @Test
     @DisplayName("RF-033: la consulta usa CONSULTAR y trae los partidos de la jornada")
     void consultarConPartidos() {
         given(jornadas.buscarJornada(LIGA, JORNADA))

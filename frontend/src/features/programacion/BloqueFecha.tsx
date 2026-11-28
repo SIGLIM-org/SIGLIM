@@ -26,6 +26,8 @@ type Props = {
   bloque: Bloque
   /** Conflictos duros de la verificación, por partido. */
   conflictosPorPartido: ReadonlyMap<string, readonly AvisoFecha[]>
+  /** Causa por la que la última asignación no dio árbitro central a un partido (H-34.2, DEC-216). */
+  causasSinArbitro?: ReadonlyMap<string, string>
   /** Se ajusta y se asigna solo con permiso de edición y la jornada del grupo en borrador. */
   puedeEditar: boolean
   onAjustar: (partido: FilaPartidoFecha, bloque: Bloque) => void
@@ -55,6 +57,7 @@ function Rotulo({ children }: { children: string }) {
 export function BloqueFecha({
   bloque,
   conflictosPorPartido,
+  causasSinArbitro,
   puedeEditar,
   onAjustar,
   onAsignar,
@@ -160,10 +163,17 @@ export function BloqueFecha({
                           <span className="break-words">{partido.arbitro.nombre}</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 text-warning-strong">
-                          <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
-                          Sin árbitro
-                        </span>
+                        <>
+                          <span className="inline-flex items-center gap-1.5 text-warning-strong">
+                            <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
+                            Sin árbitro
+                          </span>
+                          {causasSinArbitro?.get(partido.id) && (
+                            <span className="break-words text-body-sm text-text-muted">
+                              {causasSinArbitro.get(partido.id)}
+                            </span>
+                          )}
+                        </>
                       )}
                     </p>
 
