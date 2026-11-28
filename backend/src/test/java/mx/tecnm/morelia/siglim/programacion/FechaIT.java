@@ -20,6 +20,9 @@ import mx.tecnm.morelia.siglim.programacion.FechaDto.Bloque;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import mx.tecnm.morelia.siglim.publicacion.PublicacionPendienteDto;
+import mx.tecnm.morelia.siglim.publicacion.PublicacionPendienteService;
+import mx.tecnm.morelia.siglim.publicacion.TipoPublicacion;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -49,6 +52,9 @@ class FechaIT extends BaseDatosPrueba {
 
     @Autowired
     private JornadaService jornadas;
+
+    @Autowired
+    private PublicacionPendienteService pendientes;
 
     /** Árbitros creados: se borran al terminar para no aparecer en los listados de otras pruebas. */
     private final List<UUID> arbitrosCreados = new ArrayList<>();
@@ -264,6 +270,17 @@ class FechaIT extends BaseDatosPrueba {
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.FORBIDDEN, "VAL-015"));
 
         UUID presidente = iniciarSesion(perfilConRol("PRESIDENTE"));
+        List<PublicacionPendienteDto> bandeja = pendientes.listar(0, 100).contenido();
+        assertThat(bandeja).as("H-35.3: la fecha aparece una vez en la bandeja")
+                .filteredOn(fila -> fila.id().equals(e.fecha())).singleElement().satisfies(fila -> {
+                    assertThat(fila.tipo()).isEqualTo(TipoPublicacion.FECHA);
+                    assertThat(fila.titulo()).isEqualTo("Fecha 1");
+                    assertThat(fila.contexto()).endsWith(" · 2 jornadas");
+                    assertThat(fila.partidos()).isEqualTo(2L);
+                    assertThat(fila.enviadoPor().id()).isEqualTo(e.programador());
+                });
+        assertThat(bandeja).extracting(PublicacionPendienteDto::id)
+                .as("sus jornadas no se listan solas").doesNotContain(e.jornadaA(), e.jornadaB());
         assertThatThrownBy(() -> fechas.resolver(e.fecha(),
                 new ResolverFechaRequest(DecisionJornada.BORRADOR, "corto")))
                 .isInstanceOfSatisfying(ReglaNegocioException.class, error(HttpStatus.BAD_REQUEST, "RF-121"));

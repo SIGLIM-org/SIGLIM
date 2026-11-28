@@ -106,7 +106,7 @@ export function RevisionJornada({ jornadaId }: Props) {
         className="inline-flex w-fit items-center gap-1.5 rounded-sm text-label-md text-primary underline-offset-4 hover:underline"
       >
         <ArrowLeft aria-hidden="true" className="size-4" />
-        Jornadas por revisar
+        Programación por revisar
       </Link>
 
       {detalle.isPending && <EstadoCarga etiqueta="Cargando la jornada…" filas={5} columnas={4} />}
