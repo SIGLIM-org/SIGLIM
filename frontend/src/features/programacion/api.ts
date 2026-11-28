@@ -2,11 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
   ActualizarPartidoPeticion,
   AdvertenciaAceptable,
+  AsignacionFecha,
+  AsignarFechaPeticion,
+  FechaProgramacion,
   CrearJornadaPeticion,
   CrearPartidoPeticion,
   Jornada,
   Partido,
   ResolverJornadaPeticion,
+  VerificacionFecha,
   VerificacionJornada,
 } from '@/features/programacion/tipos'
 import { clavesPublicaciones } from '@/features/publicacion/api'
@@ -22,6 +26,10 @@ export const clavesProgramacion = {
   jornada: (id: string) => ['programacion', 'jornada', id] as const,
   verificacion: (jornadaId: string) =>
     ['programacion', 'verificacion', jornadaId] as const,
+  fechas: (temporadaId: string) => ['programacion', 'fechas', temporadaId] as const,
+  fecha: (id: string) => ['programacion', 'fecha', id] as const,
+  verificacionFecha: (fechaId: string) =>
+    ['programacion', 'verificacion-fecha', fechaId] as const,
 }
 
 /**
@@ -200,4 +208,76 @@ export function advertenciasAceptablesDe(error: unknown): AdvertenciaAceptable[]
   const avisos = error.problema.extensiones?.advertencias
 
   return Array.isArray(avisos) ? avisos.filter(esAdvertenciaAceptable) : []
+}
+
+// ── Fecha de programación (H-35, DEC-175) ───────────────────────────────────────────────────────
+
+/**
+ * Fechas de la temporada por número, con su estado derivado y sus conteos (`GET /fechas`). Una
+ * temporada tiene a lo más un par de vueltas de fechas: [PROPUESTA] se pide una página de 100.
+ */
+export function useFechas(
+  temporadaId?: string,
+  { habilitada = true }: { habilitada?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: clavesProgramacion.fechas(temporadaId ?? ''),
+    queryFn: () =>
+      api.get<Pagina<FechaProgramacion>>(
+        `fechas?temporadaId=${encodeURIComponent(temporadaId ?? '')}&pagina=0&tamano=100`,
+      ),
+    enabled: Boolean(temporadaId) && habilitada,
+  })
+}
+
+/** Vista por fecha: bloques «Categoría – Grupo» con partidos, descansos y sin asignar. */
+export function useFecha(id?: string) {
+  return useQuery({
+    queryKey: clavesProgramacion.fecha(id ?? ''),
+    queryFn: () => api.get<FechaProgramacion>(`fechas/${id}`),
+    enabled: Boolean(id),
+  })
+}
+
+/**
+ * Verificación de la fecha completa (RF-039): un `POST` que no escribe nada, consultado como una
+ * lectura y refrescado tras cada cambio de la programación.
+ */
+export function useVerificacionFecha(
+  fechaId?: string,
+  { habilitada = true }: { habilitada?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: clavesProgramacion.verificacionFecha(fechaId ?? ''),
+    queryFn: () => api.post<VerificacionFecha>(`fechas/${fechaId}/verificacion`),
+    enabled: Boolean(fechaId) && habilitada,
+  })
+}
+
+/**
+ * `POST /fechas/{id}/envio` (RF-121, DEC-175): todas las jornadas pasan a `REVISION` juntas. Un
+ * `409 RF-039` trae los conflictos que aparecieron después de la última verificación.
+ */
+export function useEnviarFecha() {
+  const invalidar = useInvalidarPublicacion()
+
+  return useMutation({
+    mutationFn: (fechaId: string) => api.post<FechaProgramacion>(`fechas/${fechaId}/envio`),
+    onSettled: invalidar,
+  })
+}
+
+/**
+ * `POST /fechas/{id}/asignacion` (H-33, H-34.2, DEC-181): asigna cancha, horario y, con su permiso,
+ * árbitro central a lo pendiente, o regenera la fecha con motivo. La respuesta trae los totales, las
+ * causas de los partidos sin árbitro y las advertencias; después se refresca la fecha.
+ */
+export function useAsignarFecha() {
+  const invalidar = useInvalidarProgramacion()
+
+  return useMutation({
+    mutationFn: ({ fechaId, ...peticion }: AsignarFechaPeticion & { fechaId: string }) =>
+      api.post<AsignacionFecha>(`fechas/${fechaId}/asignacion`, peticion),
+    onSettled: invalidar,
+  })
 }

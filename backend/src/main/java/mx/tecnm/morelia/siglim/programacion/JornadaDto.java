@@ -12,7 +12,7 @@ import java.util.UUID;
  * inicio para armar la programación de F-22 con una sola petición (convenciones de API §9.1). Los
  * datos del flujo de publicación se omiten mientras están vacíos (H-13.1).
  *
- * <p>Refs: H-12.1, H-13.1, RF-033, RF-090, RF-121
+ * <p>Refs: H-12.1, H-13.1, H-35.2, RF-033, RF-090, RF-121, DEC-175
  *
  * @param faseId        fase final a la que pertenece; nulo en la fase regular
  * @param partidos      partidos de la jornada, ordenados por inicio; solo en el detalle
@@ -24,6 +24,9 @@ import java.util.UUID;
  * @param observaciones observaciones del último dictamen (las de una devolución, en {@code BORRADOR})
  * @param creadoEn      fecha de alta, en la zona de negocio
  * @param actualizadoEn fecha de la última modificación
+ * @param numeroFecha   número de la fecha de programación a la que pertenece; solo en el detalle y
+ *                      solo si es de una fecha: entonces se envía y se dictamina con la fecha completa
+ *                      (DEC-175), no con los endpoints por jornada
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record JornadaDto(
@@ -40,9 +43,19 @@ public record JornadaDto(
         OffsetDateTime publicadaEn,
         String observaciones,
         OffsetDateTime creadoEn,
-        OffsetDateTime actualizadoEn) {
+        OffsetDateTime actualizadoEn,
+        Integer numeroFecha) {
 
     public JornadaDto {
         partidos = partidos == null ? null : List.copyOf(partidos);
+    }
+
+    /** Jornada manual o de fase final, o fila del listado: sin fecha de programación. */
+    public JornadaDto(UUID id, UUID grupoId, UUID faseId, int numero, EstadoJornada estadoPublicacion,
+            List<PartidoDto> partidos, UUID enviadaPor, OffsetDateTime enviadaEn, UUID aprobadaPor,
+            OffsetDateTime aprobadaEn, OffsetDateTime publicadaEn, String observaciones,
+            OffsetDateTime creadoEn, OffsetDateTime actualizadoEn) {
+        this(id, grupoId, faseId, numero, estadoPublicacion, partidos, enviadaPor, enviadaEn, aprobadaPor,
+                aprobadaEn, publicadaEn, observaciones, creadoEn, actualizadoEn, null);
     }
 }

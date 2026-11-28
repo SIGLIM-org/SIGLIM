@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react'
+import { useId, useMemo, useState, type ReactNode } from 'react'
 import {
   CalendarDays,
   CalendarOff,
@@ -73,7 +73,12 @@ function agruparPorPartido(
  * observaciones se muestran arriba de los partidos. Las advertencias de localía se aceptan con
  * motivo desde la fila y el motivo queda en el detalle (B-15.2, RF-120).
  */
-export function ProgramacionJornadas() {
+type Props = {
+  /** Selector «Por fecha / Por jornada» cuando la temporada tiene fechas del calendario (H-35.2). */
+  selectorVista?: ReactNode
+}
+
+export function ProgramacionJornadas({ selectorVista }: Props = {}) {
   const permisos = usePermisosProgramacion()
   const id = useId()
   const temporadas = useTemporadaActiva({ habilitada: permisos.editar })
@@ -138,8 +143,10 @@ export function ProgramacionJornadas() {
   const verificacionLista = !verificacion.isPending && !verificacion.isError
   // El backend no envía una jornada sin partidos vigentes (`409 RF-121`, [PROPUESTA]).
   const partidosVigentes = partidos.filter(({ estado }) => estado !== 'CANCELADO').length
+  // Una jornada de una fecha se envía con la fecha completa (DEC-175): el backend responde 409 RF-090.
   const puedeEnviar =
     permisos.enviar &&
+    jornada?.numeroFecha === undefined &&
     jornada?.estadoPublicacion === 'BORRADOR' &&
     partidosVigentes > 0 &&
     verificacionLista &&
@@ -237,11 +244,14 @@ export function ProgramacionJornadas() {
             equipos ni canchas ocupadas. Los ajustes quedan en el historial.
           </p>
         </div>
-        {temporada && (
-          <div className="shrink-0">
-            <Insignia variante="exito" icono={CalendarDays}>
-              Temporada activa: {temporada.nombre}
-            </Insignia>
+        {(temporada || selectorVista) && (
+          <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+            {temporada && (
+              <Insignia variante="exito" icono={CalendarDays}>
+                Temporada activa: {temporada.nombre}
+              </Insignia>
+            )}
+            {selectorVista}
           </div>
         )}
       </header>
@@ -529,6 +539,7 @@ export function ProgramacionJornadas() {
                   puedeVerificar={permisos.editar}
                   tienesPermisoEnvio={permisos.enviar}
                   puedeEnviar={puedeEnviar}
+                  numeroFecha={jornada.numeroFecha}
                   onVerificar={() => void verificacion.refetch()}
                   onEnviar={alEnviar}
                 />

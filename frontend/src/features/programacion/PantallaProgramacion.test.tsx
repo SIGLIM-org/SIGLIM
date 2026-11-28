@@ -243,6 +243,10 @@ function responder({
     if (ruta === 'temporadas/t1/parametros') {
       return { vigente: version(1, { temporadaId: 't1' }), historial: [] }
     }
+    // Sin fechas del calendario, F-22 abre la programación por jornada (H-35.2).
+    if (ruta.startsWith('fechas?')) {
+      return pagina([])
+    }
 
     throw new Error(`GET no simulado: ${ruta}`)
   })
@@ -293,7 +297,11 @@ describe('PantallaProgramacion (F-22, H-12.4)', () => {
     responder()
     montarPantalla()
 
-    expect(await screen.findByRole('heading', { name: 'Jornada 1' })).toBeInTheDocument()
+    // Primera prueba del archivo: arranque en frío y, desde H-35.2, una consulta más (las fechas de la
+    // temporada decide la vista). En la corrida completa en paralelo, 1 s no siempre alcanza.
+    expect(
+      await screen.findByRole('heading', { name: 'Jornada 1' }, { timeout: 3000 }),
+    ).toBeInTheDocument()
 
     const filaUno = await screen.findByRole('group', {
       name: 'Conflictos del partido Halcones vs. Toros',
@@ -484,6 +492,15 @@ describe('PantallaProgramacion (F-22, H-12.4)', () => {
         'Jornada 1 enviada a aprobación. La Presidencia la revisará antes de publicarla.',
       ),
     ).toBeInTheDocument()
+  })
+
+  it('DEC-175: una jornada de una fecha no se envía sola; remite a la vista por fecha', async () => {
+    otorgar(CONSULTAR, EDITAR, ENVIAR)
+    responder({ detalle: { ...JORNADA, numeroFecha: 3 }, verificacion: { conflictos: [], advertencias: [] } })
+    montarPantalla()
+
+    expect(await screen.findByText(/Esta jornada es parte de la fecha 3/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Enviar a aprobación' })).not.toBeInTheDocument()
   })
 
   it('explica el rechazo del envío por conflictos nuevos', async () => {

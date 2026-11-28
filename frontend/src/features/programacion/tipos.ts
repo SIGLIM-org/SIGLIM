@@ -33,6 +33,11 @@ export type Jornada = {
   observaciones?: string
   creadoEn: string
   actualizadoEn: string
+  /**
+   * Número de la fecha de programación a la que pertenece (solo en el detalle): entonces se envía y
+   * se dictamina con la fecha completa (H-35, DEC-175).
+   */
+  numeroFecha?: number
 }
 
 /** Partido programado a mano en una jornada (RF-033, RF-036). */
@@ -100,6 +105,8 @@ export type CrearPartidoPeticion = {
   inicio: string
   /** Motivo con el que se acepta una advertencia de localía (VAL-027); solo si aplica. */
   motivoAceptacion?: string
+  /** Emparejamiento pendiente de la fecha que este partido asigna (H-35, DEC-180). */
+  emparejamientoId?: string
 }
 
 /**
@@ -124,3 +131,128 @@ export type GrupoProgramacion = {
   categoria: string
   equipos: number
 }
+
+// ── Fecha de programación (H-35, DEC-175; convenciones de API §6.7) ────────────────────────────
+
+/** Una fila Local vs Visitante del bloque, con cancha, horario y árbitro central. */
+export type FilaPartidoFecha = {
+  id: string
+  jornadaId: string
+  /** Emparejamiento del calendario; ausente en un partido manual. */
+  emparejamientoId?: string
+  equipoLocal: Referencia
+  equipoVisitante: Referencia
+  cancha: Referencia
+  inicio: string
+  finBloque: string
+  estado: EstadoPartido
+  /** Árbitro central vigente; ausente es «Sin árbitro» (DEC-182). */
+  arbitro?: Referencia
+  designacionAutomatica?: boolean
+  /** Insignia «Automático»: cancha y horario los puso la asignación automática (H-33). */
+  asignadoAutomaticamente: boolean
+  /** Insignia «Ajustado»: se ajustó con motivo (RF-040). */
+  ajustado: boolean
+  /** Insignia «Localía»: motivo con el que se aceptó la advertencia (RF-120). */
+  motivoLocalia?: string
+}
+
+/** Equipo que descansa en la fecha (RF-037). */
+export type DescansoFecha = {
+  emparejamientoId: string
+  equipo: Referencia
+}
+
+/** Emparejamiento sin partido (DEC-180): «Asignar» lo programa a mano. */
+export type SinAsignarFecha = {
+  emparejamientoId: string
+  equipoLocal: Referencia
+  equipoVisitante: Referencia
+  /** `VAL-007`, `VAL-006`…; ausente si la asignación automática aún no lo procesó. */
+  codigo?: string
+  causa?: string
+}
+
+/** Un bloque «Categoría – Grupo» de F-22. */
+export type BloqueFecha = {
+  categoria: Referencia
+  grupo: Referencia
+  /** Días ISO de juego (6 = sábado, 7 = domingo; DEC-177). */
+  diasJuego: number[]
+  /** Jornada del grupo en la fecha; ausente si el grupo aún no la tiene. */
+  jornadaId?: string
+  estadoPublicacion?: EstadoJornada
+  partidos: FilaPartidoFecha[]
+  descansos: DescansoFecha[]
+  sinAsignar: SinAsignarFecha[]
+}
+
+/**
+ * Fecha de programación: las jornadas de todos los grupos de una semana. El listado no trae
+ * `bloques`; el estado es el de la jornada menos avanzada.
+ */
+export type FechaProgramacion = {
+  id: string
+  temporadaId: string
+  numero: number
+  /** Días `AAAA-MM-DD` de la fecha (sábado y domingo por defecto). */
+  dias: string[]
+  estadoPublicacion: EstadoJornada
+  jornadas: number
+  partidos: number
+  sinAsignar: number
+  generadaEn?: string
+  enviadaPor?: string
+  enviadaEn?: string
+  aprobadaPor?: string
+  aprobadaEn?: string
+  publicadaEn?: string
+  observaciones?: string
+  bloques?: BloqueFecha[]
+}
+
+/** Aviso de la verificación de la fecha: nombra la jornada y el partido o el emparejamiento. */
+export type AvisoFecha = {
+  jornadaId?: string
+  partidoId?: string
+  emparejamientoId?: string
+  codigo: string
+  mensaje: string
+}
+
+/**
+ * `POST /fechas/{id}/verificacion`: los conflictos impiden el envío; las advertencias (localía, sin
+ * árbitro, sin asignar) no.
+ */
+export type VerificacionFecha = {
+  conflictos: AvisoFecha[]
+  advertencias: AvisoFecha[]
+}
+
+/**
+ * Respuesta de `POST /fechas/{id}/asignacion` (H-33.2, H-34.2; convenciones de API §6.7): `fecha` es el
+ * detalle ya asignado; `advertencias` son textos que no bloquean.
+ */
+export type AsignacionFecha = {
+  fecha: FechaProgramacion
+  totales: {
+    asignados: number
+    noAsignados: number
+    cancelados: number
+    centrales: number
+    sinArbitro: number
+  }
+  noAsignados: { emparejamientoId: string; codigo: string; causa: string }[]
+  /** Partidos sin árbitro central elegible, con la causa (DEC-216, DEC-219). */
+  sinArbitro: { partidoId: string; codigo: string; causa: string }[]
+  advertencias: string[]
+  resumen: { dia: string; franjasLibres: number; bloqueMinutos: number; partidosRequeridos: number }[]
+}
+
+/**
+ * `POST /fechas/{id}/asignacion` (H-33, DEC-181): «Asignar pendientes» solo coloca lo que no tiene
+ * partido; «Regenerar» exige motivo y vuelve a asignar toda la fecha.
+ */
+export type AsignarFechaPeticion =
+  | { modo: 'PENDIENTES' }
+  | { modo: 'REGENERAR'; motivo: string }

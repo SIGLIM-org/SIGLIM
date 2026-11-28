@@ -25,10 +25,30 @@ import { useEquipos } from '@/features/organizacion/api'
 import type { Referencia } from '@/features/temporadas/tipos'
 import { ApiError } from '@/lib/api/ApiError'
 
+/** Lo que el ajuste necesita del partido: sirve igual para la fila de la jornada y la de la fecha. */
+type PartidoEditable = Pick<
+  Partido,
+  'id' | 'equipoLocal' | 'equipoVisitante' | 'cancha' | 'inicio' | 'motivoLocalia'
+>
+
+/** Emparejamiento sin asignar de la fecha que el alta programa a mano (H-35, DEC-180). */
+export type EmparejamientoPendiente = {
+  id: string
+  equipoLocal: Referencia
+  equipoVisitante: Referencia
+  /** Por qué la asignación automática no lo colocó; se muestra como contexto. */
+  causa?: string
+}
+
 type Props = {
-  jornada: Jornada
+  jornada: Pick<Jornada, 'id' | 'grupoId'>
   /** Partido a ajustar; sin él, el formulario registra uno nuevo (RF-033, RF-040). */
-  partido?: Partido
+  partido?: PartidoEditable
+  /**
+   * Alta de un emparejamiento pendiente: los equipos quedan precargados y fijos, y el partido se
+   * liga al emparejamiento con `emparejamientoId`.
+   */
+  emparejamiento?: EmparejamientoPendiente
   onCerrar: () => void
   onGuardado: (partido: Partido) => void
 }
@@ -71,10 +91,10 @@ const CAMPOS_FORMULARIO = new Set<keyof Valores>([
   'motivo',
 ])
 
-function valoresDe(partido?: Partido): Valores {
+function valoresDe(partido?: PartidoEditable, emparejamiento?: EmparejamientoPendiente): Valores {
   return {
-    equipoLocalId: partido?.equipoLocal.id ?? '',
-    equipoVisitanteId: partido?.equipoVisitante.id ?? '',
+    equipoLocalId: partido?.equipoLocal.id ?? emparejamiento?.equipoLocal.id ?? '',
+    equipoVisitanteId: partido?.equipoVisitante.id ?? emparejamiento?.equipoVisitante.id ?? '',
     canchaId: partido?.cancha.id ?? '',
     inicio: partido ? valorDatetimeLocal(partido.inicio) : '',
     motivo: '',
@@ -85,7 +105,7 @@ function valoresDe(partido?: Partido): Valores {
  * Solo lo que cambió (RF-040). El backend compara instantes, pero aquí se comparan los valores para
  * no pedir un motivo cuando la persona abrió el formulario y no tocó nada.
  */
-function cambiosDe(partido: Partido, valores: Valores): ActualizarPartidoPeticion {
+function cambiosDe(partido: PartidoEditable, valores: Valores): ActualizarPartidoPeticion {
   const cambios: ActualizarPartidoPeticion = {}
 
   if (valores.equipoLocalId !== partido.equipoLocal.id) {
@@ -147,7 +167,7 @@ function opcionesDe(
  * porque queda en el historial y la auditoría (RN-018). Los conflictos duros (VAL-003 a VAL-006)
  * llegan del backend y se muestran tal cual, sin códigos internos (DEC-63).
  */
-export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) {
+export function ModalPartido({ jornada, partido, emparejamiento, onCerrar, onGuardado }: Props) {
   const dialogoRef = useDialogoModal()
   // Al ajustar se piden todos los estados para poder mostrar y explicar al equipo actual si quedó
   // de baja; en el alta solo se ofrecen activos (VAL-006).
@@ -162,7 +182,9 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
   const idAyudaMotivo = `${id}-motivo-ayuda`
   const idErrorMotivo = `${id}-motivo-error`
 
-  const [valores, setValores] = useState(() => valoresDe(partido))
+  const [valores, setValores] = useState(() => valoresDe(partido, emparejamiento))
+  // Del emparejamiento solo se eligen cancha e inicio: los equipos y la localía son los del calendario.
+  const equiposFijos = Boolean(emparejamiento) && !partido
   const [errores, setErrores] = useState<ErroresCampos>({})
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
   const [aceptacionLocalia, setAceptacionLocalia] = useState<AceptacionLocalia | null>(null)
@@ -187,9 +209,14 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
               equipoId === partido?.equipoVisitante.id,
           )
           .map(({ id: equipoId, nombre }) => ({ id: equipoId, nombre })),
-        [partido?.equipoLocal, partido?.equipoVisitante],
+        [
+          partido?.equipoLocal,
+          partido?.equipoVisitante,
+          emparejamiento?.equipoLocal,
+          emparejamiento?.equipoVisitante,
+        ],
       ),
-    [equiposDelGrupo, partido],
+    [equiposDelGrupo, partido, emparejamiento],
   )
   const estadoDeEquipo = useMemo(
     () => new Map(equiposDelGrupo.map(({ id: equipoId, estado }) => [equipoId, estado])),
@@ -350,6 +377,7 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
       equipoVisitanteId: valores.equipoVisitanteId,
       canchaId: valores.canchaId,
       inicio: aIsoConDesplazamiento(valores.inicio),
+      ...(emparejamiento ? { emparejamientoId: emparejamiento.id } : {}),
     }
 
     crear.mutate(peticion, {
@@ -374,14 +402,26 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
       <form onSubmit={alEnviar} noValidate className="flex flex-col gap-4 p-5 sm:p-6">
         <div>
           <h2 id={idTitulo} className="text-balance text-headline-md">
-            {partido ? 'Ajustar partido' : 'Programar partido'}
+            {partido ? 'Ajustar partido' : emparejamiento ? 'Asignar partido' : 'Programar partido'}
           </h2>
           <p id={idDescripcion} className="mt-1 text-body-md text-text-muted">
             {partido
               ? 'El ajuste queda en el historial y la auditoría de la jornada.'
-              : 'Elige los equipos del grupo, la cancha y el horario de inicio.'}
+              : emparejamiento
+                ? `Elige la cancha y el horario de ${emparejamiento.equipoLocal.nombre} vs. ${emparejamiento.equipoVisitante.nombre}. Los equipos y la localía son los del calendario.`
+                : 'Elige los equipos del grupo, la cancha y el horario de inicio.'}
           </p>
         </div>
+
+        {equiposFijos && emparejamiento?.causa && (
+          <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 p-3 text-body-md text-warning-strong">
+            <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <span className="min-w-0 break-words">
+              <span className="font-semibold">No se asignó automáticamente:</span>{' '}
+              {emparejamiento.causa}
+            </span>
+          </p>
+        )}
 
         {equiposDeBaja.length > 0 && (
           <p
@@ -436,7 +476,7 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
               etiqueta="Equipo local"
               required
               value={valores.equipoLocalId}
-              disabled={guardando || cargandoCatalogos}
+              disabled={guardando || cargandoCatalogos || equiposFijos}
               error={errores.equipoLocalId}
               ayuda={faltanEquipos ? 'El grupo necesita al menos dos equipos activos.' : undefined}
               onChange={(evento) => cambiar('equipoLocalId', evento.target.value)}
@@ -466,7 +506,7 @@ export function ModalPartido({ jornada, partido, onCerrar, onGuardado }: Props) 
               etiqueta="Equipo visitante"
               required
               value={valores.equipoVisitanteId}
-              disabled={guardando || cargandoCatalogos}
+              disabled={guardando || cargandoCatalogos || equiposFijos}
               error={errores.equipoVisitanteId}
               onChange={(evento) => cambiar('equipoVisitanteId', evento.target.value)}
             >
