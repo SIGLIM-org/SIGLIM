@@ -230,6 +230,12 @@ export type VerificacionFecha = {
 }
 
 /**
+ * `POST /fechas/{id}/resolucion` (H-35.3, RF-121, DEC-175): aprobar o devolver la fecha completa, con
+ * las mismas reglas que la jornada (observaciones obligatorias al devolver).
+ */
+export type ResolverFechaPeticion = ResolverJornadaPeticion
+
+/**
  * Respuesta de `POST /fechas/{id}/asignacion` (H-33.2, H-34.2; convenciones de API §6.7): `fecha` es el
  * detalle ya asignado; `advertencias` son textos que no bloquean.
  */

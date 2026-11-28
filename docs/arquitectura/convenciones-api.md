@@ -1,7 +1,7 @@
 # Convenciones de la API REST
 
 **SIGLIM · Sistema de Gestión de la Liga Municipal de Futbol Amateur Morelia**  
-Versión 5.34 · 27 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
+Versión 5.35 · 27 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../requisitos/ERS.md), la
 [arquitectura v2.1](arquitectura-y-diseno-jerarquico.md) y el
 [diccionario de datos v2.0](../base-de-datos/diccionario-de-datos.md)
 
@@ -83,6 +83,7 @@ Versión 5.34 · 27 de noviembre de 2026 · Alineado con el [ERS Rev. 0.4.1](../
 | 5.32 | 27 de noviembre de 2026 | H-34.2: §6.7 «Asignación automática de la fecha» con el árbitro central automático: con `arbitraje.designacion:AUTOMATICA` designa el central de los existentes (en `PENDIENTES`) y de los insertados, con el orden de candados fecha → jornadas → partidos → canchas → árbitros (DEC-217); sin el permiso asigna igual y lo advierte (DEC-218); `totales.centrales`, `totales.sinArbitro`, la lista `sinArbitro`, la advertencia `RF-022` y los campos nuevos de `parametros_generacion` y `GENERAR_FECHA` (DEC-219); la verificación de la fecha agrega la causa al aviso `RF-023` (DEC-220). |
 | 5.33 | 27 de noviembre de 2026 | H-35.1 (corrección): §6.7 indica que `POST /jornadas/{id}/envio` y `/resolucion` responden `409 RF-090` **[PROPUESTA]** con una jornada que pertenece a una fecha de programación (`jornadas.fecha_id`, creada por la asignación de H-33, DEC-188): se envía y se dictamina con la fecha completa (DEC-175). Los endpoints por jornada quedan para fases finales y jornadas manuales. |
 | 5.34 | 27 de noviembre de 2026 | H-35.2: §6.7 agrega `numeroFecha` al detalle de `GET /jornadas/{id}` (y a las respuestas de su envío y dictamen) cuando la jornada pertenece a una fecha de programación, para que F-22 remita a la vista por fecha en lugar de ofrecer el envío por jornada (DEC-175). Se omite en el listado y en las jornadas manuales o de fase final. |
+| 5.35 | 27 de noviembre de 2026 | H-35.3: §6.11 `GET /publicaciones/pendientes` agrega el tipo `FECHA`: una fila por fecha de programación en `REVISION` (alguna jornada en revisión y ninguna en borrador), con `titulo` «Fecha N», `contexto` «temporada · N jornadas», `partidos` de todas sus jornadas y quien la envió al último; las jornadas de una fecha ya no se listan solas (DEC-175). |
 
 ## Índice
 
@@ -2916,7 +2917,7 @@ Las resoluciones son inmutables: no hay `PATCH` ni `PUT` sobre `resoluciones` ni
 | `GET /comunicados` · `GET /comunicados/{id}` | Consulta para redactar o dictaminar | `publicacion.comunicado:REDACTAR` o `publicacion.comunicado:APROBAR` | RF-090 | B |
 | `POST /comunicados` · `PATCH /comunicados/{id}` | Redacción (solo en `BORRADOR`) | `publicacion.comunicado:REDACTAR` | RF-090 | B |
 | `POST /comunicados/{id}/envio` · `/resolucion` | Revisión y publicación | `publicacion.comunicado:*` | RF-090 | B |
-| `GET /publicaciones/pendientes` | Jornadas y comunicados en `REVISION` para el Presidente | `programacion.jornada:APROBAR` o `publicacion.comunicado:APROBAR` | RF-090, RF-121 | N |
+| `GET /publicaciones/pendientes` | Fechas de programación, jornadas y comunicados en `REVISION` para el Presidente | `programacion.jornada:APROBAR` o `publicacion.comunicado:APROBAR` | RF-090, RF-121 | N |
 
 **Comunicado.** `GET /comunicados?estado=&pagina=&tamano=` responde la envoltura de paginación (§4)
 con `contenido` ordenado por `creadoEn` descendente. Cada fila trae `id`, `titulo`, `cuerpo`,
@@ -2952,6 +2953,14 @@ paso a `REVISION` del historial). Las jornadas se incluyen con `programacion.jor
 comunicados con `publicacion.comunicado:APROBAR`, ambos con ámbito de liga; con uno solo, la bandeja
 trae solo ese tipo. Sin ninguno responde `403 VAL-015`; con alguno sin ámbito de liga, `404`
 (VAL-024). La consulta no se audita.
+
+**Fechas en la bandeja (H-35.3, DEC-175).** Una fecha de programación se aprueba completa, así que
+sus jornadas no aparecen solas: la bandeja trae una fila `tipo: "FECHA"` por cada fecha cuyo estado
+derivado es `REVISION` (alguna jornada en revisión y ninguna en borrador), con el `id` de la fecha,
+`titulo` «Fecha N», `contexto` «‹temporada› · N jornadas», `partidos` no cancelados de todas sus
+jornadas y `enviadoPor`/`enviadoEn` de la jornada enviada al último. Se incluye con el mismo permiso
+que las jornadas (`programacion.jornada:APROBAR`). F-23 la abre en
+`/app/programacion/fechas/{id}/revision` y la dictamina con `POST /fechas/{id}/resolucion` (§6.7).
 
 ### 6.12 M-12 Reportes (B)
 

@@ -43,11 +43,12 @@ export type ResolverComunicadoPeticion = {
   observaciones?: string
 }
 
-export type TipoPublicacion = 'JORNADA' | 'COMUNICADO'
+/** `FECHA` agrupa las jornadas de una fecha de programación, que se aprueban completas (H-35.3). */
+export type TipoPublicacion = 'JORNADA' | 'COMUNICADO' | 'FECHA'
 
 /**
- * Fila de `GET /publicaciones/pendientes` (H-13.1): una jornada o un comunicado en `REVISION`.
- * `contexto` y `partidos` solo vienen en las jornadas.
+ * Fila de `GET /publicaciones/pendientes` (H-13.1, H-35.3): una fecha de programación, una jornada
+ * suelta o un comunicado en `REVISION`. `contexto` y `partidos` solo vienen en fechas y jornadas.
  */
 export type PublicacionPendiente = {
   tipo: TipoPublicacion

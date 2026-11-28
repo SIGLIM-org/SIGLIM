@@ -563,10 +563,19 @@ describe('PantallaProgramacion (F-22, H-12.4)', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('a quien aprueba sin editar le muestra las jornadas por revisar', async () => {
+  it('a quien aprueba sin editar le muestra las fechas y jornadas por revisar', async () => {
     otorgar(CONSULTAR, APROBAR)
     responder({
       pendientes: [
+        {
+          tipo: 'FECHA',
+          id: 'f3',
+          titulo: 'Fecha 3',
+          contexto: 'Temporada 2026-2027 · 4 jornadas',
+          partidos: 14,
+          enviadoPor: { id: 'p9', nombre: 'Carlos Gómez' },
+          enviadoEn: '2026-11-16T18:00:00-06:00',
+        },
         {
           tipo: 'JORNADA',
           id: 'j1',
@@ -587,7 +596,14 @@ describe('PantallaProgramacion (F-22, H-12.4)', () => {
     })
     montarPantalla()
 
-    expect(await screen.findByRole('heading', { name: 'Jornadas por revisar' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Programación por revisar' }),
+    ).toBeInTheDocument()
+    const fecha = await screen.findByRole('link', { name: /Fecha 3/ })
+    expect(fecha).toHaveAttribute('href', '/app/programacion/jornadas/fechas/f3/revision')
+    expect(fecha).toHaveTextContent('Fecha completa')
+    expect(fecha).toHaveTextContent('Temporada 2026-2027 · 4 jornadas')
+    expect(fecha).toHaveTextContent('14 partidos · Enviada por Carlos Gómez')
     const enlace = await screen.findByRole('link', { name: /Jornada 8/ })
     expect(enlace).toHaveAttribute('href', '/app/programacion/jornadas/j1/revision')
     expect(enlace).toHaveTextContent('6 partidos · Enviada por Carlos Gómez')
@@ -595,12 +611,12 @@ describe('PantallaProgramacion (F-22, H-12.4)', () => {
     expect(get).not.toHaveBeenCalledWith(expect.stringMatching(/^jornadas\?/))
   })
 
-  it('la bandeja vacía explica cuándo aparecerán jornadas', async () => {
+  it('la bandeja vacía explica cuándo aparecerá la programación por revisar', async () => {
     otorgar(CONSULTAR, APROBAR)
     responder()
     montarPantalla()
 
-    expect(await screen.findByText('No hay jornadas por revisar')).toBeInTheDocument()
+    expect(await screen.findByText('No hay programación por revisar')).toBeInTheDocument()
   })
 
   it('B-15.2: muestra la advertencia de localía en la fila y la acepta con motivo', async () => {

@@ -5,6 +5,7 @@ import type {
   AsignacionFecha,
   AsignarFechaPeticion,
   FechaProgramacion,
+  ResolverFechaPeticion,
   CrearJornadaPeticion,
   CrearPartidoPeticion,
   Jornada,
@@ -263,6 +264,21 @@ export function useEnviarFecha() {
 
   return useMutation({
     mutationFn: (fechaId: string) => api.post<FechaProgramacion>(`fechas/${fechaId}/envio`),
+    onSettled: invalidar,
+  })
+}
+
+/**
+ * `POST /fechas/{id}/resolucion` (H-35.3, RF-121, DEC-175): el Presidente aprueba y publica, o
+ * devuelve con observaciones, todas las jornadas de la fecha. Quien programó o envió la fecha no la
+ * dictamina (`403 RF-121`). Se refrescan la programación y la bandeja de pendientes.
+ */
+export function useResolverFecha() {
+  const invalidar = useInvalidarPublicacion()
+
+  return useMutation({
+    mutationFn: ({ id, ...peticion }: ResolverFechaPeticion & { id: string }) =>
+      api.post<FechaProgramacion>(`fechas/${id}/resolucion`, peticion),
     onSettled: invalidar,
   })
 }

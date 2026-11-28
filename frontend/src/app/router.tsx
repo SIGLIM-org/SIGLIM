@@ -292,6 +292,17 @@ export const rutas: RouteObject[] = [
                 HydrateFallback: CargandoPagina,
               },
               {
+                path: '/app/programacion/jornadas/fechas/:fechaId/revision',
+                lazy: async () => {
+                  const { PantallaRevisionFecha } = await import(
+                    '@/features/programacion/PantallaRevisionFecha'
+                  )
+
+                  return { Component: PantallaRevisionFecha }
+                },
+                HydrateFallback: CargandoPagina,
+              },
+              {
                 path: '/app/partidos/:partidoId',
                 lazy: async () => {
                   const { PantallaDetallePartido } = await import(
