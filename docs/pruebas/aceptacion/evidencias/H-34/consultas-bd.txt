@@ -1,0 +1,93 @@
+Prueba de aceptación H-34.3 · comprobaciones en la base de datos
+================================================================
+
+Las consultas siguientes reproducen las comprobaciones que ejecutan DesignacionAutomaticaIT y
+AsignacionFechaArbitrosIT contra el PostgreSQL 17 efímero de Testcontainers. El resultado anotado
+es el que exige la prueba (todas pasaron en la corrida de pruebas-automaticas.txt). No se consultó
+el proyecto compartido de Supabase.
+
+1. Después de asignar la fecha (PENDIENTES, 4 partidos, 3 árbitros ajenos + 1 del club)
+--------------------------------------------------------------------------------------
+-- Designaciones vigentes de los partidos de la fecha (CA-1, CA-4, CA-5).
+SELECT d.id, d.partido_id, d.arbitro_id, d.funcion::text AS funcion, d.automatica, d.designado_por
+  FROM siglim.designaciones d
+ WHERE d.partido_id = ANY(:partidos) AND d.vigente;
+Resultado: 4 filas, una por partido; todas funcion = 'CENTRAL', automatica = true y
+designado_por = perfil del Programador. Ninguna ASISTENTE.
+
+-- VAL-019: el árbitro del club de un equipo nunca pita a su club.
+SELECT count(*) FROM siglim.designaciones d
+  JOIN siglim.partidos p ON p.id = d.partido_id
+  JOIN siglim.equipos l ON l.id = p.equipo_local_id
+  JOIN siglim.equipos v ON v.id = p.equipo_visitante_id
+ WHERE d.arbitro_id = :arbitro AND d.vigente AND :club IN (l.club_id, v.club_id);
+Resultado: 0.
+
+-- RF-039: ningún árbitro en dos partidos traslapados.
+SELECT count(*) FROM siglim.designaciones a
+  JOIN siglim.partidos pa ON pa.id = a.partido_id
+  JOIN siglim.designaciones b ON b.arbitro_id = a.arbitro_id AND b.id <> a.id AND b.vigente
+  JOIN siglim.partidos pb ON pb.id = b.partido_id
+ WHERE a.vigente AND a.partido_id = ANY(:partidos) AND b.partido_id = ANY(:partidos)
+   AND tstzrange(pa.inicio, pa.fin_bloque) && tstzrange(pb.inicio, pb.fin_bloque);
+Resultado: 0.
+
+-- Trazabilidad de la generación (RF-041, DEC-219).
+SELECT (parametros_generacion ->> 'designacionAutomatica')::boolean
+       AND (parametros_generacion ->> 'centrales')::int = 4
+       AND (parametros_generacion ->> 'sinArbitro')::int = 0
+  FROM siglim.fechas_programacion WHERE id = :fecha;
+Resultado: true.
+
+-- Auditoría de la operación y de cada designación (RF-093).
+SELECT (detalle ->> 'designacionAutomatica')::boolean AND (detalle ->> 'centrales')::int = 4
+  FROM siglim.auditoria WHERE accion = 'GENERAR_FECHA' AND entidad_id = :fecha;
+Resultado: true (una fila).
+
+SELECT count(*) FROM siglim.auditoria
+ WHERE modulo = 'M-05' AND accion = 'DESIGNAR_ARBITRO' AND entidad_id = :designacion
+   AND perfil_id = :perfil AND detalle ->> 'automatica' = 'true';
+Resultado: 1 por cada una de las 4 designaciones. El detalle lleva partidoId, arbitroId, funcion y
+automatica; sin nombres ni CURP.
+
+2. Un solo árbitro y dos partidos simultáneos (CA-3)
+---------------------------------------------------
+SELECT arbitro_id FROM siglim.designaciones
+ WHERE partido_id = :partido AND vigente AND funcion = 'CENTRAL';
+Resultado: el partido con central → el único árbitro; el partido sin central → ninguna fila
+(queda en sinArbitro con RF-023). Tras agregar otro árbitro y repetir PENDIENTES → el nuevo árbitro,
+y el primero conserva el suyo.
+
+3. Sin el permiso arbitraje.designacion:AUTOMATICA (CA-5, DEC-218)
+-----------------------------------------------------------------
+SELECT NOT (parametros_generacion ->> 'designacionAutomatica')::boolean
+       AND (parametros_generacion ->> 'centrales')::int = 0
+       AND generada_por = :perfil
+  FROM siglim.fechas_programacion WHERE id = :fecha;
+Resultado: true; 0 designaciones vigentes en los partidos de la fecha.
+
+4. Central manual de la Comisión (CA-5)
+--------------------------------------
+SELECT id FROM siglim.designaciones WHERE partido_id = :partido AND vigente AND funcion = 'CENTRAL';
+Resultado: solo la designación manual, antes y después de repetir PENDIENTES.
+
+SELECT automatica FROM siglim.designaciones WHERE id = :designacionManual;
+Resultado: false. Los otros 3 partidos reciben designaciones con automatica = true.
+
+5. Regenerar la fecha (CA-6)
+---------------------------
+SELECT NOT vigente AND motivo_cambio = :motivo FROM siglim.designaciones WHERE id = :anterior;
+Resultado: true para cada una de las 4 designaciones de los partidos cancelados
+(motivo: «Se regeneró la fecha por el torneo relámpago»).
+
+SELECT ... FROM siglim.designaciones d WHERE d.partido_id = ANY(:partidosNuevos) AND d.vigente;
+Resultado: 4 filas, todas automatica = true; a cada horario le tocan los mismos árbitros que antes.
+
+6. Semilla del permiso (migración 20261125100000_programacion_automatica.sql)
+---------------------------------------------------------------------------
+SELECT r.codigo FROM siglim.rol_permisos rp
+  JOIN siglim.roles r ON r.id = rp.rol_id
+  JOIN siglim.permisos p ON p.id = rp.permiso_id
+ WHERE p.codigo = 'arbitraje.designacion:AUTOMATICA';
+Resultado esperado por la migración: PROGRAMADOR. La Comisión de Arbitraje no lo tiene y recibe 403
+VAL-015 (DesignacionAutomaticaIT#permisos).

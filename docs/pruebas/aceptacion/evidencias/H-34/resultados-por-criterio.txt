@@ -1,0 +1,112 @@
+Prueba de aceptación H-34.3 · resultados por criterio
+=====================================================
+
+Versión: develop en da3b69d (27-nov-2026). Los valores son los que afirman las pruebas de
+SelectorArbitroCentralTest, DesignacionAutomaticaTest, AsignacionFechaServiceTest,
+AsignacionFechaControllerTest, FechaServiceTest, DesignacionServiceTest, DesignacionControllerTest,
+DesignacionAutomaticaIT, AsignacionFechaArbitrosIT y AsignacionFechaIT, ejecutadas en la corrida de
+pruebas-automaticas.txt. Todas pasaron.
+
+Totales de la respuesta: (asignados, noAsignados, cancelados, centrales, sinArbitro).
+
+CA-1 · Sin central vigente, al asignar la fecha recibe un árbitro VALIDADO, ajeno a los clubes (VAL-019) y sin traslape (RF-039)
+-----------------------------------------------------------------------------------------------------------------------------
+Pruebas: AsignacionFechaArbitrosIT#designaTodos, DesignacionAutomaticaIT#repartoEquitativo,
+#arbitroDelClubLocal y #choqueDeLaMismaCorrida, SelectorArbitroCentralTest#noElegiblesNunca.
+Observado:
+  - Escenario de la fecha: «Libre» (domingo) y «Veteranos» (sábado), un grupo de 4 equipos cada
+    una, 2 canchas; 3 árbitros VALIDADO de un club ajeno y 1 VALIDADO del club de un equipo.
+  - PENDIENTES devuelve totales (4, 0, 0, 4, 0) y sinArbitro vacía: los 4 partidos reciben central
+    y la respuesta ya trae el árbitro de cada partido con designacionAutomatica = true.
+  - En la BD hay 4 designaciones vigentes, una por partido, todas CENTRAL y automatica = true.
+  - SQL VAL-019: el árbitro del club del equipo tiene 0 designaciones en partidos de su club.
+  - SQL RF-039: 0 pares de designaciones vigentes del mismo árbitro en partidos traslapados.
+  - Con 3 partidos simultáneos y 3 árbitros, cada partido lleva un central distinto.
+  - Un árbitro que ya pita a esa hora en la misma corrida se descarta aunque tenga menor carga.
+  - Si el único VALIDADO es del club local, el partido queda sin central (CA-3) y, al agregar un
+    árbitro ajeno, se le designa ese, nunca el del club.
+  - fechas.verificar(...) ya no reporta el aviso RF-023.
+
+CA-2 · Se elige al de menos designaciones vigentes en la temporada; desempate determinista
+-----------------------------------------------------------------------------------------
+Pruebas: SelectorArbitroCentralTest (menorCarga, empateDeCargaPorUltimoPartido,
+ultimoPartidoComoInstante, nuncaDesignadoPrimero, empateTotalPorTexto, independienteDelOrden×4),
+DesignacionAutomaticaTest#consultaPorPartido y #porInicio, DesignacionAutomaticaIT#repartoEquitativo,
+AsignacionFechaArbitrosIT#designaTodos y #regenerar.
+Observado:
+  - Orden (DEC-214): sin advertencia RF-022 [PROPUESTA] → menor carga → último partido más antiguo
+    (nunca designado primero) → id por texto (DEC-185).
+  - 5 partidos (3 a las 10:00 y 2 a las 13:00) con 3 árbitros: carga máxima − mínima ≤ 1, y solo
+    esos 3 árbitros reciben partidos.
+  - Fecha de 4 partidos con 4 árbitros: diferencia de carga ≤ 1.
+  - La carga se vuelve a consultar por partido dentro de la transacción: cuenta las designaciones de
+    la misma corrida, sin estado en memoria.
+  - El resultado es el mismo con la lista invertida y con 4 barajadas distintas.
+  - Al regenerar con los mismos datos, a cada horario le tocan los mismos árbitros.
+
+CA-3 · Sin candidato, el partido queda «Sin árbitro» con la causa, como advertencia que no bloquea el envío
+--------------------------------------------------------------------------------------------------------
+Pruebas: AsignacionFechaArbitrosIT#unSoloArbitro y #respetaCentralManual,
+DesignacionAutomaticaTest#sinCandidato, SelectorArbitroCentralTest#sinArbitros y
+#causasSinCandidato×6, FechaServiceTest#causaDeSinArbitro, AsignacionFechaServiceTest (RF-023 ·
+DEC-219), AsignacionFechaControllerTest#asignar.
+Observado:
+  - Un solo árbitro y 2 partidos a la misma hora: totales (2, 0, 0, 1, 1); sinArbitro[0] =
+    { partidoId, codigo: "RF-023", causa: "El único árbitro validado no puede pitarlo: 1 ya pita a
+    esa hora (RF-039)." }.
+  - Sin árbitros VALIDADO: totales (4, 0, 0, 0, 4) y la causa «No hay árbitros validados en la
+    liga.» en los 4.
+  - Causas con conteos (DEC-216), p. ej. «El único árbitro validado no puede pitarlo: 1 es de los
+    clubes del partido (VAL-019).»; en plural «Ninguno de los N árbitros validados puede pitarlo:
+    X son de los clubes del partido (VAL-019), Y ya pitan a esa hora (RF-039) y Z ya están
+    designados en este partido (YA_DESIGNADO).».
+  - Verificación de la fecha: un solo aviso RF-023 en advertencias (no en conflictos) que empieza
+    con «Sin árbitro central: » y termina «… La Comisión de Arbitraje lo designa en F-24.».
+  - Envío: fechas.enviarAAprobacion(...) deja la fecha en REVISION con el partido sin árbitro
+    (se revirtió la transacción para seguir la prueba; la fecha vuelve a BORRADOR).
+  - Al agregar un segundo árbitro y repetir PENDIENTES: totales (0, 0, 0, 1, 0); el partido que
+    faltaba recibe al nuevo y el otro conserva al primero.
+  - Un partido sin candidato no inserta ni audita nada.
+  - F-22 (H-35.2, BloqueFecha.tsx) muestra «Sin árbitro» con la causa; no se reejecutó aquí.
+
+CA-4 · No se asignan asistentes
+-------------------------------
+Pruebas: AsignacionFechaArbitrosIT#designaTodos y #regenerar, DesignacionAutomaticaIT#repartoEquitativo,
+DesignacionAutomaticaTest#omiteConCentral e #insertaYAudita.
+Observado:
+  - Por cada partido hay exactamente 1 designación vigente y es CENTRAL: 4 vigentes para 4 partidos
+    (fecha) y 5 para 5 partidos (componente). No aparece ninguna fila ASISTENTE.
+  - El componente siempre inserta FuncionArbitral.CENTRAL; un partido que solo tiene asistentes
+    vigentes sí recibe central y sus asistentes no se tocan.
+  - La auditoría DESIGNAR_ARBITRO lleva funcion = CENTRAL.
+
+CA-5 · Designación marcada automática; requiere AUTOMATICA; el cambio manual sigue en F-24 (EDITAR)
+--------------------------------------------------------------------------------------------------
+Pruebas: DesignacionAutomaticaIT#permisos, DesignacionAutomaticaTest#sinPermiso e #insertaYAudita,
+AsignacionFechaArbitrosIT#designaTodos, #sinPermisoDeDesignacionAutomatica y #respetaCentralManual,
+AsignacionFechaServiceTest (DEC-218), DesignacionServiceTest y DesignacionControllerTest de H-14.
+Observado:
+  - designaciones.automatica = true y designado_por = perfil del Programador en cada central
+    automático; una auditoría M-05 / DESIGNAR_ARBITRO por designación con detalle.automatica = true.
+  - El Programador (con AUTOMATICA y sin designacion:EDITAR) designa; la Comisión de Arbitraje (sin
+    AUTOMATICA) recibe 403 VAL-015 y no se inserta nada.
+  - Sin AUTOMATICA, la asignación de la fecha sigue: totales (4, 0, 0, 0, 0), 0 designaciones,
+    parametros_generacion.designacionAutomatica = false y la advertencia «No se designaron árbitros
+    centrales: tu sesión no tiene el permiso arbitraje.designacion:AUTOMATICA. La Comisión de
+    Arbitraje los designa en F-24.».
+  - La Comisión designa a mano un central (automatica = false); al repetir PENDIENTES se respeta
+    (totales (0, 0, 0, 3, 0)) y los otros 3 reciben central automático.
+  - El cambio manual de F-24 sigue con arbitraje.designacion:EDITAR (DesignacionServiceTest verifica
+    exigir(EDITAR) en designar, sustituir y retirar; sustituir exige motivo RN-021).
+  - Semilla: la migración 20261125100000 otorga arbitraje.designacion:AUTOMATICA solo a PROGRAMADOR.
+
+CA-6 · Al regenerar la fecha, las designaciones de los partidos cancelados quedan no vigentes
+-------------------------------------------------------------------------------------------
+Pruebas: AsignacionFechaArbitrosIT#regenerar, AsignacionFechaServiceTest (DEC-217 REGENERAR) y
+AsignacionFechaIT#asignarYRegenerar.
+Observado:
+  - Primera asignación: totales (4, 0, 0, 4, 0).
+  - REGENERAR con motivo «Se regeneró la fecha por el torneo relámpago»: totales (4, 0, 4, 4, 0).
+  - Las 4 designaciones anteriores quedan vigente = false con motivo_cambio = el motivo.
+  - Los 4 partidos nuevos tienen 4 designaciones vigentes automáticas, con árbitros del club ajeno.
+  - REGENERAR solo pide central para los insertados; a los cancelados no se les designa.

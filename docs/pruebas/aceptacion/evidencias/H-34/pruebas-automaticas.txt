@@ -1,0 +1,107 @@
+Prueba de aceptación H-34.3 · pruebas automáticas del árbitro central automático
+================================================================================
+
+Versión probada : develop en da3b69d (27-nov-2026)
+Comando         : ./mvnw -Dtest=SelectorArbitroCentralTest,DesignacionAutomaticaTest,AsignacionFechaServiceTest,\
+                         AsignacionFechaControllerTest,FechaServiceTest,DesignacionControllerTest,DesignacionServiceTest \
+                         -Dit.test=DesignacionAutomaticaIT,AsignacionFechaArbitrosIT,AsignacionFechaIT \
+                         -Dsurefire.failIfNoSpecifiedTests=false -Dfailsafe.failIfNoSpecifiedTests=false verify
+Entorno         : Java 25.0.5.1 · Apache Maven 3.9.11 · Spring Boot 4.1.1
+Base de datos   : PostgreSQL 17 (Testcontainers postgres:17-alpine), mock de Supabase y 16 migraciones
+Resultado       : BUILD SUCCESS (exit 0) · 157 pruebas, 0 fallos, 0 errores, 0 omitidas
+
+Resumen por clase
+------------------------------------------------------------------------------
+  Unitarias (surefire)
+  SelectorArbitroCentralTest        20 pruebas  0 fallos  0 errores  0 omitidas  (0.047 s)
+  DesignacionAutomaticaTest         16 pruebas  0 fallos  0 errores  0 omitidas  (0.242 s)
+  AsignacionFechaServiceTest        24 pruebas  0 fallos  0 errores  0 omitidas  (0.385 s)
+  AsignacionFechaControllerTest     12 pruebas  0 fallos  0 errores  0 omitidas  (4.863 s)
+  FechaServiceTest                  13 pruebas  0 fallos  0 errores  0 omitidas  (0.579 s)
+  DesignacionServiceTest            25 pruebas  0 fallos  0 errores  0 omitidas  (0.091 s)
+  DesignacionControllerTest         36 pruebas  0 fallos  0 errores  0 omitidas  (1.327 s)
+  Subtotal                         146 pruebas  0 fallos
+
+  Integración contra PostgreSQL (failsafe)
+  DesignacionAutomaticaIT            5 pruebas  0 fallos  0 errores  0 omitidas  (0.320 s)
+  AsignacionFechaArbitrosIT          5 pruebas  0 fallos  0 errores  0 omitidas  (1.011 s)
+  AsignacionFechaIT                  1 prueba   0 fallos  0 errores  0 omitidas  (9.424 s)
+  Subtotal                          11 pruebas  0 fallos
+------------------------------------------------------------------------------
+  TOTAL                            157 pruebas  0 fallos  0 errores  0 omitidas
+
+La compilación de todo el backend (principal y pruebas) se hizo dentro del ciclo verify; la
+ejecución se filtró a las clases que cubren H-34 (H-34.1 y H-34.2) y a las de la designación manual
+de H-14 (F-24), que el criterio 5 exige que siga funcionando.
+
+Casos de H-34 por clase (nombre del método · @DisplayName)
+------------------------------------------------------------------------------
+
+SelectorArbitroCentralTest (dominio puro, DEC-214 y DEC-216):
+  - menorCarga                       DEC-182: gana el elegible de menor carga
+  - noElegiblesNunca                 VAL-019 · RF-039: un no elegible nunca se elige, aunque tenga menor carga
+  - sinAdvertenciaAntesQueMenorCarga DEC-214 [PROPUESTA]: sin RF-022 va antes que uno con RF-022 y menor carga
+  - soloConAdvertencia               DEC-204: si solo quedan con RF-022, se elige uno y conserva la advertencia
+  - empateDeCargaPorUltimoPartido    DEC-214: con la misma carga gana el de último partido más antiguo
+  - ultimoPartidoComoInstante        DEC-214: el último partido se compara como instante, sin importar la zona
+  - nuncaDesignadoPrimero            DEC-214: nunca designado va antes que cualquiera con designaciones
+  - empateTotalPorTexto              DEC-185: en empate total decide el id por texto, no UUID.compareTo
+  - independienteDelOrden[1..4]      DEC-214: el resultado no depende del orden de entrada (invertida y barajada)
+  - sinArbitros                      DEC-216: sin árbitros validados en la liga
+  - causasSinCandidato[1..6]         DEC-216: conteos por regla, en orden, con singulares y « y » antes de la última
+  - advertenciaNoCuenta              DEC-216: un candidato con RF-022 no cambia la causa si ninguno es elegible
+
+DesignacionAutomaticaTest (componente con dobles, DEC-213, DEC-215, DEC-220):
+  - sinPermiso                       VAL-015: sin arbitraje.designacion:AUTOMATICA responde 403 y no consulta nada
+  - listaVacia                       DEC-213: lista vacía o null da un resultado vacío sin consultar, después del permiso
+  - ordenDeBloqueo                   DEC-215: bloquea partidos, después árbitros validados, y solo entonces elige e inserta
+  - porInicio                        DEC-182: procesa por inicio aunque los ids lleguen desordenados, y el id por texto en empate
+  - omiteNoDesignable[1..4]          DEC-213: omite el partido que no está PROGRAMADO ni REPROGRAMADO, sin listarlo
+  - omiteConCentral                  DEC-213: omite el partido que ya tiene central vigente; uno con solo asistentes sí recibe central
+  - insertaYAudita                   DEC-182 · RF-093: inserta con automatica = true y el perfil de la sesión, y audita DESIGNAR_ARBITRO
+  - sinCandidato                     RF-023 · DEC-216: sin candidato queda en sinCentral con su causa, sin insertar ni auditar
+  - consultaPorPartido               DEC-214: vuelve a pedir candidatos y último partido por cada partido, sin estado en memoria
+  - explicarSinPermisoNiConsulta     DEC-220: explicarSinCentral no exige permiso propio ni bloquea
+  - explicarOmite                    DEC-220: omite otra liga, no designables y con central
+  - explicarSinElegibles             DEC-216 · DEC-220: sin elegibles da la causa con conteos por regla
+  - explicarConElegibles             DEC-220: con elegibles cuenta cuántos pueden pitarlo, en singular y en plural
+
+AsignacionFechaServiceTest (integración de H-34.2 en la asignación de la fecha):
+  - DEC-217: PENDIENTES pide central para los existentes no cancelados y los insertados
+  - DEC-217: REGENERAR pide central solo para los insertados; los cancelados no
+  - DEC-217: candados partidos → canchas; designa después de insertar y antes de registrar y auditar
+  - DEC-218: sin arbitraje.designacion:AUTOMATICA asigna igual, no llama al puerto y lo advierte
+  - RF-023 · DEC-219: un partido sin central va en sinArbitro con su causa y cuenta en los totales
+  - RF-022 · DEC-219: un central que declaró no estar disponible deja una advertencia con los equipos
+  (más los 18 casos de H-33.2, que siguen pasando)
+
+FechaServiceTest (verificación de la fecha, DEC-220):
+  - causaDeSinArbitro                RF-023 · DEC-220: la causa del puerto se agrega al aviso; sin causa en el mapa el aviso no cambia
+  - sinPartidosSinArbitro            DEC-220: sin partidos sin árbitro no se llama al puerto
+
+AsignacionFechaControllerTest (cadena de seguridad real, tokens ES256 de SeguridadPrueba):
+  - asignar                          RF-042 · DEC-219: 200 con los totales, los no asignados, los sin árbitro y el resumen
+  - seguridadAsignar()[1..5]         401 sin token, 401 token de otra llave, 403 sin permiso, 404 fuera de ámbito (×2)
+  - fechaInexistente, modoInvalido, regenerarSinMotivo, jornadaEnRevision, sinParametros, sinCalendario
+
+DesignacionAutomaticaIT (PostgreSQL real):
+  - repartoEquitativo                DEC-182 · RF-039: cada partido traslapado lleva un central distinto y la carga se reparte (diferencia ≤ 1)
+  - arbitroDelClubLocal              VAL-019 · DEC-216: el árbitro del club local nunca se elige; si es el único, el partido queda sin central
+  - omiteCentralManual               DEC-213: un partido con central manual se omite y su central sigue vigente
+  - choqueDeLaMismaCorrida           RF-039 · DEC-214: un choque de la misma corrida gana a la menor carga
+  - permisos                         DEC-182 · VAL-015: el Programador designa sin designacion:EDITAR y la Comisión, sin AUTOMATICA, recibe 403
+
+AsignacionFechaArbitrosIT (POST /fechas/{id}/asignacion de extremo a extremo contra PostgreSQL):
+  - designaTodos                     DEC-217 · VAL-019 · RF-039: PENDIENTES designa un central automático por partido, sin choques y con la carga repartida
+  - unSoloArbitro                    DEC-216 · DEC-220: con un solo árbitro, el partido simultáneo queda sin central con su causa, no bloquea el envío y lo recibe al repetir PENDIENTES
+  - regenerar                        DEC-181 · DEC-217: REGENERAR retira las designaciones automáticas con el motivo y repite los mismos árbitros por horario
+  - sinPermisoDeDesignacionAutomatica DEC-218: sin arbitraje.designacion:AUTOMATICA la fecha se asigna sin designaciones y con la advertencia
+  - respetaCentralManual             DEC-213 · DEC-217: un central manual de la Comisión se respeta al repetir PENDIENTES
+
+AsignacionFechaIT (H-33, regresión con H-34 integrado):
+  - asignarYRegenerar
+
+DesignacionServiceTest y DesignacionControllerTest (H-14, cambio manual en F-24 con arbitraje.designacion:EDITAR):
+  - 25 + 36 casos, entre ellos «DEC-202: sustituir al central retira el anterior con el motivo
+    recortado y luego inserta», «VAL-015: sin permiso responde 403 después del 404» y la seguridad
+    RNF-003 de POST /partidos/{id}/designaciones y POST /designaciones/{id}/retiro.
