@@ -77,8 +77,13 @@ const yoPresidente: Yo = {
   ],
 }
 
+/** La campana (H-25.2) consulta sus avisos con el mismo `api.get` que `GET /yo`. */
+const sinAvisos = { contenido: [], pagina: 0, tamano: 5, totalElementos: 0, totalPaginas: 0 }
+
 async function montar(yo: Yo = yoPresidente) {
-  obtenerYo.mockResolvedValue(yo)
+  obtenerYo.mockImplementation((ruta: string) =>
+    Promise.resolve(ruta.startsWith('notificaciones') ? sinAvisos : yo),
+  )
 
   const clienteConsultas = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -304,5 +309,24 @@ describe('InternalLayout', () => {
     resolverOrganizacion?.()
 
     expect(await screen.findByText('Organización')).toBeInTheDocument()
+  })
+  it('H-25.2: muestra la campana de avisos con notificaciones.aviso:CONSULTAR', async () => {
+    await montar(yoCapturista)
+
+    expect(
+      await screen.findByRole('button', { name: 'Avisos, ninguno sin leer' }),
+    ).toBeInTheDocument()
+  })
+
+  it('H-25.2: sin el permiso de avisos no muestra la campana', async () => {
+    await montar({
+      ...yoCapturista,
+      permisos: yoCapturista.permisos.filter(
+        ({ codigo }) => codigo !== 'notificaciones.aviso:CONSULTAR',
+      ),
+    })
+
+    expect(screen.queryByRole('button', { name: /^Avisos/ })).not.toBeInTheDocument()
+    expect(obtenerYo).not.toHaveBeenCalledWith(expect.stringMatching(/^notificaciones/))
   })
 })

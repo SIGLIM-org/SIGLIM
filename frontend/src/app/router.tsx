@@ -147,6 +147,18 @@ export const rutas: RouteObject[] = [
                 },
                 HydrateFallback: CargandoPagina,
               },
+              {
+                // F-09 (H-25.2): M-14 no tiene sección en el menú; se entra desde la campana.
+                path: '/app/notificaciones',
+                lazy: async () => {
+                  const { PantallaNotificaciones } = await import(
+                    '@/features/notificaciones/PantallaNotificaciones'
+                  )
+
+                  return { Component: PantallaNotificaciones }
+                },
+                HydrateFallback: CargandoPagina,
+              },
               ...paginasApp,
               {
                 path: '/app/organizacion/operaciones-equipo',
