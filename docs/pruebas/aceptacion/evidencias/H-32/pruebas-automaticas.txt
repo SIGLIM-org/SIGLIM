@@ -1,0 +1,22 @@
+Pruebas automáticas · prueba de aceptación H-32.5 (develop en abd90c2, 27-nov-2026)
+
+## Backend: ./mvnw verify (con Docker para Testcontainers)
+
+Clases relacionadas con el calendario y las fechas:
+Tests run: 18, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.975 s -- in mx.tecnm.morelia.siglim.programacion.CalendarioControllerTest
+Tests run: 20, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.127 s -- in mx.tecnm.morelia.siglim.programacion.CalendarioServiceTest
+Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in mx.tecnm.morelia.siglim.programacion.DiasDeFechaTest
+Tests run: 43, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.823 s -- in mx.tecnm.morelia.siglim.programacion.FechaControllerTest
+Tests run: 13, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.072 s -- in mx.tecnm.morelia.siglim.programacion.FechaServiceTest
+Tests run: 705, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.632 s -- in mx.tecnm.morelia.siglim.programacion.GeneradorCalendarioTest
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.649 s -- in mx.tecnm.morelia.siglim.programacion.CalendarioIT
+Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.434 s -- in mx.tecnm.morelia.siglim.programacion.FechaIT
+
+Totales (unitarias y de controlador; integración):
+[INFO] Tests run: 3326, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 414, Failures: 0, Errors: 0, Skipped: 1
+[INFO] BUILD SUCCESS
+
+## Frontend: npx vitest run src/features/programacion/calendario
+ Test Files  2 passed (2)
+      Tests  36 passed (36)

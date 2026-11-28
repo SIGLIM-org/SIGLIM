@@ -534,4 +534,4 @@ H-09) · [H-11](aceptacion/H-11-arbitros.md) · [H-12](aceptacion/H-12-conflicto
 
 Sprint 4:
 [H-15](aceptacion/H-15-estado-partido.md) · [H-16](aceptacion/H-16-cedula.md) ·
-[DEF-10](aceptacion/DEF-10-vinculo-cuenta-persona.md)
+[H-32](aceptacion/H-32-calendario.md) · [DEF-10](aceptacion/DEF-10-vinculo-cuenta-persona.md)
