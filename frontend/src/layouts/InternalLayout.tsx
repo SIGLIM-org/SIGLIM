@@ -9,6 +9,8 @@ import {
   X,
 } from 'lucide-react'
 import { EstadoCarga } from '@/components/ui/EstadoCarga'
+import { CampanaAvisos } from '@/features/notificaciones/CampanaAvisos'
+import { ConPermiso } from '@/features/seguridad/ConPermiso'
 import { useSesionActual } from '@/features/seguridad/ProveedorSesionActual'
 import {
   descripcionDeAcceso,
@@ -178,6 +180,9 @@ export function InternalLayout() {
         </Link>
 
         <div className="ml-auto flex min-w-0 items-center gap-2">
+          <ConPermiso permiso="notificaciones.aviso:CONSULTAR">
+            <CampanaAvisos />
+          </ConPermiso>
           <div className="flex min-w-0 flex-col text-right">
             <span className="max-w-[7rem] truncate text-label-md text-text-main sm:max-w-[12rem]">
               {yo.perfil.nombreMostrado}
