@@ -1,0 +1,112 @@
+Prueba de aceptación H-14.3 · contrato HTTP verificado
+======================================================
+
+Fuente: DesignacionControllerTest (MockMvc con la cadena de seguridad real y tokens ES256 de
+SeguridadPrueba), DesignacionServiceTest (reglas, auditoría y orden de errores) y DesignacionesIT
+(servicio completo contra PostgreSQL 17). No se imprimen tokens ni datos personales.
+
+1. POST /api/v1/partidos/{id}/designaciones · 201 Created
+---------------------------------------------------------
+Cuerpo: { "arbitroId": "<uuid>", "funcion": "CENTRAL" }
+Respuesta (sin cabecera Location, convenciones §6.5):
+  {
+    "id": "<uuid>",
+    "partidoId": "<uuid>",
+    "arbitro": { "id": "<uuid>", "nombre": "<nombre o null>", "club": { "id": "<uuid>", "nombre": "<club>" } },
+    "funcion": "CENTRAL",
+    "vigente": true,
+    "automatica": false,
+    "designadoEn": "2030-08-10T10:00:00-06:00"
+  }
+El nombre del árbitro va null si RLS oculta la persona (DEC-78). La designación queda con
+designado_por = perfil de la sesión y se audita DESIGNAR_ARBITRO en M-05.
+
+Sustitución del central (DEC-202):
+  Cuerpo: { "arbitroId": "<uuid>", "funcion": "CENTRAL", "motivo": "Lesión del árbitro titular" }
+  Respuesta 201 con la nueva designación; la anterior queda vigente = false y motivo_cambio con el
+  motivo recortado. La auditoría registra SUSTITUIR_ARBITRO con designacionAnteriorId y motivo.
+  Sin central vigente, el motivo se ignora.
+
+2. POST /api/v1/designaciones/{id}/retiro · 200 OK
+--------------------------------------------------
+Cuerpo: { "motivo": "El árbitro avisó que no puede asistir" }
+Respuesta:
+  {
+    "id": "<uuid>",
+    "partidoId": "<uuid>",
+    "arbitro": { "id": "<uuid>", "nombre": "<nombre o null>", "club": { … } },
+    "funcion": "CENTRAL",
+    "vigente": false,
+    "automatica": false,
+    "designadoEn": "…",
+    "motivoCambio": "El árbitro avisó que no puede asistir"
+  }
+La fila no se borra (RN-005) y se audita RETIRAR_DESIGNACION.
+
+3. GET /api/v1/partidos/{id}/arbitros-candidatos · 200 OK
+----------------------------------------------------------
+Respuesta: lista de árbitros VALIDADO con:
+  {
+    "arbitro": { "id": "<uuid>", "nombre": "<nombre o null>", "club": { … } },
+    "elegible": false,
+    "causas": [ { "codigo": "VAL-019", "mensaje": "Pertenece a Halcones, que juega este partido." } ],
+    "advertencias": [ { "codigo": "RF-022", "mensaje": "Declaró que no está disponible en ese horario." } ],
+    "carga": 3
+  }
+Causas posibles: VAL-019 (club de un equipo), RF-039 (choque con otro partido) y YA_DESIGNADO (ya
+está en este partido). La advertencia RF-022 no cambia elegible ni bloquea la designación (DEC-204).
+Carga = designaciones vigentes en partidos no cancelados de la temporada del partido.
+
+4. GET /api/v1/mis-designaciones?desde=&hasta=&pagina=&tamano= · 200 OK
+-----------------------------------------------------------------------
+Respuesta paginada:
+  {
+    "contenido": [ {
+      "designacionId": "<uuid>",
+      "funcion": "ASISTENTE",
+      "partido": {
+        "id": "<uuid>", "inicio": "2032-06-07T10:00:00-06:00", "finBloque": "…",
+        "estado": "PROGRAMADO",
+        "cancha": { … }, "equipoLocal": { … }, "equipoVisitante": { … },
+        "categoria": { … }, "grupo": { … },
+        "jornada": { "id": "<uuid>", "numero": 1 }
+      },
+      "cedula": null
+    } ],
+    "pagina": 0, "tamano": 20, "totalElementos": 1, "totalPaginas": 1
+  }
+Solo designaciones vigentes de jornadas PUBLICADO y siempre del titular (es_titular de la persona del
+árbitro), con cualquier ámbito del permiso (DEC-205). La jornada en borrador no aparece. El rango
+[desde, hasta) se aplica sobre el inicio del partido; sin desde, se listan también las anteriores.
+
+5. GET /api/v1/designaciones?jornadaId= · 200 OK
+------------------------------------------------
+Devuelve la jornada, el avance { partidos, conCentral, asistentesCompletos } y los partidos no
+cancelados con su central y sus asistentes vigentes. Cada designación de la vista por jornada lleva
+solo id, arbitro, funcion, automatica y designadoEn (el partido ya es el contenedor).
+
+6. Errores de la Definición de Terminado
+----------------------------------------
+POST /api/v1/partidos/{id}/designaciones:
+  - Sin token                         → 401 NO_AUTENTICADO + WWW-Authenticate: Bearer
+  - Token firmado con otra llave      → 401 NO_AUTENTICADO
+  - Sin arbitraje.designacion:EDITAR → 403 VAL-015
+  - Partido de otra liga/inexistente  → 404 NO_ENCONTRADO
+  - Falta arbitroId o funcion         → 400 VALIDACION (campos arbitroId/funcion)
+  - Función que no existe             → 400 VALIDACION
+  - Árbitro del club de un equipo     → 422 VAL-019
+  - Árbitro ya designado a esa hora   → 409 RF-039
+  - Árbitro no validado               → 409 RF-113
+  - Árbitro repetido / tercer asistente / partido no designable → 409 RF-023
+  - Sustituir al central sin motivo de 10 a 500 → 400 RN-021
+
+POST /api/v1/designaciones/{id}/retiro:
+  - Sin token / token inválido        → 401 NO_AUTENTICADO
+  - Sin arbitraje.designacion:EDITAR → 403 VAL-015
+  - Designación de otra liga o inexistente → 404 NO_ENCONTRADO
+  - Sin motivo suficiente             → 400 RN-021
+  - Designación ya no vigente         → 409 RF-023
+
+GET /api/v1/designaciones, /partidos/{id}/arbitros-candidatos y /mis-designaciones:
+  - 401 sin token o con token inválido; 403 VAL-015 sin el permiso correspondiente; 404 fuera de
+    ámbito o inexistente (RNF-003, VAL-024).

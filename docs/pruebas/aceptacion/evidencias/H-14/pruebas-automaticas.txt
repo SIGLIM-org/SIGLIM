@@ -1,0 +1,119 @@
+Prueba de aceptación H-14.3 · pruebas automáticas de la designación
+====================================================================
+
+Versión probada : develop en 341ac5a (27-nov-2026)
+Fecha           : 2026-11-27
+Entorno         : Java 25.0.4 (JBR) · Apache Maven 3.9.11 · Spring Boot 4.1.1
+Base de datos   : PostgreSQL 17 (Testcontainers postgres:17-alpine), mock de Supabase y 16 migraciones
+Frontend        : Node 24.22.1 · React 19 · Vitest 5.0.5 · Testing Library
+
+Comando backend (PowerShell, una sola línea)
+--------------------------------------------------------------------
+.\mvnw.cmd "-Dtest=DesignacionServiceTest,DesignacionControllerTest" "-Dit.test=DesignacionesIT" "-Dsurefire.failIfNoSpecifiedTests=false" "-Dfailsafe.failIfNoSpecifiedTests=false" verify
+
+Resultado: BUILD SUCCESS (exit 0)
+
+  Unitarias y de controlador (surefire):
+    DesignacionControllerTest        36 pruebas  0 fallos  0 errores  0 omitidas  (11.28 s)
+    DesignacionServiceTest           25 pruebas  0 fallos  0 errores  0 omitidas  (0.728 s)
+    Subtotal                         61 pruebas  0 fallos
+
+  Integración contra PostgreSQL (failsafe):
+    DesignacionesIT                  10 pruebas  0 fallos  0 errores  0 omitidas  (25.20 s)
+    Subtotal                         10 pruebas  0 fallos
+
+  TOTAL                              71 pruebas  0 fallos  0 errores  0 omitidas
+
+Comando frontend (PowerShell, una sola línea)
+--------------------------------------------------------------------
+npm.cmd test -- --reporter=verbose src/features/arbitraje/designaciones/PantallaDesignaciones.test.tsx src/features/arbitraje/mis-designaciones/PantallaMisDesignaciones.test.tsx
+
+Resultado: 2 archivos, 18 pruebas, 0 fallos (8.51 s)
+
+  PantallaDesignaciones.test.tsx
+    ✓ H-14.2: agrupa los partidos de la semana por jornada, recorre las páginas y descarta los cancelados
+    ✓ H-14.2: con más de 5 páginas avisa que la lista puede omitir jornadas
+    ✓ H-14.2: una semana sin partidos lo dice
+    ✓ H-14.2: ?jornadaId= abre la jornada aunque falte la semana, con el avance «4 de 6»
+    ✓ H-14.2 · VAL-019 · RF-039: los no elegibles quedan deshabilitados con su causa accesible
+    ✓ H-14.2 · RF-022: la advertencia de disponibilidad va en ámbar y no impide elegir
+    ✓ H-14.2 · DEC-201: designa al central de un partido sin central sin enviar motivo y refresca
+    ✓ H-14.2: tras designar invalida las designaciones, el detalle del partido y la programación
+    ✓ H-14.2 · DEC-202 · RN-021: sustituir al central exige motivo en el cliente y muestra el 400 en el campo
+    ✓ H-14.2 · RF-039: un 409 del backend se muestra en el diálogo, que sigue abierto y refresca la lista
+    ✓ H-14.2 · DEC-203: retira una designación con motivo
+    ✓ H-14.2 · DEC-201: con dos asistentes no se ofrece un tercero
+    ✓ H-14.2: un partido no designable queda de solo lectura con su estado
+    ✓ H-14.2: sin EDITAR no hay botones ni se piden candidatos
+    ✓ H-14.2: sin consultar en el ámbito de la liga explica de quién es la pantalla
+
+  PantallaMisDesignaciones.test.tsx
+    ✓ H-14.2: lista los partidos con su función, el cancelado que no se juega, la cédula y el enlace a F-25
+    ✓ H-14.2 · DEC-212: por omisión pide desde hoy y «Ver también anteriores» quita el filtro
+    ✓ H-14.2: sin designaciones lo dice
+
+Casos de H-14 por clase (método · @DisplayName)
+--------------------------------------------------------------------
+DesignacionesIT (PostgreSQL real, servicio completo y triggers):
+  - arbitroDelMismoClub
+      H-14 criterio 1 · VAL-019: un árbitro del club de un equipo del partido responde 422
+  - choqueDeHorario
+      H-14 criterio 2 · RF-039: un árbitro ya designado a la misma hora en otro partido responde 409
+  - misDesignaciones
+      H-14 criterio 3 · DEC-205: el árbitro ve en Mis designaciones la jornada publicada y no la de borrador
+  - arbitroPropuesto
+      RF-113: un árbitro PROPUESTO responde 409 RF-113 desde el trigger
+  - sustituirCentral
+      DEC-202: sustituir al central deja la anterior sin vigencia con su motivo y audita
+  - retirar
+      DEC-203: retirar deja la designación sin vigencia y retirarla otra vez responde 409
+  - tercerAsistente
+      DEC-201: dos asistentes se designan y el tercero responde 409 RF-023
+  - candidatos
+      DEC-204: los candidatos marcan VAL-019, RF-039, YA_DESIGNADO y RF-022, y elegible coincide con el POST
+  - sinPermisoDeEditar
+      VAL-015: un usuario sin arbitraje.designacion:EDITAR recibe 403
+  - partidoDeOtraLiga
+      VAL-024: un partido de otra liga responde 404 en candidatos y al designar
+
+DesignacionServiceTest (25 casos; reglas de servicio y orden de errores):
+  - RF-023: designa al central, guarda al perfil de la sesión y audita DESIGNAR_ARBITRO
+  - DEC-201: orden de errores: cuerpo 400 antes que el partido 404
+  - DEC-201: un partido de otra liga responde 404 antes de revisar el permiso
+  - VAL-015: sin permiso responde 403 después del 404 y antes de buscar al árbitro
+  - DEC-201: un árbitro que no está en la liga responde 422 REFERENCIA_INVALIDA; bloquea partido y luego árbitro
+  - RF-023: un partido que no está programado ni reprogramado responde 409
+  - RF-023: un partido reprogramado admite designaciones
+  - RF-023: el árbitro ya designado en el partido, con cualquier función, responde 409
+  - DEC-201: con dos asistentes vigentes, el tercero responde 409 RF-023
+  - DEC-201: con un asistente vigente, el segundo se designa
+  - DEC-202: sustituir al central retira el anterior con el motivo recortado y luego inserta
+  - RN-021: sustituir al central sin motivo, o con menos de 10 o más de 500, responde 400
+  - DEC-203: retira con motivo, bloquea el partido y audita RETIRAR_DESIGNACION
+  - RN-021: retirar sin motivo suficiente responde 400 antes que el 404
+  - DEC-203: una designación de otra liga responde 404 sin revisar el permiso
+  - RF-023: retirar una designación que ya no está vigente responde 409
+  - RF-023: retirar en un partido en curso responde 409
+  - UI-025: la vista por jornada agrupa central y asistentes y calcula el avance
+  - UI-025: sin jornadaId responde 400 y una jornada de otra liga, 404
+  - DEC-204: los candidatos exigen EDITAR después del 404 del partido
+  - DEC-205: mis designaciones exigen el permiso con cualquier ámbito y validan el rango
+  - VAL-015: sin el permiso de consultar designaciones, mis designaciones responde 403
+
+DesignacionControllerTest (36 casos; contrato HTTP y seguridad real):
+  - UI-025: GET /designaciones devuelve la jornada, el avance y los partidos con central null
+  - UI-025: GET /designaciones sin jornadaId llega al servicio, que responde 400
+  - DEC-204: GET candidatos devuelve elegibilidad, causas, advertencias y carga
+  - RF-023: POST designa y responde 201 sin Location con la designación y partidoId
+  - RF-023: POST sin arbitroId o sin función responde 400 VALIDACION sin tocar el servicio
+  - RF-023: POST con una función que no existe responde 400 VALIDACION
+  - VAL-019: POST con un árbitro del club de un equipo responde 422
+  - RN-021: POST que sustituye al central sin motivo responde 400 RN-021
+  - DEC-203: POST retiro responde 200 con vigente false y el motivo
+  - RF-023: POST retiro de una designación ya retirada responde 409 RF-023
+  - DEC-205: GET mis-designaciones pasa filtros y responde la envoltura de paginación
+  - RNF-003: seguridad de GET /api/v1/designaciones (401, 403 y 404)
+  - RNF-003: seguridad de GET /api/v1/partidos/{id}/arbitros-candidatos (401, 403 y 404)
+  - RNF-003: seguridad de POST /api/v1/partidos/{id}/designaciones (401, 403 y 404)
+  - RNF-003: seguridad de POST /api/v1/designaciones/{id}/retiro (401, 403 y 404)
+  - RNF-003: seguridad de GET /api/v1/mis-designaciones (401, 403 y 404)

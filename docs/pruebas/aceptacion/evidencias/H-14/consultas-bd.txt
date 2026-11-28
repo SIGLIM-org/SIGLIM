@@ -1,0 +1,98 @@
+Prueba de aceptación H-14.3 · comprobaciones en la base de datos
+================================================================
+
+Las consultas siguientes reproducen las comprobaciones que ejecuta DesignacionesIT contra el
+PostgreSQL 17 efímero de Testcontainers. El resultado anotado es el que exige la prueba (todas
+pasaron en la corrida de pruebas-automaticas.txt). No se consultó el proyecto compartido de
+Supabase.
+
+1. VAL-019: un árbitro del club de un equipo no queda designado (CA-1)
+-----------------------------------------------------------------------
+-- Intento de alta con un árbitro VALIDADO del club del equipo local.
+-- El trigger tg_designaciones_validar lanza error_negocio('VAL-019', ...).
+SELECT count(*) FROM siglim.designaciones
+ WHERE partido_id = :partido AND arbitro_id = :arbitro AND vigente;
+Resultado: 0. El POST responde 422 VAL-019.
+
+-- Condición que aplica el trigger.
+SELECT v_arbitro.club_id IN (siglim.club_de_equipo(v_partido.equipo_local_id),
+                             siglim.club_de_equipo(v_partido.equipo_visitante_id))
+  FROM siglim.arbitros v_arbitro, siglim.partidos v_partido
+ WHERE v_arbitro.id = :arbitro AND v_partido.id = :partido;
+Resultado: true.
+
+2. RF-039: choque de horario (CA-2)
+------------------------------------
+-- El árbitro ya tiene una designación vigente en otro partido no cancelado cuyo bloque se traslapa.
+SELECT count(*) FROM siglim.designaciones d
+  JOIN siglim.partidos p ON p.id = d.partido_id
+ WHERE d.arbitro_id = :arbitro AND d.vigente AND d.id <> :designacionNueva
+   AND p.id <> :partidoNuevo AND p.estado <> 'CANCELADO'
+   AND tstzrange(p.inicio, p.fin_bloque)
+       && tstzrange((SELECT inicio FROM siglim.partidos WHERE id = :partidoNuevo),
+                    (SELECT fin_bloque FROM siglim.partidos WHERE id = :partidoNuevo));
+Resultado: 1 (el partido de las 10:00). El POST responde 409 RF-039.
+Un partido que empieza en fin_bloque del primero ya no se traslapa: el rango es [inicio, fin_bloque).
+
+3. RF-113: solo se designan árbitros VALIDADO (CA-4)
+-----------------------------------------------------
+SELECT estado FROM siglim.arbitros WHERE id = :arbitro;
+Resultado: PROPUESTO. El trigger responde 409 RF-113 y no se inserta la designación.
+
+SELECT count(*) FROM siglim.designaciones WHERE arbitro_id = :arbitro AND vigente;
+Resultado: 0.
+
+4. Mis designaciones: solo el titular y solo jornadas publicadas (CA-3)
+-----------------------------------------------------------------------
+-- Misma condición que DesignacionRepository.MIS_DESIGNACIONES (sin el rango de fechas, que aquí no
+-- se usa). La liga es la de la sesión; en la prueba es la liga de la semilla.
+SELECT count(*) FROM siglim.designaciones d
+  JOIN siglim.arbitros a ON a.id = d.arbitro_id
+  JOIN siglim.partidos p ON p.id = d.partido_id
+  JOIN siglim.jornadas j ON j.id = p.jornada_id
+  JOIN siglim.grupos g ON g.id = j.grupo_id
+  JOIN siglim.categorias_temporada ct ON ct.id = g.categoria_temporada_id
+  JOIN siglim.temporadas t ON t.id = ct.temporada_id
+ WHERE t.liga_id = :liga
+   AND d.vigente
+   AND j.estado_publicacion = 'PUBLICADO'
+   AND siglim.es_titular(a.persona_id)
+   AND p.id = :partidoPublicado;
+Resultado: 1.
+
+SELECT count(*) FROM siglim.designaciones d
+  JOIN siglim.arbitros a ON a.id = d.arbitro_id
+  JOIN siglim.partidos p ON p.id = d.partido_id
+  JOIN siglim.jornadas j ON j.id = p.jornada_id
+  JOIN siglim.grupos g ON g.id = j.grupo_id
+  JOIN siglim.categorias_temporada ct ON ct.id = g.categoria_temporada_id
+  JOIN siglim.temporadas t ON t.id = ct.temporada_id
+ WHERE t.liga_id = :liga
+   AND d.vigente
+   AND j.estado_publicacion = 'PUBLICADO'
+   AND siglim.es_titular(a.persona_id)
+   AND p.id = :partidoEnBorrador;
+Resultado: 0.
+
+5. Sustitución y retiro sin borrar (CA-5)
+------------------------------------------
+SELECT vigente, motivo_cambio FROM siglim.designaciones WHERE id = :designacionAnterior;
+Resultado: vigente = false y motivo_cambio = «El árbitro central se lesionó en el calentamiento»
+(motivo recortado).
+
+SELECT automatica, designado_por FROM siglim.designaciones WHERE id = :designacionNueva;
+Resultado: automatica = false y designado_por = perfil de la sesión de la Comisión.
+
+SELECT accion FROM siglim.auditoria
+ WHERE modulo = 'M-05' AND entidad = 'designaciones' AND entidad_id = :designacion
+ ORDER BY id;
+Resultado: DESIGNAR_ARBITRO, SUSTITUIR_ARBITRO o RETIRAR_DESIGNACION según la operación, sin
+nombres ni CURP; la sustitución lleva designacionAnteriorId y motivo en el detalle.
+
+6. Trigger de la regla (CA-1, CA-2 y CA-4)
+-------------------------------------------
+SELECT tgname FROM pg_trigger
+ WHERE tgrelid = 'siglim.designaciones'::regclass
+   AND tgname = 'tg_designaciones_validar';
+Resultado: 1 fila. Es un trigger BEFORE INSERT OR UPDATE FOR EACH ROW que aplica RF-113, VAL-019 y
+RF-039; el servicio no repite esas reglas.

@@ -1,0 +1,104 @@
+Prueba de aceptación H-14.3 · resultados por criterio
+=====================================================
+
+Versión: develop en 341ac5a (27-nov-2026). Los valores son los que afirman las pruebas de
+DesignacionesIT, DesignacionServiceTest, DesignacionControllerTest, PantallaDesignaciones.test.tsx y
+PantallaMisDesignaciones.test.tsx, ejecutadas en la corrida de pruebas-automaticas.txt. Todas
+pasaron.
+
+CA-1 · Un árbitro del club de un equipo se rechaza con VAL-019
+--------------------------------------------------------------
+Pruebas: DesignacionesIT#arbitroDelMismoClub, DesignacionControllerTest#designarMismoClub y
+PantallaDesignaciones.test.tsx (caso VAL-019).
+
+Observado:
+  - DesignacionesIT crea un partido y un árbitro VALIDADO del club del equipo local. La llamada a
+    DesignacionService.designar(...) lanza el error del trigger tg_designaciones_validar y el
+    TraductorErroresBd lo devuelve como 422 VAL-019 con el detalle «El árbitro pertenece al club de
+    uno de los equipos.».
+  - Después del rechazo, SELECT count(*) FROM designaciones WHERE partido_id = :partido AND vigente
+    devuelve 0: no se guardó ninguna fila.
+  - DesignacionControllerTest#designarMismoClub confirma el contrato HTTP 422 VAL-019.
+  - En F-24, el candidato del club Halcones aparece como radio deshabilitado y su descripción
+    accesible contiene «Pertenece a Halcones, que juega este partido.» (ElegibilidadArbitral).
+
+CA-2 · Un árbitro ya designado a la misma hora se rechaza con el conflicto explicado
+------------------------------------------------------------------------------------
+Pruebas: DesignacionesIT#choqueDeHorario, DesignacionesIT#candidatos y
+PantallaDesignaciones.test.tsx (caso RF-039 y 409 del backend).
+
+Observado:
+  - El primer partido empieza a las 10:00 y el segundo a las 11:00; el bloque del primero todavía
+    cubre las 11:00. El segundo intento de designar al mismo árbitro lanza el error del trigger y se
+    traduce como 409 RF-039 con «El árbitro ya está designado en otro partido en ese horario.».
+  - Un tercer partido que empieza exactamente en fin_bloque del primero sí admite la designación:
+    el traslape se evalúa como [inicio, fin_bloque).
+  - En candidatos, el árbitro con choque lleva la causa RF-039 con el mensaje «Ya está designado en
+    Local vs Visitante a las 10:30 (Cancha …).».
+  - En el diálogo de F-24, el candidato aparece deshabilitado con «Ya está designado en Pumas vs
+    Lobos a las 10:00 (Cancha 1).»; un 409 del backend se muestra en una alerta con role="alert"
+    dentro del diálogo, que sigue abierto y vuelve a pedir la lista de candidatos.
+
+CA-3 · Una designación válida aparece en «Mis designaciones» del árbitro
+------------------------------------------------------------------------
+Pruebas: DesignacionesIT#misDesignaciones, DesignacionControllerTest#listarPropias y
+PantallaMisDesignaciones.test.tsx.
+
+Observado:
+  - DesignacionesIT publica la jornada de un partido, designa al árbitro como ASISTENTE y deja otra
+    designación en una jornada en borrador. Con el perfil ARBITRO vinculado a la persona, el listado
+    devuelve exactamente 1 elemento:
+      designacionId = la designación creada
+      funcion       = ASISTENTE
+      partido.id    = el partido publicado
+      partido.inicio = 2032-06-07T10:00:00-06:00
+      partido.jornada.numero = 1
+      cedula        = null
+  - El rango [desde, hasta) que excluye el partido publicado devuelve 0 elementos.
+  - La consulta filtra d.jornada con j.estado_publicacion = 'PUBLICADO' y
+    siglim.es_titular(a.persona_id): la jornada en borrador no aparece.
+  - PantallaMisDesignaciones.test.tsx comprueba que la lista muestra «Sáb 28 nov», «10:00», la
+    cancha, «Libre · Grupo A · Jornada 3», la función, «Pendiente de validación», el enlace «Ver
+    partido Halcones vs Toros» y «Cancelado: no se juega» en el partido cancelado.
+
+CA-4 · Solo los árbitros VALIDADO forman el catálogo y F-24 anticipa las causas (complementario)
+------------------------------------------------------------------------------------------------
+Pruebas: DesignacionesIT#arbitroPropuesto, DesignacionesIT#candidatos y
+PantallaDesignaciones.test.tsx (RF-022, carga y orden).
+
+Observado:
+  - Un árbitro PROPUESTO no aparece en candidatos y, si se fuerza la designación, el trigger
+    responde 409 RF-113 con «Solo se designan árbitros validados.»; no se inserta ninguna fila.
+  - La lista de candidatos solo contiene VALIDADO y marca elegible = false con las causas VAL-019,
+    RF-039 o YA_DESIGNADO; la advertencia RF-022 no cambia elegible.
+  - En F-24, los elegibles van primero, de menor a mayor carga y por nombre; los no elegibles
+    quedan deshabilitados con su causa; la advertencia RF-022 va en ámbar y no impide elegir.
+  - El avance de la jornada se muestra como «4 de 6» partidos con central y «1 de 6» con asistentes
+    completos en el escenario de la prueba.
+
+CA-5 · Sustituir o retirar conserva el historial y deja auditoría (complementario)
+----------------------------------------------------------------------------------
+Pruebas: DesignacionesIT#sustituirCentral, #retirar y #tercerAsistente, y
+PantallaDesignaciones.test.tsx (DEC-202, DEC-203 y DEC-201).
+
+Observado:
+  - Sustituir el central sin motivo responde 400 RN-021. Con un motivo de 10 a 500 caracteres tras
+    recortarlo, la designación anterior queda vigente = false con motivo_cambio y la nueva se
+    inserta con automatica = false y designado_por de la sesión.
+  - La auditoría de la designación nueva registra SUSTITUIR_ARBITRO y la anterior conserva
+    DESIGNAR_ARBITRO; el detalle lleva designacionAnteriorId y motivo, sin nombres ni CURP.
+  - Retirar exige motivo (400 RN-021 sin él), deja vigente = false con motivo_cambio, responde 409
+    RF-023 si se intenta retirar otra vez y conserva la fila (RN-005).
+  - Con dos asistentes vigentes, el tercero responde 409 RF-023 y el avance de la jornada sigue
+    mostrando 2 asistentes.
+  - En F-24, «Cambiar» y «Retirar» piden motivo; con dos asistentes no se ofrece un tercero.
+
+Errores HTTP de la Definición de Terminado
+------------------------------------------
+  - 401 sin token o con token firmado por otra llave: NO_AUTENTICADO, en los cinco endpoints
+    (DesignacionControllerTest, pruebas RNF-003).
+  - 403 sin arbitraje.designacion:EDITAR: VAL-015 (DesignacionesIT#sinPermisoDeEditar y las pruebas
+    de seguridad de designar y retirar).
+  - 404 partido o designación de otra liga o inexistente: NO_ENCONTRADO
+    (DesignacionesIT#partidoDeOtraLiga y las pruebas de seguridad).
+  - 409 RF-039, RF-113 y RF-023; 422 VAL-019 y REFERENCIA_INVALIDA; 400 VALIDACION y RN-021.
