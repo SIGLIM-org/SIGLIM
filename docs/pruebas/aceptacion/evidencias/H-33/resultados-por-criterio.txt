@@ -1,0 +1,121 @@
+Prueba de aceptación H-33.4 · resultados por criterio
+=====================================================
+
+Versión: develop en 795f4d8 (27-nov-2026). Los valores son los que afirman las pruebas de
+AsignacionFechaServiceTest, AsignacionFechaControllerTest, MotorAsignacionTest, AsignacionFechaIT y
+AsignacionMulticategoriaIT, ejecutadas en la corrida de pruebas-automaticas.txt. Todas pasaron.
+
+CA-1 · Cada partido en un día de su categoría, dentro del horario de juego y sin conflictos duros
+-------------------------------------------------------------------------------------------------
+Pruebas: AsignacionMulticategoriaIT#asignarFechaMulticategoria y AsignacionFechaIT#asignarYRegenerar.
+Observado:
+  - Multicategoría: 7 partidos asignados, 1 sin asignar, 4 jornadas (una por grupo), 1 descanso.
+  - AsignacionFechaIT: 4 partidos asignados, 2 jornadas, 0 sin asignar.
+  - Todos los partidos quedan en el día de su categoría (Libre: domingo; Veteranos e Infantil:
+    sábado) y entre 08:00 y 18:00.
+  - fecha.verificar(...).conflictos() devuelve lista vacía en los dos escenarios.
+  - SQL de traslapes: 0 canchas con dos partidos y 0 equipos con dos partidos a la vez.
+  - Una misma cancha recibe partidos de más de un grupo y de más de una categoría.
+
+CA-2 · Lo que no cabe queda sin asignar con causa VAL-007 y resumen por día (RF-042)
+------------------------------------------------------------------------------------
+Pruebas: MotorAsignacionTest#sinLugarConCausaYResumen; AsignacionFechaControllerTest#asignar.
+Observado:
+  - Una cancha disponible solo de 08:00 a 12:00 del domingo y 3 partidos de 120 min: 2 se asignan y
+    1 queda sin asignar con código VAL-007.
+  - Causa exacta: «Sin horario libre el domingo para Libre (bloque de 120 min): 2 franjas libres,
+    3 partidos».
+  - Resumen: sábado 5 franjas libres, bloque 120 min, 0 partidos requeridos; domingo 2 franjas
+    libres, bloque 120 min, 3 partidos requeridos.
+  - El contrato HTTP devuelve noAsignados[0].codigo = VAL-007 y resumen[0] con dia, franjasLibres,
+    bloqueMinutos y partidosRequeridos. El servicio persiste el código y la causa con
+    marcarNoAsignado (AsignacionFechaServiceTest#validadorRechazaAlCandidato).
+
+CA-3 · Un equipo con baja o sanción vigente deja su partido sin asignar con VAL-006
+-----------------------------------------------------------------------------------
+Pruebas: AsignacionMulticategoriaIT#asignarFechaMulticategoria y
+AsignacionFechaServiceTest#equipoDeBaja.
+Observado:
+  - El visitante de Veteranos con suspensión vigente deja su partido como único no asignado:
+    codigo = VAL-006 y causa con «suspensión vigente».
+  - La fila del emparejamiento guarda codigo_no_asignado = VAL-006 y partido_id NULL.
+  - El equipo sancionado tiene 0 partidos en la fecha.
+  - Equipo en BAJA: causa «El equipo «Toros» está dado de baja y no se puede programar.».
+  - El partido no elegible no consume franja: los demás se asignan.
+
+CA-4 · Cancha del local, luego unidad deportiva y motivo de localía automático (VAL-027, DEC-179)
+-------------------------------------------------------------------------------------------------
+Pruebas: MotorAsignacionTest#prefiereLaCanchaDelLocalYLuegoLaUnidad,
+#motivoDeLocaliaFueraDeLaCanchaDelLocal, #motivoDeLocaliaEnFechasFinales,
+#enFechasFinalesLaUnidadVaPrimero y AsignacionFechaServiceTest#motivoDeLocalia.
+Observado:
+  - El partido cuyo club local tiene cancha se asigna a esa cancha y sin motivo de localía.
+  - Sin cancha del local, los partidos van a la unidad deportiva antes que a las demás canchas.
+  - En las fechas finales (RN-049) la unidad deportiva va antes que la cancha del local.
+  - Fuera de la cancha del local, el motor propone un motivo que empieza con
+    «Asignación automática:» y menciona la unidad deportiva o la cancha usada.
+  - El servicio guarda ese motivo en partidos.motivo_localia. El ajuste de partido de H-12/B-15
+    (PATCH /partidos/{id} con motivoAceptacion) puede reemplazarlo; F-22 lo editará en H-35.
+
+CA-5 · La categoría con menor orden ocupa los horarios más tempranos (DEC-178)
+------------------------------------------------------------------------------
+Pruebas: MotorAsignacionTest#menorOrdenPrimeroYConsecutivos y
+AsignacionMulticategoriaIT#asignarFechaMulticategoria.
+Observado:
+  - Libre (orden 1) empieza a las 08:00 y Veteranos (orden 2) a las 10:00, consecutivos.
+  - La categoría con menos días permitidos se coloca antes que una de menor orden.
+  - En la cancha compartida del sábado, Veteranos (orden 2) va antes que Infantil (orden 3):
+    la secuencia es Veteranos, Infantil, Infantil y cada inicio coincide con el fin del anterior.
+
+CA-6 · «Asignar pendientes» no modifica lo ya asignado ni lo ajustado (DEC-181)
+-------------------------------------------------------------------------------
+Pruebas: AsignacionFechaServiceTest#pendientesRespetaLoAsignado y
+AsignacionFechaIT#asignarYRegenerar (segunda llamada).
+Observado:
+  - Con una ocupación previa de 08:00 a 10:00, el pendiente se coloca a las 10:00; no se llama a
+    cancelarPartido, ni a soltarEmparejamientos, ni se fija un motivo de operación.
+  - La segunda llamada en modo PENDIENTES devuelve totales (0, 0, 0, 0, 4): no inserta, no cancela y
+    la lista de partidos es idéntica a la anterior.
+
+CA-7 · «Regenerar» exige motivo, cancela con historial y solo opera en BORRADOR (DEC-181)
+-----------------------------------------------------------------------------------------
+Pruebas: AsignacionFechaServiceTest#regenerarSinMotivo, #jornadaEnRevision,
+#regenerarCancelaSinBorrar y AsignacionFechaIT#asignarYRegenerar.
+Observado:
+  - Sin motivo o con menos de 10 caracteres responde 400 RN-021 antes de bloquear la fecha y sin
+    escribir.
+  - Con alguna jornada en REVISION responde 409 RF-090 en los dos modos.
+  - REGENERAR con motivo: los 4 partidos anteriores quedan CANCELADO (no se borran), cada uno con
+    una fila en partido_estado_historial con estado_nuevo = CANCELADO y el motivo; se retiran las
+    designaciones y se sueltan los emparejamientos.
+  - La jornada ya no lista los CANCELADO: cada una queda con 2 partidos PROGRAMADO.
+  - Los 4 partidos nuevos ocupan la misma cancha e inicio que los anteriores (firma idéntica).
+
+CA-8 · Transacción, auditoría GENERAR_FECHA y determinismo (RF-041, RNF-004)
+---------------------------------------------------------------------------
+Pruebas: AsignacionFechaServiceTest#trazabilidadYAuditoria y
+AsignacionFechaIT#asignarYRegenerar; AsignacionFechaService#asignar lleva @Transactional.
+Observado:
+  - parametros_generacion guarda versionParametros, modo, motivo (si hay), asignados, noAsignados,
+    cancelados, designacionAutomatica, centrales y sinArbitro.
+  - Auditoría M-07 / GENERAR_FECHA sobre fechas_programacion: una por operación (3 tras asignar,
+    repetir PENDIENTES y regenerar), con el motivo y el detalle (temporadaId, numero, modo,
+    versionParametros, totales, jornadasCreadas), sin nombres ni datos personales.
+  - La auditoría de REGENERAR guarda cancelados = 4.
+  - Las validaciones previas no dejan escrituras: regenerar con un partido EN_CURSO responde 409
+    RF-046 y no cancela nada.
+  - Con los mismos datos, dos corridas producen la misma cancha e inicio (firma ordenada igual) y
+    la entrada barajada da el mismo resultado en MotorAsignacionTest#esDeterminista.
+
+Pruebas de error HTTP (Definición de Terminado: 401/403/404)
+-----------------------------------------------------------
+  - 401 sin token y 401 con token firmado por otra llave: NO_AUTENTICADO, cabecera
+    WWW-Authenticate: Bearer y sin llegar al servicio (seguridadAsignar()[1] y [2]).
+  - 403 sin programacion.jornada:EDITAR: VAL-015 (seguridadAsignar()[3]).
+  - 404 por ámbito: NO_ENCONTRADO, idéntico a una fecha inexistente (seguridadAsignar()[4] y [5],
+    fechaInexistente).
+  - 400 sin modo o modo inexistente: VALIDACION; 400 con motivo corto al regenerar: RN-021.
+  - 409 con temporada cerrada: RF-003; 409 con jornada fuera de BORRADOR: RF-090; 409 sin
+    parámetros: RF-006; 422 sin calendario: VALIDACION.
+
+Resultado global: 8 de 8 criterios aprobados; sin defectos.

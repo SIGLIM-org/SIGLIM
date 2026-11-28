@@ -1,0 +1,96 @@
+Prueba de aceptación H-33.4 · pruebas automáticas de la asignación de la fecha
+==============================================================================
+
+Versión probada : develop en 795f4d8 (27-nov-2026)
+Comando         : ./mvnw -Dtest=AsignacionFechaServiceTest,AsignacionFechaControllerTest,MotorAsignacionTest \
+                         -Dit.test=AsignacionFechaIT,AsignacionMulticategoriaIT verify
+Entorno         : Java 25.0.5.1 · Apache Maven 3.9.11 · Spring Boot 4.1.1
+Base de datos   : PostgreSQL 17 (Testcontainers postgres:17-alpine), mock de Supabase y 16 migraciones
+Resultado       : BUILD SUCCESS (exit 0) · 60 pruebas, 0 fallos, 0 errores, 0 omitidas
+
+Resumen por clase
+------------------------------------------------------------------------------
+  AsignacionFechaControllerTest     12 pruebas  0 fallos  0 errores  0 omitidas  (27.227 s)
+  AsignacionFechaServiceTest        24 pruebas  0 fallos  0 errores  0 omitidas  (3.27 s)
+  MotorAsignacionTest               22 pruebas  0 fallos  0 errores  0 omitidas  (1.03 s)
+  AsignacionFechaIT                  1 prueba   0 fallos  0 errores  0 omitidas  (26.461 s)
+  AsignacionMulticategoriaIT         1 prueba   0 fallos  0 errores  0 omitidas  (1.43 s)
+------------------------------------------------------------------------------
+  TOTAL                             60 pruebas  0 fallos  0 errores  0 omitidas
+
+Casos ejecutados por clase
+------------------------------------------------------------------------------
+
+AsignacionFechaControllerTest:
+  - seguridadAsignar()[1]
+  - seguridadAsignar()[2]
+  - seguridadAsignar()[3]
+  - seguridadAsignar()[4]
+  - seguridadAsignar()[5]
+  - jornadaEnRevision
+  - fechaInexistente
+  - modoInvalido
+  - asignar
+  - sinCalendario
+  - sinParametros
+  - regenerarSinMotivo
+
+AsignacionFechaServiceTest:
+  - jornadaEnRevision
+  - fechaInexistente
+  - regenerarDesignaSoloInsertados
+  - regenerarCancelaSinBorrar
+  - motivoDeLocalia
+  - sinCalendario
+  - sinCentralEnLaRespuesta
+  - sinParametros
+  - sinPermisoDeDesignacionAutomatica
+  - motivoDelMotorSiHayAdvertencia
+  - jornadaManualDuplicada
+  - pendientesRespetaLoAsignado
+  - equipoDeBaja
+  - ordenDeCandados
+  - temporadaCerrada
+  - validadorRechazaAlCandidato
+  - regenerarSinMotivo
+  - regenerarConPartidoNoCancelable
+  - centralNoDisponible
+  - pendientesDesignaExistentesEInsertados
+  - sinPermiso
+  - trazabilidadYAuditoria
+  - creaLaJornadaDeLaFecha
+  - sinModo
+
+MotorAsignacionTest:
+  - canchaInactivaNoSeUsa
+  - usaElFinDelPartidoDelEquipoComoCandidato
+  - prefiereLaCanchaDelLocalYLuegoLaUnidad
+  - respetaLosDiasDeJuego
+  - esDeterminista
+  - sinLugarEnVariosDias
+  - usaElHorarioPorDefecto
+  - motivoDeLocaliaEnFechasFinales
+  - rechazaSolicitudInvalida
+  - usaLosPeriodosDisponibles
+  - cargaSinTraslapes
+  - equipoNoElegibleQuedaSinAsignar
+  - enFechasFinalesLaUnidadVaPrimero
+  - motivoDeLocaliaFueraDeLaCanchaDelLocal
+  - sinLugarConCausaYResumen
+  - menosDiasPrimero
+  - unEquipoNoSeTraslapaConsigoMismo
+  - respetaLaOcupacionPrevia
+  - sinDiaDeJuegoUsaTodosYAdvierte
+  - menorOrdenPrimeroYConsecutivos
+  - bloqueoAMediaVentana(TipoPeriodo)[1]
+  - bloqueoAMediaVentana(TipoPeriodo)[2]
+
+AsignacionFechaIT:
+  - asignarYRegenerar
+
+AsignacionMulticategoriaIT:
+  - asignarFechaMulticategoria
+
+Nota: las clases *IT usan PostgreSQL 17 real en un contenedor efímero; no tocan el proyecto
+compartido de Supabase. La evidencia de cada criterio está en resultados-por-criterio.txt.
+Los tiempos son los reportados por Surefire y Failsafe.

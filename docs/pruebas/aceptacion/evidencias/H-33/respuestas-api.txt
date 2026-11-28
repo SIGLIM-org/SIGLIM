@@ -1,0 +1,58 @@
+Prueba de aceptación H-33.4 · contrato HTTP verificado
+======================================================
+
+Endpoint: POST /api/v1/fechas/{id}/asignacion
+Cuerpo:   { "modo": "PENDIENTES" | "REGENERAR", "motivo": "..." }
+
+Fuente: AsignacionFechaControllerTest (MockMvc con la cadena de seguridad real y tokens ES256 de
+SeguridadPrueba). El caso 200 usa un doble del servicio con la respuesta de ejemplo de las
+convenciones de API §6.7; los casos de error comprueban el código y el estado que el manejador
+global produce. No se imprimen tokens ni datos personales.
+
+1. Caso feliz · 200 OK
+---------------------
+Respuesta de ejemplo del contrato (extracto; los campos de la lista se comprueban en la prueba):
+  fecha.numero                          = 3
+  totales.asignados                     = 4
+  totales.cancelados                    = 0
+  totales.centrales                     = 3
+  totales.sinArbitro                    = 1
+  noAsignados[0].codigo                 = "VAL-007"
+  noAsignados[0].causa                  = "Sin horario libre el domingo para Libre (bloque de 120 min): 4 franjas libres, 5 partidos"
+  sinArbitro[0].partidoId               = "77777777-7777-4777-8777-777777777777"
+  sinArbitro[0].codigo                  = "RF-023"
+  resumen[0].dia                        = "2031-03-09"
+  resumen[0].franjasLibres              = 4
+  resumen[0].bloqueMinutos              = 120
+  resumen[0].partidosRequeridos         = 5
+
+La petición comprobada lleva {"modo":"REGENERAR","motivo":"Se cerró la cancha 2 por lluvia"} y el
+servicio recibe modo REGENERAR y el motivo tal cual.
+
+2. Errores comprobados
+----------------------
+  400  modo ausente o inexistente                 codigo VALIDACION
+  400  REGENERAR sin motivo (o < 10 caracteres)   codigo RN-021
+  401  sin token                                  codigo NO_AUTENTICADO + WWW-Authenticate: Bearer
+  401  token firmado con otra llave               codigo NO_AUTENTICADO
+  403  sin programacion.jornada:EDITAR            codigo VAL-015
+  404  fecha de otra liga / fuera de ámbito       codigo NO_ENCONTRADO (idéntico a inexistente)
+  409  jornada de la fecha fuera de BORRADOR      codigo RF-090
+  409  temporada sin parámetros vigentes          codigo RF-006
+  422  fecha sin emparejamientos vigentes         codigo VALIDACION
+
+En los 401 la petición no llega al servicio (se verifica que el doble no recibe interacciones). En
+los 403/404 el endpoint no transforma la excepción del servicio: conserva el código y el estado de
+las convenciones de API §3.1 y §10.
+
+3. Reglas adicionales verificadas en el servicio y en la base
+-------------------------------------------------------------
+  - Sin modo responde 400 VALIDACION antes de bloquear la fecha.
+  - Con REGENERAR y motivo corto responde 400 RN-021 antes de bloquear la fecha.
+  - Con la temporada CERRADA responde 409 RF-003.
+  - Con una jornada en REVISION o PUBLICADO responde 409 RF-090 en los dos modos.
+  - Sin parámetros vigentes responde 409 RF-006.
+  - Sin emparejamientos en el calendario responde 422 VALIDACION.
+  - Con una jornada manual con el número de la fecha responde 409 DUPLICADO.
+  - Al regenerar con un partido que no está PROGRAMADO ni SUSPENDIDO responde 409 RF-046 sin
+    cancelar nada.

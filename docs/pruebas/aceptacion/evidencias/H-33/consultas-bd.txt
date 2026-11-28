@@ -1,0 +1,88 @@
+Prueba de aceptación H-33.4 · comprobaciones en la base de datos
+================================================================
+
+Las consultas siguientes reproducen las comprobaciones que ejecutan AsignacionFechaIT y
+AsignacionMulticategoriaIT contra el PostgreSQL 17 efímero de Testcontainers. El resultado anotado
+es el que exige la prueba (todas pasaron en la corrida de pruebas-automaticas.txt). No se consultó
+el proyecto compartido de Supabase.
+
+1. Después de asignar (modo PENDIENTES)
+---------------------------------------
+-- Número de partidos vigentes de la fecha y su estado.
+SELECT count(*), min(estado::text), max(estado::text)
+  FROM siglim.partidos p
+  JOIN siglim.jornadas j ON j.id = p.jornada_id
+ WHERE j.fecha_id = :fecha AND p.estado <> 'CANCELADO';
+Resultado: los partidos asignados de la fecha, todos PROGRAMADO (7 en el escenario multicategoría,
+4 en el escenario simple); ninguno CANCELADO.
+
+-- Causa de lo que no cupo (VAL-006/VAL-007).
+SELECT codigo_no_asignado FROM siglim.emparejamientos
+ WHERE id = :emparejamiento AND partido_id IS NULL;
+Resultado: 'VAL-006' para el equipo sancionado; NULL para los emparejamientos asignados.
+
+-- Un equipo sancionado no debe tener partidos.
+SELECT count(*) FROM siglim.partidos
+ WHERE :equipo IN (equipo_local_id, equipo_visitante_id) AND estado <> 'CANCELADO';
+Resultado: 0.
+
+-- Sin traslapes de cancha ni de equipo en los días de la fecha.
+SELECT count(*) FROM siglim.partidos p JOIN siglim.partidos q
+  ON q.id > p.id AND q.estado <> 'CANCELADO'
+ WHERE p.estado <> 'CANCELADO'
+   AND tstzrange(p.inicio, p.fin_bloque) && tstzrange(q.inicio, q.fin_bloque)
+   AND p.cancha_id = q.cancha_id;
+Resultado: 0.
+
+SELECT count(*) FROM siglim.partidos p JOIN siglim.partidos q
+  ON q.id > p.id AND q.estado <> 'CANCELADO'
+ WHERE p.estado <> 'CANCELADO'
+   AND tstzrange(p.inicio, p.fin_bloque) && tstzrange(q.inicio, q.fin_bloque)
+   AND (p.equipo_local_id IN (q.equipo_local_id, q.equipo_visitante_id)
+        OR p.equipo_visitante_id IN (q.equipo_local_id, q.equipo_visitante_id));
+Resultado: 0.
+
+-- Trazabilidad de la generación (RF-041).
+SELECT generada_por = :perfil AND generada_en IS NOT NULL
+       AND parametros_generacion ->> 'modo' = 'PENDIENTES'
+       AND (parametros_generacion ->> 'asignados')::int = 4
+  FROM siglim.fechas_programacion WHERE id = :fecha;
+Resultado: true.
+
+-- Una auditoría GENERAR_FECHA por operación (RF-093).
+SELECT count(*) FROM siglim.auditoria
+ WHERE modulo = 'M-07' AND accion = 'GENERAR_FECHA'
+   AND entidad = 'fechas_programacion' AND entidad_id = :fecha AND perfil_id = :perfil;
+Resultado: 3 tras PENDIENTES, repetir PENDIENTES y REGENERAR.
+
+SELECT motivo = :motivo AND detalle ->> 'modo' = 'REGENERAR'
+       AND (detalle ->> 'cancelados')::int = 4
+  FROM siglim.auditoria
+ WHERE accion = 'GENERAR_FECHA' AND entidad_id = :fecha AND detalle ->> 'modo' = 'REGENERAR';
+Resultado: true (el motivo de la regeneración queda en la auditoría).
+
+2. Después de REGENERAR
+------------------------
+-- Los partidos anteriores siguen existiendo, ahora CANCELADO (no se borran).
+SELECT estado::text FROM siglim.partidos WHERE id = :partidoAnterior;
+Resultado: 'CANCELADO' para los 4 partidos anteriores.
+
+-- Cada cancelación tiene su historial con el motivo (RN-021).
+SELECT count(*) FROM siglim.partido_estado_historial
+ WHERE partido_id = :partidoAnterior AND estado_nuevo = 'CANCELADO' AND motivo = :motivo;
+Resultado: 1.
+
+-- El listado de la jornada excluye los CANCELADO y conserva los nuevos PROGRAMADO.
+SELECT count(*) FROM siglim.partidos
+ WHERE jornada_id = :jornada AND estado <> 'CANCELADO';
+Resultado: 2 por jornada, todos PROGRAMADO.
+
+-- La asignación nueva es la misma que la anterior (determinismo).
+-- Se comparó (emparejamientoId, canchaId, inicio) ordenado de los partidos vigentes antes y después.
+Resultado: las dos listas son iguales; cambian solo los ids de partido (los anteriores se cancelaron).
+
+3. Consultas de solo lectura de la prueba
+------------------------------------------
+La verificación de conflictos de la fecha (FechaService.verificar) no escribe: se llamó después de
+asignar y devolvió conflictos vacíos en los dos escenarios. La prueba también comprobó que las
+validaciones previas (por ejemplo, regenerar con un partido EN_CURSO) no cancelan nada.
